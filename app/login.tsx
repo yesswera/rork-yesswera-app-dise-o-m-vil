@@ -1,8 +1,10 @@
 import { useState } from 'react';
-import { StyleSheet, Text, View, TextInput, TouchableOpacity, Alert, KeyboardAvoidingView, Platform, ScrollView, Image } from 'react-native';
+import { StyleSheet, Text, View, TouchableOpacity, Alert, KeyboardAvoidingView, Platform, ScrollView, Image } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useAuth } from '@/contexts/auth';
 import Colors from '@/constants/colors';
+import FormInput from '@/components/FormInput';
+import LoadingButton from '@/components/LoadingButton';
 
 export default function LoginScreen() {
   const router = useRouter();
@@ -10,10 +12,44 @@ export default function LoginScreen() {
   const [email, setEmail] = useState<string>('');
   const [password, setPassword] = useState<string>('');
   const [isLoading, setIsLoading] = useState<boolean>(false);
+  const [errors, setErrors] = useState({
+    email: '',
+    password: '',
+  });
+
+  const validateEmail = (value: string) => {
+    if (!value) return 'El email es requerido';
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(value)) {
+      return 'Email inválido';
+    }
+    return '';
+  };
+
+  const validatePassword = (value: string) => {
+    if (!value) return 'La contraseña es requerida';
+    return '';
+  };
+
+  const handleEmailChange = (value: string) => {
+    setEmail(value);
+    setErrors((prev) => ({ ...prev, email: '' }));
+  };
+
+  const handlePasswordChange = (value: string) => {
+    setPassword(value);
+    setErrors((prev) => ({ ...prev, password: '' }));
+  };
 
   const handleLogin = async () => {
-    if (!email || !password) {
-      Alert.alert('Error', 'Por favor completa todos los campos');
+    const emailError = validateEmail(email);
+    const passwordError = validatePassword(password);
+
+    if (emailError || passwordError) {
+      setErrors({
+        email: emailError,
+        password: passwordError,
+      });
       return;
     }
 
@@ -50,45 +86,42 @@ export default function LoginScreen() {
         <Text style={styles.subtitle}>Inicia sesión para continuar</Text>
 
         <View style={styles.form}>
-          <View style={styles.inputContainer}>
-            <Text style={styles.label}>Correo Electrónico</Text>
-            <TextInput
-              style={styles.input}
-              placeholder="tu@email.com"
-              placeholderTextColor={Colors.text.light}
-              value={email}
-              onChangeText={setEmail}
-              keyboardType="email-address"
-              autoCapitalize="none"
-              autoComplete="email"
-              editable={!isLoading}
-            />
-          </View>
+          <FormInput
+            label="Correo Electrónico"
+            value={email}
+            onChangeText={handleEmailChange}
+            error={errors.email}
+            placeholder="tu@email.com"
+            keyboardType="email-address"
+            autoCapitalize="none"
+            editable={!isLoading}
+          />
 
-          <View style={styles.inputContainer}>
-            <Text style={styles.label}>Contraseña</Text>
-            <TextInput
-              style={styles.input}
-              placeholder="••••••••"
-              placeholderTextColor={Colors.text.light}
-              value={password}
-              onChangeText={setPassword}
-              secureTextEntry
-              autoCapitalize="none"
-              autoComplete="password"
-              editable={!isLoading}
-            />
-          </View>
+          <FormInput
+            label="Contraseña"
+            value={password}
+            onChangeText={handlePasswordChange}
+            error={errors.password}
+            placeholder="••••••••"
+            secureTextEntry
+            autoCapitalize="none"
+            editable={!isLoading}
+          />
 
           <TouchableOpacity
-            style={[styles.loginButton, isLoading && styles.loginButtonDisabled]}
-            onPress={handleLogin}
+            style={styles.forgotPassword}
+            onPress={() => router.push('/password-recovery/request' as any)}
             disabled={isLoading}
           >
-            <Text style={styles.loginButtonText}>
-              {isLoading ? 'Iniciando sesión...' : 'Iniciar Sesión'}
-            </Text>
+            <Text style={styles.forgotPasswordText}>¿Olvidaste tu contraseña?</Text>
           </TouchableOpacity>
+
+          <LoadingButton
+            title="Iniciar Sesión"
+            onPress={handleLogin}
+            loading={isLoading}
+            variant="primary"
+          />
 
           <View style={styles.divider}>
             <View style={styles.dividerLine} />
@@ -152,47 +185,17 @@ const styles = StyleSheet.create({
   },
   form: {
     width: '100%' as const,
+    gap: 16,
   },
-  inputContainer: {
-    marginBottom: 20,
-  },
-  label: {
-    fontSize: 14,
-    fontWeight: '600' as const,
-    color: Colors.text.primary,
+  forgotPassword: {
+    alignSelf: 'flex-end' as const,
+    marginTop: -8,
     marginBottom: 8,
   },
-  input: {
-    height: 52,
-    borderWidth: 1.5,
-    borderColor: Colors.border.light,
-    borderRadius: 12,
-    paddingHorizontal: 16,
-    fontSize: 16,
-    color: Colors.text.primary,
-    backgroundColor: Colors.white,
-  },
-  loginButton: {
-    height: 52,
-    backgroundColor: Colors.primary,
-    borderRadius: 12,
-    justifyContent: 'center' as const,
-    alignItems: 'center' as const,
-    marginTop: 8,
-    shadowColor: Colors.primary,
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 8,
-    elevation: 4,
-  },
-  loginButtonDisabled: {
-    backgroundColor: Colors.text.light,
-    shadowOpacity: 0,
-  },
-  loginButtonText: {
-    fontSize: 16,
+  forgotPasswordText: {
+    fontSize: 14,
     fontWeight: '600' as const,
-    color: Colors.white,
+    color: Colors.primary,
   },
   divider: {
     flexDirection: 'row' as const,

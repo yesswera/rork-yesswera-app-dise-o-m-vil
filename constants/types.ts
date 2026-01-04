@@ -72,7 +72,22 @@ export interface Rating {
   orderId: string;
   clientId: string;
   driverId: string;
+  driverName?: string;
+  driverAvatar?: string;
   stars: number;
   comment?: string;
   createdAt: string;
+}
+
+export interface Store {
+  id: string;
+  name: string;
+  category: string;
+  image: string;
+  distance: string;
+}
+
+export interface OrderHistory extends Order {
+  deliveredAt?: string;
+  rating?: Rating;
 }

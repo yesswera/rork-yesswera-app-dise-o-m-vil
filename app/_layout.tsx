@@ -25,6 +25,14 @@ function RootLayoutNav() {
       <Stack.Screen name="tracking/[orderId]" options={{ title: "Seguimiento" }} />
       <Stack.Screen name="driver/dashboard" options={{ title: "Portal Repartidor" }} />
       <Stack.Screen name="business/dashboard" options={{ title: "Portal Negocio" }} />
+      <Stack.Screen name="profile" options={{ title: "Mi Perfil" }} />
+      <Stack.Screen name="profile/edit" options={{ title: "Editar Perfil" }} />
+      <Stack.Screen name="orders/history" options={{ title: "Historial de Órdenes" }} />
+      <Stack.Screen name="orders/[orderId]" options={{ title: "Detalles de Orden" }} />
+      <Stack.Screen name="ratings/create/[orderId]" options={{ title: "Calificar Servicio" }} />
+      <Stack.Screen name="password-recovery/request" options={{ title: "Recuperar Contraseña", presentation: "modal" }} />
+      <Stack.Screen name="password-recovery/verify" options={{ title: "Verificar Código" }} />
+      <Stack.Screen name="password-recovery/reset" options={{ title: "Nueva Contraseña" }} />
       <Stack.Screen name="+not-found" options={{ title: "Oops!" }} />
     </Stack>
   );

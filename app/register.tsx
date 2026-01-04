@@ -1,8 +1,10 @@
 import { useState } from 'react';
-import { StyleSheet, Text, View, TextInput, TouchableOpacity, Alert, KeyboardAvoidingView, Platform, ScrollView, Image } from 'react-native';
+import { StyleSheet, Text, View, TouchableOpacity, Alert, KeyboardAvoidingView, Platform, ScrollView, Image } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useAuth } from '@/contexts/auth';
 import Colors from '@/constants/colors';
+import FormInput from '@/components/FormInput';
+import LoadingButton from '@/components/LoadingButton';
 
 export default function RegisterScreen() {
   const router = useRouter();
@@ -13,15 +15,83 @@ export default function RegisterScreen() {
   const [phone, setPhone] = useState<string>('');
   const [userType, setUserType] = useState<string>('cliente');
   const [isLoading, setIsLoading] = useState<boolean>(false);
+  const [errors, setErrors] = useState({
+    name: '',
+    email: '',
+    password: '',
+    phone: '',
+  });
+
+  const validateName = (value: string) => {
+    if (!value) return 'El nombre es requerido';
+    if (value.trim().length < 3) {
+      return 'El nombre debe tener al menos 3 caracteres';
+    }
+    return '';
+  };
+
+  const validateEmail = (value: string) => {
+    if (!value) return 'El email es requerido';
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(value)) {
+      return 'Email inválido';
+    }
+    return '';
+  };
+
+  const validatePassword = (value: string) => {
+    if (!value) return 'La contraseña es requerida';
+    if (value.length < 6) {
+      return 'La contraseña debe tener al menos 6 caracteres';
+    }
+    return '';
+  };
+
+  const validatePhone = (value: string) => {
+    if (!value) return 'El teléfono es requerido';
+    const phoneRegex = /^\+?[\d\s\-()]+$/;
+    if (!phoneRegex.test(value)) {
+      return 'Formato de teléfono inválido';
+    }
+    if (value.replace(/\D/g, '').length < 10) {
+      return 'El teléfono debe tener al menos 10 dígitos';
+    }
+    return '';
+  };
+
+  const handleNameChange = (value: string) => {
+    setName(value);
+    setErrors((prev) => ({ ...prev, name: '' }));
+  };
+
+  const handleEmailChange = (value: string) => {
+    setEmail(value);
+    setErrors((prev) => ({ ...prev, email: '' }));
+  };
+
+  const handlePasswordChange = (value: string) => {
+    setPassword(value);
+    setErrors((prev) => ({ ...prev, password: '' }));
+  };
+
+  const handlePhoneChange = (value: string) => {
+    setPhone(value);
+    setErrors((prev) => ({ ...prev, phone: '' }));
+  };
 
   const handleRegister = async () => {
-    if (!name || !email || !password || !phone) {
-      Alert.alert('Error', 'Por favor completa todos los campos');
-      return;
-    }
+    const nameError = validateName(name);
+    const emailError = validateEmail(email);
+    const passwordError = validatePassword(password);
+    const phoneError = validatePhone(phone);
 
-    if (password.length < 6) {
-      Alert.alert('Error', 'La contraseña debe tener al menos 6 caracteres');
+    if (nameError || emailError || passwordError || phoneError) {
+      setErrors({
+        name: nameError,
+        email: emailError,
+        password: passwordError,
+        phone: phoneError,
+      });
       return;
     }
 
@@ -65,62 +135,47 @@ export default function RegisterScreen() {
         <Text style={styles.subtitle}>Únete a Yesswera hoy</Text>
 
         <View style={styles.form}>
-          <View style={styles.inputContainer}>
-            <Text style={styles.label}>Nombre Completo</Text>
-            <TextInput
-              style={styles.input}
-              placeholder="Juan Pérez"
-              placeholderTextColor={Colors.text.light}
-              value={name}
-              onChangeText={setName}
-              autoCapitalize="words"
-              editable={!isLoading}
-            />
-          </View>
+          <FormInput
+            label="Nombre Completo"
+            value={name}
+            onChangeText={handleNameChange}
+            error={errors.name}
+            placeholder="Juan Pérez"
+            autoCapitalize="words"
+            editable={!isLoading}
+          />
 
-          <View style={styles.inputContainer}>
-            <Text style={styles.label}>Correo Electrónico</Text>
-            <TextInput
-              style={styles.input}
-              placeholder="tu@email.com"
-              placeholderTextColor={Colors.text.light}
-              value={email}
-              onChangeText={setEmail}
-              keyboardType="email-address"
-              autoCapitalize="none"
-              autoComplete="email"
-              editable={!isLoading}
-            />
-          </View>
+          <FormInput
+            label="Correo Electrónico"
+            value={email}
+            onChangeText={handleEmailChange}
+            error={errors.email}
+            placeholder="tu@email.com"
+            keyboardType="email-address"
+            autoCapitalize="none"
+            editable={!isLoading}
+          />
 
-          <View style={styles.inputContainer}>
-            <Text style={styles.label}>Teléfono</Text>
-            <TextInput
-              style={styles.input}
-              placeholder="+1 234 567 8900"
-              placeholderTextColor={Colors.text.light}
-              value={phone}
-              onChangeText={setPhone}
-              keyboardType="phone-pad"
-              autoComplete="tel"
-              editable={!isLoading}
-            />
-          </View>
+          <FormInput
+            label="Teléfono"
+            value={phone}
+            onChangeText={handlePhoneChange}
+            error={errors.phone}
+            placeholder="+1 234 567 8900"
+            keyboardType="phone-pad"
+            editable={!isLoading}
+          />
 
-          <View style={styles.inputContainer}>
-            <Text style={styles.label}>Contraseña</Text>
-            <TextInput
-              style={styles.input}
-              placeholder="Mínimo 6 caracteres"
-              placeholderTextColor={Colors.text.light}
-              value={password}
-              onChangeText={setPassword}
-              secureTextEntry
-              autoCapitalize="none"
-              autoComplete="password"
-              editable={!isLoading}
-            />
-          </View>
+          <FormInput
+            label="Contraseña"
+            value={password}
+            onChangeText={handlePasswordChange}
+            error={errors.password}
+            placeholder="Mínimo 6 caracteres"
+            secureTextEntry
+            autoCapitalize="none"
+            editable={!isLoading}
+          />
 
           <View style={styles.inputContainer}>
             <Text style={styles.label}>Tipo de Usuario</Text>
@@ -152,15 +207,12 @@ export default function RegisterScreen() {
             </View>
           </View>
 
-          <TouchableOpacity
-            style={[styles.registerButton, isLoading && styles.registerButtonDisabled]}
+          <LoadingButton
+            title="Crear Cuenta"
             onPress={handleRegister}
-            disabled={isLoading}
-          >
-            <Text style={styles.registerButtonText}>
-              {isLoading ? 'Creando cuenta...' : 'Crear Cuenta'}
-            </Text>
-          </TouchableOpacity>
+            loading={isLoading}
+            variant="primary"
+          />
 
           <View style={styles.divider}>
             <View style={styles.dividerLine} />
@@ -224,25 +276,16 @@ const styles = StyleSheet.create({
   },
   form: {
     width: '100%' as const,
+    gap: 16,
   },
   inputContainer: {
-    marginBottom: 16,
+    marginBottom: 0,
   },
   label: {
     fontSize: 14,
     fontWeight: '600' as const,
     color: Colors.text.primary,
     marginBottom: 8,
-  },
-  input: {
-    height: 52,
-    borderWidth: 1.5,
-    borderColor: Colors.border.light,
-    borderRadius: 12,
-    paddingHorizontal: 16,
-    fontSize: 16,
-    color: Colors.text.primary,
-    backgroundColor: Colors.white,
   },
   userTypeContainer: {
     gap: 10,
@@ -274,28 +317,7 @@ const styles = StyleSheet.create({
   userTypeDescriptionActive: {
     color: Colors.primaryDark,
   },
-  registerButton: {
-    height: 52,
-    backgroundColor: Colors.primary,
-    borderRadius: 12,
-    justifyContent: 'center' as const,
-    alignItems: 'center' as const,
-    marginTop: 8,
-    shadowColor: Colors.primary,
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 8,
-    elevation: 4,
-  },
-  registerButtonDisabled: {
-    backgroundColor: Colors.text.light,
-    shadowOpacity: 0,
-  },
-  registerButtonText: {
-    fontSize: 16,
-    fontWeight: '600' as const,
-    color: Colors.white,
-  },
+
   divider: {
     flexDirection: 'row' as const,
     alignItems: 'center' as const,
