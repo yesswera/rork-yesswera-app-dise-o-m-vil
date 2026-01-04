@@ -17,10 +17,19 @@ const API_BASE = 'http://192.168.100.3:3443/api';
 export const [AuthProvider, useAuth] = createContextHook<AuthState>(() => {
   const [user, setUser] = useState<User | null>(null);
   const [token, setToken] = useState<string | null>(null);
-  const [isLoading, setIsLoading] = useState<boolean>(true);
+  const [isLoading] = useState<boolean>(false);
 
   useEffect(() => {
-    loadStoredAuth();
+    let mounted = true;
+    const load = async () => {
+      if (mounted) {
+        await loadStoredAuth();
+      }
+    };
+    load();
+    return () => {
+      mounted = false;
+    };
   }, []);
 
   const loadStoredAuth = async () => {
@@ -29,13 +38,18 @@ export const [AuthProvider, useAuth] = createContextHook<AuthState>(() => {
       const storedUser = await AsyncStorage.getItem('auth_user');
       
       if (storedToken && storedUser) {
-        setToken(storedToken);
-        setUser(JSON.parse(storedUser));
+        try {
+          const parsedUser = JSON.parse(storedUser);
+          setToken(storedToken);
+          setUser(parsedUser);
+        } catch (parseError) {
+          console.error('Error parsing stored user:', parseError);
+          await AsyncStorage.removeItem('auth_token');
+          await AsyncStorage.removeItem('auth_user');
+        }
       }
     } catch (error) {
       console.error('Error loading auth:', error);
-    } finally {
-      setIsLoading(false);
     }
   };
 
