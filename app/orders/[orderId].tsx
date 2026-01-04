@@ -1,21 +1,43 @@
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity } from 'react-native';
-import { useLocalSearchParams, useRouter } from 'expo-router';
-import { Calendar, MapPin, User, Star } from 'lucide-react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Image } from 'react-native';
+import { useRouter, useLocalSearchParams } from 'expo-router';
+import { ChevronLeft, MapPin, User as UserIcon, Map } from 'lucide-react-native';
+import { useAuth } from '@/contexts/auth';
 import Colors from '@/constants/colors';
+import { StatusBar } from 'expo-status-bar';
+import { mockOrders } from '@/mocks/orders';
 import RatingStars from '@/components/RatingStars';
 import LoadingButton from '@/components/LoadingButton';
-import { mockOrders } from '@/mocks/orders';
 
-export default function OrderDetailScreen() {
-  const { orderId } = useLocalSearchParams();
+export default function OrderDetailsScreen() {
   const router = useRouter();
+  const { orderId } = useLocalSearchParams<{ orderId: string }>();
+  const { user } = useAuth();
 
-  const order = mockOrders.find((o) => o.id === orderId);
+  const order = mockOrders.find(o => o.id === orderId);
+
+  if (!user) {
+    router.replace('/login' as any);
+    return null;
+  }
 
   if (!order) {
     return (
       <View style={styles.container}>
-        <Text style={styles.errorText}>Orden no encontrada</Text>
+        <StatusBar style="light" />
+        <View style={styles.header}>
+          <TouchableOpacity
+            style={styles.backButton}
+            onPress={() => router.back()}
+            activeOpacity={0.7}
+          >
+            <ChevronLeft size={24} color={Colors.white} />
+          </TouchableOpacity>
+          <Text style={styles.headerTitle}>Detalles de Orden</Text>
+          <View style={styles.headerSpacer} />
+        </View>
+        <View style={styles.errorContainer}>
+          <Text style={styles.errorText}>Orden no encontrada</Text>
+        </View>
       </View>
     );
   }
@@ -26,12 +48,16 @@ export default function OrderDetailScreen() {
         return Colors.success;
       case 'cancelled':
         return Colors.error;
+      case 'in_transit':
+        return Colors.accent;
+      case 'accepted':
+        return Colors.secondary;
       default:
-        return Colors.warning;
+        return Colors.mediumGray;
     }
   };
 
-  const getStatusText = () => {
+  const getStatusLabel = () => {
     switch (order.status) {
       case 'delivered':
         return 'Completada';
@@ -41,9 +67,20 @@ export default function OrderDetailScreen() {
         return 'En Tránsito';
       case 'accepted':
         return 'Aceptada';
-      default:
+      case 'pending':
         return 'Pendiente';
     }
+  };
+
+  const formatDate = (dateString: string) => {
+    const date = new Date(dateString);
+    return date.toLocaleDateString('es-ES', {
+      day: 'numeric',
+      month: 'long',
+      year: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit',
+    });
   };
 
   const getOrderTypeName = () => {
@@ -61,137 +98,134 @@ export default function OrderDetailScreen() {
 
   return (
     <View style={styles.container}>
-      <ScrollView
-        style={styles.scrollView}
-        contentContainerStyle={styles.scrollContent}
-        showsVerticalScrollIndicator={false}
-      >
-        <View style={styles.headerCard}>
-          <View style={styles.headerTop}>
-            <Text style={styles.orderId}>Orden #{order.id}</Text>
-            <View style={[styles.statusBadge, { backgroundColor: getStatusColor() }]}>
-              <Text style={styles.statusText}>{getStatusText()}</Text>
-            </View>
+      <StatusBar style="light" />
+      
+      <View style={styles.header}>
+        <TouchableOpacity
+          style={styles.backButton}
+          onPress={() => router.back()}
+          activeOpacity={0.7}
+        >
+          <ChevronLeft size={24} color={Colors.white} />
+        </TouchableOpacity>
+        <Text style={styles.headerTitle}>Orden #{order.id}</Text>
+        <View style={styles.headerSpacer} />
+      </View>
+
+      <ScrollView style={styles.scrollView} showsVerticalScrollIndicator={false}>
+        <View style={styles.statusCard}>
+          <View style={[styles.statusBadge, { backgroundColor: `${getStatusColor()}15` }]}>
+            <Text style={[styles.statusText, { color: getStatusColor() }]}>
+              {getStatusLabel()}
+            </Text>
           </View>
-          <Text style={styles.orderType}>{getOrderTypeName()}</Text>
         </View>
 
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Información del Servicio</Text>
-          <View style={styles.infoCard}>
+          <View style={styles.card}>
             <View style={styles.infoRow}>
-              <Calendar size={18} color={Colors.text.secondary} />
-              <View style={styles.infoContent}>
-                <Text style={styles.infoLabel}>Fecha de Creación</Text>
-                <Text style={styles.infoValue}>
-                  {new Date(order.createdAt).toLocaleDateString('es-ES', {
-                    day: 'numeric',
-                    month: 'long',
-                    year: 'numeric',
-                    hour: '2-digit',
-                    minute: '2-digit',
-                  })}
-                </Text>
-              </View>
+              <Text style={styles.infoLabel}>Tipo de Servicio</Text>
+              <Text style={styles.infoValue}>{getOrderTypeName()}</Text>
+            </View>
+            <View style={styles.divider} />
+            <View style={styles.infoRow}>
+              <Text style={styles.infoLabel}>Fecha de Creación</Text>
+              <Text style={styles.infoValue}>{formatDate(order.createdAt)}</Text>
             </View>
             {order.deliveredAt && (
               <>
                 <View style={styles.divider} />
                 <View style={styles.infoRow}>
-                  <Calendar size={18} color={Colors.text.secondary} />
-                  <View style={styles.infoContent}>
-                    <Text style={styles.infoLabel}>Fecha de Entrega</Text>
-                    <Text style={styles.infoValue}>
-                      {new Date(order.deliveredAt).toLocaleDateString('es-ES', {
-                        day: 'numeric',
-                        month: 'long',
-                        year: 'numeric',
-                        hour: '2-digit',
-                        minute: '2-digit',
-                      })}
-                    </Text>
-                  </View>
+                  <Text style={styles.infoLabel}>Fecha de Entrega</Text>
+                  <Text style={styles.infoValue}>{formatDate(order.deliveredAt)}</Text>
                 </View>
               </>
             )}
           </View>
         </View>
 
-        {order.items && order.items.length > 0 && (
-          <View style={styles.section}>
-            <Text style={styles.sectionTitle}>Productos</Text>
-            <View style={styles.infoCard}>
-              {order.items.map((item, index) => (
-                <View key={item.id}>
-                  {index > 0 && <View style={styles.divider} />}
-                  <View style={styles.productRow}>
-                    <View style={styles.productInfo}>
-                      <Text style={styles.productName}>{item.name}</Text>
-                      <Text style={styles.productQuantity}>Cantidad: {item.quantity}</Text>
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>Detalles del Pedido</Text>
+          <View style={styles.card}>
+            {order.orderType === 'food' && order.items && (
+              <View>
+                {order.items.map((item, index) => (
+                  <View key={item.id}>
+                    {index > 0 && <View style={styles.divider} />}
+                    <View style={styles.itemRow}>
+                      <Image source={{ uri: item.image }} style={styles.itemImage} />
+                      <View style={styles.itemDetails}>
+                        <Text style={styles.itemName}>{item.name}</Text>
+                        <Text style={styles.itemDescription}>{item.description}</Text>
+                        <Text style={styles.itemPrice}>
+                          ${item.price.toFixed(2)} x {item.quantity}
+                        </Text>
+                      </View>
+                      <Text style={styles.itemTotal}>
+                        ${(item.price * item.quantity).toFixed(2)}
+                      </Text>
                     </View>
-                    <Text style={styles.productPrice}>${(item.price * item.quantity).toFixed(2)}</Text>
                   </View>
+                ))}
+              </View>
+            )}
+            
+            {order.orderType === 'shopping' && order.shoppingList && (
+              <View>
+                <Text style={styles.listTitle}>Lista de Compras:</Text>
+                <Text style={styles.listContent}>{order.shoppingList}</Text>
+              </View>
+            )}
+            
+            {order.orderType === 'delivery' && order.packageDetails && (
+              <View>
+                <View style={styles.infoRow}>
+                  <Text style={styles.infoLabel}>Descripción</Text>
+                  <Text style={styles.infoValue}>{order.packageDetails.description}</Text>
                 </View>
-              ))}
-            </View>
-          </View>
-        )}
-
-        {order.shoppingList && (
-          <View style={styles.section}>
-            <Text style={styles.sectionTitle}>Lista de Compras</Text>
-            <View style={styles.infoCard}>
-              <Text style={styles.shoppingListText}>{order.shoppingList}</Text>
-            </View>
-          </View>
-        )}
-
-        {order.packageDetails && (
-          <View style={styles.section}>
-            <Text style={styles.sectionTitle}>Detalles del Paquete</Text>
-            <View style={styles.infoCard}>
-              <Text style={styles.packageLabel}>Descripción:</Text>
-              <Text style={styles.packageValue}>{order.packageDetails.description}</Text>
-              <View style={styles.packageRow}>
-                <View style={styles.packageItem}>
-                  <Text style={styles.packageLabel}>Peso</Text>
-                  <Text style={styles.packageValue}>{order.packageDetails.weight}</Text>
+                <View style={styles.divider} />
+                <View style={styles.infoRow}>
+                  <Text style={styles.infoLabel}>Peso</Text>
+                  <Text style={styles.infoValue}>{order.packageDetails.weight}</Text>
                 </View>
-                <View style={styles.packageItem}>
-                  <Text style={styles.packageLabel}>Tamaño</Text>
-                  <Text style={styles.packageValue}>{order.packageDetails.size}</Text>
+                <View style={styles.divider} />
+                <View style={styles.infoRow}>
+                  <Text style={styles.infoLabel}>Tamaño</Text>
+                  <Text style={styles.infoValue}>{order.packageDetails.size}</Text>
                 </View>
-                <View style={styles.packageItem}>
-                  <Text style={styles.packageLabel}>Urgencia</Text>
-                  <Text style={styles.packageValue}>
+                <View style={styles.divider} />
+                <View style={styles.infoRow}>
+                  <Text style={styles.infoLabel}>Urgencia</Text>
+                  <Text style={styles.infoValue}>
                     {order.packageDetails.urgency === 'express' ? 'Express' : 'Estándar'}
                   </Text>
                 </View>
               </View>
-            </View>
+            )}
           </View>
-        )}
+        </View>
 
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Ubicaciones</Text>
-          <View style={styles.infoCard}>
+          <View style={styles.card}>
             {order.origin && (
               <>
-                <View style={styles.infoRow}>
-                  <MapPin size={18} color={Colors.secondary} />
-                  <View style={styles.infoContent}>
-                    <Text style={styles.infoLabel}>Origen</Text>
-                    <Text style={styles.infoValue}>{order.origin.address}</Text>
+                <View style={styles.locationRow}>
+                  <MapPin size={20} color={Colors.accent} />
+                  <View style={styles.locationContent}>
+                    <Text style={styles.locationLabel}>Origen</Text>
+                    <Text style={styles.locationAddress}>{order.origin.address}</Text>
                   </View>
                 </View>
                 <View style={styles.divider} />
               </>
             )}
-            <View style={styles.infoRow}>
-              <MapPin size={18} color={Colors.primary} />
-              <View style={styles.infoContent}>
-                <Text style={styles.infoLabel}>Destino</Text>
-                <Text style={styles.infoValue}>{order.destination.address}</Text>
+            <View style={styles.locationRow}>
+              <MapPin size={20} color={Colors.primary} />
+              <View style={styles.locationContent}>
+                <Text style={styles.locationLabel}>Destino</Text>
+                <Text style={styles.locationAddress}>{order.destination.address}</Text>
               </View>
             </View>
           </View>
@@ -199,11 +233,11 @@ export default function OrderDetailScreen() {
 
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Costos</Text>
-          <View style={styles.infoCard}>
-            {order.items && order.items.length > 0 && (
+          <View style={styles.card}>
+            {order.items && (
               <>
                 <View style={styles.costRow}>
-                  <Text style={styles.costLabel}>Subtotal Productos</Text>
+                  <Text style={styles.costLabel}>Subtotal de productos</Text>
                   <Text style={styles.costValue}>
                     ${(order.total - order.deliveryCost).toFixed(2)}
                   </Text>
@@ -212,7 +246,7 @@ export default function OrderDetailScreen() {
               </>
             )}
             <View style={styles.costRow}>
-              <Text style={styles.costLabel}>Costo de Entrega</Text>
+              <Text style={styles.costLabel}>Costo de entrega</Text>
               <Text style={styles.costValue}>${order.deliveryCost.toFixed(2)}</Text>
             </View>
             <View style={styles.divider} />
@@ -226,58 +260,54 @@ export default function OrderDetailScreen() {
         {order.driverId && (
           <View style={styles.section}>
             <Text style={styles.sectionTitle}>Repartidor</Text>
-            <View style={styles.infoCard}>
-              {order.rating ? (
+            <View style={styles.card}>
+              <View style={styles.driverRow}>
+                <View style={styles.driverAvatar}>
+                  <UserIcon size={24} color={Colors.white} />
+                </View>
+                <View style={styles.driverInfo}>
+                  <Text style={styles.driverName}>
+                    {order.rating?.driverName || 'Repartidor'}
+                  </Text>
+                  {order.rating && (
+                    <View style={styles.ratingRow}>
+                      <RatingStars rating={order.rating.stars} size="small" readonly />
+                    </View>
+                  )}
+                </View>
+              </View>
+              {order.rating && order.rating.comment && (
                 <>
-                  <View style={styles.driverInfo}>
-                    <View style={styles.driverAvatar}>
-                      <User size={24} color={Colors.primary} />
-                    </View>
-                    <View style={styles.driverDetails}>
-                      <Text style={styles.driverName}>
-                        {order.rating.driverName || 'Repartidor'}
-                      </Text>
-                      <View style={styles.ratingContainer}>
-                        <RatingStars rating={order.rating.stars} size="small" readonly />
-                      </View>
-                      {order.rating.comment && (
-                        <Text style={styles.ratingComment}>&ldquo;{order.rating.comment}&rdquo;</Text>
-                      )}
-                    </View>
+                  <View style={styles.divider} />
+                  <View>
+                    <Text style={styles.commentLabel}>Tu comentario:</Text>
+                    <Text style={styles.commentText}>{order.rating.comment}</Text>
                   </View>
                 </>
-              ) : (
-                <View style={styles.driverInfo}>
-                  <View style={styles.driverAvatar}>
-                    <User size={24} color={Colors.primary} />
-                  </View>
-                  <View style={styles.driverDetails}>
-                    <Text style={styles.driverName}>Repartidor Asignado</Text>
-                    {canRate && (
-                      <TouchableOpacity
-                        style={styles.rateButton}
-                        onPress={() => router.push(`/ratings/create/${order.id}` as any)}
-                      >
-                        <Star size={16} color={Colors.warning} />
-                        <Text style={styles.rateButtonText}>Calificar</Text>
-                      </TouchableOpacity>
-                    )}
-                  </View>
+              )}
+              {canRate && (
+                <View style={styles.rateButtonContainer}>
+                  <LoadingButton
+                    title="Calificar Repartidor"
+                    onPress={() => router.push(`/ratings/create/${order.id}` as any)}
+                    variant="primary"
+                  />
                 </View>
               )}
             </View>
           </View>
         )}
 
-        {order.status !== 'cancelled' && (
-          <View style={styles.actionSection}>
-            <LoadingButton
-              title="Ver en Mapa"
-              onPress={() => router.push(`/tracking/${order.id}` as any)}
-              variant="primary"
-            />
-          </View>
-        )}
+        <View style={styles.mapButtonContainer}>
+          <TouchableOpacity
+            style={styles.mapButton}
+            onPress={() => router.push(`/tracking/${order.id}` as any)}
+            activeOpacity={0.8}
+          >
+            <Map size={20} color={Colors.white} />
+            <Text style={styles.mapButtonText}>Ver en Mapa</Text>
+          </TouchableOpacity>
+        </View>
       </ScrollView>
     </View>
   );
@@ -288,57 +318,60 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: Colors.background.secondary,
   },
+  header: {
+    backgroundColor: Colors.black,
+    flexDirection: 'row' as const,
+    alignItems: 'center' as const,
+    justifyContent: 'space-between' as const,
+    paddingTop: 60,
+    paddingBottom: 16,
+    paddingHorizontal: 20,
+  },
+  backButton: {
+    width: 40,
+    height: 40,
+    justifyContent: 'center' as const,
+    alignItems: 'center' as const,
+  },
+  headerTitle: {
+    fontSize: 18,
+    fontWeight: '700' as const,
+    color: Colors.white,
+  },
+  headerSpacer: {
+    width: 40,
+  },
   scrollView: {
     flex: 1,
   },
-  scrollContent: {
-    paddingBottom: 40,
+  errorContainer: {
+    flex: 1,
+    justifyContent: 'center' as const,
+    alignItems: 'center' as const,
+    padding: 40,
   },
   errorText: {
     fontSize: 16,
     color: Colors.text.secondary,
-    textAlign: 'center' as const,
-    marginTop: 40,
   },
-  headerCard: {
+  statusCard: {
     backgroundColor: Colors.white,
     padding: 20,
-    borderBottomLeftRadius: 24,
-    borderBottomRightRadius: 24,
-    shadowColor: Colors.shadow.medium,
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 12,
-    elevation: 3,
-  },
-  headerTop: {
-    flexDirection: 'row' as const,
-    justifyContent: 'space-between' as const,
     alignItems: 'center' as const,
-    marginBottom: 8,
-  },
-  orderId: {
-    fontSize: 22,
-    fontWeight: '700' as const,
-    color: Colors.text.primary,
+    marginBottom: 16,
   },
   statusBadge: {
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 12,
+    paddingHorizontal: 20,
+    paddingVertical: 10,
+    borderRadius: 20,
   },
   statusText: {
-    fontSize: 12,
-    fontWeight: '600' as const,
-    color: Colors.white,
-  },
-  orderType: {
-    fontSize: 15,
-    color: Colors.text.secondary,
+    fontSize: 16,
+    fontWeight: '700' as const,
   },
   section: {
     paddingHorizontal: 20,
-    marginTop: 20,
+    marginBottom: 16,
   },
   sectionTitle: {
     fontSize: 16,
@@ -346,32 +379,29 @@ const styles = StyleSheet.create({
     color: Colors.text.primary,
     marginBottom: 12,
   },
-  infoCard: {
+  card: {
     backgroundColor: Colors.white,
     borderRadius: 16,
     padding: 16,
+    borderWidth: 1,
+    borderColor: Colors.border.light,
     shadowColor: Colors.shadow.light,
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.08,
-    shadowRadius: 4,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 1,
+    shadowRadius: 8,
     elevation: 2,
   },
   infoRow: {
-    flexDirection: 'row' as const,
-    alignItems: 'flex-start' as const,
-  },
-  infoContent: {
-    flex: 1,
-    marginLeft: 12,
+    paddingVertical: 8,
   },
   infoLabel: {
-    fontSize: 12,
+    fontSize: 13,
     color: Colors.text.secondary,
     marginBottom: 4,
   },
   infoValue: {
     fontSize: 15,
-    fontWeight: '600' as const,
+    fontWeight: '500' as const,
     color: Colors.text.primary,
   },
   divider: {
@@ -379,125 +409,157 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.border.light,
     marginVertical: 12,
   },
-  productRow: {
+  itemRow: {
     flexDirection: 'row' as const,
-    justifyContent: 'space-between' as const,
-    alignItems: 'center' as const,
+    paddingVertical: 8,
   },
-  productInfo: {
+  itemImage: {
+    width: 60,
+    height: 60,
+    borderRadius: 8,
+    marginRight: 12,
+  },
+  itemDetails: {
     flex: 1,
   },
-  productName: {
+  itemName: {
     fontSize: 15,
     fontWeight: '600' as const,
     color: Colors.text.primary,
+    marginBottom: 2,
+  },
+  itemDescription: {
+    fontSize: 12,
+    color: Colors.text.secondary,
     marginBottom: 4,
   },
-  productQuantity: {
+  itemPrice: {
     fontSize: 13,
     color: Colors.text.secondary,
   },
-  productPrice: {
+  itemTotal: {
     fontSize: 16,
     fontWeight: '700' as const,
     color: Colors.primary,
   },
-  shoppingListText: {
-    fontSize: 15,
+  listTitle: {
+    fontSize: 14,
+    fontWeight: '600' as const,
     color: Colors.text.primary,
+    marginBottom: 8,
+  },
+  listContent: {
+    fontSize: 15,
+    color: Colors.text.secondary,
     lineHeight: 22,
   },
-  packageLabel: {
+  locationRow: {
+    flexDirection: 'row' as const,
+    paddingVertical: 8,
+  },
+  locationContent: {
+    flex: 1,
+    marginLeft: 12,
+  },
+  locationLabel: {
     fontSize: 13,
     fontWeight: '600' as const,
-    color: Colors.text.secondary,
+    color: Colors.text.primary,
     marginBottom: 4,
   },
-  packageValue: {
-    fontSize: 15,
-    color: Colors.text.primary,
-    marginBottom: 12,
-  },
-  packageRow: {
-    flexDirection: 'row' as const,
-    gap: 16,
-  },
-  packageItem: {
-    flex: 1,
+  locationAddress: {
+    fontSize: 14,
+    color: Colors.text.secondary,
+    lineHeight: 20,
   },
   costRow: {
     flexDirection: 'row' as const,
     justifyContent: 'space-between' as const,
     alignItems: 'center' as const,
+    paddingVertical: 8,
   },
   costLabel: {
-    fontSize: 14,
+    fontSize: 15,
     color: Colors.text.secondary,
   },
   costValue: {
-    fontSize: 14,
-    fontWeight: '600' as const,
+    fontSize: 15,
+    fontWeight: '500' as const,
     color: Colors.text.primary,
   },
   totalLabel: {
-    fontSize: 18,
+    fontSize: 17,
     fontWeight: '700' as const,
     color: Colors.text.primary,
   },
   totalValue: {
-    fontSize: 22,
+    fontSize: 20,
     fontWeight: '700' as const,
     color: Colors.primary,
   },
-  driverInfo: {
+  driverRow: {
     flexDirection: 'row' as const,
     alignItems: 'center' as const,
+    paddingVertical: 8,
   },
   driverAvatar: {
     width: 50,
     height: 50,
     borderRadius: 25,
-    backgroundColor: `${Colors.primary}15`,
+    backgroundColor: Colors.primary,
     justifyContent: 'center' as const,
     alignItems: 'center' as const,
     marginRight: 12,
   },
-  driverDetails: {
+  driverInfo: {
     flex: 1,
   },
   driverName: {
     fontSize: 16,
     fontWeight: '600' as const,
     color: Colors.text.primary,
-    marginBottom: 6,
+    marginBottom: 4,
   },
-  ratingContainer: {
-    marginTop: 4,
-  },
-  ratingComment: {
-    fontSize: 14,
-    color: Colors.text.secondary,
-    fontStyle: 'italic' as const,
-    marginTop: 8,
-  },
-  rateButton: {
+  ratingRow: {
     flexDirection: 'row' as const,
     alignItems: 'center' as const,
-    paddingVertical: 6,
-    paddingHorizontal: 12,
-    backgroundColor: `${Colors.warning}15`,
-    borderRadius: 8,
-    alignSelf: 'flex-start' as const,
-    gap: 6,
-    marginTop: 4,
   },
-  rateButtonText: {
+  commentLabel: {
     fontSize: 13,
     fontWeight: '600' as const,
-    color: Colors.warning,
+    color: Colors.text.primary,
+    marginBottom: 6,
   },
-  actionSection: {
+  commentText: {
+    fontSize: 14,
+    color: Colors.text.secondary,
+    lineHeight: 20,
+  },
+  rateButtonContainer: {
+    marginTop: 12,
+  },
+  mapButtonContainer: {
     paddingHorizontal: 20,
-    marginTop: 24,
+    paddingBottom: 40,
+  },
+  mapButton: {
+    backgroundColor: Colors.accent,
+    borderRadius: 12,
+    paddingVertical: 16,
+    paddingHorizontal: 24,
+    flexDirection: 'row' as const,
+    alignItems: 'center' as const,
+    justifyContent: 'center' as const,
+    shadowColor: Colors.shadow.medium,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 1,
+    shadowRadius: 8,
+    elevation: 3,
+  },
+  mapButtonText: {
+    fontSize: 16,
+    fontWeight: '600' as const,
+    color: Colors.white,
+    marginLeft: 8,
   },
 });

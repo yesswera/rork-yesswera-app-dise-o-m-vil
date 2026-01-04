@@ -1,10 +1,10 @@
 import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
-import { UtensilsCrossed, ShoppingCart, Package, Clock, MapPin } from 'lucide-react-native';
+import { UtensilsCrossed, ShoppingCart, Package } from 'lucide-react-native';
+import type { OrderHistory } from '@/constants/types';
 import Colors from '@/constants/colors';
-import type { Order } from '@/constants/types';
 
 interface OrderCardProps {
-  order: Order;
+  order: OrderHistory;
   onPress: () => void;
   variant?: 'client' | 'driver' | 'business';
 }
@@ -34,40 +34,46 @@ export default function OrderCard({ order, onPress, variant = 'client' }: OrderC
 
   const getStatusColor = () => {
     switch (order.status) {
-      case 'pending':
-        return Colors.warning;
-      case 'accepted':
-        return Colors.accent;
-      case 'in_transit':
-        return Colors.secondary;
       case 'delivered':
         return Colors.success;
       case 'cancelled':
         return Colors.error;
+      case 'in_transit':
+        return Colors.accent;
+      case 'accepted':
+        return Colors.secondary;
       default:
-        return Colors.text.light;
+        return Colors.mediumGray;
     }
   };
 
-  const getStatusText = () => {
+  const getStatusLabel = () => {
     switch (order.status) {
-      case 'pending':
-        return 'Pendiente';
-      case 'accepted':
-        return 'Aceptada';
-      case 'in_transit':
-        return 'En Tránsito';
       case 'delivered':
         return 'Completada';
       case 'cancelled':
         return 'Cancelada';
-      default:
-        return order.status;
+      case 'in_transit':
+        return 'En Tránsito';
+      case 'accepted':
+        return 'Aceptada';
+      case 'pending':
+        return 'Pendiente';
     }
   };
 
+  const formatDate = (dateString: string) => {
+    const date = new Date(dateString);
+    return date.toLocaleDateString('es-ES', {
+      day: 'numeric',
+      month: 'short',
+      year: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit',
+    });
+  };
+
   const Icon = getOrderIcon();
-  const statusColor = getStatusColor();
 
   return (
     <TouchableOpacity
@@ -76,44 +82,38 @@ export default function OrderCard({ order, onPress, variant = 'client' }: OrderC
       activeOpacity={0.7}
     >
       <View style={styles.header}>
-        <View style={styles.headerLeft}>
-          <View style={[styles.iconContainer, { backgroundColor: `${statusColor}15` }]}>
-            <Icon size={20} color={statusColor} strokeWidth={2} />
+        <View style={styles.orderInfo}>
+          <View style={[styles.iconContainer, { backgroundColor: `${Colors.primary}15` }]}>
+            <Icon size={20} color={Colors.primary} strokeWidth={2} />
           </View>
-          <View>
-            <Text style={styles.orderId}>Orden #{order.id.slice(0, 8)}</Text>
+          <View style={styles.orderDetails}>
+            <Text style={styles.orderId}>#{order.id}</Text>
             <Text style={styles.orderType}>{getOrderTypeName()}</Text>
           </View>
         </View>
-        <View style={[styles.statusBadge, { backgroundColor: statusColor }]}>
-          <Text style={styles.statusText}>{getStatusText()}</Text>
+        <View style={[styles.statusBadge, { backgroundColor: `${getStatusColor()}15` }]}>
+          <Text style={[styles.statusText, { color: getStatusColor() }]}>
+            {getStatusLabel()}
+          </Text>
         </View>
       </View>
 
-      <View style={styles.info}>
-        <View style={styles.infoRow}>
-          <Clock size={16} color={Colors.text.secondary} />
-          <Text style={styles.infoText}>
-            {new Date(order.createdAt).toLocaleDateString('es-ES', {
-              day: 'numeric',
-              month: 'short',
-              hour: '2-digit',
-              minute: '2-digit',
-            })}
-          </Text>
-        </View>
-        <View style={styles.infoRow}>
-          <MapPin size={16} color={Colors.text.secondary} />
-          <Text style={styles.infoText} numberOfLines={1}>
-            {order.destination.address}
-          </Text>
-        </View>
-      </View>
+      <View style={styles.divider} />
 
       <View style={styles.footer}>
+        <View style={styles.dateContainer}>
+          <Text style={styles.dateLabel}>Fecha:</Text>
+          <Text style={styles.dateValue}>{formatDate(order.createdAt)}</Text>
+        </View>
         <Text style={styles.total}>${order.total.toFixed(2)}</Text>
-        <Text style={styles.distance}>{order.distance.toFixed(1)} km</Text>
       </View>
+
+      {order.deliveredAt && (
+        <View style={styles.deliveredInfo}>
+          <Text style={styles.deliveredLabel}>Entregado: </Text>
+          <Text style={styles.deliveredDate}>{formatDate(order.deliveredAt)}</Text>
+        </View>
+      )}
     </TouchableOpacity>
   );
 }
@@ -124,19 +124,21 @@ const styles = StyleSheet.create({
     borderRadius: 16,
     padding: 16,
     marginBottom: 12,
-    shadowColor: Colors.shadow.medium,
+    borderWidth: 1,
+    borderColor: Colors.border.light,
+    shadowColor: Colors.shadow.light,
     shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
+    shadowOpacity: 1,
     shadowRadius: 8,
     elevation: 2,
   },
   header: {
     flexDirection: 'row' as const,
     justifyContent: 'space-between' as const,
-    alignItems: 'center' as const,
+    alignItems: 'flex-start' as const,
     marginBottom: 12,
   },
-  headerLeft: {
+  orderInfo: {
     flexDirection: 'row' as const,
     alignItems: 'center' as const,
     flex: 1,
@@ -149,56 +151,70 @@ const styles = StyleSheet.create({
     alignItems: 'center' as const,
     marginRight: 12,
   },
+  orderDetails: {
+    flex: 1,
+  },
   orderId: {
-    fontSize: 15,
+    fontSize: 16,
     fontWeight: '700' as const,
     color: Colors.text.primary,
+    marginBottom: 2,
   },
   orderType: {
     fontSize: 13,
     color: Colors.text.secondary,
-    marginTop: 2,
   },
   statusBadge: {
-    paddingHorizontal: 12,
+    paddingHorizontal: 10,
     paddingVertical: 6,
-    borderRadius: 12,
+    borderRadius: 8,
   },
   statusText: {
     fontSize: 12,
     fontWeight: '600' as const,
-    color: Colors.white,
   },
-  info: {
-    borderTopWidth: 1,
-    borderTopColor: Colors.border.light,
-    paddingTop: 12,
-    marginBottom: 12,
-  },
-  infoRow: {
-    flexDirection: 'row' as const,
-    alignItems: 'center' as const,
-    marginBottom: 6,
-  },
-  infoText: {
-    fontSize: 13,
-    color: Colors.text.secondary,
-    marginLeft: 8,
-    flex: 1,
+  divider: {
+    height: 1,
+    backgroundColor: Colors.border.light,
+    marginVertical: 12,
   },
   footer: {
     flexDirection: 'row' as const,
     justifyContent: 'space-between' as const,
     alignItems: 'center' as const,
   },
+  dateContainer: {
+    flex: 1,
+  },
+  dateLabel: {
+    fontSize: 12,
+    color: Colors.text.secondary,
+    marginBottom: 2,
+  },
+  dateValue: {
+    fontSize: 13,
+    color: Colors.text.primary,
+    fontWeight: '500' as const,
+  },
   total: {
     fontSize: 20,
     fontWeight: '700' as const,
     color: Colors.primary,
   },
-  distance: {
-    fontSize: 14,
-    fontWeight: '600' as const,
+  deliveredInfo: {
+    flexDirection: 'row' as const,
+    marginTop: 8,
+    paddingTop: 8,
+    borderTopWidth: 1,
+    borderTopColor: Colors.border.light,
+  },
+  deliveredLabel: {
+    fontSize: 12,
     color: Colors.text.secondary,
+  },
+  deliveredDate: {
+    fontSize: 12,
+    color: Colors.text.primary,
+    fontWeight: '500' as const,
   },
 });

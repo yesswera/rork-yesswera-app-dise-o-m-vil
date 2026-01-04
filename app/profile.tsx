@@ -1,47 +1,21 @@
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Alert } from 'react-native';
 import { useRouter } from 'expo-router';
-import { Mail, Phone, Edit, LogOut, ShoppingBag } from 'lucide-react-native';
+import { ChevronLeft, Edit2, LogOut, Mail, Phone, User as UserIcon, Star, History } from 'lucide-react-native';
 import { useAuth } from '@/contexts/auth';
 import Colors from '@/constants/colors';
-import RatingStars from '@/components/RatingStars';
+import { StatusBar } from 'expo-status-bar';
 
 export default function ProfileScreen() {
   const router = useRouter();
   const { user, logout } = useAuth();
 
-  const handleLogout = () => {
-    Alert.alert(
-      '¿Cerrar Sesión?',
-      '¿Estás seguro que quieres salir de tu cuenta?',
-      [
-        { text: 'Cancelar', style: 'cancel' },
-        {
-          text: 'Cerrar Sesión',
-          style: 'destructive',
-          onPress: async () => {
-            await logout();
-            router.replace('/');
-          },
-        },
-      ]
-    );
-  };
+  if (!user) {
+    router.replace('/login' as any);
+    return null;
+  }
 
-  const getUserTypeName = () => {
-    switch (user?.userType) {
-      case 'cliente':
-        return 'Cliente';
-      case 'repartidor':
-        return 'Repartidor';
-      case 'negocio':
-        return 'Negocio';
-      default:
-        return '';
-    }
-  };
-
-  const getUserTypeColor = () => {
-    switch (user?.userType) {
+  const getUserTypeBadgeColor = () => {
+    switch (user.userType) {
       case 'cliente':
         return Colors.primary;
       case 'repartidor':
@@ -49,55 +23,99 @@ export default function ProfileScreen() {
       case 'negocio':
         return Colors.secondary;
       default:
-        return Colors.text.secondary;
+        return Colors.mediumGray;
     }
   };
 
-  if (!user) {
-    return null;
-  }
+  const getUserTypeLabel = () => {
+    switch (user.userType) {
+      case 'cliente':
+        return 'Cliente';
+      case 'repartidor':
+        return 'Repartidor';
+      case 'negocio':
+        return 'Negocio';
+      default:
+        return user.userType;
+    }
+  };
 
-  const initials = user.name
-    .split(' ')
-    .map((n) => n[0])
-    .join('')
-    .toUpperCase()
-    .slice(0, 2);
+  const getInitials = () => {
+    const names = user.name.split(' ');
+    if (names.length >= 2) {
+      return `${names[0][0]}${names[1][0]}`.toUpperCase();
+    }
+    return user.name.substring(0, 2).toUpperCase();
+  };
+
+  const handleLogout = () => {
+    Alert.alert(
+      '¿Cerrar Sesión?',
+      '¿Estás seguro que quieres salir de tu cuenta?',
+      [
+        {
+          text: 'Cancelar',
+          style: 'cancel',
+        },
+        {
+          text: 'Cerrar Sesión',
+          style: 'destructive',
+          onPress: async () => {
+            await logout();
+            router.replace('/' as any);
+          },
+        },
+      ]
+    );
+  };
 
   return (
     <View style={styles.container}>
-      <ScrollView
-        style={styles.scrollView}
-        contentContainerStyle={styles.scrollContent}
-        showsVerticalScrollIndicator={false}
-      >
-        <View style={styles.header}>
-          <View style={[styles.avatar, { backgroundColor: getUserTypeColor() }]}>
+      <StatusBar style="light" />
+      
+      <View style={styles.header}>
+        <TouchableOpacity
+          style={styles.backButton}
+          onPress={() => router.back()}
+          activeOpacity={0.7}
+        >
+          <ChevronLeft size={24} color={Colors.white} />
+        </TouchableOpacity>
+        <Text style={styles.headerTitle}>Perfil</Text>
+        <View style={styles.headerSpacer} />
+      </View>
+
+      <ScrollView style={styles.scrollView} showsVerticalScrollIndicator={false}>
+        <View style={styles.avatarSection}>
+          <View style={styles.avatarContainer}>
             {user.avatar ? (
-              <Text style={styles.avatarImage}>👤</Text>
+              <View style={styles.avatar} />
             ) : (
-              <Text style={styles.avatarText}>{initials}</Text>
+              <View style={styles.avatar}>
+                <Text style={styles.avatarText}>{getInitials()}</Text>
+              </View>
             )}
           </View>
           <Text style={styles.name}>{user.name}</Text>
-          <View style={[styles.typeBadge, { backgroundColor: `${getUserTypeColor()}15` }]}>
-            <Text style={[styles.typeText, { color: getUserTypeColor() }]}>
-              {getUserTypeName()}
+          <View style={[styles.typeBadge, { backgroundColor: `${getUserTypeBadgeColor()}15` }]}>
+            <Text style={[styles.typeBadgeText, { color: getUserTypeBadgeColor() }]}>
+              {getUserTypeLabel()}
             </Text>
           </View>
           {user.userType === 'repartidor' && user.rating && (
             <View style={styles.ratingContainer}>
-              <RatingStars rating={user.rating} size="small" readonly />
+              <Star size={18} color={Colors.gold} fill={Colors.gold} />
               <Text style={styles.ratingText}>{user.rating.toFixed(1)}</Text>
             </View>
           )}
         </View>
 
-        <View style={styles.infoSection}>
-          <View style={styles.infoCard}>
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>Información Personal</Text>
+          <View style={styles.card}>
             <View style={styles.infoRow}>
               <View style={styles.infoIcon}>
-                <Mail size={20} color={Colors.text.secondary} />
+                <Mail size={20} color={Colors.primary} />
               </View>
               <View style={styles.infoContent}>
                 <Text style={styles.infoLabel}>Email</Text>
@@ -109,26 +127,40 @@ export default function ProfileScreen() {
 
             <View style={styles.infoRow}>
               <View style={styles.infoIcon}>
-                <Phone size={20} color={Colors.text.secondary} />
+                <Phone size={20} color={Colors.primary} />
               </View>
               <View style={styles.infoContent}>
                 <Text style={styles.infoLabel}>Teléfono</Text>
                 <Text style={styles.infoValue}>{user.phone}</Text>
               </View>
             </View>
+
+            <View style={styles.divider} />
+
+            <View style={styles.infoRow}>
+              <View style={styles.infoIcon}>
+                <UserIcon size={20} color={Colors.primary} />
+              </View>
+              <View style={styles.infoContent}>
+                <Text style={styles.infoLabel}>Tipo de Usuario</Text>
+                <Text style={styles.infoValue}>{getUserTypeLabel()}</Text>
+              </View>
+            </View>
           </View>
         </View>
 
-        <View style={styles.actionsSection}>
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>Acciones</Text>
+          
           <TouchableOpacity
             style={styles.actionButton}
             onPress={() => router.push('/profile/edit' as any)}
             activeOpacity={0.7}
           >
-            <View style={[styles.actionIcon, { backgroundColor: `${Colors.primary}15` }]}>
-              <Edit size={22} color={Colors.primary} />
+            <View style={styles.actionIconContainer}>
+              <Edit2 size={20} color={Colors.primary} />
             </View>
-            <Text style={styles.actionText}>Editar Perfil</Text>
+            <Text style={styles.actionButtonText}>Editar Perfil</Text>
           </TouchableOpacity>
 
           <TouchableOpacity
@@ -136,21 +168,25 @@ export default function ProfileScreen() {
             onPress={() => router.push('/orders/history' as any)}
             activeOpacity={0.7}
           >
-            <View style={[styles.actionIcon, { backgroundColor: `${Colors.accent}15` }]}>
-              <ShoppingBag size={22} color={Colors.accent} />
+            <View style={styles.actionIconContainer}>
+              <History size={20} color={Colors.accent} />
             </View>
-            <Text style={styles.actionText}>Historial de Órdenes</Text>
+            <Text style={styles.actionButtonText}>Historial de Órdenes</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={[styles.actionButton, styles.logoutButton]}
+            onPress={handleLogout}
+            activeOpacity={0.7}
+          >
+            <View style={[styles.actionIconContainer, styles.logoutIconContainer]}>
+              <LogOut size={20} color={Colors.error} />
+            </View>
+            <Text style={[styles.actionButtonText, styles.logoutButtonText]}>
+              Cerrar Sesión
+            </Text>
           </TouchableOpacity>
         </View>
-
-        <TouchableOpacity
-          style={styles.logoutButton}
-          onPress={handleLogout}
-          activeOpacity={0.8}
-        >
-          <LogOut size={20} color={Colors.error} />
-          <Text style={styles.logoutText}>Cerrar Sesión</Text>
-        </TouchableOpacity>
       </ScrollView>
     </View>
   );
@@ -161,40 +197,58 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: Colors.background.secondary,
   },
+  header: {
+    backgroundColor: Colors.black,
+    flexDirection: 'row' as const,
+    alignItems: 'center' as const,
+    justifyContent: 'space-between' as const,
+    paddingTop: 60,
+    paddingBottom: 16,
+    paddingHorizontal: 20,
+  },
+  backButton: {
+    width: 40,
+    height: 40,
+    justifyContent: 'center' as const,
+    alignItems: 'center' as const,
+  },
+  headerTitle: {
+    fontSize: 18,
+    fontWeight: '700' as const,
+    color: Colors.white,
+  },
+  headerSpacer: {
+    width: 40,
+  },
   scrollView: {
     flex: 1,
   },
-  scrollContent: {
-    paddingBottom: 40,
-  },
-  header: {
-    backgroundColor: Colors.white,
+  avatarSection: {
     alignItems: 'center' as const,
     paddingVertical: 32,
-    paddingHorizontal: 20,
-    borderBottomLeftRadius: 24,
-    borderBottomRightRadius: 24,
-    shadowColor: Colors.shadow.medium,
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 12,
-    elevation: 3,
+    backgroundColor: Colors.white,
+    marginBottom: 16,
+  },
+  avatarContainer: {
+    marginBottom: 16,
   },
   avatar: {
     width: 100,
     height: 100,
     borderRadius: 50,
+    backgroundColor: Colors.primary,
     justifyContent: 'center' as const,
     alignItems: 'center' as const,
-    marginBottom: 16,
+    shadowColor: Colors.shadow.medium,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 1,
+    shadowRadius: 12,
+    elevation: 5,
   },
   avatarText: {
     fontSize: 36,
     fontWeight: '700' as const,
     color: Colors.white,
-  },
-  avatarImage: {
-    fontSize: 48,
   },
   name: {
     fontSize: 24,
@@ -204,47 +258,57 @@ const styles = StyleSheet.create({
   },
   typeBadge: {
     paddingHorizontal: 16,
-    paddingVertical: 6,
-    borderRadius: 16,
-    marginBottom: 12,
+    paddingVertical: 8,
+    borderRadius: 20,
+    marginBottom: 8,
   },
-  typeText: {
-    fontSize: 13,
+  typeBadgeText: {
+    fontSize: 14,
     fontWeight: '600' as const,
   },
   ratingContainer: {
     flexDirection: 'row' as const,
     alignItems: 'center' as const,
-    gap: 8,
+    gap: 6,
+    marginTop: 4,
   },
   ratingText: {
     fontSize: 16,
     fontWeight: '600' as const,
     color: Colors.text.primary,
   },
-  infoSection: {
+  section: {
     paddingHorizontal: 20,
-    marginTop: 20,
+    marginBottom: 24,
   },
-  infoCard: {
+  sectionTitle: {
+    fontSize: 16,
+    fontWeight: '700' as const,
+    color: Colors.text.primary,
+    marginBottom: 12,
+  },
+  card: {
     backgroundColor: Colors.white,
     borderRadius: 16,
-    padding: 20,
-    shadowColor: Colors.shadow.medium,
+    padding: 16,
+    borderWidth: 1,
+    borderColor: Colors.border.light,
+    shadowColor: Colors.shadow.light,
     shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.08,
+    shadowOpacity: 1,
     shadowRadius: 8,
     elevation: 2,
   },
   infoRow: {
     flexDirection: 'row' as const,
     alignItems: 'center' as const,
+    paddingVertical: 8,
   },
   infoIcon: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    backgroundColor: Colors.background.tertiary,
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: `${Colors.primary}10`,
     justifyContent: 'center' as const,
     alignItems: 'center' as const,
     marginRight: 12,
@@ -255,64 +319,54 @@ const styles = StyleSheet.create({
   infoLabel: {
     fontSize: 12,
     color: Colors.text.secondary,
-    marginBottom: 4,
+    marginBottom: 2,
   },
   infoValue: {
-    fontSize: 16,
-    fontWeight: '600' as const,
+    fontSize: 15,
+    fontWeight: '500' as const,
     color: Colors.text.primary,
   },
   divider: {
     height: 1,
     backgroundColor: Colors.border.light,
-    marginVertical: 16,
-  },
-  actionsSection: {
-    paddingHorizontal: 20,
-    marginTop: 20,
+    marginVertical: 8,
   },
   actionButton: {
-    backgroundColor: Colors.white,
-    borderRadius: 16,
-    padding: 20,
     flexDirection: 'row' as const,
     alignItems: 'center' as const,
+    backgroundColor: Colors.white,
+    borderRadius: 12,
+    padding: 16,
     marginBottom: 12,
-    shadowColor: Colors.shadow.medium,
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.08,
-    shadowRadius: 8,
-    elevation: 2,
+    borderWidth: 1,
+    borderColor: Colors.border.light,
+    shadowColor: Colors.shadow.light,
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 1,
+    shadowRadius: 4,
+    elevation: 1,
   },
-  actionIcon: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
+  actionIconContainer: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: `${Colors.primary}10`,
     justifyContent: 'center' as const,
     alignItems: 'center' as const,
     marginRight: 12,
   },
-  actionText: {
+  actionButtonText: {
     fontSize: 16,
     fontWeight: '600' as const,
     color: Colors.text.primary,
   },
   logoutButton: {
-    flexDirection: 'row' as const,
-    alignItems: 'center' as const,
-    justifyContent: 'center' as const,
-    backgroundColor: Colors.white,
-    borderRadius: 16,
-    padding: 16,
-    marginHorizontal: 20,
-    marginTop: 20,
-    borderWidth: 1,
-    borderColor: Colors.error,
-    gap: 8,
+    marginTop: 8,
   },
-  logoutText: {
-    fontSize: 16,
-    fontWeight: '600' as const,
+  logoutIconContainer: {
+    backgroundColor: `${Colors.error}10`,
+  },
+  logoutButtonText: {
     color: Colors.error,
   },
 });

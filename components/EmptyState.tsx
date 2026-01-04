@@ -20,7 +20,7 @@ export default function EmptyState({
   return (
     <View style={styles.container}>
       <View style={styles.iconContainer}>
-        <Icon size={64} color={Colors.text.light} strokeWidth={1.5} />
+        <Icon size={64} color={Colors.mediumGray} strokeWidth={1.5} />
       </View>
       <Text style={styles.title}>{title}</Text>
       <Text style={styles.message}>{message}</Text>
@@ -49,7 +49,7 @@ const styles = StyleSheet.create({
     width: 120,
     height: 120,
     borderRadius: 60,
-    backgroundColor: Colors.background.tertiary,
+    backgroundColor: Colors.background.secondary,
     justifyContent: 'center' as const,
     alignItems: 'center' as const,
     marginBottom: 24,
@@ -58,8 +58,8 @@ const styles = StyleSheet.create({
     fontSize: 20,
     fontWeight: '700' as const,
     color: Colors.text.primary,
-    marginBottom: 8,
     textAlign: 'center' as const,
+    marginBottom: 8,
   },
   message: {
     fontSize: 15,
@@ -69,8 +69,8 @@ const styles = StyleSheet.create({
     marginBottom: 24,
   },
   button: {
-    paddingHorizontal: 32,
-    paddingVertical: 14,
+    paddingHorizontal: 24,
+    paddingVertical: 12,
     borderRadius: 12,
     backgroundColor: Colors.primary,
   },

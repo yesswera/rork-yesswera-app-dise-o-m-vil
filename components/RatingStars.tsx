@@ -15,39 +15,43 @@ export default function RatingStars({
   size = 'medium',
   readonly = false,
 }: RatingStarsProps) {
-  const sizes = {
-    small: 16,
-    medium: 24,
-    large: 40,
+  const getSizeValue = () => {
+    switch (size) {
+      case 'small':
+        return 16;
+      case 'medium':
+        return 24;
+      case 'large':
+        return 32;
+    }
   };
 
-  const iconSize = sizes[size];
-  const isInteractive = !readonly && onRatingChange;
+  const iconSize = getSizeValue();
+  const spacing = size === 'small' ? 2 : size === 'medium' ? 4 : 6;
 
-  const handlePress = (value: number) => {
-    if (isInteractive) {
-      onRatingChange(value);
+  const handlePress = (starRating: number) => {
+    if (!readonly && onRatingChange) {
+      onRatingChange(starRating);
     }
   };
 
   return (
-    <View style={styles.container}>
+    <View style={[styles.container, { gap: spacing }]}>
       {[1, 2, 3, 4, 5].map((star) => {
         const isFilled = star <= rating;
-        const StarComponent = isInteractive ? TouchableOpacity : View;
-
+        const StarComponent = readonly ? View : TouchableOpacity;
+        
         return (
           <StarComponent
             key={star}
             onPress={() => handlePress(star)}
-            disabled={!isInteractive}
+            disabled={readonly}
             activeOpacity={0.7}
-            style={styles.star}
           >
             <Star
               size={iconSize}
-              color={isFilled ? Colors.warning : Colors.border.medium}
-              fill={isFilled ? Colors.warning : 'transparent'}
+              color={isFilled ? Colors.gold : Colors.lightGray}
+              fill={isFilled ? Colors.gold : 'transparent'}
               strokeWidth={2}
             />
           </StarComponent>
@@ -61,8 +65,5 @@ const styles = StyleSheet.create({
   container: {
     flexDirection: 'row' as const,
     alignItems: 'center' as const,
-  },
-  star: {
-    marginHorizontal: 4,
   },
 });

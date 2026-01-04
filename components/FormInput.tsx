@@ -17,25 +17,26 @@ export default function FormInput({
   onChangeText,
   error,
   placeholder,
-  secureTextEntry,
-  ...rest
+  secureTextEntry = false,
+  ...props
 }: FormInputProps) {
   return (
     <View style={styles.container}>
       <Text style={styles.label}>{label}</Text>
-      <View style={[styles.inputContainer, error && styles.inputError]}>
+      <View style={[styles.inputContainer, error && styles.inputContainerError]}>
         <TextInput
           style={styles.input}
           value={value}
           onChangeText={onChangeText}
           placeholder={placeholder}
-          placeholderTextColor={Colors.text.light}
+          placeholderTextColor={Colors.text.muted}
           secureTextEntry={secureTextEntry}
-          autoCapitalize="none"
-          {...rest}
+          {...props}
         />
         {error && (
-          <AlertCircle size={20} color={Colors.error} style={styles.errorIcon} />
+          <View style={styles.errorIcon}>
+            <AlertCircle size={20} color={Colors.error} />
+          </View>
         )}
       </View>
       {error && <Text style={styles.errorText}>{error}</Text>}
@@ -57,19 +58,19 @@ const styles = StyleSheet.create({
     flexDirection: 'row' as const,
     alignItems: 'center' as const,
     backgroundColor: Colors.white,
-    borderRadius: 12,
     borderWidth: 1,
     borderColor: Colors.border.light,
+    borderRadius: 12,
     paddingHorizontal: 16,
-    height: 52,
   },
-  inputError: {
+  inputContainerError: {
     borderColor: Colors.error,
   },
   input: {
     flex: 1,
     fontSize: 16,
     color: Colors.text.primary,
+    paddingVertical: 14,
   },
   errorIcon: {
     marginLeft: 8,

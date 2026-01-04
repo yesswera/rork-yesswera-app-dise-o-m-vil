@@ -75,7 +75,7 @@ export default function HomeScreen() {
               style={styles.logoImage}
               resizeMode="contain"
             />
-            <Text style={styles.tagline}>Tu delivery favorito</Text>
+            <Text style={styles.tagline}>Lo que quieras, cuando quieras</Text>
           </View>
           
           {user ? (

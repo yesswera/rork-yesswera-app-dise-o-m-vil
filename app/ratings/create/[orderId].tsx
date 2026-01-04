@@ -1,91 +1,131 @@
-import { useState } from 'react';
-import { View, Text, StyleSheet, ScrollView, KeyboardAvoidingView, Platform, Alert } from 'react-native';
-import { useLocalSearchParams, useRouter } from 'expo-router';
-import { User } from 'lucide-react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Alert, TextInput, KeyboardAvoidingView, Platform } from 'react-native';
+import { useRouter, useLocalSearchParams } from 'expo-router';
+import { ChevronLeft, User as UserIcon } from 'lucide-react-native';
+import { useAuth } from '@/contexts/auth';
 import Colors from '@/constants/colors';
-import RatingStars from '@/components/RatingStars';
-import FormInput from '@/components/FormInput';
-import LoadingButton from '@/components/LoadingButton';
+import { StatusBar } from 'expo-status-bar';
+import { useState } from 'react';
 import { mockOrders } from '@/mocks/orders';
+import RatingStars from '@/components/RatingStars';
+import LoadingButton from '@/components/LoadingButton';
 
-export default function CreateRatingScreen() {
-  const { orderId } = useLocalSearchParams();
+export default function RateDriverScreen() {
   const router = useRouter();
+  const { orderId } = useLocalSearchParams<{ orderId: string }>();
+  const { user } = useAuth();
+  
+  const [rating, setRating] = useState<number>(0);
+  const [comment, setComment] = useState<string>('');
+  const [isLoading, setIsLoading] = useState<boolean>(false);
 
-  const [rating, setRating] = useState(0);
-  const [comment, setComment] = useState('');
-  const [loading, setLoading] = useState(false);
+  const order = mockOrders.find(o => o.id === orderId);
 
-  const order = mockOrders.find((o) => o.id === orderId);
+  if (!user) {
+    router.replace('/login' as any);
+    return null;
+  }
+
+  if (!order || !order.driverId) {
+    return (
+      <View style={styles.container}>
+        <StatusBar style="light" />
+        <View style={styles.header}>
+          <TouchableOpacity
+            style={styles.backButton}
+            onPress={() => router.back()}
+            activeOpacity={0.7}
+          >
+            <ChevronLeft size={24} color={Colors.white} />
+          </TouchableOpacity>
+          <Text style={styles.headerTitle}>Calificar</Text>
+          <View style={styles.headerSpacer} />
+        </View>
+        <View style={styles.errorContainer}>
+          <Text style={styles.errorText}>No se encontró información del repartidor</Text>
+        </View>
+      </View>
+    );
+  }
 
   const handleSubmit = async () => {
     if (rating === 0) {
-      Alert.alert('Error', 'Por favor selecciona una calificación');
+      Alert.alert('Calificación Requerida', 'Por favor selecciona una calificación');
       return;
     }
 
-    setLoading(true);
+    setIsLoading(true);
 
-    setTimeout(() => {
-      setLoading(false);
+    try {
+      await new Promise(resolve => setTimeout(resolve, 1500));
+
       Alert.alert(
-        '¡Gracias por tu calificación!',
-        'Tu opinión nos ayuda a mejorar el servicio',
+        '¡Gracias!',
+        'Tu calificación ha sido enviada exitosamente',
         [
           {
             text: 'OK',
-            onPress: () => router.back(),
+            onPress: () => router.push('/orders/history' as any),
           },
         ]
       );
-    }, 1500);
+    } catch (error) {
+      console.error('Error submitting rating:', error);
+      Alert.alert('Error', 'No se pudo enviar la calificación. Intenta de nuevo.');
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   const handleSkip = () => {
     router.back();
   };
 
-  if (!order) {
-    return (
-      <View style={styles.container}>
-        <Text style={styles.errorText}>Orden no encontrada</Text>
-      </View>
-    );
-  }
+  const driverName = order.rating?.driverName || 'Repartidor';
 
   return (
-    <KeyboardAvoidingView
+    <KeyboardAvoidingView 
       style={styles.container}
-      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
     >
-      <ScrollView
-        style={styles.scrollView}
+      <StatusBar style="light" />
+      
+      <View style={styles.header}>
+        <TouchableOpacity
+          style={styles.backButton}
+          onPress={() => router.back()}
+          activeOpacity={0.7}
+        >
+          <ChevronLeft size={24} color={Colors.white} />
+        </TouchableOpacity>
+        <Text style={styles.headerTitle}>Calificar</Text>
+        <View style={styles.headerSpacer} />
+      </View>
+
+      <ScrollView 
+        style={styles.scrollView} 
         contentContainerStyle={styles.scrollContent}
-        keyboardShouldPersistTaps="handled"
+        showsVerticalScrollIndicator={false}
       >
-        <View style={styles.header}>
+        <View style={styles.titleContainer}>
           <Text style={styles.title}>¿Cómo fue tu experiencia?</Text>
-          <Text style={styles.subtitle}>
-            Ayúdanos a mejorar calificando a tu repartidor
-          </Text>
         </View>
 
-        <View style={styles.driverSection}>
+        <View style={styles.driverCard}>
           <View style={styles.driverAvatar}>
-            <User size={40} color={Colors.primary} />
+            <UserIcon size={40} color={Colors.white} />
           </View>
-          <Text style={styles.driverName}>
-            {order.rating?.driverName || 'Repartidor Asignado'}
-          </Text>
+          <Text style={styles.driverName}>{driverName}</Text>
+          <Text style={styles.driverSubtitle}>Tu repartidor</Text>
         </View>
 
         <View style={styles.ratingSection}>
-          <Text style={styles.ratingLabel}>Calificación</Text>
+          <Text style={styles.ratingLabel}>Tu Calificación</Text>
           <View style={styles.starsContainer}>
             <RatingStars
               rating={rating}
               onRatingChange={setRating}
               size="large"
+              readonly={false}
             />
           </View>
           {rating > 0 && (
@@ -100,30 +140,39 @@ export default function CreateRatingScreen() {
         </View>
 
         <View style={styles.commentSection}>
-          <FormInput
-            label="Comentario (opcional)"
-            value={comment}
-            onChangeText={setComment}
-            placeholder="Escribe tu opinión sobre el servicio..."
-            multiline
-            numberOfLines={4}
-            style={styles.commentInput}
-          />
+          <Text style={styles.commentLabel}>Escribe un comentario (opcional)</Text>
+          <View style={styles.inputContainer}>
+            <TextInput
+              style={styles.input}
+              value={comment}
+              onChangeText={setComment}
+              placeholder="Cuéntanos sobre tu experiencia..."
+              placeholderTextColor={Colors.text.muted}
+              multiline
+              numberOfLines={4}
+              maxLength={250}
+              textAlignVertical="top"
+            />
+            <Text style={styles.characterCount}>{comment.length}/250</Text>
+          </View>
         </View>
 
-        <View style={styles.buttonsSection}>
+        <View style={styles.buttonsContainer}>
           <LoadingButton
             title="Enviar Calificación"
             onPress={handleSubmit}
-            loading={loading}
+            loading={isLoading}
             variant="primary"
+            disabled={rating === 0}
           />
-          <LoadingButton
-            title="Omitir"
+
+          <TouchableOpacity
+            style={styles.skipButton}
             onPress={handleSkip}
-            variant="secondary"
-            disabled={loading}
-          />
+            activeOpacity={0.7}
+          >
+            <Text style={styles.skipButtonText}>Omitir</Text>
+          </TouchableOpacity>
         </View>
       </ScrollView>
     </KeyboardAvoidingView>
@@ -135,65 +184,96 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: Colors.background.secondary,
   },
+  header: {
+    backgroundColor: Colors.black,
+    flexDirection: 'row' as const,
+    alignItems: 'center' as const,
+    justifyContent: 'space-between' as const,
+    paddingTop: 60,
+    paddingBottom: 16,
+    paddingHorizontal: 20,
+  },
+  backButton: {
+    width: 40,
+    height: 40,
+    justifyContent: 'center' as const,
+    alignItems: 'center' as const,
+  },
+  headerTitle: {
+    fontSize: 18,
+    fontWeight: '700' as const,
+    color: Colors.white,
+  },
+  headerSpacer: {
+    width: 40,
+  },
   scrollView: {
     flex: 1,
   },
   scrollContent: {
-    paddingBottom: 40,
+    paddingHorizontal: 20,
+    paddingVertical: 24,
+  },
+  errorContainer: {
+    flex: 1,
+    justifyContent: 'center' as const,
+    alignItems: 'center' as const,
+    padding: 40,
   },
   errorText: {
     fontSize: 16,
     color: Colors.text.secondary,
-    textAlign: 'center' as const,
-    marginTop: 40,
   },
-  header: {
+  titleContainer: {
+    marginBottom: 32,
+  },
+  title: {
+    fontSize: 28,
+    fontWeight: '700' as const,
+    color: Colors.text.primary,
+    textAlign: 'center' as const,
+  },
+  driverCard: {
     backgroundColor: Colors.white,
-    paddingVertical: 32,
-    paddingHorizontal: 20,
+    borderRadius: 20,
+    padding: 32,
     alignItems: 'center' as const,
-    borderBottomLeftRadius: 24,
-    borderBottomRightRadius: 24,
-    shadowColor: Colors.shadow.medium,
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
+    marginBottom: 32,
+    borderWidth: 1,
+    borderColor: Colors.border.light,
+    shadowColor: Colors.shadow.light,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 1,
     shadowRadius: 12,
     elevation: 3,
   },
-  title: {
-    fontSize: 24,
-    fontWeight: '700' as const,
-    color: Colors.text.primary,
-    marginBottom: 8,
-    textAlign: 'center' as const,
-  },
-  subtitle: {
-    fontSize: 15,
-    color: Colors.text.secondary,
-    textAlign: 'center' as const,
-  },
-  driverSection: {
-    alignItems: 'center' as const,
-    paddingVertical: 32,
-  },
   driverAvatar: {
-    width: 100,
-    height: 100,
-    borderRadius: 50,
-    backgroundColor: `${Colors.primary}15`,
+    width: 80,
+    height: 80,
+    borderRadius: 40,
+    backgroundColor: Colors.primary,
     justifyContent: 'center' as const,
     alignItems: 'center' as const,
     marginBottom: 16,
   },
   driverName: {
-    fontSize: 20,
-    fontWeight: '600' as const,
+    fontSize: 22,
+    fontWeight: '700' as const,
     color: Colors.text.primary,
+    marginBottom: 4,
+  },
+  driverSubtitle: {
+    fontSize: 14,
+    color: Colors.text.secondary,
   },
   ratingSection: {
+    backgroundColor: Colors.white,
+    borderRadius: 20,
+    padding: 32,
     alignItems: 'center' as const,
-    paddingHorizontal: 20,
-    marginBottom: 32,
+    marginBottom: 24,
+    borderWidth: 1,
+    borderColor: Colors.border.light,
   },
   ratingLabel: {
     fontSize: 16,
@@ -207,18 +287,51 @@ const styles = StyleSheet.create({
   ratingText: {
     fontSize: 18,
     fontWeight: '600' as const,
-    color: Colors.warning,
+    color: Colors.primary,
   },
   commentSection: {
-    paddingHorizontal: 20,
     marginBottom: 32,
   },
-  commentInput: {
-    height: 120,
-    textAlignVertical: 'top' as const,
+  commentLabel: {
+    fontSize: 15,
+    fontWeight: '600' as const,
+    color: Colors.text.primary,
+    marginBottom: 12,
   },
-  buttonsSection: {
-    paddingHorizontal: 20,
-    gap: 12,
+  inputContainer: {
+    backgroundColor: Colors.white,
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: Colors.border.light,
+    padding: 16,
+  },
+  input: {
+    fontSize: 15,
+    color: Colors.text.primary,
+    minHeight: 100,
+    marginBottom: 8,
+  },
+  characterCount: {
+    fontSize: 12,
+    color: Colors.text.muted,
+    textAlign: 'right' as const,
+  },
+  buttonsContainer: {
+    marginBottom: 20,
+  },
+  skipButton: {
+    marginTop: 12,
+    paddingVertical: 16,
+    paddingHorizontal: 24,
+    borderRadius: 12,
+    backgroundColor: Colors.white,
+    borderWidth: 1,
+    borderColor: Colors.border.medium,
+    alignItems: 'center' as const,
+  },
+  skipButtonText: {
+    fontSize: 16,
+    fontWeight: '600' as const,
+    color: Colors.text.secondary,
   },
 });
