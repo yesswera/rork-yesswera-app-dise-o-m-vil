@@ -1,110 +1,115 @@
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Alert, Image } from 'react-native';
+import { useState } from 'react';
+import { StyleSheet, Text, View, TouchableOpacity, KeyboardAvoidingView, Platform, ScrollView, Image, Alert } from 'react-native';
 import { useRouter } from 'expo-router';
 import { ChevronLeft, Camera } from 'lucide-react-native';
+import * as ImagePicker from 'expo-image-picker';
 import { useAuth } from '@/contexts/auth';
 import Colors from '@/constants/colors';
-import { StatusBar } from 'expo-status-bar';
-import { useState } from 'react';
-import * as ImagePicker from 'expo-image-picker';
 import FormInput from '@/components/FormInput';
 import LoadingButton from '@/components/LoadingButton';
+import { Toast } from '@/utils/toast';
+import { Validator } from '@/utils/validation';
+import { HapticFeedback } from '@/utils/haptics';
+import { StatusBar } from 'expo-status-bar';
 
 export default function EditProfileScreen() {
   const router = useRouter();
   const { user } = useAuth();
-  
   const [name, setName] = useState<string>(user?.name || '');
   const [phone, setPhone] = useState<string>(user?.phone || '');
   const [avatar, setAvatar] = useState<string | undefined>(user?.avatar);
   const [isLoading, setIsLoading] = useState<boolean>(false);
-  const [errors, setErrors] = useState<{
-    name?: string;
-    phone?: string;
-  }>({});
+  const [errors, setErrors] = useState({
+    name: '',
+    phone: '',
+  });
 
   if (!user) {
     router.replace('/login' as any);
     return null;
   }
 
-  const validateForm = (): boolean => {
-    const newErrors: { name?: string; phone?: string } = {};
+  const handleNameChange = (value: string) => {
+    setName(value);
+    setErrors((prev) => ({ ...prev, name: '' }));
+  };
 
-    if (name.trim().length < 3) {
-      newErrors.name = 'El nombre debe tener al menos 3 caracteres';
-    }
-
-    const phoneRegex = /^\+?[\d\s-()]+$/;
-    if (!phoneRegex.test(phone) || phone.length < 10) {
-      newErrors.phone = 'Ingresa un número de teléfono válido';
-    }
-
-    setErrors(newErrors);
-    return Object.keys(newErrors).length === 0;
+  const handlePhoneChange = (value: string) => {
+    setPhone(value);
+    setErrors((prev) => ({ ...prev, phone: '' }));
   };
 
   const handlePickImage = async () => {
-    const permissionResult = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    try {
+      HapticFeedback.light();
+      
+      const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+      
+      if (status !== 'granted') {
+        Alert.alert(
+          'Permiso requerido',
+          'Necesitamos acceso a tu galería para seleccionar una foto',
+          [{ text: 'OK' }]
+        );
+        return;
+      }
 
-    if (permissionResult.granted === false) {
-      Alert.alert('Permiso Requerido', 'Necesitas dar permisos para acceder a la galería');
-      return;
-    }
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        allowsEditing: true,
+        aspect: [1, 1],
+        quality: 0.8,
+      });
 
-    const result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: 'images' as any,
-      allowsEditing: true,
-      aspect: [1, 1],
-      quality: 0.8,
-    });
-
-    if (!result.canceled && result.assets[0]) {
-      setAvatar(result.assets[0].uri);
+      if (!result.canceled && result.assets[0]) {
+        setAvatar(result.assets[0].uri);
+        HapticFeedback.success();
+      }
+    } catch (error) {
+      console.error('Error picking image:', error);
+      Toast.error('No se pudo seleccionar la imagen');
     }
   };
 
   const handleSave = async () => {
-    if (!validateForm()) {
+    const nameError = Validator.name(name);
+    const phoneError = Validator.phone(phone);
+
+    if (nameError || phoneError) {
+      setErrors({
+        name: nameError,
+        phone: phoneError,
+      });
+      HapticFeedback.error();
       return;
     }
 
     setIsLoading(true);
-
     try {
       await new Promise(resolve => setTimeout(resolve, 1500));
-
-      Alert.alert(
-        '¡Perfil Actualizado!',
-        'Tus datos han sido guardados exitosamente',
-        [
-          {
-            text: 'OK',
-            onPress: () => router.back(),
-          },
-        ]
-      );
+      
+      HapticFeedback.success();
+      Toast.success('Perfil actualizado exitosamente');
+      router.back();
     } catch (error) {
-      console.error('Error saving profile:', error);
-      Alert.alert('Error', 'No se pudo actualizar el perfil. Intenta de nuevo.');
+      console.error('Update profile error:', error);
+      HapticFeedback.error();
+      Toast.error('No se pudo actualizar el perfil. Intenta nuevamente.');
     } finally {
       setIsLoading(false);
     }
   };
 
   const handleCancel = () => {
+    HapticFeedback.light();
     router.back();
   };
 
-  const getInitials = () => {
-    const names = name.split(' ');
-    if (names.length >= 2) {
-      return `${names[0][0]}${names[1][0]}`.toUpperCase();
-    }
-    return name.substring(0, 2).toUpperCase();
-  };
-
   return (
-    <View style={styles.container}>
+    <KeyboardAvoidingView 
+      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+      style={styles.container}
+    >
       <StatusBar style="light" />
       
       <View style={styles.header}>
@@ -119,81 +124,88 @@ export default function EditProfileScreen() {
         <View style={styles.headerSpacer} />
       </View>
 
-      <ScrollView style={styles.scrollView} showsVerticalScrollIndicator={false}>
+      <ScrollView 
+        contentContainerStyle={styles.scrollContent}
+        keyboardShouldPersistTaps="handled"
+        showsVerticalScrollIndicator={false}
+      >
         <View style={styles.avatarSection}>
-          <View style={styles.avatarContainer}>
+          <TouchableOpacity
+            onPress={handlePickImage}
+            activeOpacity={0.8}
+            style={styles.avatarContainer}
+          >
             {avatar ? (
-              <Image source={{ uri: avatar }} style={styles.avatarImage} />
+              <Image source={{ uri: avatar }} style={styles.avatar} />
             ) : (
-              <View style={styles.avatar}>
-                <Text style={styles.avatarText}>{getInitials()}</Text>
+              <View style={styles.avatarPlaceholder}>
+                <Text style={styles.avatarPlaceholderText}>
+                  {name.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2)}
+                </Text>
               </View>
             )}
-            <TouchableOpacity
-              style={styles.cameraButton}
-              onPress={handlePickImage}
-              activeOpacity={0.8}
-            >
+            <View style={styles.cameraButton}>
               <Camera size={18} color={Colors.white} />
-            </TouchableOpacity>
-          </View>
+            </View>
+          </TouchableOpacity>
           <Text style={styles.avatarHint}>Toca para cambiar foto</Text>
         </View>
 
-        <View style={styles.formSection}>
+        <View style={styles.form}>
           <FormInput
             label="Nombre Completo"
             value={name}
-            onChangeText={(text) => {
-              setName(text);
-              if (errors.name) {
-                setErrors({ ...errors, name: undefined });
-              }
-            }}
-            placeholder="Ingresa tu nombre completo"
+            onChangeText={handleNameChange}
             error={errors.name}
+            placeholder="Tu nombre completo"
             autoCapitalize="words"
+            editable={!isLoading}
           />
 
           <FormInput
             label="Teléfono"
             value={phone}
-            onChangeText={(text) => {
-              setPhone(text);
-              if (errors.phone) {
-                setErrors({ ...errors, phone: undefined });
-              }
-            }}
-            placeholder="+1 234 567 8900"
+            onChangeText={handlePhoneChange}
             error={errors.phone}
+            placeholder="+1 234 567 8900"
             keyboardType="phone-pad"
+            editable={!isLoading}
           />
 
           <View style={styles.infoCard}>
-            <Text style={styles.infoText}>
-              Tu email no puede ser modificado. Para cambiar tu email, contacta con soporte.
+            <Text style={styles.infoLabel}>Email</Text>
+            <Text style={styles.infoValue}>{user.email}</Text>
+            <Text style={styles.infoHint}>El email no se puede cambiar</Text>
+          </View>
+
+          <View style={styles.infoCard}>
+            <Text style={styles.infoLabel}>Tipo de Usuario</Text>
+            <Text style={styles.infoValue}>
+              {user.userType === 'cliente' ? 'Cliente' : 
+               user.userType === 'repartidor' ? 'Repartidor' : 'Negocio'}
             </Text>
           </View>
-        </View>
 
-        <View style={styles.buttonsContainer}>
-          <LoadingButton
-            title="Guardar Cambios"
-            onPress={handleSave}
-            loading={isLoading}
-            variant="primary"
-          />
+          <View style={styles.buttonContainer}>
+            <LoadingButton
+              title="Guardar Cambios"
+              onPress={handleSave}
+              loading={isLoading}
+              variant="primary"
+            />
 
-          <TouchableOpacity
-            style={styles.cancelButton}
-            onPress={handleCancel}
-            activeOpacity={0.7}
-          >
-            <Text style={styles.cancelButtonText}>Cancelar</Text>
-          </TouchableOpacity>
+            <TouchableOpacity
+              style={styles.cancelButton}
+              onPress={handleCancel}
+              disabled={isLoading}
+              activeOpacity={0.8}
+            >
+              <Text style={styles.cancelButtonText}>Cancelar</Text>
+            </TouchableOpacity>
+          </View>
         </View>
       </ScrollView>
-    </View>
+    </KeyboardAvoidingView>
   );
 }
 
@@ -225,34 +237,37 @@ const styles = StyleSheet.create({
   headerSpacer: {
     width: 40,
   },
-  scrollView: {
-    flex: 1,
+  scrollContent: {
+    paddingVertical: 24,
+    paddingHorizontal: 20,
   },
   avatarSection: {
     alignItems: 'center' as const,
-    paddingVertical: 32,
-    backgroundColor: Colors.white,
-    marginBottom: 16,
+    marginBottom: 32,
   },
   avatarContainer: {
     position: 'relative' as const,
-    marginBottom: 12,
+    marginBottom: 8,
   },
   avatar: {
-    width: 100,
-    height: 100,
-    borderRadius: 50,
+    width: 120,
+    height: 120,
+    borderRadius: 60,
+    borderWidth: 4,
+    borderColor: Colors.white,
+  },
+  avatarPlaceholder: {
+    width: 120,
+    height: 120,
+    borderRadius: 60,
     backgroundColor: Colors.primary,
     justifyContent: 'center' as const,
     alignItems: 'center' as const,
+    borderWidth: 4,
+    borderColor: Colors.white,
   },
-  avatarImage: {
-    width: 100,
-    height: 100,
-    borderRadius: 50,
-  },
-  avatarText: {
-    fontSize: 36,
+  avatarPlaceholderText: {
+    fontSize: 40,
     fontWeight: '700' as const,
     color: Colors.white,
   },
@@ -260,9 +275,9 @@ const styles = StyleSheet.create({
     position: 'absolute' as const,
     bottom: 0,
     right: 0,
-    width: 36,
-    height: 36,
-    borderRadius: 18,
+    width: 40,
+    height: 40,
+    borderRadius: 20,
     backgroundColor: Colors.primary,
     justifyContent: 'center' as const,
     alignItems: 'center' as const,
@@ -271,47 +286,52 @@ const styles = StyleSheet.create({
     shadowColor: Colors.shadow.medium,
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 1,
-    shadowRadius: 4,
-    elevation: 3,
+    shadowRadius: 8,
+    elevation: 4,
   },
   avatarHint: {
     fontSize: 13,
     color: Colors.text.secondary,
   },
-  formSection: {
-    paddingHorizontal: 20,
-    paddingVertical: 24,
+  form: {
+    gap: 16,
   },
   infoCard: {
-    backgroundColor: Colors.background.tertiary,
+    backgroundColor: Colors.white,
     borderRadius: 12,
     padding: 16,
-    marginTop: 8,
-    borderLeftWidth: 4,
-    borderLeftColor: Colors.accent,
+    borderWidth: 1,
+    borderColor: Colors.border.light,
   },
-  infoText: {
-    fontSize: 13,
+  infoLabel: {
+    fontSize: 12,
+    fontWeight: '600' as const,
     color: Colors.text.secondary,
-    lineHeight: 20,
+    marginBottom: 4,
   },
-  buttonsContainer: {
-    paddingHorizontal: 20,
-    paddingBottom: 40,
+  infoValue: {
+    fontSize: 16,
+    fontWeight: '500' as const,
+    color: Colors.text.primary,
+  },
+  infoHint: {
+    fontSize: 11,
+    color: Colors.text.muted,
+    marginTop: 4,
+  },
+  buttonContainer: {
+    gap: 12,
+    marginTop: 8,
   },
   cancelButton: {
-    marginTop: 12,
-    paddingVertical: 16,
-    paddingHorizontal: 24,
+    backgroundColor: Colors.background.tertiary,
     borderRadius: 12,
-    backgroundColor: Colors.white,
-    borderWidth: 1,
-    borderColor: Colors.border.medium,
+    paddingVertical: 16,
     alignItems: 'center' as const,
   },
   cancelButtonText: {
     fontSize: 16,
     fontWeight: '600' as const,
-    color: Colors.text.secondary,
+    color: Colors.text.primary,
   },
 });

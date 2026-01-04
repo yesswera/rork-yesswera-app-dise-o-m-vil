@@ -1,59 +1,69 @@
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Alert } from 'react-native';
+import { useState, useRef, useEffect } from 'react';
+import { StyleSheet, Text, View, TouchableOpacity, KeyboardAvoidingView, Platform, ScrollView, Image, Animated } from 'react-native';
 import { useRouter } from 'expo-router';
-import { ChevronLeft, Mail } from 'lucide-react-native';
+import { ChevronLeft } from 'lucide-react-native';
 import Colors from '@/constants/colors';
-import { StatusBar } from 'expo-status-bar';
-import { useState } from 'react';
 import FormInput from '@/components/FormInput';
 import LoadingButton from '@/components/LoadingButton';
+import { Toast } from '@/utils/toast';
+import { Validator } from '@/utils/validation';
+import { HapticFeedback } from '@/utils/haptics';
+import { StatusBar } from 'expo-status-bar';
 
 export default function PasswordRecoveryRequestScreen() {
   const router = useRouter();
   const [email, setEmail] = useState<string>('');
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const [error, setError] = useState<string>('');
+  const fadeAnim = useRef(new Animated.Value(0)).current;
 
-  const validateEmail = (email: string): boolean => {
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    return emailRegex.test(email);
+  useEffect(() => {
+    Animated.timing(fadeAnim, {
+      toValue: 1,
+      duration: 500,
+      useNativeDriver: true,
+    }).start();
+  }, [fadeAnim]);
+
+  const validateEmail = (value: string) => {
+    return Validator.email(value);
+  };
+
+  const handleEmailChange = (value: string) => {
+    setEmail(value);
+    setError('');
   };
 
   const handleSendCode = async () => {
-    if (!email.trim()) {
-      setError('Por favor ingresa tu correo electrónico');
-      return;
-    }
+    const emailError = validateEmail(email);
 
-    if (!validateEmail(email)) {
-      setError('Por favor ingresa un correo electrónico válido');
+    if (emailError) {
+      setError(emailError);
+      HapticFeedback.error();
       return;
     }
 
     setIsLoading(true);
-
     try {
       await new Promise(resolve => setTimeout(resolve, 1500));
-
-      Alert.alert(
-        'Código Enviado',
-        `Hemos enviado un código de verificación a ${email}`,
-        [
-          {
-            text: 'OK',
-            onPress: () => router.push(`/password-recovery/verify?email=${encodeURIComponent(email)}` as any),
-          },
-        ]
-      );
+      
+      HapticFeedback.success();
+      Toast.success('Código enviado exitosamente');
+      router.push(`/password-recovery/verify?email=${encodeURIComponent(email)}` as any);
     } catch (error) {
-      console.error('Error sending code:', error);
-      Alert.alert('Error', 'No se pudo enviar el código. Intenta de nuevo.');
+      console.error('Send code error:', error);
+      HapticFeedback.error();
+      Toast.error('No se pudo enviar el código. Intenta nuevamente.');
     } finally {
       setIsLoading(false);
     }
   };
 
   return (
-    <View style={styles.container}>
+    <KeyboardAvoidingView 
+      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+      style={styles.container}
+    >
       <StatusBar style="light" />
       
       <View style={styles.header}>
@@ -69,31 +79,35 @@ export default function PasswordRecoveryRequestScreen() {
       </View>
 
       <ScrollView 
-        style={styles.scrollView}
         contentContainerStyle={styles.scrollContent}
-        showsVerticalScrollIndicator={false}
+        keyboardShouldPersistTaps="handled"
       >
-        <View style={styles.iconContainer}>
-          <Mail size={64} color={Colors.primary} strokeWidth={1.5} />
-        </View>
+        <Animated.View style={[styles.iconContainer, { opacity: fadeAnim }]}>
+          <Image
+            source={{ uri: 'https://rork.app/pa/9eb35k949i660ayrsld5b/logo' }}
+            style={styles.logoImage}
+            resizeMode="contain"
+          />
+        </Animated.View>
 
-        <Text style={styles.title}>Recuperar Contraseña</Text>
-        <Text style={styles.subtitle}>
-          Ingresa tu correo electrónico y te enviaremos un código de 6 dígitos para restablecer tu contraseña
-        </Text>
+        <Animated.Text style={[styles.title, { opacity: fadeAnim }]}>
+          ¿Olvidaste tu contraseña?
+        </Animated.Text>
+        
+        <Animated.Text style={[styles.subtitle, { opacity: fadeAnim }]}>
+          Ingresa tu correo electrónico y te enviaremos un código de 6 dígitos para recuperar tu cuenta
+        </Animated.Text>
 
-        <View style={styles.formContainer}>
+        <View style={styles.form}>
           <FormInput
             label="Correo Electrónico"
             value={email}
-            onChangeText={(text) => {
-              setEmail(text);
-              if (error) setError('');
-            }}
-            placeholder="correo@ejemplo.com"
+            onChangeText={handleEmailChange}
+            error={error}
+            placeholder="tu@email.com"
             keyboardType="email-address"
             autoCapitalize="none"
-            error={error}
+            editable={!isLoading}
           />
 
           <LoadingButton
@@ -104,22 +118,24 @@ export default function PasswordRecoveryRequestScreen() {
           />
 
           <TouchableOpacity
-            style={styles.backToLoginButton}
+            style={styles.backToLogin}
             onPress={() => router.push('/login' as any)}
-            activeOpacity={0.7}
+            disabled={isLoading}
           >
-            <Text style={styles.backToLoginText}>Volver al inicio de sesión</Text>
+            <Text style={styles.backToLoginText}>
+              Volver al inicio de sesión
+            </Text>
           </TouchableOpacity>
         </View>
       </ScrollView>
-    </View>
+    </KeyboardAvoidingView>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: Colors.background.secondary,
+    backgroundColor: Colors.background.primary,
   },
   header: {
     backgroundColor: Colors.black,
@@ -144,25 +160,21 @@ const styles = StyleSheet.create({
   headerSpacer: {
     width: 40,
   },
-  scrollView: {
-    flex: 1,
-  },
   scrollContent: {
-    paddingHorizontal: 20,
-    paddingVertical: 40,
+    flexGrow: 1,
+    padding: 24,
+    paddingTop: 40,
   },
   iconContainer: {
-    width: 120,
-    height: 120,
-    borderRadius: 60,
-    backgroundColor: `${Colors.primary}15`,
-    justifyContent: 'center' as const,
     alignItems: 'center' as const,
-    alignSelf: 'center' as const,
-    marginBottom: 32,
+    marginBottom: 24,
+  },
+  logoImage: {
+    width: 160,
+    height: 80,
   },
   title: {
-    fontSize: 28,
+    fontSize: 26,
     fontWeight: '700' as const,
     color: Colors.text.primary,
     textAlign: 'center' as const,
@@ -172,16 +184,16 @@ const styles = StyleSheet.create({
     fontSize: 15,
     color: Colors.text.secondary,
     textAlign: 'center' as const,
+    marginBottom: 32,
     lineHeight: 22,
-    marginBottom: 40,
   },
-  formContainer: {
-    marginBottom: 20,
+  form: {
+    width: '100%' as const,
+    gap: 16,
   },
-  backToLoginButton: {
-    marginTop: 16,
-    paddingVertical: 12,
+  backToLogin: {
     alignItems: 'center' as const,
+    marginTop: 8,
   },
   backToLoginText: {
     fontSize: 15,

@@ -1,89 +1,78 @@
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Alert } from 'react-native';
-import { useRouter, useLocalSearchParams } from 'expo-router';
-import { ChevronLeft, Lock, Eye, EyeOff } from 'lucide-react-native';
+import { useState, useRef, useEffect } from 'react';
+import { StyleSheet, Text, View, TouchableOpacity, KeyboardAvoidingView, Platform, ScrollView, Animated } from 'react-native';
+import { useRouter } from 'expo-router';
+import { ChevronLeft, CheckCircle } from 'lucide-react-native';
 import Colors from '@/constants/colors';
-import { StatusBar } from 'expo-status-bar';
-import { useState } from 'react';
-import FormInput from '@/components/FormInput';
+import PasswordInput from '@/components/PasswordInput';
 import LoadingButton from '@/components/LoadingButton';
+import { Toast } from '@/utils/toast';
+import { Validator } from '@/utils/validation';
+import { HapticFeedback } from '@/utils/haptics';
+import { StatusBar } from 'expo-status-bar';
 
 export default function PasswordRecoveryResetScreen() {
   const router = useRouter();
-  const { email } = useLocalSearchParams<{ email: string }>();
-  
   const [password, setPassword] = useState<string>('');
   const [confirmPassword, setConfirmPassword] = useState<string>('');
-  const [showPassword, setShowPassword] = useState<boolean>(false);
-  const [showConfirmPassword, setShowConfirmPassword] = useState<boolean>(false);
   const [isLoading, setIsLoading] = useState<boolean>(false);
-  const [errors, setErrors] = useState<{
-    password?: string;
-    confirmPassword?: string;
-  }>({});
+  const [errors, setErrors] = useState({
+    password: '',
+    confirmPassword: '',
+  });
+  const fadeAnim = useRef(new Animated.Value(0)).current;
 
-  const getPasswordStrength = (pwd: string): { level: 'weak' | 'medium' | 'strong'; label: string; color: string } => {
-    if (pwd.length === 0) {
-      return { level: 'weak', label: '', color: Colors.lightGray };
-    }
-    
-    if (pwd.length < 6) {
-      return { level: 'weak', label: 'Débil', color: Colors.error };
-    }
-    
-    if (pwd.length < 10) {
-      return { level: 'medium', label: 'Media', color: Colors.secondary };
-    }
-    
-    return { level: 'strong', label: 'Fuerte', color: Colors.success };
+  useEffect(() => {
+    Animated.timing(fadeAnim, {
+      toValue: 1,
+      duration: 500,
+      useNativeDriver: true,
+    }).start();
+  }, [fadeAnim]);
+
+  const handlePasswordChange = (value: string) => {
+    setPassword(value);
+    setErrors((prev) => ({ ...prev, password: '' }));
   };
 
-  const validateForm = (): boolean => {
-    const newErrors: { password?: string; confirmPassword?: string } = {};
-
-    if (password.length < 6) {
-      newErrors.password = 'La contraseña debe tener al menos 6 caracteres';
-    }
-
-    if (password !== confirmPassword) {
-      newErrors.confirmPassword = 'Las contraseñas no coinciden';
-    }
-
-    setErrors(newErrors);
-    return Object.keys(newErrors).length === 0;
+  const handleConfirmPasswordChange = (value: string) => {
+    setConfirmPassword(value);
+    setErrors((prev) => ({ ...prev, confirmPassword: '' }));
   };
 
-  const handleChangePassword = async () => {
-    if (!validateForm()) {
+  const handleResetPassword = async () => {
+    const passwordError = Validator.password(password);
+    const confirmPasswordError = Validator.confirmPassword(password, confirmPassword);
+
+    if (passwordError || confirmPasswordError) {
+      setErrors({
+        password: passwordError,
+        confirmPassword: confirmPasswordError,
+      });
+      HapticFeedback.error();
       return;
     }
 
     setIsLoading(true);
-
     try {
       await new Promise(resolve => setTimeout(resolve, 1500));
-
-      Alert.alert(
-        '¡Contraseña Cambiada!',
-        'Tu contraseña ha sido actualizada exitosamente. Ya puedes iniciar sesión con tu nueva contraseña.',
-        [
-          {
-            text: 'Ir a Iniciar Sesión',
-            onPress: () => router.push('/login' as any),
-          },
-        ]
-      );
+      
+      HapticFeedback.success();
+      Toast.success('Contraseña actualizada exitosamente');
+      router.replace('/login' as any);
     } catch (error) {
-      console.error('Error changing password:', error);
-      Alert.alert('Error', 'No se pudo cambiar la contraseña. Intenta de nuevo.');
+      console.error('Reset password error:', error);
+      HapticFeedback.error();
+      Toast.error('No se pudo cambiar la contraseña. Intenta nuevamente.');
     } finally {
       setIsLoading(false);
     }
   };
 
-  const strength = getPasswordStrength(password);
-
   return (
-    <View style={styles.container}>
+    <KeyboardAvoidingView 
+      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+      style={styles.container}
+    >
       <StatusBar style="light" />
       
       <View style={styles.header}>
@@ -99,120 +88,85 @@ export default function PasswordRecoveryResetScreen() {
       </View>
 
       <ScrollView 
-        style={styles.scrollView}
         contentContainerStyle={styles.scrollContent}
-        showsVerticalScrollIndicator={false}
+        keyboardShouldPersistTaps="handled"
       >
-        <View style={styles.iconContainer}>
-          <Lock size={64} color={Colors.primary} strokeWidth={1.5} />
-        </View>
+        <Animated.View style={{ opacity: fadeAnim }}>
+          <View style={styles.iconContainer}>
+            <CheckCircle size={48} color={Colors.primary} />
+          </View>
 
-        <Text style={styles.title}>Nueva Contraseña</Text>
-        <Text style={styles.subtitle}>
-          Ingresa tu nueva contraseña para {email || 'tu cuenta'}
-        </Text>
+          <Text style={styles.title}>Nueva Contraseña</Text>
+          
+          <Text style={styles.subtitle}>
+            Crea una nueva contraseña segura para tu cuenta
+          </Text>
 
-        <View style={styles.formContainer}>
-          <View style={styles.passwordInputContainer}>
-            <FormInput
+          <View style={styles.form}>
+            <PasswordInput
               label="Nueva Contraseña"
               value={password}
-              onChangeText={(text) => {
-                setPassword(text);
-                if (errors.password) {
-                  setErrors({ ...errors, password: undefined });
-                }
-              }}
-              placeholder="Mínimo 6 caracteres"
-              secureTextEntry={!showPassword}
+              onChangeText={handlePasswordChange}
               error={errors.password}
+              placeholder="••••••••"
+              showStrength
+              editable={!isLoading}
             />
-            <TouchableOpacity
-              style={styles.eyeButton}
-              onPress={() => setShowPassword(!showPassword)}
-              activeOpacity={0.7}
-            >
-              {showPassword ? (
-                <EyeOff size={20} color={Colors.text.secondary} />
-              ) : (
-                <Eye size={20} color={Colors.text.secondary} />
-              )}
-            </TouchableOpacity>
-          </View>
 
-          {password.length > 0 && (
-            <View style={styles.strengthContainer}>
-              <View style={styles.strengthBars}>
-                <View
-                  style={[
-                    styles.strengthBar,
-                    { backgroundColor: strength.level !== 'weak' ? strength.color : Colors.background.tertiary },
-                  ]}
-                />
-                <View
-                  style={[
-                    styles.strengthBar,
-                    { backgroundColor: strength.level === 'strong' ? strength.color : Colors.background.tertiary },
-                  ]}
-                />
-                <View
-                  style={[
-                    styles.strengthBar,
-                    { backgroundColor: strength.level === 'strong' ? strength.color : Colors.background.tertiary },
-                  ]}
-                />
-              </View>
-              {strength.label && (
-                <Text style={[styles.strengthLabel, { color: strength.color }]}>
-                  {strength.label}
-                </Text>
-              )}
-            </View>
-          )}
-
-          <View style={styles.passwordInputContainer}>
-            <FormInput
+            <PasswordInput
               label="Confirmar Contraseña"
               value={confirmPassword}
-              onChangeText={(text) => {
-                setConfirmPassword(text);
-                if (errors.confirmPassword) {
-                  setErrors({ ...errors, confirmPassword: undefined });
-                }
-              }}
-              placeholder="Repite tu contraseña"
-              secureTextEntry={!showConfirmPassword}
+              onChangeText={handleConfirmPasswordChange}
               error={errors.confirmPassword}
+              placeholder="••••••••"
+              editable={!isLoading}
             />
-            <TouchableOpacity
-              style={styles.eyeButton}
-              onPress={() => setShowConfirmPassword(!showConfirmPassword)}
-              activeOpacity={0.7}
-            >
-              {showConfirmPassword ? (
-                <EyeOff size={20} color={Colors.text.secondary} />
-              ) : (
-                <Eye size={20} color={Colors.text.secondary} />
-              )}
-            </TouchableOpacity>
-          </View>
 
-          <LoadingButton
-            title="Cambiar Contraseña"
-            onPress={handleChangePassword}
-            loading={isLoading}
-            variant="primary"
-          />
-        </View>
+            <View style={styles.requirementsContainer}>
+              <Text style={styles.requirementsTitle}>La contraseña debe tener:</Text>
+              <View style={styles.requirement}>
+                <View style={[
+                  styles.requirementBullet,
+                  password.length >= 6 && styles.requirementBulletActive
+                ]} />
+                <Text style={[
+                  styles.requirementText,
+                  password.length >= 6 && styles.requirementTextActive
+                ]}>
+                  Mínimo 6 caracteres
+                </Text>
+              </View>
+              <View style={styles.requirement}>
+                <View style={[
+                  styles.requirementBullet,
+                  password === confirmPassword && password.length > 0 && styles.requirementBulletActive
+                ]} />
+                <Text style={[
+                  styles.requirementText,
+                  password === confirmPassword && password.length > 0 && styles.requirementTextActive
+                ]}>
+                  Las contraseñas coinciden
+                </Text>
+              </View>
+            </View>
+
+            <LoadingButton
+              title="Cambiar Contraseña"
+              onPress={handleResetPassword}
+              loading={isLoading}
+              variant="primary"
+            />
+          </View>
+        </Animated.View>
       </ScrollView>
-    </View>
+    </KeyboardAvoidingView>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: Colors.background.secondary,
+    backgroundColor: Colors.background.primary,
   },
   header: {
     backgroundColor: Colors.black,
@@ -237,25 +191,17 @@ const styles = StyleSheet.create({
   headerSpacer: {
     width: 40,
   },
-  scrollView: {
-    flex: 1,
-  },
   scrollContent: {
-    paddingHorizontal: 20,
-    paddingVertical: 40,
+    flexGrow: 1,
+    padding: 24,
+    paddingTop: 40,
   },
   iconContainer: {
-    width: 120,
-    height: 120,
-    borderRadius: 60,
-    backgroundColor: `${Colors.primary}15`,
-    justifyContent: 'center' as const,
     alignItems: 'center' as const,
-    alignSelf: 'center' as const,
-    marginBottom: 32,
+    marginBottom: 24,
   },
   title: {
-    fontSize: 28,
+    fontSize: 26,
     fontWeight: '700' as const,
     color: Colors.text.primary,
     textAlign: 'center' as const,
@@ -265,42 +211,46 @@ const styles = StyleSheet.create({
     fontSize: 15,
     color: Colors.text.secondary,
     textAlign: 'center' as const,
+    marginBottom: 32,
     lineHeight: 22,
-    marginBottom: 40,
   },
-  formContainer: {
-    marginBottom: 20,
+  form: {
+    width: '100%' as const,
+    gap: 16,
   },
-  passwordInputContainer: {
-    position: 'relative' as const,
-    marginBottom: 16,
-  },
-  eyeButton: {
-    position: 'absolute' as const,
-    right: 16,
-    top: 44,
-    width: 40,
-    height: 40,
-    justifyContent: 'center' as const,
-    alignItems: 'center' as const,
-  },
-  strengthContainer: {
-    marginBottom: 24,
-  },
-  strengthBars: {
-    flexDirection: 'row' as const,
-    gap: 8,
+  requirementsContainer: {
+    backgroundColor: Colors.background.secondary,
+    borderRadius: 12,
+    padding: 16,
     marginBottom: 8,
   },
-  strengthBar: {
-    flex: 1,
-    height: 4,
-    borderRadius: 2,
-    backgroundColor: Colors.background.tertiary,
-  },
-  strengthLabel: {
-    fontSize: 13,
+  requirementsTitle: {
+    fontSize: 14,
     fontWeight: '600' as const,
-    textAlign: 'right' as const,
+    color: Colors.text.primary,
+    marginBottom: 12,
+  },
+  requirement: {
+    flexDirection: 'row' as const,
+    alignItems: 'center' as const,
+    marginBottom: 8,
+  },
+  requirementBullet: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: Colors.border.medium,
+    marginRight: 8,
+  },
+  requirementBulletActive: {
+    backgroundColor: Colors.primary,
+  },
+  requirementText: {
+    fontSize: 13,
+    color: Colors.text.secondary,
+  },
+  requirementTextActive: {
+    color: Colors.primary,
+    fontWeight: '500' as const,
   },
 });

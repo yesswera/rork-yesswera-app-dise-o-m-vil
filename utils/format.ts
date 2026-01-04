@@ -3,6 +3,17 @@ export class Format {
     return `${currency}${amount.toFixed(2)}`;
   }
 
+  static percentage(value: number, decimals: number = 0): string {
+    return `${value.toFixed(decimals)}%`;
+  }
+
+  static weight(kg: number): string {
+    if (kg < 1) {
+      return `${Math.round(kg * 1000)}g`;
+    }
+    return `${kg.toFixed(1)}kg`;
+  }
+
   static phone(phone: string): string {
     const cleaned = phone.replace(/\D/g, '');
     

@@ -1,44 +1,69 @@
-export const ANIMATION_CONFIGS = {
-  fadeIn: {
-    duration: 500,
-    useNativeDriver: true,
-  },
-  fadeInSlow: {
-    duration: 800,
-    useNativeDriver: true,
-  },
-  fadeInFast: {
-    duration: 300,
-    useNativeDriver: true,
-  },
-  spring: {
-    tension: 50,
-    friction: 7,
-    useNativeDriver: true,
-  },
-  springBouncy: {
-    tension: 80,
-    friction: 8,
-    useNativeDriver: true,
-  },
-  springSmooth: {
+export const AnimationDurations = {
+  instant: 0,
+  fast: 200,
+  normal: 300,
+  slow: 500,
+  verySlow: 800,
+};
+
+export const SpringConfigs = {
+  gentle: {
     tension: 40,
+    friction: 7,
+  },
+  medium: {
+    tension: 50,
+    friction: 8,
+  },
+  bouncy: {
+    tension: 80,
+    friction: 6,
+  },
+  stiff: {
+    tension: 100,
     friction: 10,
-    useNativeDriver: true,
-  },
-  timing: {
-    duration: 300,
-    useNativeDriver: true,
-  },
-  timingSlow: {
-    duration: 500,
-    useNativeDriver: true,
   },
 };
 
-export const ANIMATION_DELAYS = {
-  none: 0,
-  short: 100,
-  medium: 200,
-  long: 300,
+export const EasingFunctions = {
+  easeInOut: 'easeInOut' as const,
+  easeIn: 'easeIn' as const,
+  easeOut: 'easeOut' as const,
+  linear: 'linear' as const,
+};
+
+export const FadeAnimations = {
+  fadeIn: {
+    from: 0,
+    to: 1,
+    duration: AnimationDurations.normal,
+  },
+  fadeOut: {
+    from: 1,
+    to: 0,
+    duration: AnimationDurations.normal,
+  },
+};
+
+export const SlideAnimations = {
+  slideUp: {
+    from: 30,
+    to: 0,
+    duration: AnimationDurations.normal,
+  },
+  slideDown: {
+    from: -30,
+    to: 0,
+    duration: AnimationDurations.normal,
+  },
+  slideLeft: {
+    from: 30,
+    to: 0,
+    duration: AnimationDurations.normal,
+  },
+  slideRight: {
+    from: -30,
+    to: 0,
+    duration: AnimationDurations.normal,
+  },
 };

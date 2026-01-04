@@ -1,91 +1,88 @@
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Alert, TextInput } from 'react-native';
-import { useRouter, useLocalSearchParams } from 'expo-router';
-import { ChevronLeft, ShieldCheck } from 'lucide-react-native';
-import Colors from '@/constants/colors';
-import { StatusBar } from 'expo-status-bar';
 import { useState, useRef, useEffect } from 'react';
+import { StyleSheet, Text, View, TouchableOpacity, KeyboardAvoidingView, Platform, ScrollView, TextInput, Animated } from 'react-native';
+import { useRouter, useLocalSearchParams } from 'expo-router';
+import { ChevronLeft } from 'lucide-react-native';
+import Colors from '@/constants/colors';
 import LoadingButton from '@/components/LoadingButton';
+import { Toast } from '@/utils/toast';
+import { HapticFeedback } from '@/utils/haptics';
+import { StatusBar } from 'expo-status-bar';
 
 export default function PasswordRecoveryVerifyScreen() {
   const router = useRouter();
-  const { email } = useLocalSearchParams<{ email: string }>();
-  
+  const { email } = useLocalSearchParams();
   const [code, setCode] = useState<string[]>(['', '', '', '', '', '']);
   const [isLoading, setIsLoading] = useState<boolean>(false);
-  const [error, setError] = useState<string>('');
-  
-  const inputRefs = [
-    useRef<TextInput>(null),
-    useRef<TextInput>(null),
-    useRef<TextInput>(null),
-    useRef<TextInput>(null),
-    useRef<TextInput>(null),
-    useRef<TextInput>(null),
-  ];
+  const inputRefs = useRef<(TextInput | null)[]>([]);
+  const fadeAnim = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
-    inputRefs[0].current?.focus();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+    Animated.timing(fadeAnim, {
+      toValue: 1,
+      duration: 500,
+      useNativeDriver: true,
+    }).start();
+    
+    inputRefs.current[0]?.focus();
+  }, [fadeAnim]);
 
-  const handleCodeChange = (index: number, value: string) => {
-    if (value.length > 1) {
-      value = value[0];
-    }
+  const handleCodeChange = (value: string, index: number) => {
+    if (!/^\d*$/.test(value)) return;
 
     const newCode = [...code];
     newCode[index] = value;
     setCode(newCode);
-    setError('');
 
     if (value && index < 5) {
-      inputRefs[index + 1].current?.focus();
+      inputRefs.current[index + 1]?.focus();
     }
   };
 
-  const handleKeyPress = (index: number, key: string) => {
+  const handleKeyPress = (key: string, index: number) => {
     if (key === 'Backspace' && !code[index] && index > 0) {
-      inputRefs[index - 1].current?.focus();
+      inputRefs.current[index - 1]?.focus();
     }
   };
 
-  const handleVerify = async () => {
-    const fullCode = code.join('');
+  const handleVerifyCode = async () => {
+    const codeString = code.join('');
     
-    if (fullCode.length !== 6) {
-      setError('Por favor ingresa el código completo');
+    if (codeString.length < 6) {
+      HapticFeedback.error();
+      Toast.error('Ingresa el código completo');
       return;
     }
 
     setIsLoading(true);
-
     try {
       await new Promise(resolve => setTimeout(resolve, 1500));
-
-      router.push(`/password-recovery/reset?email=${encodeURIComponent(email || '')}&code=${fullCode}` as any);
+      
+      HapticFeedback.success();
+      Toast.success('Código verificado correctamente');
+      router.push(`/password-recovery/reset?code=${codeString}` as any);
     } catch (error) {
-      console.error('Error verifying code:', error);
-      setError('Código inválido. Por favor intenta de nuevo.');
+      console.error('Verify code error:', error);
+      HapticFeedback.error();
+      Toast.error('Código incorrecto. Intenta nuevamente.');
     } finally {
       setIsLoading(false);
     }
   };
 
   const handleResendCode = async () => {
-    Alert.alert(
-      'Código Reenviado',
-      `Hemos enviado un nuevo código a ${email}`,
-    );
-  };
-
-  const handleChangeEmail = () => {
-    router.back();
+    HapticFeedback.light();
+    Toast.info('Código reenviado a tu correo');
+    setCode(['', '', '', '', '', '']);
+    inputRefs.current[0]?.focus();
   };
 
   const isCodeComplete = code.every(digit => digit !== '');
 
   return (
-    <View style={styles.container}>
+    <KeyboardAvoidingView 
+      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+      style={styles.container}
+    >
       <StatusBar style="light" />
       
       <View style={styles.header}>
@@ -101,47 +98,39 @@ export default function PasswordRecoveryVerifyScreen() {
       </View>
 
       <ScrollView 
-        style={styles.scrollView}
         contentContainerStyle={styles.scrollContent}
-        showsVerticalScrollIndicator={false}
+        keyboardShouldPersistTaps="handled"
       >
-        <View style={styles.iconContainer}>
-          <ShieldCheck size={64} color={Colors.primary} strokeWidth={1.5} />
-        </View>
+        <Animated.View style={{ opacity: fadeAnim }}>
+          <Text style={styles.title}>Verifica tu Código</Text>
+          
+          <Text style={styles.subtitle}>
+            Ingresamos un código de 6 dígitos a {email || 'tu correo'}
+          </Text>
 
-        <Text style={styles.title}>Verifica tu Código</Text>
-        <Text style={styles.subtitle}>
-          Ingresamos un código de 6 dígitos a {email || 'tu correo'}
-        </Text>
+          <View style={styles.codeContainer}>
+            {code.map((digit, index) => (
+              <TextInput
+                key={index}
+                ref={(ref) => { inputRefs.current[index] = ref; }}
+                style={[
+                  styles.codeInput,
+                  digit && styles.codeInputFilled,
+                ]}
+                value={digit}
+                onChangeText={(value) => handleCodeChange(value, index)}
+                onKeyPress={({ nativeEvent: { key } }) => handleKeyPress(key, index)}
+                keyboardType="number-pad"
+                maxLength={1}
+                selectTextOnFocus
+                editable={!isLoading}
+              />
+            ))}
+          </View>
 
-        <View style={styles.codeContainer}>
-          {code.map((digit, index) => (
-            <TextInput
-              key={index}
-              ref={inputRefs[index]}
-              style={[
-                styles.codeInput,
-                digit && styles.codeInputFilled,
-                error && styles.codeInputError,
-              ]}
-              value={digit}
-              onChangeText={(value) => handleCodeChange(index, value)}
-              onKeyPress={({ nativeEvent }) => handleKeyPress(index, nativeEvent.key)}
-              keyboardType="number-pad"
-              maxLength={1}
-              selectTextOnFocus
-            />
-          ))}
-        </View>
-
-        {error && (
-          <Text style={styles.errorText}>{error}</Text>
-        )}
-
-        <View style={styles.buttonsContainer}>
           <LoadingButton
             title="Verificar Código"
-            onPress={handleVerify}
+            onPress={handleVerifyCode}
             loading={isLoading}
             variant="primary"
             disabled={!isCodeComplete}
@@ -149,31 +138,33 @@ export default function PasswordRecoveryVerifyScreen() {
 
           <View style={styles.linksContainer}>
             <TouchableOpacity
-              style={styles.linkButton}
               onPress={handleResendCode}
-              activeOpacity={0.7}
+              disabled={isLoading}
+              style={styles.linkButton}
             >
               <Text style={styles.linkText}>Reenviar código</Text>
             </TouchableOpacity>
 
+            <Text style={styles.linkSeparator}>•</Text>
+
             <TouchableOpacity
+              onPress={() => router.back()}
+              disabled={isLoading}
               style={styles.linkButton}
-              onPress={handleChangeEmail}
-              activeOpacity={0.7}
             >
               <Text style={styles.linkText}>Cambiar email</Text>
             </TouchableOpacity>
           </View>
-        </View>
+        </Animated.View>
       </ScrollView>
-    </View>
+    </KeyboardAvoidingView>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: Colors.background.secondary,
+    backgroundColor: Colors.background.primary,
   },
   header: {
     backgroundColor: Colors.black,
@@ -198,25 +189,13 @@ const styles = StyleSheet.create({
   headerSpacer: {
     width: 40,
   },
-  scrollView: {
-    flex: 1,
-  },
   scrollContent: {
-    paddingHorizontal: 20,
-    paddingVertical: 40,
-  },
-  iconContainer: {
-    width: 120,
-    height: 120,
-    borderRadius: 60,
-    backgroundColor: `${Colors.primary}15`,
-    justifyContent: 'center' as const,
-    alignItems: 'center' as const,
-    alignSelf: 'center' as const,
-    marginBottom: 32,
+    flexGrow: 1,
+    padding: 24,
+    paddingTop: 40,
   },
   title: {
-    fontSize: 28,
+    fontSize: 26,
     fontWeight: '700' as const,
     color: Colors.text.primary,
     textAlign: 'center' as const,
@@ -226,54 +205,48 @@ const styles = StyleSheet.create({
     fontSize: 15,
     color: Colors.text.secondary,
     textAlign: 'center' as const,
+    marginBottom: 32,
     lineHeight: 22,
-    marginBottom: 40,
   },
   codeContainer: {
     flexDirection: 'row' as const,
-    justifyContent: 'center' as const,
-    gap: 12,
-    marginBottom: 16,
+    justifyContent: 'space-between' as const,
+    marginBottom: 32,
+    gap: 8,
   },
   codeInput: {
-    width: 50,
+    flex: 1,
     height: 60,
     borderWidth: 2,
-    borderColor: Colors.border.medium,
+    borderColor: Colors.border.light,
     borderRadius: 12,
-    backgroundColor: Colors.white,
+    textAlign: 'center' as const,
     fontSize: 24,
     fontWeight: '700' as const,
-    textAlign: 'center' as const,
     color: Colors.text.primary,
+    backgroundColor: Colors.white,
   },
   codeInputFilled: {
     borderColor: Colors.primary,
-  },
-  codeInputError: {
-    borderColor: Colors.error,
-  },
-  errorText: {
-    fontSize: 14,
-    color: Colors.error,
-    textAlign: 'center' as const,
-    marginBottom: 24,
-  },
-  buttonsContainer: {
-    marginTop: 24,
+    backgroundColor: `${Colors.primary}05`,
   },
   linksContainer: {
     flexDirection: 'row' as const,
     justifyContent: 'center' as const,
-    gap: 24,
+    alignItems: 'center' as const,
     marginTop: 24,
+    gap: 12,
   },
   linkButton: {
     paddingVertical: 8,
   },
   linkText: {
-    fontSize: 15,
+    fontSize: 14,
     fontWeight: '600' as const,
     color: Colors.primary,
+  },
+  linkSeparator: {
+    fontSize: 14,
+    color: Colors.text.secondary,
   },
 });
