@@ -5,7 +5,7 @@ import { useAuth } from '@/contexts/auth';
 import Colors from '@/constants/colors';
 import { StatusBar } from 'expo-status-bar';
 import { useState } from 'react';
-import { mockOrders } from '@/mocks/orders';
+import { MOCK_ORDERS } from '@/mocks/orders';
 import RatingStars from '@/components/RatingStars';
 import LoadingButton from '@/components/LoadingButton';
 
@@ -18,14 +18,14 @@ export default function RateDriverScreen() {
   const [comment, setComment] = useState<string>('');
   const [isLoading, setIsLoading] = useState<boolean>(false);
 
-  const order = mockOrders.find(o => o.id === orderId);
+  const order = MOCK_ORDERS.find((o) => o.id === parseInt(orderId));
 
   if (!user) {
     router.replace('/login' as any);
     return null;
   }
 
-  if (!order || !order.driverId) {
+  if (!order || !order.driverName) {
     return (
       <View style={styles.container}>
         <StatusBar style="light" />
@@ -80,7 +80,7 @@ export default function RateDriverScreen() {
     router.back();
   };
 
-  const driverName = order.rating?.driverName || 'Repartidor';
+  const driverName = order.driverName || 'Repartidor';
 
   return (
     <KeyboardAvoidingView 

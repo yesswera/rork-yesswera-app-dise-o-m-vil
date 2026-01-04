@@ -1,10 +1,13 @@
-import { useState } from 'react';
-import { StyleSheet, Text, View, TouchableOpacity, Alert, KeyboardAvoidingView, Platform, ScrollView, Image } from 'react-native';
+import { useState, useRef, useEffect } from 'react';
+import { StyleSheet, Text, View, TouchableOpacity, KeyboardAvoidingView, Platform, ScrollView, Image, Animated } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useAuth } from '@/contexts/auth';
 import Colors from '@/constants/colors';
 import FormInput from '@/components/FormInput';
 import LoadingButton from '@/components/LoadingButton';
+import { Toast } from '@/utils/toast';
+import { Validator } from '@/utils/validation';
+import { HapticFeedback } from '@/utils/haptics';
 
 export default function LoginScreen() {
   const router = useRouter();
@@ -16,19 +19,31 @@ export default function LoginScreen() {
     email: '',
     password: '',
   });
+  const fadeAnim = useRef(new Animated.Value(0)).current;
+  const slideAnim = useRef(new Animated.Value(30)).current;
+
+  useEffect(() => {
+    Animated.parallel([
+      Animated.timing(fadeAnim, {
+        toValue: 1,
+        duration: 500,
+        useNativeDriver: true,
+      }),
+      Animated.spring(slideAnim, {
+        toValue: 0,
+        tension: 50,
+        friction: 7,
+        useNativeDriver: true,
+      }),
+    ]).start();
+  }, [fadeAnim, slideAnim]);
 
   const validateEmail = (value: string) => {
-    if (!value) return 'El email es requerido';
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    if (!emailRegex.test(value)) {
-      return 'Email inválido';
-    }
-    return '';
+    return Validator.email(value);
   };
 
   const validatePassword = (value: string) => {
-    if (!value) return 'La contraseña es requerida';
-    return '';
+    return Validator.required(value) || '';
   };
 
   const handleEmailChange = (value: string) => {
@@ -50,16 +65,20 @@ export default function LoginScreen() {
         email: emailError,
         password: passwordError,
       });
+      HapticFeedback.error();
       return;
     }
 
     setIsLoading(true);
     try {
       await login(email, password);
+      HapticFeedback.success();
+      Toast.success('¡Bienvenido de nuevo!');
       router.back();
     } catch (error: unknown) {
       console.error('Login error:', error);
-      Alert.alert('Error', 'Credenciales incorrectas. Intenta nuevamente.');
+      HapticFeedback.error();
+      Toast.error('Credenciales incorrectas. Intenta nuevamente.');
     } finally {
       setIsLoading(false);
     }
@@ -74,16 +93,16 @@ export default function LoginScreen() {
         contentContainerStyle={styles.scrollContent}
         keyboardShouldPersistTaps="handled"
       >
-        <View style={styles.iconContainer}>
+        <Animated.View style={[styles.iconContainer, { opacity: fadeAnim, transform: [{ translateY: slideAnim }] }]}>
           <Image
             source={{ uri: 'https://rork.app/pa/9eb35k949i660ayrsld5b/logo' }}
             style={styles.logoImage}
             resizeMode="contain"
           />
-        </View>
+        </Animated.View>
 
-        <Text style={styles.title}>Bienvenido de nuevo</Text>
-        <Text style={styles.subtitle}>Inicia sesión para continuar</Text>
+        <Animated.Text style={[styles.title, { opacity: fadeAnim }]}>Bienvenido de nuevo</Animated.Text>
+        <Animated.Text style={[styles.subtitle, { opacity: fadeAnim }]}>Inicia sesión para continuar</Animated.Text>
 
         <View style={styles.form}>
           <FormInput

@@ -1,5 +1,7 @@
 export type UserType = 'cliente' | 'repartidor' | 'negocio';
 
+export type OrderStatus = 'pending' | 'confirmed' | 'preparing' | 'ready' | 'accepted' | 'in_transit' | 'delivered' | 'cancelled';
+
 export interface User {
   id: string;
   email: string;
@@ -36,22 +38,40 @@ export interface Business {
   tags: string[];
 }
 
-export interface Order {
+export interface OrderItem {
   id: string;
-  clientId: string;
-  driverId?: string;
-  businessId?: string;
-  items?: CartItem[];
+  name: string;
+  quantity: number;
+  price: number;
+}
+
+export interface Order {
+  id: number;
+  orderNumber: string;
+  type: 'food' | 'shopping' | 'delivery';
+  status: OrderStatus;
+  createdAt: Date;
+  deliveredAt?: Date;
+  customerName: string;
+  customerPhone: string;
+  driverName?: string;
+  driverPhone?: string;
+  driverRating?: number;
+  businessName?: string;
+  items?: OrderItem[];
   shoppingList?: string;
-  packageDetails?: PackageDetails;
-  origin?: Location;
-  destination: Location;
-  orderType: 'food' | 'shopping' | 'delivery';
-  status: 'pending' | 'accepted' | 'in_transit' | 'delivered' | 'cancelled';
+  packageDescription?: string;
+  packageWeight?: number;
+  subtotal?: number;
+  deliveryFee: number;
   total: number;
-  deliveryCost: number;
-  distance: number;
-  createdAt: string;
+  pickupAddress?: string;
+  deliveryAddress: string;
+  pickupLocation?: { latitude: number; longitude: number };
+  deliveryLocation: { latitude: number; longitude: number };
+  notes?: string;
+  cancelReason?: string;
+  rated: boolean;
 }
 
 export interface PackageDetails {
@@ -87,7 +107,4 @@ export interface Store {
   distance: string;
 }
 
-export interface OrderHistory extends Order {
-  deliveredAt?: string;
-  rating?: Rating;
-}
+

@@ -1,28 +1,30 @@
 import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
 import { UtensilsCrossed, ShoppingCart, Package } from 'lucide-react-native';
-import type { OrderHistory } from '@/constants/types';
+import type { Order } from '@/constants/types';
 import Colors from '@/constants/colors';
 
 interface OrderCardProps {
-  order: OrderHistory;
+  order: Order;
   onPress: () => void;
   variant?: 'client' | 'driver' | 'business';
 }
 
 export default function OrderCard({ order, onPress, variant = 'client' }: OrderCardProps) {
   const getOrderIcon = () => {
-    switch (order.orderType) {
+    switch (order.type) {
       case 'food':
         return UtensilsCrossed;
       case 'shopping':
         return ShoppingCart;
       case 'delivery':
         return Package;
+      default:
+        return Package;
     }
   };
 
   const getOrderTypeName = () => {
-    switch (order.orderType) {
+    switch (order.type) {
       case 'food':
         return 'Alimentos';
       case 'shopping':
@@ -62,14 +64,10 @@ export default function OrderCard({ order, onPress, variant = 'client' }: OrderC
     }
   };
 
-  const formatDate = (dateString: string) => {
-    const date = new Date(dateString);
+  const formatDate = (date: Date) => {
     return date.toLocaleDateString('es-ES', {
-      day: 'numeric',
+      day: '2-digit',
       month: 'short',
-      year: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit',
     });
   };
 

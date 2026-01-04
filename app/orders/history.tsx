@@ -5,7 +5,8 @@ import { useAuth } from '@/contexts/auth';
 import Colors from '@/constants/colors';
 import { StatusBar } from 'expo-status-bar';
 import { useState, useMemo } from 'react';
-import { mockOrders } from '@/mocks/orders';
+import { MOCK_ORDERS } from '@/mocks/orders';
+import { Order } from '@/constants/types';
 
 import OrderCard from '@/components/OrderCard';
 import EmptyState from '@/components/EmptyState';
@@ -19,13 +20,13 @@ export default function OrderHistoryScreen() {
 
   const filteredOrders = useMemo(() => {
     if (!user) return [];
-    let orders = mockOrders.filter(order => order.clientId === user.id);
+    let orders = MOCK_ORDERS.filter((order: Order) => order.customerName === 'Juan Pérez');
 
     switch (selectedTab) {
       case 'delivered':
-        return orders.filter(order => order.status === 'delivered');
+        return orders.filter((order: Order) => order.status === 'delivered');
       case 'cancelled':
-        return orders.filter(order => order.status === 'cancelled');
+        return orders.filter((order: Order) => order.status === 'cancelled');
       default:
         return orders;
     }
@@ -88,7 +89,7 @@ export default function OrderHistoryScreen() {
       >
         {filteredOrders.length > 0 ? (
           <>
-            {filteredOrders.map((order) => (
+            {filteredOrders.map((order: Order) => (
               <OrderCard
                 key={order.id}
                 order={order}

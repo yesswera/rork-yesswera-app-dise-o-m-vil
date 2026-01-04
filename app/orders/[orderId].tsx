@@ -1,10 +1,10 @@
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Image } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity } from 'react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { ChevronLeft, MapPin, User as UserIcon, Map } from 'lucide-react-native';
 import { useAuth } from '@/contexts/auth';
 import Colors from '@/constants/colors';
 import { StatusBar } from 'expo-status-bar';
-import { mockOrders } from '@/mocks/orders';
+import { MOCK_ORDERS } from '@/mocks/orders';
 import RatingStars from '@/components/RatingStars';
 import LoadingButton from '@/components/LoadingButton';
 
@@ -13,7 +13,7 @@ export default function OrderDetailsScreen() {
   const { orderId } = useLocalSearchParams<{ orderId: string }>();
   const { user } = useAuth();
 
-  const order = mockOrders.find(o => o.id === orderId);
+  const order = MOCK_ORDERS.find(o => o.id === parseInt(orderId));
 
   if (!user) {
     router.replace('/login' as any);
@@ -72,8 +72,7 @@ export default function OrderDetailsScreen() {
     }
   };
 
-  const formatDate = (dateString: string) => {
-    const date = new Date(dateString);
+  const formatDate = (date: Date) => {
     return date.toLocaleDateString('es-ES', {
       day: 'numeric',
       month: 'long',
@@ -84,7 +83,7 @@ export default function OrderDetailsScreen() {
   };
 
   const getOrderTypeName = () => {
-    switch (order.orderType) {
+    switch (order.type) {
       case 'food':
         return 'Alimentos';
       case 'shopping':
@@ -94,7 +93,7 @@ export default function OrderDetailsScreen() {
     }
   };
 
-  const canRate = order.status === 'delivered' && !order.rating;
+  const canRate = order.status === 'delivered' && !order.rated;
 
   return (
     <View style={styles.container}>
@@ -108,7 +107,7 @@ export default function OrderDetailsScreen() {
         >
           <ChevronLeft size={24} color={Colors.white} />
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>Orden #{order.id}</Text>
+        <Text style={styles.headerTitle}>{order.orderNumber}</Text>
         <View style={styles.headerSpacer} />
       </View>
 
@@ -148,16 +147,14 @@ export default function OrderDetailsScreen() {
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Detalles del Pedido</Text>
           <View style={styles.card}>
-            {order.orderType === 'food' && order.items && (
+            {order.type === 'food' && order.items && (
               <View>
                 {order.items.map((item, index) => (
                   <View key={item.id}>
                     {index > 0 && <View style={styles.divider} />}
                     <View style={styles.itemRow}>
-                      <Image source={{ uri: item.image }} style={styles.itemImage} />
                       <View style={styles.itemDetails}>
                         <Text style={styles.itemName}>{item.name}</Text>
-                        <Text style={styles.itemDescription}>{item.description}</Text>
                         <Text style={styles.itemPrice}>
                           ${item.price.toFixed(2)} x {item.quantity}
                         </Text>
@@ -171,36 +168,28 @@ export default function OrderDetailsScreen() {
               </View>
             )}
             
-            {order.orderType === 'shopping' && order.shoppingList && (
+            {order.type === 'shopping' && order.shoppingList && (
               <View>
                 <Text style={styles.listTitle}>Lista de Compras:</Text>
                 <Text style={styles.listContent}>{order.shoppingList}</Text>
               </View>
             )}
             
-            {order.orderType === 'delivery' && order.packageDetails && (
+            {order.type === 'delivery' && order.packageDescription && (
               <View>
                 <View style={styles.infoRow}>
                   <Text style={styles.infoLabel}>Descripción</Text>
-                  <Text style={styles.infoValue}>{order.packageDetails.description}</Text>
+                  <Text style={styles.infoValue}>{order.packageDescription}</Text>
                 </View>
-                <View style={styles.divider} />
-                <View style={styles.infoRow}>
-                  <Text style={styles.infoLabel}>Peso</Text>
-                  <Text style={styles.infoValue}>{order.packageDetails.weight}</Text>
-                </View>
-                <View style={styles.divider} />
-                <View style={styles.infoRow}>
-                  <Text style={styles.infoLabel}>Tamaño</Text>
-                  <Text style={styles.infoValue}>{order.packageDetails.size}</Text>
-                </View>
-                <View style={styles.divider} />
-                <View style={styles.infoRow}>
-                  <Text style={styles.infoLabel}>Urgencia</Text>
-                  <Text style={styles.infoValue}>
-                    {order.packageDetails.urgency === 'express' ? 'Express' : 'Estándar'}
-                  </Text>
-                </View>
+                {order.packageWeight && (
+                  <>
+                    <View style={styles.divider} />
+                    <View style={styles.infoRow}>
+                      <Text style={styles.infoLabel}>Peso</Text>
+                      <Text style={styles.infoValue}>{order.packageWeight}kg</Text>
+                    </View>
+                  </>
+                )}
               </View>
             )}
           </View>
@@ -209,13 +198,13 @@ export default function OrderDetailsScreen() {
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Ubicaciones</Text>
           <View style={styles.card}>
-            {order.origin && (
+            {order.pickupAddress && (
               <>
                 <View style={styles.locationRow}>
                   <MapPin size={20} color={Colors.accent} />
                   <View style={styles.locationContent}>
                     <Text style={styles.locationLabel}>Origen</Text>
-                    <Text style={styles.locationAddress}>{order.origin.address}</Text>
+                    <Text style={styles.locationAddress}>{order.pickupAddress}</Text>
                   </View>
                 </View>
                 <View style={styles.divider} />
@@ -225,7 +214,7 @@ export default function OrderDetailsScreen() {
               <MapPin size={20} color={Colors.primary} />
               <View style={styles.locationContent}>
                 <Text style={styles.locationLabel}>Destino</Text>
-                <Text style={styles.locationAddress}>{order.destination.address}</Text>
+                <Text style={styles.locationAddress}>{order.deliveryAddress}</Text>
               </View>
             </View>
           </View>
@@ -234,12 +223,12 @@ export default function OrderDetailsScreen() {
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Costos</Text>
           <View style={styles.card}>
-            {order.items && (
+            {order.subtotal && (
               <>
                 <View style={styles.costRow}>
                   <Text style={styles.costLabel}>Subtotal de productos</Text>
                   <Text style={styles.costValue}>
-                    ${(order.total - order.deliveryCost).toFixed(2)}
+                    ${order.subtotal.toFixed(2)}
                   </Text>
                 </View>
                 <View style={styles.divider} />
@@ -247,7 +236,7 @@ export default function OrderDetailsScreen() {
             )}
             <View style={styles.costRow}>
               <Text style={styles.costLabel}>Costo de entrega</Text>
-              <Text style={styles.costValue}>${order.deliveryCost.toFixed(2)}</Text>
+              <Text style={styles.costValue}>${order.deliveryFee.toFixed(2)}</Text>
             </View>
             <View style={styles.divider} />
             <View style={styles.costRow}>
@@ -257,7 +246,7 @@ export default function OrderDetailsScreen() {
           </View>
         </View>
 
-        {order.driverId && (
+        {order.driverName && (
           <View style={styles.section}>
             <Text style={styles.sectionTitle}>Repartidor</Text>
             <View style={styles.card}>
@@ -267,24 +256,15 @@ export default function OrderDetailsScreen() {
                 </View>
                 <View style={styles.driverInfo}>
                   <Text style={styles.driverName}>
-                    {order.rating?.driverName || 'Repartidor'}
+                    {order.driverName}
                   </Text>
-                  {order.rating && (
+                  {order.driverRating && (
                     <View style={styles.ratingRow}>
-                      <RatingStars rating={order.rating.stars} size="small" readonly />
+                      <RatingStars rating={order.driverRating} size="small" readonly />
                     </View>
                   )}
                 </View>
               </View>
-              {order.rating && order.rating.comment && (
-                <>
-                  <View style={styles.divider} />
-                  <View>
-                    <Text style={styles.commentLabel}>Tu comentario:</Text>
-                    <Text style={styles.commentText}>{order.rating.comment}</Text>
-                  </View>
-                </>
-              )}
               {canRate && (
                 <View style={styles.rateButtonContainer}>
                   <LoadingButton

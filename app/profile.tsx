@@ -1,9 +1,12 @@
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Alert } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity } from 'react-native';
 import { useRouter } from 'expo-router';
 import { ChevronLeft, Edit2, LogOut, Mail, Phone, User as UserIcon, Star, History } from 'lucide-react-native';
 import { useAuth } from '@/contexts/auth';
 import Colors from '@/constants/colors';
 import { StatusBar } from 'expo-status-bar';
+import { HapticFeedback } from '@/utils/haptics';
+import Avatar from '@/components/Avatar';
+import Badge from '@/components/Badge';
 
 export default function ProfileScreen() {
   const router = useRouter();
@@ -13,19 +16,6 @@ export default function ProfileScreen() {
     router.replace('/login' as any);
     return null;
   }
-
-  const getUserTypeBadgeColor = () => {
-    switch (user.userType) {
-      case 'cliente':
-        return Colors.primary;
-      case 'repartidor':
-        return Colors.accent;
-      case 'negocio':
-        return Colors.secondary;
-      default:
-        return Colors.mediumGray;
-    }
-  };
 
   const getUserTypeLabel = () => {
     switch (user.userType) {
@@ -40,33 +30,13 @@ export default function ProfileScreen() {
     }
   };
 
-  const getInitials = () => {
-    const names = user.name.split(' ');
-    if (names.length >= 2) {
-      return `${names[0][0]}${names[1][0]}`.toUpperCase();
-    }
-    return user.name.substring(0, 2).toUpperCase();
-  };
-
   const handleLogout = () => {
-    Alert.alert(
-      '¿Cerrar Sesión?',
-      '¿Estás seguro que quieres salir de tu cuenta?',
-      [
-        {
-          text: 'Cancelar',
-          style: 'cancel',
-        },
-        {
-          text: 'Cerrar Sesión',
-          style: 'destructive',
-          onPress: async () => {
-            await logout();
-            router.replace('/' as any);
-          },
-        },
-      ]
-    );
+    HapticFeedback.warning();
+    if (confirm('¿Estás seguro que quieres salir de tu cuenta?')) {
+      HapticFeedback.success();
+      logout();
+      router.replace('/' as any);
+    }
   };
 
   return (
@@ -88,20 +58,14 @@ export default function ProfileScreen() {
       <ScrollView style={styles.scrollView} showsVerticalScrollIndicator={false}>
         <View style={styles.avatarSection}>
           <View style={styles.avatarContainer}>
-            {user.avatar ? (
-              <View style={styles.avatar} />
-            ) : (
-              <View style={styles.avatar}>
-                <Text style={styles.avatarText}>{getInitials()}</Text>
-              </View>
-            )}
+            <Avatar name={user.name} imageUri={user.avatar} size="xlarge" />
           </View>
           <Text style={styles.name}>{user.name}</Text>
-          <View style={[styles.typeBadge, { backgroundColor: `${getUserTypeBadgeColor()}15` }]}>
-            <Text style={[styles.typeBadgeText, { color: getUserTypeBadgeColor() }]}>
-              {getUserTypeLabel()}
-            </Text>
-          </View>
+          <Badge 
+            label={getUserTypeLabel()} 
+            variant={user.userType === 'cliente' ? 'primary' : user.userType === 'repartidor' ? 'accent' : 'secondary'}
+            size="medium"
+          />
           {user.userType === 'repartidor' && user.rating && (
             <View style={styles.ratingContainer}>
               <Star size={18} color={Colors.gold} fill={Colors.gold} />
@@ -154,7 +118,10 @@ export default function ProfileScreen() {
           
           <TouchableOpacity
             style={styles.actionButton}
-            onPress={() => router.push('/profile/edit' as any)}
+            onPress={() => {
+              HapticFeedback.light();
+              router.push('/profile/edit' as any);
+            }}
             activeOpacity={0.7}
           >
             <View style={styles.actionIconContainer}>
@@ -165,7 +132,10 @@ export default function ProfileScreen() {
 
           <TouchableOpacity
             style={styles.actionButton}
-            onPress={() => router.push('/orders/history' as any)}
+            onPress={() => {
+              HapticFeedback.light();
+              router.push('/orders/history' as any);
+            }}
             activeOpacity={0.7}
           >
             <View style={styles.actionIconContainer}>
