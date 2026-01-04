@@ -16,7 +16,8 @@ export default function HomeScreen() {
       title: 'Alimentos y Bebidas',
       subtitle: 'Restaurantes y Cafés',
       icon: UtensilsCrossed,
-      gradient: [Colors.primary, Colors.primaryDark] as const,
+      color1: Colors.primary,
+      color2: Colors.primaryDark,
       route: '/food/restaurants',
     },
     {
@@ -24,7 +25,8 @@ export default function HomeScreen() {
       title: 'Lista de Compras',
       subtitle: 'Supermercados y Tiendas',
       icon: ShoppingCart,
-      gradient: [Colors.secondary, Colors.secondaryDark] as const,
+      color1: Colors.secondary,
+      color2: Colors.secondaryDark,
       route: '/shopping/stores',
     },
     {
@@ -32,7 +34,8 @@ export default function HomeScreen() {
       title: 'Coger y Entregar',
       subtitle: 'Mensajería Express',
       icon: Package,
-      gradient: [Colors.accent, Colors.accentDark] as const,
+      color1: Colors.accent,
+      color2: Colors.accentDark,
       route: '/delivery/create',
     },
   ];
@@ -107,7 +110,7 @@ export default function HomeScreen() {
               ]}
             >
               <LinearGradient
-                colors={service.gradient}
+                colors={[service.color1, service.color2]}
                 style={styles.serviceGradient}
                 start={{ x: 0, y: 0 }}
                 end={{ x: 1, y: 1 }}
