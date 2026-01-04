@@ -1,4 +1,4 @@
-import { StyleSheet, Text, View, TouchableOpacity, ScrollView, Image } from 'react-native';
+import { StyleSheet, Text, View, TouchableOpacity, ScrollView } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
 import { UtensilsCrossed, ShoppingCart, Package, User, Briefcase, Truck } from 'lucide-react-native';
@@ -73,11 +73,7 @@ export default function HomeScreen() {
       >
         <View style={styles.header}>
           <View style={styles.logoContainer}>
-            <Image
-              source={{ uri: 'https://rork.app/pa/9eb35k949i660ayrsld5b/logo' }}
-              style={styles.logoImage}
-              resizeMode="contain"
-            />
+            <Text style={styles.logo}>Rork</Text>
             <Text style={styles.tagline}>Lo que quieras, cuando quieras</Text>
           </View>
           
