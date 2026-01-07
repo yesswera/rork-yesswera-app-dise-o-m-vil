@@ -1,4 +1,5 @@
 import { StyleSheet, Text, View, TouchableOpacity, ScrollView } from 'react-native';
+import { Image } from 'expo-image';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
 import { UtensilsCrossed, ShoppingCart, Package, User, Briefcase, Truck } from 'lucide-react-native';
@@ -73,7 +74,11 @@ export default function HomeScreen() {
       >
         <View style={styles.header}>
           <View style={styles.logoContainer}>
-            <Text style={styles.logo}>Rork</Text>
+            <Image 
+              source={{ uri: 'https://pub-e001eb4506b145aa938b5d3badbff6a5.r2.dev/attachments/kiumpzuloka2q3aib1mc0' }}
+              style={styles.logoImage}
+              contentFit="contain"
+            />
             <Text style={styles.tagline}>Lo que quieras, cuando quieras</Text>
           </View>
           
@@ -192,15 +197,9 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   logoImage: {
-    width: 140,
+    width: 50,
     height: 50,
     marginBottom: 4,
-  },
-  logo: {
-    fontSize: 32,
-    fontWeight: '800' as const,
-    color: Colors.primary,
-    letterSpacing: -1,
   },
   tagline: {
     fontSize: 14,
