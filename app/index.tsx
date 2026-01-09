@@ -16,7 +16,10 @@ export default function HomeScreen() {
   const [activeOrder, setActiveOrder] = useState<Order | null>(null);
 
   useEffect(() => {
-    if (!user || !token) return;
+    if (!user || !token) {
+      setActiveOrder(null);
+      return;
+    }
 
     const checkActiveOrder = async () => {
       try {
@@ -28,6 +31,7 @@ export default function HomeScreen() {
         }
       } catch (error) {
         console.error('Error obteniendo orden activa:', error);
+        setActiveOrder(null);
       }
     };
 
