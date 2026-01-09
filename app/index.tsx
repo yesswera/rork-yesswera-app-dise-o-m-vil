@@ -16,7 +16,10 @@ export default function HomeScreen() {
   const [activeOrder, setActiveOrder] = useState<Order | null>(null);
 
   useEffect(() => {
-    if (!user || !token) return;
+    if (!user || !token) {
+      setActiveOrder(null);
+      return;
+    }
 
     const checkActiveOrder = async () => {
       try {
@@ -28,6 +31,7 @@ export default function HomeScreen() {
         }
       } catch (error) {
         console.error('Error obteniendo orden activa:', error);
+        setActiveOrder(null);
       }
     };
 
@@ -267,9 +271,9 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   logoImage: {
-    width: 50,
-    height: 50,
-    marginBottom: 4,
+    width: 200,
+    height: 80,
+    marginBottom: 8,
   },
   tagline: {
     fontSize: 14,
