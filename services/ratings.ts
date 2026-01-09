@@ -1,4 +1,4 @@
-const API_BASE = 'http://192.168.100.3:3443/api';
+const API_BASE = 'https://192.168.100.3:3443/api';
 
 export interface CreateRatingData {
   orderId: string;

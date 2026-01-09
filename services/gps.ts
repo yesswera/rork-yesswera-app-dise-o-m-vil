@@ -6,7 +6,7 @@ export interface DriverLocation {
   heading?: number;
 }
 
-const API_BASE = 'http://192.168.100.3:3443/api';
+const API_BASE = 'https://192.168.100.3:3443/api';
 
 export async function getDriverLocation(orderId: string, token: string): Promise<DriverLocation> {
   const response = await fetch(`${API_BASE}/gps/${orderId}`, {

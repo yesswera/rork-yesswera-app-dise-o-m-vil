@@ -1,6 +1,6 @@
 import { Order } from '@/constants/types';
 
-const API_BASE = 'http://192.168.100.3:3443/api';
+const API_BASE = 'https://192.168.100.3:3443/api';
 
 export async function getUserOrders(userId: string, token: string): Promise<Order[]> {
   const response = await fetch(`${API_BASE}/orders/user/${userId}`, {
