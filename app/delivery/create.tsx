@@ -4,15 +4,19 @@ import { useRouter } from 'expo-router';
 import { Package, MapPin, Truck } from 'lucide-react-native';
 import Colors from '@/constants/colors';
 import { useAuth } from '@/contexts/auth';
+import { SavedAddress, PaymentMethod } from '@/constants/types';
+import AddressSelector from '@/components/AddressSelector';
+import PaymentMethodSelector from '@/components/PaymentMethodSelector';
 
 export default function DeliveryCreateScreen() {
   const router = useRouter();
   const { user } = useAuth();
   const [originAddress, setOriginAddress] = useState<string>('');
-  const [destinationAddress, setDestinationAddress] = useState<string>('');
+  const [selectedDestination, setSelectedDestination] = useState<SavedAddress | null>(null);
   const [packageDescription, setPackageDescription] = useState<string>('');
   const [packageWeight, setPackageWeight] = useState<string>('');
   const [urgency, setUrgency] = useState<'standard' | 'express'>('standard');
+  const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>('cash');
   const [isProcessing, setIsProcessing] = useState<boolean>(false);
 
   const distance = 7.5;
@@ -21,8 +25,13 @@ export default function DeliveryCreateScreen() {
   const deliveryCost = baseRate * urgencyMultiplier;
 
   const handleSubmit = async () => {
-    if (!originAddress.trim() || !destinationAddress.trim()) {
-      Alert.alert('Error', 'Por favor completa las direcciones de origen y destino');
+    if (!originAddress.trim()) {
+      Alert.alert('Error', 'Por favor ingresa la dirección de recogida');
+      return;
+    }
+
+    if (!selectedDestination) {
+      Alert.alert('Error', 'Por favor selecciona la dirección de entrega');
       return;
     }
 
@@ -92,20 +101,10 @@ export default function DeliveryCreateScreen() {
             </View>
           </View>
 
-          <View style={styles.section}>
-            <Text style={styles.sectionTitle}>Punto de Entrega</Text>
-            <View style={styles.inputContainer}>
-              <MapPin size={20} color={Colors.primary} />
-              <TextInput
-                style={styles.input}
-                placeholder="¿A dónde entregar?"
-                placeholderTextColor={Colors.text.light}
-                value={destinationAddress}
-                onChangeText={setDestinationAddress}
-                multiline
-              />
-            </View>
-          </View>
+          <AddressSelector
+            selectedAddress={selectedDestination}
+            onAddressSelect={setSelectedDestination}
+          />
 
           <View style={styles.section}>
             <Text style={styles.sectionTitle}>Detalles del Paquete</Text>
@@ -165,6 +164,11 @@ export default function DeliveryCreateScreen() {
               </TouchableOpacity>
             </View>
           </View>
+
+          <PaymentMethodSelector
+            selectedMethod={paymentMethod}
+            onSelectMethod={setPaymentMethod}
+          />
 
           <View style={styles.costSection}>
             <Text style={styles.sectionTitle}>Costo de Envío</Text>

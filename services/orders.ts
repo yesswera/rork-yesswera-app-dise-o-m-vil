@@ -62,3 +62,18 @@ export async function cancelOrder(orderId: string, token: string): Promise<void>
     throw new Error('Error al cancelar orden');
   }
 }
+
+export async function getActiveOrders(userId: string, token: string): Promise<Order[]> {
+  const response = await fetch(`${API_BASE}/orders/user/${userId}/active`, {
+    headers: {
+      'Authorization': `Bearer ${token}`,
+      'Content-Type': 'application/json',
+    },
+  });
+
+  if (!response.ok) {
+    throw new Error('Error al obtener órdenes activas');
+  }
+
+  return response.json();
+}

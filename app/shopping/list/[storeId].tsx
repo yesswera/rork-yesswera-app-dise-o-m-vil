@@ -1,17 +1,21 @@
 import { useState } from 'react';
 import { StyleSheet, Text, View, TouchableOpacity, ScrollView, TextInput, Alert } from 'react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
-import { ShoppingBag, MapPin } from 'lucide-react-native';
+import { ShoppingBag } from 'lucide-react-native';
 import Colors from '@/constants/colors';
 import { mockStores } from '@/mocks/stores';
 import { useAuth } from '@/contexts/auth';
+import { SavedAddress, PaymentMethod } from '@/constants/types';
+import AddressSelector from '@/components/AddressSelector';
+import PaymentMethodSelector from '@/components/PaymentMethodSelector';
 
 export default function ShoppingListScreen() {
   const router = useRouter();
   const { storeId } = useLocalSearchParams<{ storeId: string }>();
   const { user } = useAuth();
   const [shoppingList, setShoppingList] = useState<string>('');
-  const [address, setAddress] = useState<string>('');
+  const [selectedAddress, setSelectedAddress] = useState<SavedAddress | null>(null);
+  const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>('cash');
   const [isProcessing, setIsProcessing] = useState<boolean>(false);
 
   const store = mockStores.find((s) => s.id === storeId);
@@ -35,8 +39,8 @@ export default function ShoppingListScreen() {
       return;
     }
 
-    if (!address.trim()) {
-      Alert.alert('Error', 'Por favor ingresa tu dirección de entrega');
+    if (!selectedAddress) {
+      Alert.alert('Error', 'Por favor selecciona una dirección de entrega');
       return;
     }
 
@@ -102,20 +106,15 @@ export default function ShoppingListScreen() {
             />
           </View>
 
-          <View style={styles.section}>
-            <Text style={styles.sectionTitle}>Dirección de Entrega</Text>
-            <View style={styles.addressInputContainer}>
-              <MapPin size={20} color={Colors.secondary} />
-              <TextInput
-                style={styles.addressInput}
-                placeholder="Ej: Calle 45 #23-10, Apto 501"
-                placeholderTextColor={Colors.text.light}
-                value={address}
-                onChangeText={setAddress}
-                multiline
-              />
-            </View>
-          </View>
+          <AddressSelector
+            selectedAddress={selectedAddress}
+            onAddressSelect={setSelectedAddress}
+          />
+
+          <PaymentMethodSelector
+            selectedMethod={paymentMethod}
+            onSelectMethod={setPaymentMethod}
+          />
 
           <View style={styles.estimateSection}>
             <Text style={styles.sectionTitle}>Costo Estimado</Text>
@@ -224,23 +223,6 @@ const styles = StyleSheet.create({
     minHeight: 200,
     borderWidth: 1.5,
     borderColor: Colors.border.light,
-  },
-  addressInputContainer: {
-    backgroundColor: Colors.white,
-    borderRadius: 12,
-    padding: 16,
-    flexDirection: 'row' as const,
-    alignItems: 'flex-start' as const,
-    gap: 12,
-    borderWidth: 1.5,
-    borderColor: Colors.border.light,
-  },
-  addressInput: {
-    flex: 1,
-    fontSize: 15,
-    color: Colors.text.primary,
-    minHeight: 60,
-    textAlignVertical: 'top' as const,
   },
   estimateSection: {
     marginBottom: 20,

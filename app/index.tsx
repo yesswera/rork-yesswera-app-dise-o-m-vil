@@ -2,14 +2,52 @@ import { StyleSheet, Text, View, TouchableOpacity, ScrollView } from 'react-nati
 import { Image } from 'expo-image';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
-import { UtensilsCrossed, ShoppingCart, Package, User, Briefcase, Truck } from 'lucide-react-native';
+import { UtensilsCrossed, ShoppingCart, Package, User, Briefcase, Truck, ChevronRight, ShoppingBag } from 'lucide-react-native';
 import { StatusBar } from 'expo-status-bar';
+import { useState, useEffect } from 'react';
 import { useAuth } from '@/contexts/auth';
+import { getActiveOrders } from '@/services/orders';
+import { Order, OrderStatus } from '@/constants/types';
 import Colors from '@/constants/colors';
 
 export default function HomeScreen() {
   const router = useRouter();
-  const { user } = useAuth();
+  const { user, token } = useAuth();
+  const [activeOrder, setActiveOrder] = useState<Order | null>(null);
+
+  useEffect(() => {
+    if (!user || !token) return;
+
+    const checkActiveOrder = async () => {
+      try {
+        const orders = await getActiveOrders(user.id, token);
+        if (orders.length > 0) {
+          setActiveOrder(orders[0]);
+        } else {
+          setActiveOrder(null);
+        }
+      } catch (error) {
+        console.error('Error obteniendo orden activa:', error);
+      }
+    };
+
+    checkActiveOrder();
+
+    const interval = setInterval(checkActiveOrder, 10000);
+    return () => clearInterval(interval);
+  }, [user, token]);
+
+  const getOrderStatusText = (status: OrderStatus) => {
+    switch (status) {
+      case 'pending': return '⏳ Buscando repartidor...';
+      case 'confirmed': return '✅ Orden confirmada';
+      case 'preparing': return '👨‍🍳 Preparando tu orden';
+      case 'ready': return '📦 Orden lista para recoger';
+      case 'accepted': return '🚴 Repartidor asignado';
+      case 'in_transit': return '🚴 Tu orden está en camino';
+      default: return 'Orden activa';
+    }
+  };
 
   const services = [
     {
@@ -98,6 +136,38 @@ export default function HomeScreen() {
             </TouchableOpacity>
           )}
         </View>
+
+        {activeOrder && user && (
+          <TouchableOpacity
+            style={styles.activeOrderBanner}
+            onPress={() => router.push(`/tracking/${activeOrder.id}` as any)}
+            activeOpacity={0.9}
+          >
+            <LinearGradient
+              colors={[Colors.primary, Colors.primaryDark]}
+              style={styles.bannerGradient}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 1 }}
+            >
+              <View style={styles.bannerContent}>
+                <View style={styles.bannerIcon}>
+                  {activeOrder.type === 'food' && <UtensilsCrossed size={24} color={Colors.white} />}
+                  {activeOrder.type === 'shopping' && <ShoppingBag size={24} color={Colors.white} />}
+                  {activeOrder.type === 'delivery' && <Package size={24} color={Colors.white} />}
+                </View>
+                <View style={styles.bannerText}>
+                  <Text style={styles.bannerTitle}>
+                    {getOrderStatusText(activeOrder.status)}
+                  </Text>
+                  <Text style={styles.bannerSubtitle}>
+                    {activeOrder.orderNumber} • Tap para ver detalles
+                  </Text>
+                </View>
+                <ChevronRight size={20} color={Colors.white} />
+              </View>
+            </LinearGradient>
+          </TouchableOpacity>
+        )}
 
         <View style={styles.servicesContainer}>
           {services.map((service, index) => (
@@ -339,5 +409,44 @@ const styles = StyleSheet.create({
     fontSize: 15,
     fontWeight: '600' as const,
     color: Colors.primary,
+  },
+  activeOrderBanner: {
+    marginBottom: 24,
+    borderRadius: 16,
+    overflow: 'hidden' as const,
+    shadowColor: Colors.shadow.dark,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.2,
+    shadowRadius: 12,
+    elevation: 6,
+  },
+  bannerGradient: {
+    padding: 16,
+  },
+  bannerContent: {
+    flexDirection: 'row' as const,
+    alignItems: 'center' as const,
+  },
+  bannerIcon: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    backgroundColor: 'rgba(255, 255, 255, 0.2)',
+    justifyContent: 'center' as const,
+    alignItems: 'center' as const,
+    marginRight: 12,
+  },
+  bannerText: {
+    flex: 1,
+  },
+  bannerTitle: {
+    fontSize: 16,
+    fontWeight: '700' as const,
+    color: Colors.white,
+    marginBottom: 4,
+  },
+  bannerSubtitle: {
+    fontSize: 13,
+    color: 'rgba(255, 255, 255, 0.9)',
   },
 });

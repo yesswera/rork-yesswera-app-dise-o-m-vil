@@ -2,6 +2,8 @@ export type UserType = 'cliente' | 'repartidor' | 'negocio';
 
 export type OrderStatus = 'pending' | 'confirmed' | 'preparing' | 'ready' | 'accepted' | 'in_transit' | 'delivered' | 'cancelled';
 
+export type PaymentMethod = 'cash' | 'card' | 'transfer';
+
 export interface User {
   id: string;
   email: string;
@@ -75,6 +77,8 @@ export interface Order {
   notes?: string;
   cancelReason?: string;
   rated: boolean;
+  paymentMethod: PaymentMethod;
+  paymentStatus: 'pending' | 'paid';
 }
 
 export interface PackageDetails {
@@ -110,4 +114,15 @@ export interface Store {
   distance: string;
 }
 
+export interface SavedAddress {
+  id: string;
+  userId: string;
+  label: 'Casa' | 'Trabajo' | 'Otro';
+  address: string;
+  latitude: number;
+  longitude: number;
+  instructions?: string;
+  isDefault: boolean;
+  createdAt: string;
+}
 

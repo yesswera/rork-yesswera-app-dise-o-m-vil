@@ -1,13 +1,14 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { StyleSheet, Text, View, TouchableOpacity, ScrollView, Dimensions, ActivityIndicator } from 'react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { Clock, User, Phone, Star } from 'lucide-react-native';
+import * as Haptics from 'expo-haptics';
 import Colors from '@/constants/colors';
 import MapView, { Marker, Polyline } from 'react-native-maps';
 import { getOrderById } from '@/services/orders';
 import { getDriverLocation, DriverLocation } from '@/services/gps';
 import { useAuth } from '@/contexts/auth';
-import { Order } from '@/constants/types';
+import { Order, OrderStatus } from '@/constants/types';
 import ErrorState from '@/components/ErrorState';
 
 const { width, height } = Dimensions.get('window');
@@ -21,6 +22,7 @@ export default function TrackingScreen() {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [showRating, setShowRating] = useState(false);
+  const prevStatusRef = useRef<OrderStatus | null>(null);
 
   useEffect(() => {
     const loadOrder = async () => {
@@ -46,18 +48,29 @@ export default function TrackingScreen() {
 
     if (order.status === 'delivered' || order.status === 'cancelled') return;
 
-    const fetchLocation = async () => {
+    const fetchData = async () => {
       try {
-        const location = await getDriverLocation(orderId as string, token);
+        const [location, updatedOrder] = await Promise.all([
+          getDriverLocation(orderId as string, token),
+          getOrderById(orderId as string, token)
+        ]);
+        
         setDriverLocation(location);
+        
+        if (prevStatusRef.current && prevStatusRef.current !== updatedOrder.status) {
+          Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+        }
+        
+        prevStatusRef.current = updatedOrder.status;
+        setOrder(updatedOrder);
       } catch (err) {
-        console.error('Error obteniendo ubicación:', err);
+        console.error('Error obteniendo datos:', err);
       }
     };
 
-    fetchLocation();
+    fetchData();
 
-    const interval = setInterval(fetchLocation, 5000);
+    const interval = setInterval(fetchData, 3000);
 
     return () => clearInterval(interval);
   }, [orderId, token, order]);

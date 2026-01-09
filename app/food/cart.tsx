@@ -1,17 +1,21 @@
-import { StyleSheet, Text, View, TouchableOpacity, ScrollView, TextInput, Alert } from 'react-native';
+import { StyleSheet, Text, View, TouchableOpacity, ScrollView, Alert } from 'react-native';
 import { useRouter } from 'expo-router';
-import { Trash2, Plus, Minus, MapPin } from 'lucide-react-native';
+import { Trash2, Plus, Minus } from 'lucide-react-native';
 import { Image } from 'expo-image';
 import { useState } from 'react';
 import Colors from '@/constants/colors';
 import { useCart } from '@/contexts/cart';
 import { useAuth } from '@/contexts/auth';
+import { SavedAddress, PaymentMethod } from '@/constants/types';
+import AddressSelector from '@/components/AddressSelector';
+import PaymentMethodSelector from '@/components/PaymentMethodSelector';
 
 export default function CartScreen() {
   const router = useRouter();
   const { items, updateQuantity, removeItem, total, clearCart } = useCart();
   const { user } = useAuth();
-  const [address, setAddress] = useState<string>('');
+  const [selectedAddress, setSelectedAddress] = useState<SavedAddress | null>(null);
+  const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>('cash');
   const [isProcessing, setIsProcessing] = useState<boolean>(false);
 
   const distance = 5;
@@ -19,8 +23,8 @@ export default function CartScreen() {
   const finalTotal = total + deliveryCost;
 
   const handleCheckout = async () => {
-    if (!address.trim()) {
-      Alert.alert('Error', 'Por favor ingresa tu dirección de entrega');
+    if (!selectedAddress) {
+      Alert.alert('Error', 'Por favor selecciona una dirección de entrega');
       return;
     }
 
@@ -118,20 +122,15 @@ export default function CartScreen() {
             ))}
           </View>
 
-          <View style={styles.addressSection}>
-            <Text style={styles.sectionTitle}>Dirección de Entrega</Text>
-            <View style={styles.addressInputContainer}>
-              <MapPin size={20} color={Colors.primary} />
-              <TextInput
-                style={styles.addressInput}
-                placeholder="Ej: Calle 45 #23-10, Apto 501"
-                placeholderTextColor={Colors.text.light}
-                value={address}
-                onChangeText={setAddress}
-                multiline
-              />
-            </View>
-          </View>
+          <AddressSelector
+            selectedAddress={selectedAddress}
+            onAddressSelect={setSelectedAddress}
+          />
+
+          <PaymentMethodSelector
+            selectedMethod={paymentMethod}
+            onSelectMethod={setPaymentMethod}
+          />
 
           <View style={styles.summarySection}>
             <Text style={styles.sectionTitle}>Resumen</Text>
@@ -279,26 +278,6 @@ const styles = StyleSheet.create({
     justifyContent: 'center' as const,
     alignItems: 'center' as const,
     paddingLeft: 8,
-  },
-  addressSection: {
-    marginBottom: 24,
-  },
-  addressInputContainer: {
-    backgroundColor: Colors.white,
-    borderRadius: 12,
-    padding: 16,
-    flexDirection: 'row' as const,
-    alignItems: 'flex-start' as const,
-    gap: 12,
-    borderWidth: 1.5,
-    borderColor: Colors.border.light,
-  },
-  addressInput: {
-    flex: 1,
-    fontSize: 15,
-    color: Colors.text.primary,
-    minHeight: 60,
-    textAlignVertical: 'top' as const,
   },
   summarySection: {
     backgroundColor: Colors.white,

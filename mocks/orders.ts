@@ -29,6 +29,8 @@ export const MOCK_ORDERS: Order[] = [
     deliveryLocation: { latitude: 18.4901, longitude: -69.9402 },
     notes: 'Sin cebolla en la hamburguesa',
     rated: false,
+    paymentMethod: 'cash',
+    paymentStatus: 'paid',
   },
   {
     id: 2,
@@ -53,6 +55,8 @@ export const MOCK_ORDERS: Order[] = [
     pickupLocation: { latitude: 18.4750, longitude: -69.9100 },
     deliveryLocation: { latitude: 18.4901, longitude: -69.9402 },
     rated: true,
+    paymentMethod: 'cash',
+    paymentStatus: 'paid',
   },
   {
     id: 3,
@@ -76,6 +80,8 @@ export const MOCK_ORDERS: Order[] = [
     deliveryLocation: { latitude: 18.4850, longitude: -69.9500 },
     notes: 'Llamar antes de llegar',
     rated: false,
+    paymentMethod: 'cash',
+    paymentStatus: 'pending',
   },
   {
     id: 4,
@@ -97,6 +103,8 @@ export const MOCK_ORDERS: Order[] = [
     deliveryLocation: { latitude: 18.4901, longitude: -69.9402 },
     cancelReason: 'Tiempo de espera muy largo',
     rated: false,
+    paymentMethod: 'cash',
+    paymentStatus: 'pending',
   },
   {
     id: 5,
@@ -120,6 +128,8 @@ export const MOCK_ORDERS: Order[] = [
     pickupLocation: { latitude: 18.4720, longitude: -69.9180 },
     deliveryLocation: { latitude: 18.4790, longitude: -69.9280 },
     rated: false,
+    paymentMethod: 'cash',
+    paymentStatus: 'pending',
   },
 ];
 
