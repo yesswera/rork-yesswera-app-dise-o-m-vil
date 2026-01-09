@@ -1,5 +1,5 @@
-import { useState } from 'react';
-import { StyleSheet, Text, View, TouchableOpacity, KeyboardAvoidingView, Platform, ScrollView, TextInput } from 'react-native';
+import { useState, useEffect } from 'react';
+import { StyleSheet, Text, View, TouchableOpacity, KeyboardAvoidingView, Platform, ScrollView, TextInput, ActivityIndicator } from 'react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { ChevronLeft, Star } from 'lucide-react-native';
 import { useAuth } from '@/contexts/auth';
@@ -9,22 +9,91 @@ import LoadingButton from '@/components/LoadingButton';
 import { Toast } from '@/utils/toast';
 import { HapticFeedback } from '@/utils/haptics';
 import { StatusBar } from 'expo-status-bar';
+import { getOrderById } from '@/services/orders';
+import { createRating } from '@/services/ratings';
+import { Order } from '@/constants/types';
+import ErrorState from '@/components/ErrorState';
 
 export default function CreateRatingScreen() {
   const router = useRouter();
   const { orderId } = useLocalSearchParams();
-  const { user } = useAuth();
+  const { user, token } = useAuth();
+  const [order, setOrder] = useState<Order | null>(null);
+  const [isLoadingOrder, setIsLoadingOrder] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [rating, setRating] = useState<number>(0);
   const [comment, setComment] = useState<string>('');
-  const [isLoading, setIsLoading] = useState<boolean>(false);
+  const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
+
+  useEffect(() => {
+    const loadOrder = async () => {
+      if (!token || !orderId) return;
+
+      try {
+        const orderData = await getOrderById(orderId as string, token);
+        setOrder(orderData);
+        setError(null);
+      } catch (err) {
+        console.error('Error cargando orden:', err);
+        setError('No se pudo cargar la orden');
+      } finally {
+        setIsLoadingOrder(false);
+      }
+    };
+
+    loadOrder();
+  }, [orderId, token]);
 
   if (!user) {
     router.replace('/login' as any);
     return null;
   }
 
-  const driverName = 'Carlos Rodríguez';
-  const driverAvatar = undefined;
+  if (isLoadingOrder) {
+    return (
+      <View style={styles.container}>
+        <StatusBar style="light" />
+        <View style={styles.header}>
+          <TouchableOpacity
+            style={styles.backButton}
+            onPress={() => router.back()}
+            activeOpacity={0.7}
+          >
+            <ChevronLeft size={24} color={Colors.white} />
+          </TouchableOpacity>
+          <Text style={styles.headerTitle}>Calificar Servicio</Text>
+          <View style={styles.headerSpacer} />
+        </View>
+        <View style={styles.loadingContainer}>
+          <ActivityIndicator size="large" color={Colors.primary} />
+          <Text style={styles.loadingText}>Cargando...</Text>
+        </View>
+      </View>
+    );
+  }
+
+  if (error || !order) {
+    return (
+      <View style={styles.container}>
+        <StatusBar style="light" />
+        <View style={styles.header}>
+          <TouchableOpacity
+            style={styles.backButton}
+            onPress={() => router.back()}
+            activeOpacity={0.7}
+          >
+            <ChevronLeft size={24} color={Colors.white} />
+          </TouchableOpacity>
+          <Text style={styles.headerTitle}>Calificar Servicio</Text>
+          <View style={styles.headerSpacer} />
+        </View>
+        <ErrorState message={error || 'Orden no encontrada'} onRetry={() => router.back()} />
+      </View>
+    );
+  }
+
+  const driverName = order.driverName || 'Repartidor';
+  const driverId = order.driverId || '';
 
   const handleRatingPress = (value: number) => {
     setRating(value);
@@ -38,9 +107,20 @@ export default function CreateRatingScreen() {
       return;
     }
 
-    setIsLoading(true);
+    if (!token || !driverId) {
+      HapticFeedback.error();
+      Toast.error('Información faltante');
+      return;
+    }
+
+    setIsSubmitting(true);
     try {
-      await new Promise(resolve => setTimeout(resolve, 1500));
+      await createRating({
+        orderId: orderId as string,
+        driverId: driverId,
+        stars: rating,
+        comment: comment || undefined,
+      }, token);
       
       HapticFeedback.success();
       Toast.success('¡Gracias por tu calificación!');
@@ -50,7 +130,7 @@ export default function CreateRatingScreen() {
       HapticFeedback.error();
       Toast.error('No se pudo enviar la calificación. Intenta nuevamente.');
     } finally {
-      setIsLoading(false);
+      setIsSubmitting(false);
     }
   };
 
@@ -90,7 +170,7 @@ export default function CreateRatingScreen() {
           </Text>
 
           <View style={styles.driverCard}>
-            <Avatar name={driverName} imageUri={driverAvatar} size="large" />
+            <Avatar name={driverName} imageUri={undefined} size="large" />
             <Text style={styles.driverName}>{driverName}</Text>
             <Text style={styles.driverLabel}>Tu repartidor</Text>
           </View>
@@ -137,7 +217,7 @@ export default function CreateRatingScreen() {
                 numberOfLines={4}
                 textAlignVertical="top"
                 maxLength={200}
-                editable={!isLoading}
+                editable={!isSubmitting}
               />
               <Text style={styles.commentCounter}>
                 {comment.length}/200
@@ -149,7 +229,7 @@ export default function CreateRatingScreen() {
             <LoadingButton
               title="Enviar Calificación"
               onPress={handleSubmit}
-              loading={isLoading}
+              loading={isSubmitting}
               variant="primary"
               disabled={rating === 0}
             />
@@ -157,7 +237,7 @@ export default function CreateRatingScreen() {
             <TouchableOpacity
               style={styles.skipButton}
               onPress={handleSkip}
-              disabled={isLoading}
+              disabled={isSubmitting}
               activeOpacity={0.8}
             >
               <Text style={styles.skipButtonText}>Omitir</Text>
@@ -196,6 +276,17 @@ const styles = StyleSheet.create({
   },
   headerSpacer: {
     width: 40,
+  },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center' as const,
+    alignItems: 'center' as const,
+    padding: 40,
+  },
+  loadingText: {
+    fontSize: 16,
+    color: Colors.text.secondary,
+    marginTop: 16,
   },
   scrollContent: {
     flexGrow: 1,

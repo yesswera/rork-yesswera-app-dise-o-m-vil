@@ -1,59 +1,88 @@
 import { useState, useEffect } from 'react';
-import { StyleSheet, Text, View, TouchableOpacity, ScrollView, Dimensions } from 'react-native';
+import { StyleSheet, Text, View, TouchableOpacity, ScrollView, Dimensions, ActivityIndicator } from 'react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { Clock, User, Phone, Star } from 'lucide-react-native';
 import Colors from '@/constants/colors';
 import MapView, { Marker, Polyline } from 'react-native-maps';
+import { getOrderById } from '@/services/orders';
+import { getDriverLocation, DriverLocation } from '@/services/gps';
+import { useAuth } from '@/contexts/auth';
+import { Order } from '@/constants/types';
+import ErrorState from '@/components/ErrorState';
 
 const { width, height } = Dimensions.get('window');
 
 export default function TrackingScreen() {
   const router = useRouter();
   const { orderId } = useLocalSearchParams<{ orderId: string }>();
-  const [driverLocation, setDriverLocation] = useState({
-    latitude: 37.78825,
-    longitude: -122.4324,
-  });
+  const { token } = useAuth();
+  const [order, setOrder] = useState<Order | null>(null);
+  const [driverLocation, setDriverLocation] = useState<DriverLocation | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [showRating, setShowRating] = useState(false);
-  const [orderStatus] = useState<'pending' | 'accepted' | 'in_transit' | 'delivered'>('in_transit');
-
-  const pickupLocation = {
-    latitude: 37.78725,
-    longitude: -122.4334,
-  };
-
-  const deliveryLocation = {
-    latitude: 37.79025,
-    longitude: -122.4304,
-  };
 
   useEffect(() => {
-    const interval = setInterval(() => {
-      setDriverLocation((prev) => ({
-        latitude: prev.latitude + (Math.random() - 0.5) * 0.001,
-        longitude: prev.longitude + (Math.random() - 0.5) * 0.001,
-      }));
-    }, 3000);
+    const loadOrder = async () => {
+      if (!token || !orderId) return;
+
+      try {
+        const orderData = await getOrderById(orderId as string, token);
+        setOrder(orderData);
+        setError(null);
+      } catch (err) {
+        console.error('Error cargando orden:', err);
+        setError('No se pudo cargar la orden');
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    loadOrder();
+  }, [orderId, token]);
+
+  useEffect(() => {
+    if (!order || !token || !orderId) return;
+
+    if (order.status === 'delivered' || order.status === 'cancelled') return;
+
+    const fetchLocation = async () => {
+      try {
+        const location = await getDriverLocation(orderId as string, token);
+        setDriverLocation(location);
+      } catch (err) {
+        console.error('Error obteniendo ubicación:', err);
+      }
+    };
+
+    fetchLocation();
+
+    const interval = setInterval(fetchLocation, 5000);
 
     return () => clearInterval(interval);
-  }, []);
+  }, [orderId, token, order]);
 
-  const driver = {
-    name: 'Carlos Rodríguez',
-    rating: 4.8,
-    phone: '+1 234 567 8900',
-  };
+
 
   const getStatusText = () => {
-    switch (orderStatus) {
+    if (!order) return 'Cargando...';
+    switch (order.status) {
       case 'pending':
         return 'Buscando repartidor...';
+      case 'confirmed':
+        return 'Orden confirmada';
+      case 'preparing':
+        return 'Preparando orden';
+      case 'ready':
+        return 'Listo para recoger';
       case 'accepted':
         return 'Repartidor asignado';
       case 'in_transit':
         return 'En camino';
       case 'delivered':
         return 'Entregado';
+      case 'cancelled':
+        return 'Cancelada';
       default:
         return 'Procesando';
     }
@@ -63,8 +92,39 @@ export default function TrackingScreen() {
     setShowRating(true);
   };
 
+  const handleRetry = () => {
+    setIsLoading(true);
+    setError(null);
+    if (token && orderId) {
+      getOrderById(orderId as string, token)
+        .then(setOrder)
+        .catch(() => setError('No se pudo cargar la orden'))
+        .finally(() => setIsLoading(false));
+    }
+  };
+
+  if (isLoading) {
+    return (
+      <View style={[styles.container, styles.centerContent]}>
+        <ActivityIndicator size="large" color={Colors.primary} />
+        <Text style={styles.loadingText}>Cargando seguimiento...</Text>
+      </View>
+    );
+  }
+
+  if (error || !order) {
+    return <ErrorState message={error || 'No se encontró la orden'} onRetry={handleRetry} />;
+  }
+
   if (showRating) {
-    return <RatingComponent orderId={orderId || ''} driverName={driver.name} onComplete={() => router.push('/' as any)} />;
+    return (
+      <RatingComponent
+        orderId={orderId || ''}
+        driverName={order.driverName || 'el repartidor'}
+        driverId={order.driverId || ''}
+        onComplete={() => router.push('/' as any)}
+      />
+    );
   }
 
   return (
@@ -72,43 +132,52 @@ export default function TrackingScreen() {
       <MapView
         style={styles.map}
         initialRegion={{
-          latitude: driverLocation.latitude,
-          longitude: driverLocation.longitude,
-          latitudeDelta: 0.01,
-          longitudeDelta: 0.01,
-        }}
-        region={{
-          latitude: driverLocation.latitude,
-          longitude: driverLocation.longitude,
-          latitudeDelta: 0.01,
-          longitudeDelta: 0.01,
+          latitude: order.deliveryLocation.latitude,
+          longitude: order.deliveryLocation.longitude,
+          latitudeDelta: 0.05,
+          longitudeDelta: 0.05,
         }}
       >
+        {order.pickupLocation && (
+          <Marker
+            coordinate={order.pickupLocation}
+            pinColor={Colors.accent}
+            title="Punto de Recogida"
+            description={order.pickupAddress}
+          />
+        )}
         <Marker
-          coordinate={pickupLocation}
-          pinColor={Colors.accent}
-          title="Punto de Recogida"
-        />
-        <Marker
-          coordinate={deliveryLocation}
+          coordinate={order.deliveryLocation}
           pinColor={Colors.primary}
           title="Punto de Entrega"
+          description={order.deliveryAddress}
         />
-        <Marker
-          coordinate={driverLocation}
-          title="Repartidor"
-          description={driver.name}
-        >
-          <View style={styles.driverMarker}>
-            <User size={20} color={Colors.white} />
-          </View>
-        </Marker>
+        {driverLocation && (
+          <Marker
+            coordinate={{
+              latitude: driverLocation.latitude,
+              longitude: driverLocation.longitude
+            }}
+            title="Repartidor"
+            description={order.driverName}
+          >
+            <View style={styles.driverMarker}>
+              <User size={20} color={Colors.white} />
+            </View>
+          </Marker>
+        )}
 
-        <Polyline
-          coordinates={[pickupLocation, driverLocation, deliveryLocation]}
-          strokeColor={Colors.primary}
-          strokeWidth={3}
-        />
+        {driverLocation && order.pickupLocation && (
+          <Polyline
+            coordinates={[
+              order.pickupLocation,
+              { latitude: driverLocation.latitude, longitude: driverLocation.longitude },
+              order.deliveryLocation
+            ]}
+            strokeColor={Colors.primary}
+            strokeWidth={3}
+          />
+        )}
       </MapView>
 
       <View style={styles.infoContainer}>
@@ -126,11 +195,13 @@ export default function TrackingScreen() {
               <User size={24} color={Colors.primary} />
             </View>
             <View style={styles.driverDetails}>
-              <Text style={styles.driverName}>{driver.name}</Text>
-              <View style={styles.driverRatingRow}>
-                <Star size={14} color={Colors.warning} fill={Colors.warning} />
-                <Text style={styles.driverRatingText}>{driver.rating}</Text>
-              </View>
+              <Text style={styles.driverName}>{order.driverName || 'Asignando repartidor...'}</Text>
+              {order.driverRating && (
+                <View style={styles.driverRatingRow}>
+                  <Star size={14} color={Colors.gold} fill={Colors.gold} />
+                  <Text style={styles.driverRatingText}>{order.driverRating}</Text>
+                </View>
+              )}
             </View>
           </View>
           <TouchableOpacity style={styles.callButton}>
@@ -138,7 +209,7 @@ export default function TrackingScreen() {
           </TouchableOpacity>
         </View>
 
-        {orderStatus === 'delivered' && (
+        {order.status === 'delivered' && !order.rated && (
           <TouchableOpacity style={styles.completeButton} onPress={handleCompleteDelivery}>
             <Text style={styles.completeButtonText}>Calificar Repartidor</Text>
           </TouchableOpacity>
@@ -148,7 +219,7 @@ export default function TrackingScreen() {
   );
 }
 
-function RatingComponent({ orderId, driverName, onComplete }: { orderId: string; driverName: string; onComplete: () => void }) {
+function RatingComponent({ orderId, driverName, driverId, onComplete }: { orderId: string; driverName: string; driverId: string; onComplete: () => void }) {
   const [rating, setRating] = useState(0);
 
   const handleSubmit = () => {
@@ -205,6 +276,15 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: Colors.background.primary,
+  },
+  centerContent: {
+    justifyContent: 'center' as const,
+    alignItems: 'center' as const,
+  },
+  loadingText: {
+    fontSize: 16,
+    color: Colors.text.secondary,
+    marginTop: 12,
   },
   map: {
     width: width,
@@ -282,7 +362,7 @@ const styles = StyleSheet.create({
   driverRatingText: {
     fontSize: 14,
     fontWeight: '600' as const,
-    color: Colors.text.secondary,
+    color: Colors.gold,
   },
   callButton: {
     width: 44,

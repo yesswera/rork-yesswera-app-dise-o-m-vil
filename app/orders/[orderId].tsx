@@ -1,26 +1,80 @@
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, ActivityIndicator } from 'react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { ChevronLeft, MapPin, User as UserIcon, Map } from 'lucide-react-native';
 import { useAuth } from '@/contexts/auth';
 import Colors from '@/constants/colors';
 import { StatusBar } from 'expo-status-bar';
-import { MOCK_ORDERS } from '@/mocks/orders';
 import RatingStars from '@/components/RatingStars';
 import LoadingButton from '@/components/LoadingButton';
+import { getOrderById } from '@/services/orders';
+import { Order } from '@/constants/types';
+import ErrorState from '@/components/ErrorState';
+import { useState, useEffect } from 'react';
 
 export default function OrderDetailsScreen() {
   const router = useRouter();
   const { orderId } = useLocalSearchParams<{ orderId: string }>();
-  const { user } = useAuth();
+  const { user, token } = useAuth();
+  const [order, setOrder] = useState<Order | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
-  const order = MOCK_ORDERS.find(o => o.id === parseInt(orderId));
+  useEffect(() => {
+    const loadOrder = async () => {
+      if (!token || !orderId) return;
+
+      try {
+        const orderData = await getOrderById(orderId as string, token);
+        setOrder(orderData);
+        setError(null);
+      } catch (err) {
+        console.error('Error cargando orden:', err);
+        setError('No se pudo cargar la orden');
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    loadOrder();
+  }, [orderId, token]);
+
+  useEffect(() => {
+    if (!order || !token || !orderId) return;
+
+    const isActive = ['pending', 'confirmed', 'preparing', 'ready', 'accepted', 'in_transit']
+      .includes(order.status);
+
+    if (!isActive) return;
+
+    const interval = setInterval(async () => {
+      try {
+        const updatedOrder = await getOrderById(orderId as string, token);
+        setOrder(updatedOrder);
+      } catch (err) {
+        console.error('Error actualizando orden:', err);
+      }
+    }, 10000);
+
+    return () => clearInterval(interval);
+  }, [order, orderId, token]);
 
   if (!user) {
     router.replace('/login' as any);
     return null;
   }
 
-  if (!order) {
+  const handleRetry = () => {
+    setIsLoading(true);
+    setError(null);
+    if (token && orderId) {
+      getOrderById(orderId as string, token)
+        .then(setOrder)
+        .catch(() => setError('No se pudo cargar la orden'))
+        .finally(() => setIsLoading(false));
+    }
+  };
+
+  if (isLoading) {
     return (
       <View style={styles.container}>
         <StatusBar style="light" />
@@ -36,8 +90,29 @@ export default function OrderDetailsScreen() {
           <View style={styles.headerSpacer} />
         </View>
         <View style={styles.errorContainer}>
-          <Text style={styles.errorText}>Orden no encontrada</Text>
+          <ActivityIndicator size="large" color={Colors.primary} />
+          <Text style={[styles.errorText, { marginTop: 16 }]}>Cargando orden...</Text>
         </View>
+      </View>
+    );
+  }
+
+  if (error || !order) {
+    return (
+      <View style={styles.container}>
+        <StatusBar style="light" />
+        <View style={styles.header}>
+          <TouchableOpacity
+            style={styles.backButton}
+            onPress={() => router.back()}
+            activeOpacity={0.7}
+          >
+            <ChevronLeft size={24} color={Colors.white} />
+          </TouchableOpacity>
+          <Text style={styles.headerTitle}>Detalles de Orden</Text>
+          <View style={styles.headerSpacer} />
+        </View>
+        <ErrorState message={error || 'Orden no encontrada'} onRetry={handleRetry} />
       </View>
     );
   }
@@ -69,6 +144,14 @@ export default function OrderDetailsScreen() {
         return 'Aceptada';
       case 'pending':
         return 'Pendiente';
+      case 'confirmed':
+        return 'Confirmada';
+      case 'preparing':
+        return 'Preparando';
+      case 'ready':
+        return 'Lista';
+      default:
+        return 'Procesando';
     }
   };
 

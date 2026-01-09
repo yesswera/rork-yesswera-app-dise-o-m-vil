@@ -52,11 +52,14 @@ export interface Order {
   status: OrderStatus;
   createdAt: Date;
   deliveredAt?: Date;
+  customerId: string;
   customerName: string;
   customerPhone: string;
+  driverId?: string;
   driverName?: string;
   driverPhone?: string;
   driverRating?: number;
+  businessId?: string;
   businessName?: string;
   items?: OrderItem[];
   shoppingList?: string;

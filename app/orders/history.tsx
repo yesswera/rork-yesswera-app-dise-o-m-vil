@@ -1,26 +1,54 @@
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, RefreshControl, ActivityIndicator } from 'react-native';
 import { useRouter } from 'expo-router';
 import { ChevronLeft, PackageX } from 'lucide-react-native';
 import { useAuth } from '@/contexts/auth';
 import Colors from '@/constants/colors';
 import { StatusBar } from 'expo-status-bar';
-import { useState, useMemo } from 'react';
-import { MOCK_ORDERS } from '@/mocks/orders';
+import { useState, useMemo, useEffect, useCallback } from 'react';
 import { Order } from '@/constants/types';
-
+import { getUserOrders } from '@/services/orders';
 import OrderCard from '@/components/OrderCard';
 import EmptyState from '@/components/EmptyState';
+import ErrorState from '@/components/ErrorState';
 
 type FilterTab = 'all' | 'delivered' | 'cancelled';
 
 export default function OrderHistoryScreen() {
   const router = useRouter();
-  const { user } = useAuth();
+  const { user, token } = useAuth();
   const [selectedTab, setSelectedTab] = useState<FilterTab>('all');
+  const [orders, setOrders] = useState<Order[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const loadOrders = useCallback(async () => {
+    if (!user || !token) return;
+
+    try {
+      const userOrders = await getUserOrders(user.id, token);
+      setOrders(userOrders);
+      setError(null);
+    } catch (err) {
+      console.error('Error cargando órdenes:', err);
+      setError('No se pudieron cargar las órdenes');
+    } finally {
+      setIsLoading(false);
+      setRefreshing(false);
+    }
+  }, [user, token]);
+
+  useEffect(() => {
+    loadOrders();
+  }, [loadOrders]);
+
+  const onRefresh = () => {
+    setRefreshing(true);
+    loadOrders();
+  };
 
   const filteredOrders = useMemo(() => {
     if (!user) return [];
-    let orders = MOCK_ORDERS.filter((order: Order) => order.customerName === 'Juan Pérez');
 
     switch (selectedTab) {
       case 'delivered':
@@ -30,11 +58,58 @@ export default function OrderHistoryScreen() {
       default:
         return orders;
     }
-  }, [selectedTab, user]);
+  }, [selectedTab, user, orders]);
 
   if (!user) {
     router.replace('/login' as any);
     return null;
+  }
+
+  if (isLoading) {
+    return (
+      <View style={styles.container}>
+        <StatusBar style="light" />
+        <View style={styles.header}>
+          <TouchableOpacity
+            style={styles.backButton}
+            onPress={() => router.back()}
+            activeOpacity={0.7}
+          >
+            <ChevronLeft size={24} color={Colors.white} />
+          </TouchableOpacity>
+          <Text style={styles.headerTitle}>Historial de Órdenes</Text>
+          <View style={styles.headerSpacer} />
+        </View>
+        <View style={styles.loadingContainer}>
+          <ActivityIndicator size="large" color={Colors.primary} />
+          <Text style={styles.loadingText}>Cargando órdenes...</Text>
+        </View>
+      </View>
+    );
+  }
+
+  if (error) {
+    return (
+      <View style={styles.container}>
+        <StatusBar style="light" />
+        <View style={styles.header}>
+          <TouchableOpacity
+            style={styles.backButton}
+            onPress={() => router.back()}
+            activeOpacity={0.7}
+          >
+            <ChevronLeft size={24} color={Colors.white} />
+          </TouchableOpacity>
+          <Text style={styles.headerTitle}>Historial de Órdenes</Text>
+          <View style={styles.headerSpacer} />
+        </View>
+        <ErrorState message={error} onRetry={() => {
+          setIsLoading(true);
+          setError(null);
+          loadOrders();
+        }} />
+      </View>
+    );
   }
 
   const tabs = [
@@ -86,6 +161,9 @@ export default function OrderHistoryScreen() {
         style={styles.scrollView}
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
+        refreshControl={
+          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={[Colors.primary]} />
+        }
       >
         {filteredOrders.length > 0 ? (
           <>
@@ -145,6 +223,17 @@ const styles = StyleSheet.create({
   },
   headerSpacer: {
     width: 40,
+  },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center' as const,
+    alignItems: 'center' as const,
+    padding: 40,
+  },
+  loadingText: {
+    fontSize: 16,
+    color: Colors.text.secondary,
+    marginTop: 16,
   },
   tabsContainer: {
     flexDirection: 'row' as const,

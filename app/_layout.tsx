@@ -1,14 +1,12 @@
-import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { Stack } from "expo-router";
 import * as SplashScreen from "expo-splash-screen";
 import React, { useEffect } from "react";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { AuthProvider } from "@/contexts/auth";
 import { CartProvider } from "@/contexts/cart";
+import { QueryProvider } from "@/providers/QueryProvider";
 
 SplashScreen.preventAutoHideAsync();
-
-const queryClient = new QueryClient();
 
 function RootLayoutNav() {
   return (
@@ -46,7 +44,7 @@ export default function RootLayout() {
   }, []);
 
   return (
-    <QueryClientProvider client={queryClient}>
+    <QueryProvider>
       <GestureHandlerRootView style={{ flex: 1 }}>
         <AuthProvider>
           <CartProvider>
@@ -54,6 +52,6 @@ export default function RootLayout() {
           </CartProvider>
         </AuthProvider>
       </GestureHandlerRootView>
-    </QueryClientProvider>
+    </QueryProvider>
   );
 }
