@@ -28,21 +28,21 @@ export default function ErrorState({
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    justifyContent: 'center' as const,
-    alignItems: 'center' as const,
+    justifyContent: 'center',
+    alignItems: 'center',
     padding: 40,
     backgroundColor: Colors.background.secondary,
   },
   message: {
     fontSize: 16,
     color: Colors.text.secondary,
-    textAlign: 'center' as const,
+    textAlign: 'center',
     marginTop: 16,
     marginBottom: 24,
   },
   retryButton: {
-    flexDirection: 'row' as const,
-    alignItems: 'center' as const,
+    flexDirection: 'row',
+    alignItems: 'center',
     backgroundColor: Colors.primary,
     paddingHorizontal: 24,
     paddingVertical: 12,
@@ -52,6 +52,6 @@ const styles = StyleSheet.create({
   retryText: {
     color: Colors.white,
     fontSize: 15,
-    fontWeight: '600' as const,
+    fontWeight: '600',
   },
 });
