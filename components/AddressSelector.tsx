@@ -22,18 +22,21 @@ export default function AddressSelector({ selectedAddress, onAddressSelect, onAd
 
   const loadAddresses = useCallback(async () => {
     if (!user || !token) return;
-    
+
     setIsLoading(true);
     try {
       const userAddresses = await getUserAddresses(user.id, token);
-      setAddresses(userAddresses);
-      
-      if (!selectedAddress && userAddresses.length > 0) {
-        const defaultAddr = userAddresses.find(a => a.isDefault) || userAddresses[0];
+      // Ensure we always have an array
+      const addressArray = Array.isArray(userAddresses) ? userAddresses : [];
+      setAddresses(addressArray);
+
+      if (!selectedAddress && addressArray.length > 0) {
+        const defaultAddr = addressArray.find(a => a.isDefault) || addressArray[0];
         onAddressSelect(defaultAddr);
       }
     } catch (error) {
       console.error('Error cargando direcciones:', error);
+      setAddresses([]); // Reset to empty array on error
     } finally {
       setIsLoading(false);
     }
@@ -129,7 +132,7 @@ export default function AddressSelector({ selectedAddress, onAddressSelect, onAd
               </View>
             ) : (
               <ScrollView style={styles.addressesList} showsVerticalScrollIndicator={false}>
-                {addresses.map((address) => {
+                {addresses && addresses.length > 0 ? addresses.map((address) => {
                   const Icon = getIconForLabel(address.label);
                   const isSelected = selectedAddress?.id === address.id;
 
@@ -181,7 +184,13 @@ export default function AddressSelector({ selectedAddress, onAddressSelect, onAd
                       )}
                     </TouchableOpacity>
                   );
-                })}
+                }) : (
+                  <View style={styles.emptyContainer}>
+                    <MapPin size={48} color={Colors.text.disabled} />
+                    <Text style={styles.emptyText}>No tienes direcciones guardadas</Text>
+                    <Text style={styles.emptySubtext}>Agrega tu primera dirección para comenzar</Text>
+                  </View>
+                )}
 
                 <TouchableOpacity
                   style={styles.addNewButton}
@@ -270,6 +279,23 @@ const styles = StyleSheet.create({
   loadingContainer: {
     padding: 40,
     alignItems: 'center' as const,
+  },
+  emptyContainer: {
+    padding: 40,
+    alignItems: 'center' as const,
+    justifyContent: 'center' as const,
+  },
+  emptyText: {
+    fontSize: 16,
+    fontWeight: '600' as const,
+    color: Colors.text.primary,
+    marginTop: 16,
+    marginBottom: 4,
+  },
+  emptySubtext: {
+    fontSize: 14,
+    color: Colors.text.secondary,
+    textAlign: 'center' as const,
   },
   addressesList: {
     marginBottom: 20,

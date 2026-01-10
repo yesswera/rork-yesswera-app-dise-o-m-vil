@@ -1,4 +1,4 @@
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Alert } from 'react-native';
 import { useRouter } from 'expo-router';
 import { ChevronLeft, Edit2, LogOut, Mail, Phone, User as UserIcon, Star, History } from 'lucide-react-native';
 import { useAuth } from '@/contexts/auth';
@@ -32,11 +32,25 @@ export default function ProfileScreen() {
 
   const handleLogout = () => {
     HapticFeedback.warning();
-    if (confirm('¿Estás seguro que quieres salir de tu cuenta?')) {
-      HapticFeedback.success();
-      logout();
-      router.replace('/' as any);
-    }
+    Alert.alert(
+      'Cerrar Sesión',
+      '¿Estás seguro que quieres salir de tu cuenta?',
+      [
+        {
+          text: 'Cancelar',
+          style: 'cancel',
+        },
+        {
+          text: 'Salir',
+          style: 'destructive',
+          onPress: () => {
+            HapticFeedback.success();
+            logout();
+            router.replace('/' as any);
+          },
+        },
+      ]
+    );
   };
 
   return (

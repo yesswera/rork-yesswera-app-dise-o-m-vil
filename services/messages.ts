@@ -1,6 +1,6 @@
 import { Message, Conversation, ConversationType } from '@/constants/types';
 
-const API_BASE = 'http://192.168.100.3:3443/api';
+const API_BASE = 'http://192.168.100.2:3000/api';
 
 export async function getConversation(orderId: string, type: ConversationType, token: string): Promise<Conversation> {
   const response = await fetch(`${API_BASE}/messages/conversation/${orderId}?type=${type}`, {

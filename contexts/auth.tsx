@@ -12,7 +12,7 @@ interface AuthState {
   logout: () => Promise<void>;
 }
 
-const API_BASE = 'https://192.168.100.3:3443/api';
+const API_BASE = 'http://192.168.100.2:3000/api';
 
 export const [AuthProvider, useAuth] = createContextHook<AuthState>(() => {
   const [user, setUser] = useState<User | null>(null);
@@ -36,10 +36,14 @@ export const [AuthProvider, useAuth] = createContextHook<AuthState>(() => {
     try {
       const storedToken = await AsyncStorage.getItem('auth_token');
       const storedUser = await AsyncStorage.getItem('auth_user');
-      
+
       if (storedToken && storedUser) {
         try {
           const parsedUser = JSON.parse(storedUser);
+          // Ensure userType is set (in case of old cached data)
+          if (parsedUser.tipo && !parsedUser.userType) {
+            parsedUser.userType = parsedUser.tipo;
+          }
           setToken(storedToken);
           setUser(parsedUser);
         } catch (parseError) {
@@ -69,11 +73,22 @@ export const [AuthProvider, useAuth] = createContextHook<AuthState>(() => {
         throw new Error(data.error || 'Login failed');
       }
 
+      // Map backend fields to app User type
+      const mappedUser = {
+        id: data.user.id,
+        email: data.user.email,
+        name: data.user.nombre || data.user.name,
+        phone: data.user.telefono || data.user.phone,
+        userType: data.user.tipo || data.user.userType,
+        rating: data.user.rating,
+        avatar: data.user.avatar,
+      };
+
       setToken(data.token);
-      setUser(data.user);
-      
+      setUser(mappedUser);
+
       await AsyncStorage.setItem('auth_token', data.token);
-      await AsyncStorage.setItem('auth_user', JSON.stringify(data.user));
+      await AsyncStorage.setItem('auth_user', JSON.stringify(mappedUser));
     } catch (error) {
       console.error('Login error:', error);
       throw error;
@@ -96,11 +111,22 @@ export const [AuthProvider, useAuth] = createContextHook<AuthState>(() => {
         throw new Error(data.error || 'Registration failed');
       }
 
+      // Map backend fields to app User type
+      const mappedUser = {
+        id: data.user.id,
+        email: data.user.email,
+        name: data.user.nombre || data.user.name,
+        phone: data.user.telefono || data.user.phone,
+        userType: data.user.tipo || data.user.userType,
+        rating: data.user.rating,
+        avatar: data.user.avatar,
+      };
+
       setToken(data.token);
-      setUser(data.user);
-      
+      setUser(mappedUser);
+
       await AsyncStorage.setItem('auth_token', data.token);
-      await AsyncStorage.setItem('auth_user', JSON.stringify(data.user));
+      await AsyncStorage.setItem('auth_user', JSON.stringify(mappedUser));
     } catch (error) {
       console.error('Register error:', error);
       throw error;

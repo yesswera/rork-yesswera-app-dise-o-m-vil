@@ -7,10 +7,11 @@ import { useAuth } from '@/contexts/auth';
 import { SavedAddress, PaymentMethod } from '@/constants/types';
 import AddressSelector from '@/components/AddressSelector';
 import PaymentMethodSelector from '@/components/PaymentMethodSelector';
+import { createOrder } from '@/services/orders';
 
 export default function DeliveryCreateScreen() {
   const router = useRouter();
-  const { user } = useAuth();
+  const { user, token } = useAuth();
   const [originAddress, setOriginAddress] = useState<string>('');
   const [selectedDestination, setSelectedDestination] = useState<SavedAddress | null>(null);
   const [packageDescription, setPackageDescription] = useState<string>('');
@@ -40,7 +41,7 @@ export default function DeliveryCreateScreen() {
       return;
     }
 
-    if (!user) {
+    if (!user || !token) {
       Alert.alert(
         'Iniciar Sesión',
         'Necesitas iniciar sesión para crear una orden',
@@ -57,7 +58,34 @@ export default function DeliveryCreateScreen() {
 
     setIsProcessing(true);
 
-    setTimeout(() => {
+    try {
+      const orderData = {
+        type: 'delivery',
+        pickupLocation: {
+          address: originAddress,
+          latitude: 0,
+          longitude: 0,
+        },
+        deliveryLocation: {
+          address: selectedDestination.address,
+          latitude: selectedDestination.latitude,
+          longitude: selectedDestination.longitude,
+        },
+        items: [{
+          name: packageDescription,
+          quantity: 1,
+          price: 0,
+        }],
+        instructions: packageWeight ? `Peso: ${packageWeight}` : undefined,
+        paymentMethod: paymentMethod,
+        subtotal: 0,
+        deliveryFee: deliveryCost,
+        tip: 0,
+        total: deliveryCost,
+      };
+
+      const createdOrder = await createOrder(orderData, token);
+
       Alert.alert(
         '¡Orden Creada!',
         'Un repartidor aceptará tu orden pronto.',
@@ -65,13 +93,17 @@ export default function DeliveryCreateScreen() {
           {
             text: 'Ver Tracking',
             onPress: () => {
-              router.push('/tracking/delivery-789' as any);
+              router.push(`/tracking/${createdOrder.id}` as any);
             },
           },
         ]
       );
+    } catch (error) {
+      console.error('Error creando orden:', error);
+      Alert.alert('Error', 'No se pudo crear la orden. Intenta de nuevo.');
+    } finally {
       setIsProcessing(false);
-    }, 1500);
+    }
   };
 
   return (
