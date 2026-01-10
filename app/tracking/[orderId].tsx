@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from 'react';
 import { StyleSheet, Text, View, TouchableOpacity, ScrollView, Dimensions, ActivityIndicator, Animated } from 'react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { Clock, User, Phone, Star, Navigation } from 'lucide-react-native';
+import ChatButton from '@/components/ChatButton';
 import * as Haptics from 'expo-haptics';
 import Colors from '@/constants/colors';
 import MapView, { Marker, Polyline } from 'react-native-maps';
@@ -255,9 +256,19 @@ export default function TrackingScreen() {
               )}
             </View>
           </View>
-          <TouchableOpacity style={styles.callButton}>
-            <Phone size={20} color={Colors.primary} />
-          </TouchableOpacity>
+          <View style={styles.actionsRow}>
+            <TouchableOpacity style={styles.actionButton}>
+              <Phone size={20} color={Colors.primary} />
+            </TouchableOpacity>
+            {order.driverId && (
+              <ChatButton
+                orderId={orderId as string}
+                type="client_driver"
+                otherPartyName={order.driverName || 'Repartidor'}
+                compact
+              />
+            )}
+          </View>
         </View>
 
         {order.status === 'delivered' && !order.rated && (
@@ -415,7 +426,11 @@ const styles = StyleSheet.create({
     fontWeight: '600' as const,
     color: Colors.gold,
   },
-  callButton: {
+  actionsRow: {
+    flexDirection: 'row' as const,
+    gap: 8,
+  },
+  actionButton: {
     width: 44,
     height: 44,
     borderRadius: 22,

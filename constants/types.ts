@@ -126,3 +126,31 @@ export interface SavedAddress {
   createdAt: string;
 }
 
+export type ConversationType = 'client_driver' | 'client_business';
+
+export interface Message {
+  id: string;
+  conversationId: string;
+  senderId: string;
+  senderName: string;
+  senderType: UserType;
+  content: string;
+  createdAt: string;
+  read: boolean;
+}
+
+export interface Conversation {
+  id: string;
+  orderId: string;
+  type: ConversationType;
+  participants: {
+    clientId: string;
+    clientName: string;
+    otherPartyId: string;
+    otherPartyName: string;
+  };
+  lastMessage?: Message;
+  unreadCount: number;
+  createdAt: string;
+}
+

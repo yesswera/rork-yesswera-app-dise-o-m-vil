@@ -5,6 +5,7 @@ import { useAuth } from '@/contexts/auth';
 import Colors from '@/constants/colors';
 import { StatusBar } from 'expo-status-bar';
 import RatingStars from '@/components/RatingStars';
+import ChatButton from '@/components/ChatButton';
 import LoadingButton from '@/components/LoadingButton';
 import { getOrderById } from '@/services/orders';
 import { Order } from '@/constants/types';
@@ -357,6 +358,19 @@ export default function OrderDetailsScreen() {
                   />
                 </View>
               )}
+            </View>
+          </View>
+        )}
+
+        {order.businessName && order.businessId && (
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>Contacto</Text>
+            <View style={styles.card}>
+              <ChatButton
+                orderId={order.id.toString()}
+                type="client_business"
+                otherPartyName={order.businessName}
+              />
             </View>
           </View>
         )}
