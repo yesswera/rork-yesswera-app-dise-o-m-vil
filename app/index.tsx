@@ -2,18 +2,20 @@ import { StyleSheet, Text, View, TouchableOpacity, ScrollView } from 'react-nati
 import { Image } from 'expo-image';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
-import { UtensilsCrossed, ShoppingCart, Package, User, Briefcase, Truck, ChevronRight, ShoppingBag } from 'lucide-react-native';
+import { UtensilsCrossed, ShoppingCart, Package, User, Briefcase, Truck, ChevronRight, ShoppingBag, RefreshCw, Clock } from 'lucide-react-native';
 import { StatusBar } from 'expo-status-bar';
 import { useState, useEffect } from 'react';
 import { useAuth } from '@/contexts/auth';
-import { getActiveOrders } from '@/services/orders';
+import { getActiveOrders, getUserOrders } from '@/services/orders';
 import { Order, OrderStatus } from '@/constants/types';
 import Colors from '@/constants/colors';
+import { Toast } from '@/utils/toast';
 
 export default function HomeScreen() {
   const router = useRouter();
   const { user, token } = useAuth();
   const [activeOrder, setActiveOrder] = useState<Order | null>(null);
+  const [recentOrders, setRecentOrders] = useState<Order[]>([]);
 
   useEffect(() => {
     if (!user || !token) {
@@ -35,7 +37,21 @@ export default function HomeScreen() {
       }
     };
 
+    const loadRecentOrders = async () => {
+      try {
+        const allOrders = await getUserOrders(user.id, token);
+        const completed = allOrders
+          .filter((o: Order) => o.status === 'delivered')
+          .sort((a: Order, b: Order) => new Date(b.deliveredAt || b.createdAt).getTime() - new Date(a.deliveredAt || a.createdAt).getTime())
+          .slice(0, 3);
+        setRecentOrders(completed);
+      } catch (error) {
+        console.error('Error cargando órdenes recientes:', error);
+      }
+    };
+
     checkActiveOrder();
+    loadRecentOrders();
 
     const interval = setInterval(checkActiveOrder, 10000);
     return () => clearInterval(interval);
@@ -50,6 +66,29 @@ export default function HomeScreen() {
       case 'accepted': return '🚴 Repartidor asignado';
       case 'in_transit': return '🚴 Tu orden está en camino';
       default: return 'Orden activa';
+    }
+  };
+
+  const formatOrderDate = (date: Date) => {
+    const orderDate = new Date(date);
+    const now = new Date();
+    const diffMs = now.getTime() - orderDate.getTime();
+    const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
+    
+    if (diffDays === 0) return 'Hoy';
+    if (diffDays === 1) return 'Ayer';
+    if (diffDays < 7) return `Hace ${diffDays} días`;
+    return orderDate.toLocaleDateString();
+  };
+
+  const handleReorder = (order: Order) => {
+    Toast.success('¡Orden agregada al carrito!');
+    if (order.type === 'food' && order.businessId) {
+      router.push(`/food/menu/${order.businessId}` as any);
+    } else if (order.type === 'shopping') {
+      router.push('/shopping/stores' as any);
+    } else {
+      router.push('/delivery/create' as any);
     }
   };
 
@@ -171,6 +210,58 @@ export default function HomeScreen() {
               </View>
             </LinearGradient>
           </TouchableOpacity>
+        )}
+
+        {user && recentOrders.length > 0 && (
+          <View style={styles.reorderSection}>
+            <View style={styles.reorderHeader}>
+              <RefreshCw size={20} color={Colors.primary} />
+              <Text style={styles.reorderTitle}>Volver a Pedir</Text>
+            </View>
+            <ScrollView
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              contentContainerStyle={styles.reorderScrollContent}
+            >
+              {recentOrders.map((order) => (
+                <TouchableOpacity
+                  key={order.id}
+                  style={styles.reorderCard}
+                  onPress={() => handleReorder(order)}
+                  activeOpacity={0.8}
+                >
+                  <View style={styles.reorderCardHeader}>
+                    {order.type === 'food' && <UtensilsCrossed size={20} color={Colors.primary} />}
+                    {order.type === 'shopping' && <ShoppingBag size={20} color={Colors.secondary} />}
+                    {order.type === 'delivery' && <Package size={20} color={Colors.accent} />}
+                    <View style={styles.reorderCardTitleContainer}>
+                      <Text style={styles.reorderCardTitle} numberOfLines={1}>
+                        {order.businessName || (order.type === 'shopping' ? 'Lista de compras' : 'Entrega')}
+                      </Text>
+                      <View style={styles.reorderCardMeta}>
+                        <Clock size={12} color={Colors.text.light} />
+                        <Text style={styles.reorderCardDate}>
+                          {formatOrderDate(order.deliveredAt || order.createdAt)}
+                        </Text>
+                      </View>
+                    </View>
+                  </View>
+                  {order.items && order.items.length > 0 && (
+                    <Text style={styles.reorderCardItems} numberOfLines={2}>
+                      {order.items.map(item => `${item.quantity}x ${item.name}`).join(', ')}
+                    </Text>
+                  )}
+                  <View style={styles.reorderCardFooter}>
+                    <Text style={styles.reorderCardTotal}>${order.total.toFixed(2)}</Text>
+                    <View style={styles.reorderButton}>
+                      <RefreshCw size={14} color={Colors.white} />
+                      <Text style={styles.reorderButtonText}>Repetir</Text>
+                    </View>
+                  </View>
+                </TouchableOpacity>
+              ))}
+            </ScrollView>
+          </View>
         )}
 
         <View style={styles.servicesContainer}>
@@ -452,5 +543,88 @@ const styles = StyleSheet.create({
   bannerSubtitle: {
     fontSize: 13,
     color: 'rgba(255, 255, 255, 0.9)',
+  },
+  reorderSection: {
+    marginBottom: 32,
+  },
+  reorderHeader: {
+    flexDirection: 'row' as const,
+    alignItems: 'center' as const,
+    gap: 8,
+    marginBottom: 16,
+  },
+  reorderTitle: {
+    fontSize: 18,
+    fontWeight: '700' as const,
+    color: Colors.text.primary,
+  },
+  reorderScrollContent: {
+    paddingRight: 20,
+  },
+  reorderCard: {
+    width: 280,
+    backgroundColor: Colors.white,
+    borderRadius: 16,
+    padding: 16,
+    marginRight: 12,
+    shadowColor: Colors.shadow.medium,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 8,
+    elevation: 3,
+  },
+  reorderCardHeader: {
+    flexDirection: 'row' as const,
+    alignItems: 'flex-start' as const,
+    gap: 10,
+    marginBottom: 12,
+  },
+  reorderCardTitleContainer: {
+    flex: 1,
+  },
+  reorderCardTitle: {
+    fontSize: 16,
+    fontWeight: '700' as const,
+    color: Colors.text.primary,
+    marginBottom: 4,
+  },
+  reorderCardMeta: {
+    flexDirection: 'row' as const,
+    alignItems: 'center' as const,
+    gap: 4,
+  },
+  reorderCardDate: {
+    fontSize: 12,
+    color: Colors.text.light,
+  },
+  reorderCardItems: {
+    fontSize: 13,
+    color: Colors.text.secondary,
+    marginBottom: 12,
+    lineHeight: 18,
+  },
+  reorderCardFooter: {
+    flexDirection: 'row' as const,
+    alignItems: 'center' as const,
+    justifyContent: 'space-between' as const,
+  },
+  reorderCardTotal: {
+    fontSize: 18,
+    fontWeight: '700' as const,
+    color: Colors.primary,
+  },
+  reorderButton: {
+    flexDirection: 'row' as const,
+    alignItems: 'center' as const,
+    gap: 6,
+    backgroundColor: Colors.primary,
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    borderRadius: 20,
+  },
+  reorderButtonText: {
+    fontSize: 13,
+    fontWeight: '600' as const,
+    color: Colors.white,
   },
 });

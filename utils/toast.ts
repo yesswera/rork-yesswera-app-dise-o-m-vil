@@ -1,26 +1,26 @@
-import { Alert, Platform } from 'react-native';
-
 export type ToastType = 'success' | 'error' | 'info' | 'warning';
 
 interface ToastOptions {
   duration?: number;
-  position?: 'top' | 'bottom';
+}
+
+interface QueuedToast {
+  message: string;
+  type: ToastType;
+  duration: number;
+}
+
+let toastCallback: ((toast: QueuedToast) => void) | null = null;
+
+export function registerToastCallback(callback: (toast: QueuedToast) => void) {
+  toastCallback = callback;
 }
 
 class ToastManager {
   show(message: string, type: ToastType = 'info', options?: ToastOptions) {
-    if (Platform.OS === 'web') {
-      Alert.alert(
-        this.getTitle(type),
-        message,
-        [{ text: 'OK' }]
-      );
-    } else {
-      Alert.alert(
-        this.getTitle(type),
-        message,
-        [{ text: 'OK' }]
-      );
+    const duration = options?.duration || 3000;
+    if (toastCallback) {
+      toastCallback({ message, type, duration });
     }
   }
 
@@ -38,20 +38,6 @@ class ToastManager {
 
   warning(message: string, options?: ToastOptions) {
     this.show(message, 'warning', options);
-  }
-
-  private getTitle(type: ToastType): string {
-    switch (type) {
-      case 'success':
-        return '✅ Éxito';
-      case 'error':
-        return '❌ Error';
-      case 'warning':
-        return '⚠️ Advertencia';
-      case 'info':
-      default:
-        return 'ℹ️ Información';
-    }
   }
 }
 

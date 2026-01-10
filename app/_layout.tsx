@@ -1,10 +1,12 @@
 import { Stack } from "expo-router";
 import * as SplashScreen from "expo-splash-screen";
 import React, { useEffect } from "react";
+import { View } from "react-native";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { AuthProvider } from "@/contexts/auth";
 import { CartProvider } from "@/contexts/cart";
 import { QueryProvider } from "@/providers/QueryProvider";
+import ToastContainer from "@/components/ToastContainer";
 
 SplashScreen.preventAutoHideAsync();
 
@@ -48,7 +50,10 @@ export default function RootLayout() {
       <GestureHandlerRootView style={{ flex: 1 }}>
         <AuthProvider>
           <CartProvider>
-            <RootLayoutNav />
+            <View style={{ flex: 1 }}>
+              <RootLayoutNav />
+              <ToastContainer />
+            </View>
           </CartProvider>
         </AuthProvider>
       </GestureHandlerRootView>

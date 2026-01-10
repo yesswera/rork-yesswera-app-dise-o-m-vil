@@ -9,6 +9,7 @@ import { useAuth } from '@/contexts/auth';
 import { SavedAddress, PaymentMethod } from '@/constants/types';
 import AddressSelector from '@/components/AddressSelector';
 import PaymentMethodSelector from '@/components/PaymentMethodSelector';
+import TipSelector from '@/components/TipSelector';
 
 export default function CartScreen() {
   const router = useRouter();
@@ -16,11 +17,12 @@ export default function CartScreen() {
   const { user } = useAuth();
   const [selectedAddress, setSelectedAddress] = useState<SavedAddress | null>(null);
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>('cash');
+  const [tip, setTip] = useState<number>(0);
   const [isProcessing, setIsProcessing] = useState<boolean>(false);
 
   const distance = 5;
   const deliveryCost = distance * 1.5 + total * 0.1;
-  const finalTotal = total + deliveryCost;
+  const finalTotal = total + deliveryCost + tip;
 
   const handleCheckout = async () => {
     if (!selectedAddress) {
@@ -132,6 +134,12 @@ export default function CartScreen() {
             onSelectMethod={setPaymentMethod}
           />
 
+          <TipSelector
+            selectedTip={tip}
+            onTipSelect={setTip}
+            orderTotal={total}
+          />
+
           <View style={styles.summarySection}>
             <Text style={styles.sectionTitle}>Resumen</Text>
             <View style={styles.summaryRow}>
@@ -144,6 +152,12 @@ export default function CartScreen() {
               </Text>
               <Text style={styles.summaryValue}>${deliveryCost.toFixed(2)}</Text>
             </View>
+            {tip > 0 && (
+              <View style={styles.summaryRow}>
+                <Text style={styles.summaryLabel}>Propina</Text>
+                <Text style={[styles.summaryValue, styles.tipValue]}>${tip.toFixed(2)}</Text>
+              </View>
+            )}
             <View style={styles.divider} />
             <View style={styles.summaryRow}>
               <Text style={styles.totalLabel}>Total</Text>
@@ -317,6 +331,9 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: Colors.text.light,
     marginTop: 8,
+  },
+  tipValue: {
+    color: Colors.gold,
   },
   footer: {
     position: 'absolute' as const,

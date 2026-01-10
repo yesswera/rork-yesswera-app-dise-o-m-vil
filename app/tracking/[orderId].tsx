@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
-import { StyleSheet, Text, View, TouchableOpacity, ScrollView, Dimensions, ActivityIndicator } from 'react-native';
+import { StyleSheet, Text, View, TouchableOpacity, ScrollView, Dimensions, ActivityIndicator, Animated } from 'react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
-import { Clock, User, Phone, Star } from 'lucide-react-native';
+import { Clock, User, Phone, Star, Navigation } from 'lucide-react-native';
 import * as Haptics from 'expo-haptics';
 import Colors from '@/constants/colors';
 import MapView, { Marker, Polyline } from 'react-native-maps';
@@ -10,6 +10,7 @@ import { getDriverLocation, DriverLocation } from '@/services/gps';
 import { useAuth } from '@/contexts/auth';
 import { Order, OrderStatus } from '@/constants/types';
 import ErrorState from '@/components/ErrorState';
+import { calculateETA, formatETA } from '@/utils/distance';
 
 const { width, height } = Dimensions.get('window');
 
@@ -22,7 +23,10 @@ export default function TrackingScreen() {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [showRating, setShowRating] = useState(false);
+  const [eta, setEta] = useState<number | null>(null);
   const prevStatusRef = useRef<OrderStatus | null>(null);
+  const markerRotation = useRef(new Animated.Value(0)).current;
+  const prevLocationRef = useRef<DriverLocation | null>(null);
 
   useEffect(() => {
     const loadOrder = async () => {
@@ -55,6 +59,25 @@ export default function TrackingScreen() {
           getOrderById(orderId as string, token)
         ]);
         
+        if (prevLocationRef.current && location.heading !== undefined) {
+          Animated.spring(markerRotation, {
+            toValue: location.heading,
+            useNativeDriver: true,
+            tension: 50,
+            friction: 10,
+          }).start();
+        }
+        prevLocationRef.current = location;
+        
+        if (updatedOrder.deliveryLocation) {
+          const calculatedETA = calculateETA(
+            { latitude: location.latitude, longitude: location.longitude },
+            updatedOrder.deliveryLocation,
+            location.speed || 30
+          );
+          setEta(calculatedETA);
+        }
+        
         setDriverLocation(location);
         
         if (prevStatusRef.current && prevStatusRef.current !== updatedOrder.status) {
@@ -73,7 +96,7 @@ export default function TrackingScreen() {
     const interval = setInterval(fetchData, 3000);
 
     return () => clearInterval(interval);
-  }, [orderId, token, order]);
+  }, [orderId, token, order, markerRotation]);
 
 
 
@@ -173,10 +196,23 @@ export default function TrackingScreen() {
             }}
             title="Repartidor"
             description={order.driverName}
+            anchor={{ x: 0.5, y: 0.5 }}
           >
-            <View style={styles.driverMarker}>
-              <User size={20} color={Colors.white} />
-            </View>
+            <Animated.View
+              style={[
+                styles.driverMarker,
+                {
+                  transform: [
+                    { rotate: markerRotation.interpolate({
+                      inputRange: [0, 360],
+                      outputRange: ['0deg', '360deg']
+                    })}
+                  ]
+                }
+              ]}
+            >
+              <Navigation size={20} color={Colors.white} fill={Colors.white} />
+            </Animated.View>
           </Marker>
         )}
 
@@ -199,7 +235,9 @@ export default function TrackingScreen() {
             <Clock size={20} color={Colors.primary} />
             <Text style={styles.statusText}>{getStatusText()}</Text>
           </View>
-          <Text style={styles.etaText}>Tiempo estimado: 12 min</Text>
+          <Text style={styles.etaText}>
+            {eta ? `Llega en ${formatETA(eta)}` : 'Calculando tiempo...'}
+          </Text>
         </View>
 
         <View style={styles.driverCard}>
