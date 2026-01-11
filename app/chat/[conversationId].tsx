@@ -113,9 +113,13 @@ export default function ChatScreen() {
   const renderMessage = ({ item, index }: { item: Message; index: number }) => {
     const isMyMessage = item.senderId === user.id;
     const prevMessage = index > 0 ? messages[index - 1] : null;
-    const showDate = !prevMessage || 
+    const showDate = !prevMessage ||
       new Date(item.createdAt).toDateString() !== new Date(prevMessage.createdAt).toDateString();
     const showAvatar = !prevMessage || prevMessage.senderId !== item.senderId;
+
+    // Fallback to email if name is not available
+    const senderName = item.senderName || (item as any).senderEmail || otherPartyName || 'Usuario';
+    const avatarLetter = senderName.charAt(0).toUpperCase();
 
     return (
       <>
@@ -127,13 +131,13 @@ export default function ChatScreen() {
         <View style={[styles.messageContainer, isMyMessage && styles.myMessageContainer]}>
           {!isMyMessage && showAvatar && (
             <View style={styles.avatarPlaceholder}>
-              <Text style={styles.avatarText}>{item.senderName.charAt(0).toUpperCase()}</Text>
+              <Text style={styles.avatarText}>{avatarLetter}</Text>
             </View>
           )}
           {!isMyMessage && !showAvatar && <View style={styles.avatarSpacer} />}
           <View style={[styles.messageBubble, isMyMessage ? styles.myMessageBubble : styles.otherMessageBubble]}>
             {!isMyMessage && showAvatar && (
-              <Text style={styles.senderName}>{item.senderName}</Text>
+              <Text style={styles.senderName}>{senderName}</Text>
             )}
             <Text style={[styles.messageText, isMyMessage && styles.myMessageText]}>
               {item.content}
