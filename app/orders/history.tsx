@@ -1,4 +1,4 @@
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, RefreshControl, ActivityIndicator } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, RefreshControl, ActivityIndicator, Alert } from 'react-native';
 import { useRouter } from 'expo-router';
 import { ChevronLeft, PackageX } from 'lucide-react-native';
 import { useAuth } from '@/contexts/auth';
@@ -10,6 +10,7 @@ import { getUserOrders } from '@/services/orders';
 import OrderCard from '@/components/OrderCard';
 import EmptyState from '@/components/EmptyState';
 import ErrorState from '@/components/ErrorState';
+import RatingModal from '@/components/RatingModal';
 
 type FilterTab = 'all' | 'delivered' | 'cancelled';
 
@@ -21,6 +22,7 @@ export default function OrderHistoryScreen() {
   const [isLoading, setIsLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [ratingOrder, setRatingOrder] = useState<Order | null>(null);
 
   const loadOrders = useCallback(async () => {
     if (!user || !token) return;
@@ -45,6 +47,24 @@ export default function OrderHistoryScreen() {
   const onRefresh = () => {
     setRefreshing(true);
     loadOrders();
+  };
+
+  const handleOrderPress = (order: Order) => {
+    // If order is delivered and has a driver, show rating modal
+    if (order.status === 'delivered' && order.driverId && order.driverName) {
+      setRatingOrder(order);
+    } else {
+      // Otherwise navigate to order details
+      router.push(`/orders/${order.id}` as any);
+    }
+  };
+
+  const handleRatingSuccess = () => {
+    Alert.alert(
+      '¡Gracias!',
+      'Tu calificación ha sido enviada',
+      [{ text: 'OK', onPress: loadOrders }]
+    );
   };
 
   const filteredOrders = useMemo(() => {
@@ -171,7 +191,7 @@ export default function OrderHistoryScreen() {
               <OrderCard
                 key={order.id}
                 order={order}
-                onPress={() => router.push(`/orders/${order.id}` as any)}
+                onPress={() => handleOrderPress(order)}
                 variant="client"
               />
             ))}
@@ -192,6 +212,17 @@ export default function OrderHistoryScreen() {
           />
         )}
       </ScrollView>
+
+      {ratingOrder && ratingOrder.driverId && ratingOrder.driverName && (
+        <RatingModal
+          visible={!!ratingOrder}
+          orderId={ratingOrder.id}
+          driverId={ratingOrder.driverId}
+          driverName={ratingOrder.driverName}
+          onClose={() => setRatingOrder(null)}
+          onSuccess={handleRatingSuccess}
+        />
+      )}
     </View>
   );
 }
