@@ -64,8 +64,16 @@ export default function OrderCard({ order, onPress, variant = 'client' }: OrderC
     }
   };
 
-  const formatDate = (date: Date) => {
-    return date.toLocaleDateString('es-ES', {
+  const formatDate = (date: Date | string) => {
+    // Convert string to Date if needed
+    const dateObj = typeof date === 'string' ? new Date(date) : date;
+
+    // Check if valid date
+    if (!dateObj || isNaN(dateObj.getTime())) {
+      return 'Fecha no disponible';
+    }
+
+    return dateObj.toLocaleDateString('es-ES', {
       day: '2-digit',
       month: 'short',
     });
