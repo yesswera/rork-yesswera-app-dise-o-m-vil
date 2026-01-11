@@ -53,42 +53,56 @@ export default function TrackingScreen() {
 
     if (order.status === 'delivered' || order.status === 'cancelled') return;
 
+    // Don't try to fetch GPS if there's no driver assigned yet
+    if (!order.driverId && order.status === 'pending') return;
+
     const fetchData = async () => {
       try {
-        const [location, updatedOrder] = await Promise.all([
-          getDriverLocation(orderId as string, token),
+        // Only fetch driver location if there's a driver assigned
+        const promises: Promise<any>[] = [
           getOrderById(orderId as string, token)
-        ]);
-        
-        if (prevLocationRef.current && location.heading !== undefined) {
-          Animated.spring(markerRotation, {
-            toValue: location.heading,
-            useNativeDriver: true,
-            tension: 50,
-            friction: 10,
-          }).start();
+        ];
+
+        if (order.driverId) {
+          promises.unshift(getDriverLocation(orderId as string, token));
         }
-        prevLocationRef.current = location;
-        
-        if (updatedOrder.deliveryLocation) {
-          const calculatedETA = calculateETA(
-            { latitude: location.latitude, longitude: location.longitude },
-            updatedOrder.deliveryLocation,
-            location.speed || 30
-          );
-          setEta(calculatedETA);
+
+        const results = await Promise.all(promises);
+        const location = order.driverId ? results[0] : null;
+        const updatedOrder = order.driverId ? results[1] : results[0];
+
+        if (location) {
+          if (prevLocationRef.current && location.heading !== undefined) {
+            Animated.spring(markerRotation, {
+              toValue: location.heading,
+              useNativeDriver: true,
+              tension: 50,
+              friction: 10,
+            }).start();
+          }
+          prevLocationRef.current = location;
+
+          if (updatedOrder.deliveryLocation) {
+            const calculatedETA = calculateETA(
+              { latitude: location.latitude, longitude: location.longitude },
+              updatedOrder.deliveryLocation,
+              location.speed || 30
+            );
+            setEta(calculatedETA);
+          }
+
+          setDriverLocation(location);
         }
-        
-        setDriverLocation(location);
-        
+
         if (prevStatusRef.current && prevStatusRef.current !== updatedOrder.status) {
           Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
         }
-        
+
         prevStatusRef.current = updatedOrder.status;
         setOrder(updatedOrder);
       } catch (err) {
         console.error('Error obteniendo datos:', err);
+        // Don't show error for GPS unavailable
       }
     };
 
