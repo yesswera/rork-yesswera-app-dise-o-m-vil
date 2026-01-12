@@ -94,3 +94,59 @@ export async function getActiveOrders(userId: string, token: string): Promise<Or
     throw error;
   }
 }
+
+export async function validatePickupCode(
+  orderId: string,
+  pickupCode: string,
+  token: string
+): Promise<{ success: boolean; message: string }> {
+  try {
+    const response = await fetch(`${API_BASE}/orders/${orderId}/validate-pickup`, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ pickupCode: pickupCode.toUpperCase() }),
+    });
+
+    const data = await response.json();
+
+    if (!response.ok) {
+      return { success: false, message: data.error || 'Código incorrecto' };
+    }
+
+    return { success: true, message: 'Recolección validada exitosamente' };
+  } catch (error) {
+    console.error('Error validating pickup code:', error);
+    return { success: false, message: 'Error al validar código' };
+  }
+}
+
+export async function validateDeliveryCode(
+  orderId: string,
+  deliveryCode: string,
+  token: string
+): Promise<{ success: boolean; message: string }> {
+  try {
+    const response = await fetch(`${API_BASE}/orders/${orderId}/validate-delivery`, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ deliveryCode: deliveryCode.toUpperCase() }),
+    });
+
+    const data = await response.json();
+
+    if (!response.ok) {
+      return { success: false, message: data.error || 'Código incorrecto' };
+    }
+
+    return { success: true, message: 'Entrega validada exitosamente' };
+  } catch (error) {
+    console.error('Error validating delivery code:', error);
+    return { success: false, message: 'Error al validar código' };
+  }
+}

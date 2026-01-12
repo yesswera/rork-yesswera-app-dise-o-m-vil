@@ -79,6 +79,18 @@ export interface Order {
   rated: boolean;
   paymentMethod: PaymentMethod;
   paymentStatus: 'pending' | 'paid';
+  pickupCode: string;
+  deliveryCode: string;
+  pickupValidation: {
+    validated: boolean;
+    validatedAt?: string;
+    validatedBy?: string;
+  };
+  deliveryValidation: {
+    validated: boolean;
+    validatedAt?: string;
+    validatedBy?: string;
+  };
 }
 
 export interface PackageDetails {
@@ -152,5 +164,309 @@ export interface Conversation {
   lastMessage?: Message;
   unreadCount: number;
   createdAt: string;
+}
+
+export interface Vehicle {
+  type: 'moto' | 'bicicleta' | 'auto' | 'pie';
+  brand?: string;
+  model?: string;
+  year?: number;
+  color?: string;
+  licensePlate?: string;
+  photoUrl?: string;
+}
+
+export interface DriverDocuments {
+  ine: {
+    front: string;
+    back: string;
+    verified: boolean;
+    verifiedAt?: string;
+  };
+  selfie: {
+    url: string;
+    verified: boolean;
+  };
+  curp: string;
+  proofOfAddress: {
+    url: string;
+    verified: boolean;
+  };
+  driverLicense?: {
+    front: string;
+    back: string;
+    expiryDate: string;
+    verified: boolean;
+  };
+}
+
+export interface BankAccount {
+  bankName: string;
+  accountNumber: string;
+  clabe: string;
+  accountHolderName: string;
+  verified: boolean;
+}
+
+export interface EmergencyContact {
+  name: string;
+  phone: string;
+  relationship: string;
+}
+
+export interface DriverStats {
+  totalOrders: number;
+  completedOrders: number;
+  cancelledOrders: number;
+  averageRating: number;
+  totalRatings: number;
+  onTimeDeliveryRate: number;
+  acceptanceRate: number;
+  completionRate: number;
+  averageDeliveryTime: number;
+  totalDistance: number;
+  activeHours: number;
+  todayOrders: number;
+  weekOrders: number;
+  monthOrders: number;
+}
+
+export interface EarningsPeriod {
+  totalEarned: number;
+  ordersCompleted: number;
+  tips: number;
+  bonuses: number;
+}
+
+export interface DriverEarnings {
+  today: EarningsPeriod;
+  week: EarningsPeriod;
+  month: EarningsPeriod;
+  allTime: {
+    totalEarned: number;
+    ordersCompleted: number;
+    averagePerOrder: number;
+  };
+  pendingSettlement: {
+    amount: number;
+    ordersCount: number;
+    nextSettlementDate: string;
+  };
+}
+
+export interface Driver extends User {
+  workPhone?: string;
+  workPhoneVerified: boolean;
+  workPhoneSetupDate?: string;
+  vehicle: Vehicle;
+  documents: DriverDocuments;
+  bankAccount?: BankAccount;
+  emergencyContact: EmergencyContact;
+  stats: DriverStats;
+  earnings: DriverEarnings;
+  status: 'active' | 'inactive' | 'suspended' | 'pending_verification';
+  verificationStatus: 'pending' | 'approved' | 'rejected';
+}
+
+export interface DailySettlement {
+  id: string;
+  driverId: string;
+  date: string;
+  ordersCompleted: number;
+  totalCollected: number;
+  breakdown: {
+    subtotals: number;
+    deliveryFees: number;
+    tips: number;
+  };
+  driverEarnings: number;
+  toDeliver: number;
+  status: 'pending' | 'delivered' | 'verified';
+  deliveredAt?: string;
+  deliveryMethod?: 'cash' | 'transfer' | 'oxxo';
+  deliveryLocation?: string;
+  receiptUrl?: string;
+}
+
+export interface ThreatReport {
+  id: string;
+  reporterId: string;
+  reporterType: UserType;
+  reportType: 'threat' | 'extortion' | 'harassment' | 'violence' | 'other';
+  orderId?: string;
+  description: string;
+  threatPhone?: string;
+  evidence?: string[];
+  location?: {
+    latitude: number;
+    longitude: number;
+  };
+  reportedAt: string;
+  status: 'pending' | 'investigating' | 'resolved';
+  resolution?: string;
+}
+
+export type BusinessCategory =
+  | 'restaurant'
+  | 'cafe'
+  | 'bakery'
+  | 'grocery'
+  | 'pharmacy'
+  | 'convenience_store'
+  | 'liquor_store'
+  | 'flowers'
+  | 'gifts'
+  | 'other';
+
+export interface DaySchedule {
+  isOpen: boolean;
+  openTime: string;
+  closeTime: string;
+  breaks?: {
+    start: string;
+    end: string;
+  }[];
+}
+
+export interface BusinessDocuments {
+  rfc: {
+    number: string;
+    document: string;
+    verified: boolean;
+  };
+  proofOfAddress: {
+    url: string;
+    verified: boolean;
+  };
+  ownerID: {
+    front: string;
+    back: string;
+    verified: boolean;
+  };
+  healthPermit?: {
+    url: string;
+    expiryDate: string;
+    verified: boolean;
+  };
+  businessLicense?: {
+    url: string;
+    verified: boolean;
+  };
+}
+
+export interface BusinessStats {
+  totalOrders: number;
+  completedOrders: number;
+  cancelledOrders: number;
+  averageRating: number;
+  totalRatings: number;
+  averagePrepTime: number;
+  acceptanceRate: number;
+  onTimeRate: number;
+  totalRevenue: number;
+  todayRevenue: number;
+  weekRevenue: number;
+  monthRevenue: number;
+  totalProducts: number;
+  activeProducts: number;
+  topSellingProducts: {
+    productId: string;
+    name: string;
+    timesSold: number;
+  }[];
+}
+
+export interface BusinessFull extends Business {
+  phone: string;
+  email: string;
+  website?: string;
+  logo?: string;
+  coverImage?: string;
+  address: string;
+  location: {
+    latitude: number;
+    longitude: number;
+  };
+  deliveryRadius: number;
+  minimumOrder?: number;
+  schedule: {
+    monday: DaySchedule;
+    tuesday: DaySchedule;
+    wednesday: DaySchedule;
+    thursday: DaySchedule;
+    friday: DaySchedule;
+    saturday: DaySchedule;
+    sunday: DaySchedule;
+  };
+  isOpen: boolean;
+  temporaryClosed: boolean;
+  closedReason?: string;
+  documents: BusinessDocuments;
+  stats: BusinessStats;
+  deliveryConfig: {
+    freeDeliveryOver?: number;
+    deliveryFee: number;
+    estimatedPrepTime: number;
+  };
+  bankAccount?: BankAccount;
+  status: 'active' | 'inactive' | 'suspended' | 'pending_verification';
+  verificationStatus: 'pending' | 'approved' | 'rejected';
+  verifiedAt?: string;
+  createdAt: string;
+  updatedAt: string;
+  ownerId: string;
+}
+
+export interface ProductOption {
+  id: string;
+  name: string;
+  type: 'single' | 'multiple';
+  required: boolean;
+  choices: {
+    id: string;
+    name: string;
+    priceModifier: number;
+  }[];
+}
+
+export interface ProductFull extends Product {
+  categoryId: string;
+  available: boolean;
+  inStock: boolean;
+  options?: ProductOption[];
+  preparationTime?: number;
+  featured: boolean;
+  tags?: string[];
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface ProductCategory {
+  id: string;
+  businessId: string;
+  name: string;
+  description?: string;
+  order: number;
+  active: boolean;
+}
+
+export interface BusinessSettlement {
+  id: string;
+  businessId: string;
+  weekStart: string;
+  weekEnd: string;
+  ordersCount: number;
+  totalSales: number;
+  platformFee: number;
+  netAmount: number;
+  status: 'pending' | 'processing' | 'paid';
+  paidAt?: string;
+  paymentMethod?: 'transfer' | 'check' | 'cash';
+  paymentReference?: string;
+  breakdown: {
+    foodSales: number;
+    deliveryFees: number;
+    taxes: number;
+  };
 }
 

@@ -31,6 +31,10 @@ export const MOCK_ORDERS: Order[] = [
     rated: false,
     paymentMethod: 'cash',
     paymentStatus: 'paid',
+    pickupCode: 'ABC12',
+    deliveryCode: 'XYZ78',
+    pickupValidation: { validated: true, validatedAt: '2026-01-03T14:45:00Z', validatedBy: 'business-1' },
+    deliveryValidation: { validated: true, validatedAt: '2026-01-03T15:15:00Z', validatedBy: 'user-1' },
   },
   {
     id: 2,
@@ -57,6 +61,10 @@ export const MOCK_ORDERS: Order[] = [
     rated: true,
     paymentMethod: 'cash',
     paymentStatus: 'paid',
+    pickupCode: 'DEF34',
+    deliveryCode: 'UVW56',
+    pickupValidation: { validated: true, validatedAt: '2026-01-02T10:30:00Z', validatedBy: 'business-2' },
+    deliveryValidation: { validated: true, validatedAt: '2026-01-02T11:30:00Z', validatedBy: 'user-1' },
   },
   {
     id: 3,
@@ -82,6 +90,10 @@ export const MOCK_ORDERS: Order[] = [
     rated: false,
     paymentMethod: 'cash',
     paymentStatus: 'pending',
+    pickupCode: 'GHI90',
+    deliveryCode: 'RST12',
+    pickupValidation: { validated: true, validatedAt: '2026-01-04T09:15:00Z', validatedBy: 'user-1' },
+    deliveryValidation: { validated: false },
   },
   {
     id: 4,
@@ -105,6 +117,10 @@ export const MOCK_ORDERS: Order[] = [
     rated: false,
     paymentMethod: 'cash',
     paymentStatus: 'pending',
+    pickupCode: 'JKL45',
+    deliveryCode: 'MNO67',
+    pickupValidation: { validated: false },
+    deliveryValidation: { validated: false },
   },
   {
     id: 5,
@@ -130,6 +146,10 @@ export const MOCK_ORDERS: Order[] = [
     rated: false,
     paymentMethod: 'cash',
     paymentStatus: 'pending',
+    pickupCode: 'PQR89',
+    deliveryCode: 'STU01',
+    pickupValidation: { validated: false },
+    deliveryValidation: { validated: false },
   },
 ];
 
