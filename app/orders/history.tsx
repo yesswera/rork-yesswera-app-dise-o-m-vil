@@ -216,7 +216,7 @@ export default function OrderHistoryScreen() {
       {ratingOrder && ratingOrder.driverId && ratingOrder.driverName && (
         <RatingModal
           visible={!!ratingOrder}
-          orderId={ratingOrder.id}
+          orderId={ratingOrder.id.toString()}
           driverId={ratingOrder.driverId}
           driverName={ratingOrder.driverName}
           onClose={() => setRatingOrder(null)}

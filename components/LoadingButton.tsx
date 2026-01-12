@@ -1,4 +1,4 @@
-import { TouchableOpacity, Text, StyleSheet, ActivityIndicator, View } from 'react-native';
+import { TouchableOpacity, Text, StyleSheet, ActivityIndicator, View, ViewStyle } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import Colors from '@/constants/colors';
 
@@ -8,6 +8,7 @@ interface LoadingButtonProps {
   loading?: boolean;
   variant?: 'primary' | 'secondary' | 'danger' | 'tertiary';
   disabled?: boolean;
+  style?: ViewStyle;
 }
 
 export default function LoadingButton({
@@ -16,6 +17,7 @@ export default function LoadingButton({
   loading = false,
   variant = 'primary',
   disabled = false,
+  style,
 }: LoadingButtonProps) {
   const isDisabled = disabled || loading;
 
@@ -39,7 +41,7 @@ export default function LoadingButton({
       activeOpacity={0.8}
       onPress={onPress}
       disabled={isDisabled}
-      style={[styles.button, isDisabled && styles.buttonDisabled]}
+      style={[styles.button, isDisabled && styles.buttonDisabled, style]}
     >
       <LinearGradient
         colors={getGradientColors()}
