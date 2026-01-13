@@ -150,3 +150,25 @@ export async function validateDeliveryCode(
     return { success: false, message: 'Error al validar código' };
   }
 }
+
+export async function acceptOrder(
+  orderId: string,
+  estimatedPrepTime: number,
+  token: string
+): Promise<Order> {
+  const response = await fetch(`${API_BASE}/orders/${orderId}/accept`, {
+    method: 'POST',
+    headers: {
+      'Authorization': `Bearer ${token}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({ estimatedPrepTime }),
+  });
+
+  if (!response.ok) {
+    const errorData = await response.json().catch(() => ({}));
+    throw new Error(errorData.error || 'Error al aceptar orden');
+  }
+
+  return response.json();
+}

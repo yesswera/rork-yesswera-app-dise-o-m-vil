@@ -49,6 +49,10 @@ export default function DriverDashboardScreen() {
     },
   ];
 
+  const handleViewActiveOrder = () => {
+    router.push('/driver/active-order');
+  };
+
   const handleAcceptOrder = (orderId: string) => {
     Alert.alert(
       'Aceptar Orden',
@@ -119,6 +123,14 @@ export default function DriverDashboardScreen() {
               <Text style={styles.statLabel}>Balance Total</Text>
             </View>
           </View>
+
+          <TouchableOpacity
+            style={styles.activeOrderButton}
+            onPress={handleViewActiveOrder}
+          >
+            <Package size={24} color={Colors.white} />
+            <Text style={styles.activeOrderButtonText}>Ver Orden Activa</Text>
+          </TouchableOpacity>
 
           <View style={styles.ordersSection}>
             <Text style={styles.sectionTitle}>Órdenes Disponibles</Text>
@@ -338,5 +350,25 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '600' as const,
     color: Colors.error,
+  },
+  activeOrderButton: {
+    backgroundColor: Colors.primary,
+    borderRadius: 12,
+    flexDirection: 'row' as const,
+    alignItems: 'center' as const,
+    justifyContent: 'center' as const,
+    paddingVertical: 16,
+    marginBottom: 24,
+    shadowColor: Colors.shadow.medium,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 8,
+    elevation: 3,
+  },
+  activeOrderButtonText: {
+    fontSize: 16,
+    fontWeight: '700' as const,
+    color: Colors.white,
+    marginLeft: 8,
   },
 });

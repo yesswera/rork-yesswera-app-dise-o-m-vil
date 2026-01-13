@@ -77,6 +77,10 @@ export default function BusinessDashboardScreen() {
     );
   };
 
+  const handleViewOrders = () => {
+    router.push('/business/orders');
+  };
+
   const handleLogout = async () => {
     Alert.alert(
       'Cerrar Sesión',
@@ -206,6 +210,11 @@ export default function BusinessDashboardScreen() {
               </View>
             ))}
           </View>
+
+          <TouchableOpacity style={styles.viewOrdersButton} onPress={handleViewOrders}>
+            <Package size={20} color={Colors.white} />
+            <Text style={styles.viewOrdersButtonText}>Ver Órdenes</Text>
+          </TouchableOpacity>
 
           <TouchableOpacity style={styles.logoutButton} onPress={handleLogout}>
             <Text style={styles.logoutButtonText}>Cerrar Sesión</Text>
@@ -511,6 +520,21 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '600' as const,
     color: Colors.error,
+  },
+  viewOrdersButton: {
+    height: 52,
+    backgroundColor: Colors.secondary,
+    borderRadius: 12,
+    flexDirection: 'row' as const,
+    justifyContent: 'center' as const,
+    alignItems: 'center' as const,
+    marginBottom: 12,
+    gap: 8,
+  },
+  viewOrdersButtonText: {
+    fontSize: 16,
+    fontWeight: '600' as const,
+    color: Colors.white,
   },
   addProductContainer: {
     flex: 1,
