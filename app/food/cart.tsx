@@ -10,11 +10,12 @@ import { SavedAddress, PaymentMethod } from '@/constants/types';
 import AddressSelector from '@/components/AddressSelector';
 import PaymentMethodSelector from '@/components/PaymentMethodSelector';
 import TipSelector from '@/components/TipSelector';
+import { API_ENDPOINTS } from '@/constants/api';
 
 export default function CartScreen() {
   const router = useRouter();
   const { items, updateQuantity, removeItem, total, clearCart } = useCart();
-  const { user } = useAuth();
+  const { user, token } = useAuth();
   const [selectedAddress, setSelectedAddress] = useState<SavedAddress | null>(null);
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>('cash');
   const [tip, setTip] = useState<number>(0);
@@ -45,24 +46,96 @@ export default function CartScreen() {
       return;
     }
 
+    if (items.length === 0) {
+      Alert.alert('Error', 'Tu carrito está vacío');
+      return;
+    }
+
+    const businessId = items[0]?.businessId;
+    if (!businessId) {
+      Alert.alert('Error', 'No se pudo identificar el negocio');
+      return;
+    }
+
     setIsProcessing(true);
 
-    setTimeout(() => {
+    try {
+      const orderData = {
+        clienteId: user.id,
+        negocioId: businessId,
+        items: items.map(item => ({
+          productoId: item.id,
+          nombre: item.name,
+          cantidad: item.quantity,
+          precio: item.price,
+        })),
+        total: finalTotal,
+        subtotal: total,
+        costoEnvio: deliveryCost,
+        propina: tip,
+        direccionEntrega: selectedAddress.address,
+        metodoPago: paymentMethod,
+        instruccionesEntrega: selectedAddress.instructions || '',
+      };
+
+      console.log('Creando orden:', orderData);
+
+      const response = await fetch(API_ENDPOINTS.orders.create, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token || ''}`,
+        },
+        body: JSON.stringify(orderData),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.error || 'Error al crear la orden');
+      }
+
+      const data = await response.json();
+      console.log('Orden creada exitosamente:', data);
+
+      const orderId = data.orderId || data.id;
+      const deliveryCode = data.deliveryCode || data.codigoEntrega;
+
+      clearCart();
+
       Alert.alert(
-        '¡Orden Creada!',
-        'Tu orden ha sido enviada. Un repartidor la aceptará pronto.',
+        '¡Pedido Creado! 🎉',
+        `Tu código de entrega es:\n\n${deliveryCode}\n\nMuestra este código al repartidor cuando llegue.`,
         [
           {
             text: 'Ver Tracking',
             onPress: () => {
-              clearCart();
-              router.push('/tracking/order-123' as any);
+              if (orderId) {
+                router.replace(`/tracking/${orderId}` as any);
+              } else {
+                router.replace('/orders/history' as any);
+              }
             },
+          },
+          {
+            text: 'Ir al Inicio',
+            onPress: () => router.replace('/' as any),
+            style: 'cancel',
           },
         ]
       );
+    } catch (error: any) {
+      console.error('Error al crear orden:', error);
+      Alert.alert(
+        'Error al Crear Orden',
+        error.message || 'No se pudo procesar tu pedido. Por favor intenta nuevamente.',
+        [
+          { text: 'Reintentar', onPress: handleCheckout },
+          { text: 'Cancelar', style: 'cancel' },
+        ]
+      );
+    } finally {
       setIsProcessing(false);
-    }, 1500);
+    }
   };
 
   if (items.length === 0) {
