@@ -50,17 +50,16 @@ export default function BusinessOrdersScreen() {
   const handleAcceptOrder = async (orderId: string) => {
     if (!token) return;
 
-    Alert.prompt(
+    Alert.alert(
       'Aceptar Orden',
-      '¿Cuántos minutos tardará en preparar?',
+      '¿Confirmar aceptación? (Tiempo estimado: 20 min)',
       [
         { text: 'Cancelar', style: 'cancel' },
         {
           text: 'Aceptar',
-          onPress: async (prepTime?: string) => {
+          onPress: async () => {
             try {
-              const time = parseInt(prepTime || '20', 10);
-              await acceptOrder(orderId, time, token);
+              await acceptOrder(orderId, 20, token);
               Alert.alert('Éxito', 'Orden aceptada');
               loadOrders();
             } catch (error) {
@@ -69,9 +68,7 @@ export default function BusinessOrdersScreen() {
             }
           },
         },
-      ],
-      'plain-text',
-      '20'
+      ]
     );
   };
 

@@ -4,13 +4,26 @@ import { Search, Star, Clock } from 'lucide-react-native';
 import { Image } from 'expo-image';
 import { useState } from 'react';
 import Colors from '@/constants/colors';
-import { mockBusinesses } from '@/mocks/businesses';
+
+// Único negocio real - Tienda Central
+const realBusinesses = [
+  {
+    id: '3c246c92-17ba-49fb-b0ac-81ac5ba9e2a8',
+    name: 'Tienda Central',
+    description: 'Restaurante con variedad de platillos',
+    image: 'https://images.unsplash.com/photo-1517248135467-4c7edcad34c4?w=400',
+    rating: 4.6,
+    deliveryTime: '25-35 min',
+    tags: ['Restaurante', 'Comida', 'Entrega rápida'],
+    category: 'food',
+  },
+];
 
 export default function RestaurantsScreen() {
   const router = useRouter();
   const [search, setSearch] = useState<string>('');
 
-  const filteredBusinesses = mockBusinesses.filter(
+  const filteredBusinesses = realBusinesses.filter(
     (business) =>
       business.name.toLowerCase().includes(search.toLowerCase()) ||
       business.category.toLowerCase().includes(search.toLowerCase())

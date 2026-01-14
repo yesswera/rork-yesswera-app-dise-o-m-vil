@@ -1,7 +1,7 @@
-import AsyncStorage from '@react-native-async-storage/async-storage';
 import createContextHook from '@nkzw/create-context-hook';
 import { useState, useEffect } from 'react';
 import type { User } from '@/constants/types';
+import storage from '@/utils/storage';
 
 interface AuthState {
   user: User | null;
@@ -12,7 +12,7 @@ interface AuthState {
   logout: () => Promise<void>;
 }
 
-const API_BASE = 'http://192.168.100.2:3000/api';
+const API_BASE = 'http://192.168.100.3:3000/api';
 
 export const [AuthProvider, useAuth] = createContextHook<AuthState>(() => {
   const [user, setUser] = useState<User | null>(null);
@@ -34,8 +34,8 @@ export const [AuthProvider, useAuth] = createContextHook<AuthState>(() => {
 
   const loadStoredAuth = async () => {
     try {
-      const storedToken = await AsyncStorage.getItem('auth_token');
-      const storedUser = await AsyncStorage.getItem('auth_user');
+      const storedToken = await storage.getItem('auth_token');
+      const storedUser = await storage.getItem('auth_user');
 
       if (storedToken && storedUser) {
         try {
@@ -48,8 +48,8 @@ export const [AuthProvider, useAuth] = createContextHook<AuthState>(() => {
           setUser(parsedUser);
         } catch (parseError) {
           console.error('Error parsing stored user:', parseError);
-          await AsyncStorage.removeItem('auth_token');
-          await AsyncStorage.removeItem('auth_user');
+          await storage.removeItem('auth_token');
+          await storage.removeItem('auth_user');
         }
       }
     } catch (error) {
@@ -87,8 +87,8 @@ export const [AuthProvider, useAuth] = createContextHook<AuthState>(() => {
       setToken(data.token);
       setUser(mappedUser);
 
-      await AsyncStorage.setItem('auth_token', data.token);
-      await AsyncStorage.setItem('auth_user', JSON.stringify(mappedUser));
+      await storage.setItem('auth_token', data.token);
+      await storage.setItem('auth_user', JSON.stringify(mappedUser));
     } catch (error) {
       console.error('Login error:', error);
       throw error;
@@ -125,8 +125,8 @@ export const [AuthProvider, useAuth] = createContextHook<AuthState>(() => {
       setToken(data.token);
       setUser(mappedUser);
 
-      await AsyncStorage.setItem('auth_token', data.token);
-      await AsyncStorage.setItem('auth_user', JSON.stringify(mappedUser));
+      await storage.setItem('auth_token', data.token);
+      await storage.setItem('auth_user', JSON.stringify(mappedUser));
     } catch (error) {
       console.error('Register error:', error);
       throw error;
@@ -136,8 +136,8 @@ export const [AuthProvider, useAuth] = createContextHook<AuthState>(() => {
   const logout = async () => {
     setUser(null);
     setToken(null);
-    await AsyncStorage.removeItem('auth_token');
-    await AsyncStorage.removeItem('auth_user');
+    await storage.removeItem('auth_token');
+    await storage.removeItem('auth_user');
   };
 
   return {

@@ -115,8 +115,8 @@ export default function ActiveOrderScreen() {
   }
 
   const isPickedUp = order.pickupValidation?.validated;
-  const canPickup = order.status === 'accepted' || order.status === 'ready';
-  const canDeliver = isPickedUp && order.status === 'in_transit';
+  const canPickup = order.status === 'accepted' || order.status === 'ready' || order.status === 'assigned';
+  const canDeliver = isPickedUp && (order.status === 'in_transit' || order.status === 'picked_up');
 
   return (
     <LinearGradient
@@ -180,7 +180,14 @@ export default function ActiveOrderScreen() {
                 <Text style={styles.stepTitle}>Paso 1: Recoger Orden</Text>
               </View>
               <Text style={styles.stepInstruction}>
-                Solicita el código al negocio cuando esté lista la orden
+                Muestra este código al negocio para recoger la orden:
+              </Text>
+              <View style={styles.codeDisplayContainer}>
+                <Text style={styles.codeDisplayLabel}>Tu código de recogida:</Text>
+                <Text style={styles.codeDisplay}>{order.pickupCode}</Text>
+              </View>
+              <Text style={styles.stepInstruction}>
+                Cuando el negocio confirme, ingresa el mismo código:
               </Text>
               <TextInput
                 style={styles.codeInput}
@@ -205,7 +212,7 @@ export default function ActiveOrderScreen() {
                 ) : (
                   <>
                     <CheckCircle size={20} color={Colors.white} />
-                    <Text style={styles.validateButtonText}>Validar Recogida</Text>
+                    <Text style={styles.validateButtonText}>Confirmar Recogida</Text>
                   </>
                 )}
               </TouchableOpacity>
@@ -273,9 +280,11 @@ export default function ActiveOrderScreen() {
 function getStatusLabel(status: string): string {
   const labels: Record<string, string> = {
     pending: 'Pendiente',
+    assigned: 'Asignada - Ve a recoger',
     accepted: 'Aceptada - Lista para recoger',
     preparing: 'En preparación',
     ready: 'Lista para recoger',
+    picked_up: 'Recogida - En camino',
     in_transit: 'En camino al cliente',
     delivered: 'Entregada',
     cancelled: 'Cancelada',
@@ -404,6 +413,24 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: Colors.text.secondary,
     marginBottom: 16,
+  },
+  codeDisplayContainer: {
+    backgroundColor: Colors.primary + '15',
+    borderRadius: 12,
+    padding: 16,
+    alignItems: 'center',
+    marginBottom: 16,
+  },
+  codeDisplayLabel: {
+    fontSize: 12,
+    color: Colors.text.secondary,
+    marginBottom: 8,
+  },
+  codeDisplay: {
+    fontSize: 36,
+    fontWeight: '700',
+    color: Colors.primary,
+    letterSpacing: 8,
   },
   codeInput: {
     borderWidth: 2,

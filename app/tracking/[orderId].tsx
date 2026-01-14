@@ -82,7 +82,8 @@ export default function TrackingScreen() {
           }
           prevLocationRef.current = location;
 
-          if (updatedOrder.deliveryLocation) {
+          // Only calculate ETA if deliveryLocation has coordinates
+          if (updatedOrder.deliveryLocation && typeof updatedOrder.deliveryLocation === 'object' && updatedOrder.deliveryLocation.latitude) {
             const calculatedETA = calculateETA(
               { latitude: location.latitude, longitude: location.longitude },
               updatedOrder.deliveryLocation,
@@ -178,13 +179,24 @@ export default function TrackingScreen() {
     );
   }
 
+  // Handle deliveryLocation as string or object
+  const getDeliveryCoords = () => {
+    if (typeof order.deliveryLocation === 'object' && order.deliveryLocation?.latitude) {
+      return order.deliveryLocation;
+    }
+    // Default coords for Tomatlán, Jalisco if only string address
+    return { latitude: 19.9333, longitude: -105.2500 };
+  };
+
+  const deliveryCoords = getDeliveryCoords();
+
   return (
     <View style={styles.container}>
       <MapView
         style={styles.map}
         initialRegion={{
-          latitude: order.deliveryLocation.latitude,
-          longitude: order.deliveryLocation.longitude,
+          latitude: deliveryCoords.latitude,
+          longitude: deliveryCoords.longitude,
           latitudeDelta: 0.05,
           longitudeDelta: 0.05,
         }}
@@ -198,10 +210,10 @@ export default function TrackingScreen() {
           />
         )}
         <Marker
-          coordinate={order.deliveryLocation}
+          coordinate={deliveryCoords}
           pinColor={Colors.primary}
           title="Punto de Entrega"
-          description={order.deliveryAddress}
+          description={typeof order.deliveryLocation === 'string' ? order.deliveryLocation : order.deliveryAddress}
         />
         {driverLocation && (
           <Marker
@@ -236,7 +248,7 @@ export default function TrackingScreen() {
             coordinates={[
               order.pickupLocation,
               { latitude: driverLocation.latitude, longitude: driverLocation.longitude },
-              order.deliveryLocation
+              deliveryCoords
             ]}
             strokeColor={Colors.primary}
             strokeWidth={3}

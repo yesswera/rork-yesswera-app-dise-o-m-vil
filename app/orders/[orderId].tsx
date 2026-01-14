@@ -156,8 +156,9 @@ export default function OrderDetailsScreen() {
     }
   };
 
-  const formatDate = (date: Date) => {
-    return date.toLocaleDateString('es-ES', {
+  const formatDate = (date: Date | string) => {
+    const d = typeof date === 'string' ? new Date(date) : date;
+    return d.toLocaleDateString('es-ES', {
       day: 'numeric',
       month: 'long',
       year: 'numeric',

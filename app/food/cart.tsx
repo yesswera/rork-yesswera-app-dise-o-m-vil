@@ -61,21 +61,23 @@ export default function CartScreen() {
 
     try {
       const orderData = {
-        clienteId: user.id,
-        negocioId: businessId,
+        type: 'food',
+        businessId: businessId,
+        businessName: items[0]?.businessName || 'Tienda Central',
         items: items.map(item => ({
-          productoId: item.id,
-          nombre: item.name,
-          cantidad: item.quantity,
-          precio: item.price,
+          id: item.id,
+          name: item.name,
+          quantity: item.quantity,
+          price: item.price,
         })),
         total: finalTotal,
         subtotal: total,
-        costoEnvio: deliveryCost,
-        propina: tip,
-        direccionEntrega: selectedAddress.address,
-        metodoPago: paymentMethod,
-        instruccionesEntrega: selectedAddress.instructions || '',
+        deliveryFee: deliveryCost,
+        tip: tip,
+        deliveryLocation: selectedAddress.address,
+        deliveryAddress: selectedAddress.address,
+        paymentMethod: paymentMethod,
+        instructions: selectedAddress.instructions || '',
       };
 
       console.log('Creando orden:', orderData);
