@@ -1,11 +1,10 @@
-import { useState, useCallback, useMemo } from 'react';
+import { useState, useMemo } from 'react';
 import { StyleSheet, Text, View, TouchableOpacity, ScrollView, TextInput, Modal, Alert } from 'react-native';
 import { useRouter } from 'expo-router';
-import { ArrowLeft, Search, SlidersHorizontal, Calendar, Package, ShoppingBag, Truck, X, Download, Star, Clock, MapPin } from 'lucide-react-native';
+import { ArrowLeft, Search, SlidersHorizontal, Calendar, Package, X, Download, Star, Clock, MapPin } from 'lucide-react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import Colors from '@/constants/colors';
-import { useAuth } from '@/contexts/auth';
-import { format, isToday, isYesterday, isThisWeek, startOfDay, endOfDay } from 'date-fns';
+import { format, isToday, isYesterday, isThisWeek } from 'date-fns';
 import { es } from 'date-fns/locale';
 
 interface DeliveryHistory {
@@ -142,7 +141,6 @@ type DateFilter = 'today' | 'yesterday' | 'week' | 'month' | 'all';
 
 export default function DriverHistoryScreen() {
   const router = useRouter();
-  const { user } = useAuth();
   const [searchQuery, setSearchQuery] = useState('');
   const [showFilters, setShowFilters] = useState(false);
   const [typeFilter, setTypeFilter] = useState<FilterType>('all');

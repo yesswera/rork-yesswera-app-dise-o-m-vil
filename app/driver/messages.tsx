@@ -4,7 +4,6 @@ import { useRouter } from 'expo-router';
 import { ArrowLeft, Search, MessageCircle, User, Store, ShieldCheck } from 'lucide-react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import Colors from '@/constants/colors';
-import { useAuth } from '@/contexts/auth';
 import { format, isToday, isYesterday } from 'date-fns';
 import { es } from 'date-fns/locale';
 
@@ -81,7 +80,6 @@ const MOCK_CONVERSATIONS: Conversation[] = [
 
 export default function DriverMessagesScreen() {
   const router = useRouter();
-  const { user } = useAuth();
   const [searchQuery, setSearchQuery] = useState('');
 
   const filteredConversations = useMemo(() => {
