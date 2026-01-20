@@ -5,12 +5,16 @@ import { Package, DollarSign, Star, Clock, MapPin, Wallet, Power, Navigation, Me
 import { LinearGradient } from 'expo-linear-gradient';
 import Colors from '@/constants/colors';
 import { useAuth } from '@/contexts/auth';
+import { useAnalytics } from '@/contexts/analytics';
 import PanicButton from '@/components/PanicButton';
+import SurveyPopup from '@/components/SurveyPopup';
 import { API_BASE } from '@/constants/api';
+import { Survey } from '@/constants/types';
 
 export default function DriverDashboardScreen() {
   const router = useRouter();
   const { user, token, logout } = useAuth();
+  const { trackEvent, trackPageView, currentSurvey, closeSurvey, submitSurvey } = useAnalytics();
   const [isOnline, setIsOnline] = useState(false);
   const [stats, setStats] = useState({
     todayDeliveries: 0,
@@ -91,6 +95,7 @@ export default function DriverDashboardScreen() {
   }, [user, token, isOnline]);
 
   useEffect(() => {
+    trackPageView('driver_dashboard', { status: isOnline ? 'online' : 'offline' });
     loadDriverStats();
     const interval = setInterval(loadDriverStats, 30000);
     return () => clearInterval(interval);
@@ -107,6 +112,7 @@ export default function DriverDashboardScreen() {
   const toggleOnlineStatus = () => {
     const newStatus = !isOnline;
     setIsOnline(newStatus);
+    trackEvent('driver_status_change', { newStatus: newStatus ? 'online' : 'offline' });
     if (newStatus) {
       Alert.alert('En Línea', 'Ahora recibirás órdenes disponibles');
     } else {
@@ -144,14 +150,20 @@ export default function DriverDashboardScreen() {
   };
 
   const handleAcceptOrder = (orderId: string) => {
+    trackEvent('order_accept_attempt', { orderId });
     Alert.alert(
       'Aceptar Orden',
       '¿Estás seguro de aceptar esta orden?',
       [
-        { text: 'Cancelar', style: 'cancel' },
+        { 
+          text: 'Cancelar', 
+          style: 'cancel',
+          onPress: () => trackEvent('order_accept_cancelled', { orderId })
+        },
         {
           text: 'Aceptar',
           onPress: () => {
+            trackEvent('order_accepted', { orderId });
             router.push(`/tracking/${orderId}` as any);
           },
         },
@@ -179,6 +191,12 @@ export default function DriverDashboardScreen() {
 
   return (
     <View style={styles.container}>
+      <SurveyPopup
+        survey={currentSurvey!}
+        visible={!!currentSurvey}
+        onClose={closeSurvey}
+        onSubmit={(responses) => submitSurvey(currentSurvey!.id, responses)}
+      />
       <ScrollView style={styles.scrollView} showsVerticalScrollIndicator={false}>
         <LinearGradient
           colors={[Colors.primary, Colors.primaryDark]}
@@ -252,15 +270,24 @@ export default function DriverDashboardScreen() {
           <View style={styles.quickActionsSection}>
             <Text style={styles.sectionTitle}>Acciones Rápidas</Text>
             <View style={styles.quickActionsGrid}>
-              <TouchableOpacity style={styles.quickActionCard} onPress={() => router.push('/driver/history' as any)}>
+              <TouchableOpacity style={styles.quickActionCard} onPress={() => {
+                trackEvent('button_click', { button: 'history' });
+                router.push('/driver/history' as any);
+              }}>
                 <History size={24} color={Colors.primary} />
                 <Text style={styles.quickActionText}>Historial</Text>
               </TouchableOpacity>
-              <TouchableOpacity style={styles.quickActionCard} onPress={() => router.push('/driver/profile' as any)}>
+              <TouchableOpacity style={styles.quickActionCard} onPress={() => {
+                trackEvent('button_click', { button: 'profile' });
+                router.push('/driver/profile' as any);
+              }}>
                 <User size={24} color={Colors.accent} />
                 <Text style={styles.quickActionText}>Mi Perfil</Text>
               </TouchableOpacity>
-              <TouchableOpacity style={styles.quickActionCard} onPress={() => router.push('/driver/messages' as any)}>
+              <TouchableOpacity style={styles.quickActionCard} onPress={() => {
+                trackEvent('button_click', { button: 'messages' });
+                router.push('/driver/messages' as any);
+              }}>
                 <MessageCircle size={24} color={Colors.success} />
                 <Text style={styles.quickActionText}>Mensajes</Text>
               </TouchableOpacity>

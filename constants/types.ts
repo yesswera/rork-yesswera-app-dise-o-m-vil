@@ -470,3 +470,81 @@ export interface BusinessSettlement {
   };
 }
 
+export type SurveyQuestionType = 'rating' | 'multiple_choice' | 'yes_no' | 'text' | 'scale';
+
+export interface SurveyQuestion {
+  id: string;
+  type: SurveyQuestionType;
+  question: string;
+  options?: string[];
+  scaleMin?: number;
+  scaleMax?: number;
+  scaleLabels?: { min: string; max: string };
+  required: boolean;
+}
+
+export interface Survey {
+  id: string;
+  targetAudience: UserType | 'all';
+  triggerEvent: 'order_completed' | 'app_open' | 'idle_time' | 'manual' | 'timed';
+  triggerCondition?: {
+    ordersMin?: number;
+    timeOfDay?: { start: string; end: string };
+    daysOfWeek?: number[];
+    oncePerUser?: boolean;
+  };
+  priority: 'low' | 'medium' | 'high';
+  questions: SurveyQuestion[];
+  incentive?: {
+    type: 'discount' | 'points' | 'free_delivery';
+    value: number;
+    description: string;
+  };
+  active: boolean;
+  expiresAt?: string;
+  createdAt: string;
+}
+
+export interface SurveyResponse {
+  id: string;
+  surveyId: string;
+  userId: string;
+  userType: UserType;
+  orderId?: string;
+  responses: {
+    questionId: string;
+    answer: string | number;
+  }[];
+  context: {
+    timestamp: string;
+    dayOfWeek: number;
+    hour: number;
+    location?: { latitude: number; longitude: number };
+    deviceInfo: string;
+  };
+  completedAt: string;
+}
+
+export interface UserBehaviorEvent {
+  id: string;
+  userId: string;
+  userType: UserType;
+  eventType: 'page_view' | 'button_click' | 'order_placed' | 'search' | 'filter_applied' | 'item_added_cart' | 'checkout_started' | 'checkout_completed' | 'app_open' | 'app_close' | 'feature_used';
+  eventData: Record<string, any>;
+  sessionId: string;
+  timestamp: string;
+  location?: { latitude: number; longitude: number };
+}
+
+export interface AnalyticsInsight {
+  id: string;
+  category: 'sales' | 'service_quality' | 'peak_hours' | 'user_satisfaction' | 'delivery_performance';
+  title: string;
+  description: string;
+  data: Record<string, any>;
+  recommendation?: string;
+  priority: 'info' | 'warning' | 'critical';
+  generatedAt: string;
+  affectedUsers?: string[];
+}
+

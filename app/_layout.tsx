@@ -5,6 +5,7 @@ import { View } from "react-native";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { AuthProvider } from "@/contexts/auth";
 import { CartProvider } from "@/contexts/cart";
+import { AnalyticsProvider } from "@/contexts/analytics";
 import { QueryProvider } from "@/providers/QueryProvider";
 import ToastContainer from "@/components/ToastContainer";
 
@@ -49,12 +50,14 @@ export default function RootLayout() {
     <QueryProvider>
       <GestureHandlerRootView style={{ flex: 1 }}>
         <AuthProvider>
-          <CartProvider>
-            <View style={{ flex: 1 }}>
-              <RootLayoutNav />
-              <ToastContainer />
-            </View>
-          </CartProvider>
+          <AnalyticsProvider>
+            <CartProvider>
+              <View style={{ flex: 1 }}>
+                <RootLayoutNav />
+                <ToastContainer />
+              </View>
+            </CartProvider>
+          </AnalyticsProvider>
         </AuthProvider>
       </GestureHandlerRootView>
     </QueryProvider>
