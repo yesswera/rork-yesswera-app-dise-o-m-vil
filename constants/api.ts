@@ -1,4 +1,8 @@
-export const API_BASE = 'http://192.168.100.5:3000/api';
+// API pública via Cloudflare (funciona desde cualquier lugar)
+export const API_BASE = 'https://api.yesswera.com/api';
+
+// Alternativa: Red local (si estás en la misma LAN)
+// export const API_BASE = 'https://15.1.1.10:3000/api';
 
 export const API_ENDPOINTS = {
   auth: {
