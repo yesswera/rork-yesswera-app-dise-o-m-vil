@@ -363,6 +363,7 @@ const styles = StyleSheet.create({
     width: 320,
     height: 130,
     marginBottom: 16,
+    backgroundColor: 'transparent',
   },
   tagline: {
     fontSize: 18,
