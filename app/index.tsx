@@ -113,7 +113,7 @@ export default function HomeScreen() {
     },
     {
       id: 'delivery',
-      title: 'Coger y Entregar',
+      title: 'Recoger y Entregar',
       subtitle: 'Mensajería Express',
       icon: Package,
       color1: Colors.accent,
@@ -148,19 +148,12 @@ export default function HomeScreen() {
             <Text style={styles.tagline}>Lo que quieras, cuando quieras</Text>
           </View>
           
-          {user ? (
+          {user && (
             <TouchableOpacity 
               style={styles.userButton}
               onPress={() => router.push('/profile' as any)}
             >
               <User size={24} color={Colors.text.primary} />
-            </TouchableOpacity>
-          ) : (
-            <TouchableOpacity 
-              style={styles.loginButton}
-              onPress={() => router.push('/login' as any)}
-            >
-              <Text style={styles.loginText}>Entrar</Text>
             </TouchableOpacity>
           )}
         </View>
