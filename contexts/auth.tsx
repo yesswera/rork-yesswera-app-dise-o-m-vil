@@ -2,6 +2,7 @@ import createContextHook from '@nkzw/create-context-hook';
 import { useState, useEffect } from 'react';
 import type { User } from '@/constants/types';
 import storage from '@/utils/storage';
+import { API_ENDPOINTS } from '@/constants/api';
 
 interface AuthState {
   user: User | null;
@@ -12,7 +13,7 @@ interface AuthState {
   logout: () => Promise<void>;
 }
 
-const API_BASE = 'http://192.168.100.3:3000/api';
+
 
 export const [AuthProvider, useAuth] = createContextHook<AuthState>(() => {
   const [user, setUser] = useState<User | null>(null);
@@ -59,7 +60,7 @@ export const [AuthProvider, useAuth] = createContextHook<AuthState>(() => {
 
   const login = async (email: string, password: string) => {
     try {
-      const response = await fetch(`${API_BASE}/login`, {
+      const response = await fetch(API_ENDPOINTS.auth.login, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -97,7 +98,7 @@ export const [AuthProvider, useAuth] = createContextHook<AuthState>(() => {
 
   const register = async (name: string, email: string, password: string, phone: string, userType: string) => {
     try {
-      const response = await fetch(`${API_BASE}/register`, {
+      const response = await fetch(API_ENDPOINTS.auth.register, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

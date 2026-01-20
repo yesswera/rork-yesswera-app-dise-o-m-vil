@@ -318,13 +318,21 @@ export default function HomeScreen() {
 
         {!user && (
           <View style={styles.authPrompt}>
-            <Text style={styles.authPromptText}>¿Ya tienes cuenta?</Text>
-            <TouchableOpacity
-              onPress={() => router.push('/login' as any)}
-              style={styles.authPromptButton}
-            >
-              <Text style={styles.authPromptButtonText}>Iniciar Sesión</Text>
-            </TouchableOpacity>
+            <Text style={styles.authPromptText}>¿Listo para ordenar?</Text>
+            <View style={styles.authButtonsRow}>
+              <TouchableOpacity
+                onPress={() => router.push('/auth/register-client' as any)}
+                style={styles.registerButton}
+              >
+                <Text style={styles.registerButtonText}>Crear Cuenta</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                onPress={() => router.push('/login' as any)}
+                style={styles.authPromptButton}
+              >
+                <Text style={styles.authPromptButtonText}>Iniciar Sesión</Text>
+              </TouchableOpacity>
+            </View>
           </View>
         )}
       </ScrollView>
@@ -488,14 +496,37 @@ const styles = StyleSheet.create({
     paddingTop: 8,
   },
   authPromptText: {
-    fontSize: 14,
-    color: Colors.text.secondary,
-    marginBottom: 12,
+    fontSize: 16,
+    fontWeight: '600' as const,
+    color: Colors.text.primary,
+    marginBottom: 16,
+  },
+  authButtonsRow: {
+    flexDirection: 'row' as const,
+    gap: 12,
+    width: '100%' as const,
+  },
+  registerButton: {
+    flex: 1,
+    paddingVertical: 14,
+    borderRadius: 12,
+    backgroundColor: Colors.primary,
+    shadowColor: Colors.primary,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  registerButtonText: {
+    fontSize: 15,
+    fontWeight: '600' as const,
+    color: Colors.white,
+    textAlign: 'center' as const,
   },
   authPromptButton: {
-    paddingHorizontal: 32,
-    paddingVertical: 12,
-    borderRadius: 24,
+    flex: 1,
+    paddingVertical: 14,
+    borderRadius: 12,
     backgroundColor: Colors.white,
     borderWidth: 2,
     borderColor: Colors.primary,
@@ -504,6 +535,7 @@ const styles = StyleSheet.create({
     fontSize: 15,
     fontWeight: '600' as const,
     color: Colors.primary,
+    textAlign: 'center' as const,
   },
   activeOrderBanner: {
     marginBottom: 24,

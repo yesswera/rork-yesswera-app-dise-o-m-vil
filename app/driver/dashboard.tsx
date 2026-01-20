@@ -1,9 +1,10 @@
 import { StyleSheet, Text, View, TouchableOpacity, ScrollView, Alert } from 'react-native';
 import { useRouter } from 'expo-router';
-import { Package, DollarSign, Star, Clock, MapPin } from 'lucide-react-native';
+import { Package, DollarSign, Star, Clock, MapPin, Wallet } from 'lucide-react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import Colors from '@/constants/colors';
 import { useAuth } from '@/contexts/auth';
+import PanicButton from '@/components/PanicButton';
 
 export default function DriverDashboardScreen() {
   const router = useRouter();
@@ -51,6 +52,10 @@ export default function DriverDashboardScreen() {
 
   const handleViewActiveOrder = () => {
     router.push('/driver/active-order');
+  };
+
+  const handleViewWallet = () => {
+    router.push('/wallet/index' as any);
   };
 
   const handleAcceptOrder = (orderId: string) => {
@@ -124,13 +129,25 @@ export default function DriverDashboardScreen() {
             </View>
           </View>
 
-          <TouchableOpacity
-            style={styles.activeOrderButton}
-            onPress={handleViewActiveOrder}
-          >
-            <Package size={24} color={Colors.white} />
-            <Text style={styles.activeOrderButtonText}>Ver Orden Activa</Text>
-          </TouchableOpacity>
+          <View style={styles.actionButtonsRow}>
+            <TouchableOpacity
+              style={[styles.actionButton, styles.activeOrderButton]}
+              onPress={handleViewActiveOrder}
+            >
+              <Package size={24} color={Colors.white} />
+              <Text style={styles.actionButtonText}>Orden Activa</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={[styles.actionButton, styles.walletButton]}
+              onPress={handleViewWallet}
+            >
+              <Wallet size={24} color={Colors.white} />
+              <Text style={styles.actionButtonText}>Mi Saldo</Text>
+            </TouchableOpacity>
+          </View>
+
+          <PanicButton />
 
           <View style={styles.ordersSection}>
             <Text style={styles.sectionTitle}>Órdenes Disponibles</Text>
@@ -351,24 +368,34 @@ const styles = StyleSheet.create({
     fontWeight: '600' as const,
     color: Colors.error,
   },
-  activeOrderButton: {
-    backgroundColor: Colors.primary,
-    borderRadius: 12,
+  actionButtonsRow: {
     flexDirection: 'row' as const,
+    gap: 12,
+    marginBottom: 24,
+  },
+  actionButton: {
+    flex: 1,
+    borderRadius: 12,
+    flexDirection: 'column' as const,
     alignItems: 'center' as const,
     justifyContent: 'center' as const,
     paddingVertical: 16,
-    marginBottom: 24,
     shadowColor: Colors.shadow.medium,
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
     shadowRadius: 8,
     elevation: 3,
   },
-  activeOrderButtonText: {
-    fontSize: 16,
+  activeOrderButton: {
+    backgroundColor: Colors.primary,
+  },
+  walletButton: {
+    backgroundColor: Colors.success,
+  },
+  actionButtonText: {
+    fontSize: 14,
     fontWeight: '700' as const,
     color: Colors.white,
-    marginLeft: 8,
+    marginTop: 8,
   },
 });
