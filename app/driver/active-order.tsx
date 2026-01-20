@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import {
   StyleSheet,
   Text,
@@ -8,6 +8,8 @@ import {
   TextInput,
   ScrollView,
   ActivityIndicator,
+  Platform,
+  Keyboard,
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -25,6 +27,10 @@ export default function ActiveOrderScreen() {
   const [deliveryCodeInput, setDeliveryCodeInput] = useState('');
   const [loading, setLoading] = useState(true);
   const [validating, setValidating] = useState(false);
+
+  // Refs for TextInput focus (Android fix)
+  const pickupInputRef = useRef<TextInput>(null);
+  const deliveryInputRef = useRef<TextInput>(null);
 
   const loadActiveOrder = useCallback(async () => {
     if (!user || !token) return;
@@ -189,16 +195,28 @@ export default function ActiveOrderScreen() {
               <Text style={styles.stepInstruction}>
                 Cuando el negocio confirme, ingresa el mismo código:
               </Text>
-              <TextInput
-                style={styles.codeInput}
-                placeholder="Código (5 caracteres)"
-                placeholderTextColor={Colors.text.light}
-                value={pickupCodeInput}
-                onChangeText={(text) => setPickupCodeInput(text.toUpperCase())}
-                maxLength={5}
-                autoCapitalize="characters"
-                editable={!validating}
-              />
+              <TouchableOpacity
+                activeOpacity={1}
+                onPress={() => pickupInputRef.current?.focus()}
+              >
+                <TextInput
+                  ref={pickupInputRef}
+                  style={styles.codeInput}
+                  placeholder="Código (5 caracteres)"
+                  placeholderTextColor={Colors.text.light}
+                  value={pickupCodeInput}
+                  onChangeText={(text) => setPickupCodeInput(text.toUpperCase())}
+                  maxLength={5}
+                  autoCapitalize="characters"
+                  editable={!validating}
+                  keyboardType="default"
+                  returnKeyType="done"
+                  autoCorrect={false}
+                  blurOnSubmit={true}
+                  onSubmitEditing={() => Keyboard.dismiss()}
+                  selectTextOnFocus={true}
+                />
+              </TouchableOpacity>
               <TouchableOpacity
                 style={[
                   styles.validateButton,
@@ -241,16 +259,28 @@ export default function ActiveOrderScreen() {
               <Text style={styles.stepInstruction}>
                 Solicita el código al cliente al entregar
               </Text>
-              <TextInput
-                style={styles.codeInput}
-                placeholder="Código de entrega (5 caracteres)"
-                placeholderTextColor={Colors.text.light}
-                value={deliveryCodeInput}
-                onChangeText={(text) => setDeliveryCodeInput(text.toUpperCase())}
-                maxLength={5}
-                autoCapitalize="characters"
-                editable={!validating}
-              />
+              <TouchableOpacity
+                activeOpacity={1}
+                onPress={() => deliveryInputRef.current?.focus()}
+              >
+                <TextInput
+                  ref={deliveryInputRef}
+                  style={styles.codeInput}
+                  placeholder="Código de entrega (5 caracteres)"
+                  placeholderTextColor={Colors.text.light}
+                  value={deliveryCodeInput}
+                  onChangeText={(text) => setDeliveryCodeInput(text.toUpperCase())}
+                  maxLength={5}
+                  autoCapitalize="characters"
+                  editable={!validating}
+                  keyboardType="default"
+                  returnKeyType="done"
+                  autoCorrect={false}
+                  blurOnSubmit={true}
+                  onSubmitEditing={() => Keyboard.dismiss()}
+                  selectTextOnFocus={true}
+                />
+              </TouchableOpacity>
               <TouchableOpacity
                 style={[
                   styles.validateButton,
