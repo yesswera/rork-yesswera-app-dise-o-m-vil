@@ -8,7 +8,7 @@ interface AuthState {
   user: User | null;
   token: string | null;
   isLoading: boolean;
-  login: (email: string, password: string) => Promise<void>;
+  login: (email: string, password: string) => Promise<User>;
   register: (name: string, email: string, password: string, phone: string, userType: string) => Promise<void>;
   logout: () => Promise<void>;
 }
@@ -58,7 +58,7 @@ export const [AuthProvider, useAuth] = createContextHook<AuthState>(() => {
     }
   };
 
-  const login = async (email: string, password: string) => {
+  const login = async (email: string, password: string): Promise<User> => {
     try {
       const response = await fetch(API_ENDPOINTS.auth.login, {
         method: 'POST',
@@ -75,7 +75,7 @@ export const [AuthProvider, useAuth] = createContextHook<AuthState>(() => {
       }
 
       // Map backend fields to app User type
-      const mappedUser = {
+      const mappedUser: User = {
         id: data.user.id,
         email: data.user.email,
         name: data.user.nombre || data.user.name,
@@ -90,6 +90,8 @@ export const [AuthProvider, useAuth] = createContextHook<AuthState>(() => {
 
       await storage.setItem('auth_token', data.token);
       await storage.setItem('auth_user', JSON.stringify(mappedUser));
+      
+      return mappedUser;
     } catch (error) {
       console.error('Login error:', error);
       throw error;

@@ -71,10 +71,23 @@ export default function LoginScreen() {
 
     setIsLoading(true);
     try {
-      await login(email, password);
+      const userData = await login(email, password);
       HapticFeedback.success();
       Toast.success('¡Bienvenido de nuevo!');
-      router.back();
+      
+      // Redirigir según el tipo de usuario
+      if (userData && userData.userType) {
+        if (userData.userType === 'repartidor') {
+          router.replace('/driver/dashboard' as any);
+        } else if (userData.userType === 'negocio') {
+          router.replace('/business/dashboard' as any);
+        } else {
+          // Cliente o cualquier otro tipo
+          router.replace('/' as any);
+        }
+      } else {
+        router.replace('/' as any);
+      }
     } catch (error: unknown) {
       console.error('Login error:', error);
       HapticFeedback.error();

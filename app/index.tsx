@@ -2,7 +2,7 @@ import { StyleSheet, Text, View, TouchableOpacity, ScrollView } from 'react-nati
 import { Image } from 'expo-image';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
-import { UtensilsCrossed, ShoppingCart, Package, User, Briefcase, Truck, ChevronRight, ShoppingBag, RefreshCw, Clock } from 'lucide-react-native';
+import { UtensilsCrossed, ShoppingCart, Package, User, ChevronRight, ShoppingBag, RefreshCw, Clock } from 'lucide-react-native';
 import { StatusBar } from 'expo-status-bar';
 import { useState, useEffect } from 'react';
 import { useAuth } from '@/contexts/auth';
@@ -122,22 +122,7 @@ export default function HomeScreen() {
     },
   ];
 
-  const portals = [
-    {
-      id: 'driver',
-      title: 'Portal Repartidor',
-      icon: Truck,
-      color: Colors.primary,
-      route: '/driver/dashboard',
-    },
-    {
-      id: 'business',
-      title: 'Portal Negocio',
-      icon: Briefcase,
-      color: Colors.secondary,
-      route: '/business/dashboard',
-    },
-  ];
+
 
   return (
     <View style={styles.container}>
@@ -295,26 +280,7 @@ export default function HomeScreen() {
           ))}
         </View>
 
-        <View style={styles.divider} />
 
-        <View style={styles.portalsSection}>
-          <Text style={styles.portalsSectionTitle}>¿Quieres trabajar con nosotros?</Text>
-          <View style={styles.portalsContainer}>
-            {portals.map((portal) => (
-              <TouchableOpacity
-                key={portal.id}
-                activeOpacity={0.8}
-                onPress={() => router.push(portal.route as any)}
-                style={styles.portalCard}
-              >
-                <View style={[styles.portalIcon, { backgroundColor: `${portal.color}15` }]}>
-                  <portal.icon size={28} color={portal.color} strokeWidth={2} />
-                </View>
-                <Text style={styles.portalTitle}>{portal.title}</Text>
-              </TouchableOpacity>
-            ))}
-          </View>
-        </View>
 
         {!user && (
           <View style={styles.authPrompt}>
@@ -446,51 +412,7 @@ const styles = StyleSheet.create({
     color: 'rgba(255, 255, 255, 0.9)',
     fontWeight: '500' as const,
   },
-  divider: {
-    height: 1,
-    backgroundColor: Colors.border.light,
-    marginVertical: 24,
-  },
-  portalsSection: {
-    marginBottom: 32,
-  },
-  portalsSectionTitle: {
-    fontSize: 16,
-    fontWeight: '600' as const,
-    color: Colors.text.primary,
-    marginBottom: 16,
-    textAlign: 'center' as const,
-  },
-  portalsContainer: {
-    flexDirection: 'row' as const,
-    gap: 12,
-  },
-  portalCard: {
-    flex: 1,
-    backgroundColor: Colors.white,
-    borderRadius: 16,
-    padding: 20,
-    alignItems: 'center' as const,
-    shadowColor: Colors.shadow.medium,
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.08,
-    shadowRadius: 8,
-    elevation: 2,
-  },
-  portalIcon: {
-    width: 56,
-    height: 56,
-    borderRadius: 28,
-    justifyContent: 'center' as const,
-    alignItems: 'center' as const,
-    marginBottom: 12,
-  },
-  portalTitle: {
-    fontSize: 13,
-    fontWeight: '600' as const,
-    color: Colors.text.primary,
-    textAlign: 'center' as const,
-  },
+
   authPrompt: {
     alignItems: 'center' as const,
     paddingTop: 8,
