@@ -1,10 +1,10 @@
-import { StyleSheet, Text, View, TouchableOpacity, ScrollView } from 'react-native';
+import { StyleSheet, Text, View, TouchableOpacity, ScrollView, Animated } from 'react-native';
 import { Image } from 'expo-image';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
 import { UtensilsCrossed, ShoppingCart, Package, User, ChevronRight, ShoppingBag, RefreshCw, Clock } from 'lucide-react-native';
 import { StatusBar } from 'expo-status-bar';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useAuth } from '@/contexts/auth';
 import { getActiveOrders, getUserOrders } from '@/services/orders';
 import { Order, OrderStatus } from '@/constants/types';
@@ -16,6 +16,24 @@ export default function HomeScreen() {
   const { user, token } = useAuth();
   const [activeOrder, setActiveOrder] = useState<Order | null>(null);
   const [recentOrders, setRecentOrders] = useState<Order[]>([]);
+  const logoScale = useRef(new Animated.Value(0)).current;
+  const logoOpacity = useRef(new Animated.Value(0)).current;
+
+  useEffect(() => {
+    Animated.parallel([
+      Animated.spring(logoScale, {
+        toValue: 1,
+        tension: 50,
+        friction: 7,
+        useNativeDriver: true,
+      }),
+      Animated.timing(logoOpacity, {
+        toValue: 1,
+        duration: 800,
+        useNativeDriver: true,
+      }),
+    ]).start();
+  }, []);
 
   useEffect(() => {
     if (!user || !token) {
@@ -138,25 +156,33 @@ export default function HomeScreen() {
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
       >
-        <View style={styles.header}>
-          <View style={styles.logoContainer}>
-            <Image 
-              source={{ uri: 'https://pub-e001eb4506b145aa938b5d3badbff6a5.r2.dev/attachments/kiumpzuloka2q3aib1mc0' }}
-              style={styles.logoImage}
-              contentFit="contain"
-            />
-            <Text style={styles.tagline}>Lo que quieras, cuando quieras</Text>
-          </View>
-          
-          {user && (
-            <TouchableOpacity 
-              style={styles.userButton}
-              onPress={() => router.push('/profile' as any)}
-            >
-              <User size={24} color={Colors.text.primary} />
-            </TouchableOpacity>
-          )}
-        </View>
+        {user && (
+          <TouchableOpacity 
+            style={styles.userButton}
+            onPress={() => router.push('/profile' as any)}
+          >
+            <User size={24} color={Colors.text.primary} />
+          </TouchableOpacity>
+        )}
+
+        <Animated.View 
+          style={[
+            styles.heroSection,
+            {
+              opacity: logoOpacity,
+              transform: [{ scale: logoScale }],
+            },
+          ]}
+        >
+          <View style={styles.logoGlow} />
+          <Image 
+            source={{ uri: 'https://pub-e001eb4506b145aa938b5d3badbff6a5.r2.dev/attachments/kiumpzuloka2q3aib1mc0' }}
+            style={styles.logoImage}
+            contentFit="contain"
+          />
+          <Text style={styles.tagline}>Lo que quieras, cuando quieras</Text>
+          <View style={styles.divider} />
+        </Animated.View>
 
         {activeOrder && user && (
           <TouchableOpacity
@@ -315,41 +341,59 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   scrollContent: {
-    paddingTop: 60,
+    paddingTop: 70,
     paddingBottom: 40,
     paddingHorizontal: 20,
   },
-  header: {
-    flexDirection: 'row' as const,
-    justifyContent: 'space-between' as const,
+  heroSection: {
     alignItems: 'center' as const,
     marginBottom: 40,
+    paddingTop: 20,
   },
-  logoContainer: {
-    flex: 1,
+  logoGlow: {
+    position: 'absolute' as const,
+    width: 320,
+    height: 180,
+    borderRadius: 160,
+    backgroundColor: Colors.primary,
+    opacity: 0.15,
+    top: 10,
   },
   logoImage: {
-    width: 200,
-    height: 80,
-    marginBottom: 8,
+    width: 320,
+    height: 130,
+    marginBottom: 16,
   },
   tagline: {
-    fontSize: 14,
-    color: Colors.text.secondary,
-    marginTop: 2,
+    fontSize: 18,
+    fontWeight: '600' as const,
+    color: Colors.text.primary,
+    letterSpacing: 0.5,
+    textAlign: 'center' as const,
+  },
+  divider: {
+    width: 60,
+    height: 4,
+    backgroundColor: Colors.primary,
+    borderRadius: 2,
+    marginTop: 16,
   },
   userButton: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
+    position: 'absolute' as const,
+    top: 60,
+    right: 20,
+    width: 48,
+    height: 48,
+    borderRadius: 24,
     backgroundColor: Colors.white,
     justifyContent: 'center' as const,
     alignItems: 'center' as const,
-    shadowColor: Colors.shadow.medium,
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 8,
-    elevation: 3,
+    shadowColor: Colors.shadow.dark,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.2,
+    shadowRadius: 12,
+    elevation: 5,
+    zIndex: 10,
   },
   loginButton: {
     paddingHorizontal: 20,
@@ -366,43 +410,48 @@ const styles = StyleSheet.create({
     marginBottom: 32,
   },
   serviceCard: {
-    borderRadius: 20,
+    borderRadius: 24,
     overflow: 'hidden' as const,
     shadowColor: Colors.shadow.dark,
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.15,
-    shadowRadius: 12,
-    elevation: 5,
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.2,
+    shadowRadius: 16,
+    elevation: 8,
   },
   serviceGradient: {
-    padding: 24,
-    minHeight: 120,
+    padding: 28,
+    minHeight: 140,
   },
   serviceContent: {
     flexDirection: 'row' as const,
     alignItems: 'center' as const,
   },
   serviceIconContainer: {
-    width: 64,
-    height: 64,
-    borderRadius: 32,
-    backgroundColor: 'rgba(255, 255, 255, 0.2)',
+    width: 72,
+    height: 72,
+    borderRadius: 36,
+    backgroundColor: 'rgba(255, 255, 255, 0.25)',
     justifyContent: 'center' as const,
     alignItems: 'center' as const,
-    marginRight: 16,
+    marginRight: 20,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 4,
   },
   serviceText: {
     flex: 1,
   },
   serviceTitle: {
-    fontSize: 20,
-    fontWeight: '700' as const,
+    fontSize: 22,
+    fontWeight: '800' as const,
     color: Colors.white,
-    marginBottom: 4,
+    marginBottom: 6,
+    letterSpacing: 0.3,
   },
   serviceSubtitle: {
-    fontSize: 14,
-    color: 'rgba(255, 255, 255, 0.9)',
+    fontSize: 15,
+    color: 'rgba(255, 255, 255, 0.95)',
     fontWeight: '500' as const,
   },
 
