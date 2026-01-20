@@ -159,14 +159,17 @@ export default function DeliveryPhoto({
     setIsProcessing(true);
     try {
       // Capture the view with watermark
-      const watermarkedUri = await viewShotRef.current.capture();
+      const watermarkedUri = await viewShotRef.current.capture?.();
+      if (!watermarkedUri) {
+        throw new Error('Failed to capture photo');
+      }
 
       const metadata: PhotoMetadata = {
         timestamp: currentTime.toISOString(),
         latitude: location?.coords.latitude || 0,
         longitude: location?.coords.longitude || 0,
         address: deliveryAddress,
-        accuracy: location?.coords.accuracy,
+        accuracy: location?.coords.accuracy !== null && location?.coords.accuracy !== undefined ? location.coords.accuracy : undefined,
       };
 
       onPhotoTaken(orderId, watermarkedUri, metadata);

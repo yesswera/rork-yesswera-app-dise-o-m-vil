@@ -11,7 +11,7 @@ import {
 } from 'react-native';
 import { X, Star, Gift } from 'lucide-react-native';
 import { Survey, SurveyQuestion } from '@/constants/types';
-import { COLORS } from '@/constants/colors';
+import Colors from '@/constants/colors';
 
 interface SurveyPopupProps {
   survey: Survey;
@@ -74,8 +74,8 @@ export default function SurveyPopup({ survey, visible, onClose, onSubmit }: Surv
               >
                 <Star
                   size={48}
-                  fill={responses[question.id] >= star ? COLORS.primary : 'transparent'}
-                  color={responses[question.id] >= star ? COLORS.primary : '#CBD5E0'}
+                  fill={typeof responses[question.id] === 'number' && (responses[question.id] as number) >= star ? Colors.primary : 'transparent'}
+                  color={typeof responses[question.id] === 'number' && (responses[question.id] as number) >= star ? Colors.primary : '#CBD5E0'}
                 />
               </TouchableOpacity>
             ))}
@@ -236,7 +236,7 @@ export default function SurveyPopup({ survey, visible, onClose, onSubmit }: Surv
 
             {survey.incentive && currentQuestionIndex === 0 && (
               <View style={styles.incentiveContainer}>
-                <Gift size={20} color={COLORS.primary} />
+                <Gift size={20} color={Colors.primary} />
                 <Text style={styles.incentiveText}>{survey.incentive.description}</Text>
               </View>
             )}
@@ -276,7 +276,7 @@ const styles = StyleSheet.create({
   },
   progressBar: {
     height: '100%',
-    backgroundColor: COLORS.primary,
+    backgroundColor: Colors.primary,
   },
   content: {
     padding: 24,
@@ -315,8 +315,8 @@ const styles = StyleSheet.create({
     backgroundColor: '#FFFFFF',
   },
   optionButtonSelected: {
-    borderColor: COLORS.primary,
-    backgroundColor: `${COLORS.primary}15`,
+    borderColor: Colors.primary,
+    backgroundColor: `${Colors.primary}15`,
   },
   optionText: {
     fontSize: 16,
@@ -325,7 +325,7 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
   optionTextSelected: {
-    color: COLORS.primary,
+    color: Colors.primary,
     fontWeight: '700' as const,
   },
   yesNoContainer: {
@@ -392,8 +392,8 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   scaleButtonSelected: {
-    borderColor: COLORS.primary,
-    backgroundColor: COLORS.primary,
+    borderColor: Colors.primary,
+    backgroundColor: Colors.primary,
   },
   scaleButtonText: {
     fontSize: 16,
@@ -416,7 +416,7 @@ const styles = StyleSheet.create({
     minHeight: 120,
   },
   submitButton: {
-    backgroundColor: COLORS.primary,
+    backgroundColor: Colors.primary,
     paddingVertical: 16,
     borderRadius: 12,
     alignItems: 'center',
@@ -435,10 +435,10 @@ const styles = StyleSheet.create({
     gap: 8,
     marginTop: 24,
     padding: 12,
-    backgroundColor: `${COLORS.primary}10`,
+    backgroundColor: `${Colors.primary}10`,
     borderRadius: 12,
     borderWidth: 1,
-    borderColor: `${COLORS.primary}30`,
+    borderColor: `${Colors.primary}30`,
   },
   incentiveText: {
     flex: 1,

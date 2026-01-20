@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import { StyleSheet, Text, View, TouchableOpacity, ScrollView, Alert, Switch, Linking, Platform } from 'react-native';
+import { StyleSheet, Text, View, TouchableOpacity, ScrollView, Alert, Linking, Platform } from 'react-native';
 import { useRouter } from 'expo-router';
 import { Package, DollarSign, Star, Clock, MapPin, Wallet, Power, Navigation, MessageCircle, History, User, HelpCircle } from 'lucide-react-native';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -9,7 +9,6 @@ import { useAnalytics } from '@/contexts/analytics';
 import PanicButton from '@/components/PanicButton';
 import SurveyPopup from '@/components/SurveyPopup';
 import { API_BASE } from '@/constants/api';
-import { Survey } from '@/constants/types';
 
 export default function DriverDashboardScreen() {
   const router = useRouter();
@@ -41,7 +40,7 @@ export default function DriverDashboardScreen() {
           totalBalance: data.totalBalance || 0,
         });
       }
-    } catch (error) {
+    } catch {
       console.log('Stats not available, using defaults');
     }
   }, [user, token]);
@@ -61,7 +60,7 @@ export default function DriverDashboardScreen() {
         const data = await response.json();
         setAvailableOrders(data.orders || []);
       }
-    } catch (error) {
+    } catch {
       // Si no hay endpoint, usar datos de ejemplo cuando está online
       if (isOnline) {
         setAvailableOrders([
@@ -99,7 +98,7 @@ export default function DriverDashboardScreen() {
     loadDriverStats();
     const interval = setInterval(loadDriverStats, 30000);
     return () => clearInterval(interval);
-  }, [loadDriverStats]);
+  }, [loadDriverStats, trackPageView, isOnline]);
 
   useEffect(() => {
     loadAvailableOrders();
@@ -122,10 +121,6 @@ export default function DriverDashboardScreen() {
   };
 
   const openNavigation = (lat: number, lng: number, label: string) => {
-    const scheme = Platform.select({
-      ios: 'maps:',
-      android: 'geo:',
-    });
     const url = Platform.select({
       ios: `maps:?daddr=${lat},${lng}&dirflg=d`,
       android: `google.navigation:q=${lat},${lng}`,
@@ -305,7 +300,7 @@ export default function DriverDashboardScreen() {
             {!isOnline && (
               <View style={styles.offlineMessage}>
                 <Power size={32} color={Colors.text.light} />
-                <Text style={styles.offlineText}>Presiona "EN LÍNEA" arriba para comenzar a recibir órdenes</Text>
+                <Text style={styles.offlineText}>Presiona &quot;EN LÍNEA&quot; arriba para comenzar a recibir órdenes</Text>
               </View>
             )}
             {isOnline && availableOrders.length === 0 && (
