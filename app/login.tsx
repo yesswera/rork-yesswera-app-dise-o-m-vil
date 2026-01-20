@@ -81,6 +81,8 @@ export default function LoginScreen() {
           router.replace('/driver/dashboard' as any);
         } else if (userData.userType === 'negocio') {
           router.replace('/business/dashboard' as any);
+        } else if (userData.userType === 'admin') {
+          router.replace('/admin/dashboard' as any);
         } else {
           // Cliente o cualquier otro tipo
           router.replace('/' as any);
