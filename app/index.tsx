@@ -176,7 +176,7 @@ export default function HomeScreen() {
         >
           <View style={styles.logoGlow} />
           <Image 
-            source={{ uri: 'https://pub-e001eb4506b145aa938b5d3badbff6a5.r2.dev/attachments/i8ka7rf6mteyxbr05ucq5' }}
+            source={{ uri: 'https://pub-e001eb4506b145aa938b5d3badbff6a5.r2.dev/attachments/1vcwmxc8pzt7x8m13osxp' }}
             style={styles.logoImage}
             contentFit="contain"
           />
