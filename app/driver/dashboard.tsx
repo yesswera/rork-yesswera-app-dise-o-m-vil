@@ -1,54 +1,139 @@
-import { StyleSheet, Text, View, TouchableOpacity, ScrollView, Alert } from 'react-native';
+import { useState, useEffect, useCallback } from 'react';
+import { StyleSheet, Text, View, TouchableOpacity, ScrollView, Alert, Switch, Linking, Platform } from 'react-native';
 import { useRouter } from 'expo-router';
-import { Package, DollarSign, Star, Clock, MapPin, Wallet } from 'lucide-react-native';
+import { Package, DollarSign, Star, Clock, MapPin, Wallet, Power, Navigation, MessageCircle, History, User, HelpCircle } from 'lucide-react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import Colors from '@/constants/colors';
 import { useAuth } from '@/contexts/auth';
 import PanicButton from '@/components/PanicButton';
+import { API_BASE } from '@/constants/api';
 
 export default function DriverDashboardScreen() {
   const router = useRouter();
-  const { user, logout } = useAuth();
+  const { user, token, logout } = useAuth();
+  const [isOnline, setIsOnline] = useState(false);
+  const [stats, setStats] = useState({
+    todayDeliveries: 0,
+    todayEarnings: 0,
+    rating: 0,
+    totalBalance: 0,
+  });
+  const [availableOrders, setAvailableOrders] = useState<any[]>([]);
 
-  const stats = {
-    todayDeliveries: 8,
-    todayEarnings: 75.40,
-    rating: 4.8,
-    totalBalance: 523.20,
+  // Cargar estadísticas del repartidor
+  const loadDriverStats = useCallback(async () => {
+    if (!user || !token) return;
+
+    try {
+      const response = await fetch(`${API_BASE}/driver/stats/${user.id}`, {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      if (response.ok) {
+        const data = await response.json();
+        setStats({
+          todayDeliveries: data.todayDeliveries || 0,
+          todayEarnings: data.todayEarnings || 0,
+          rating: data.rating || 4.5,
+          totalBalance: data.totalBalance || 0,
+        });
+      }
+    } catch (error) {
+      console.log('Stats not available, using defaults');
+    }
+  }, [user, token]);
+
+  // Cargar órdenes disponibles
+  const loadAvailableOrders = useCallback(async () => {
+    if (!user || !token || !isOnline) {
+      setAvailableOrders([]);
+      return;
+    }
+
+    try {
+      const response = await fetch(`${API_BASE}/orders/available`, {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      if (response.ok) {
+        const data = await response.json();
+        setAvailableOrders(data.orders || []);
+      }
+    } catch (error) {
+      // Si no hay endpoint, usar datos de ejemplo cuando está online
+      if (isOnline) {
+        setAvailableOrders([
+          {
+            id: 'ord-001',
+            type: 'food',
+            businessName: 'Pizza Palace',
+            distance: 3.2,
+            estimatedTime: 15,
+            earnings: 12.50,
+            pickupAddress: 'Calle 45 #23-10',
+            deliveryAddress: 'Avenida 68 #15-23',
+            pickupLat: 20.6597,
+            pickupLng: -103.3496,
+          },
+          {
+            id: 'ord-002',
+            type: 'shopping',
+            businessName: 'Supermercado Central',
+            distance: 5.1,
+            estimatedTime: 25,
+            earnings: 18.20,
+            pickupAddress: 'Carrera 30 #50-12',
+            deliveryAddress: 'Calle 85 #12-34',
+            pickupLat: 20.6700,
+            pickupLng: -103.3600,
+          },
+        ]);
+      }
+    }
+  }, [user, token, isOnline]);
+
+  useEffect(() => {
+    loadDriverStats();
+    const interval = setInterval(loadDriverStats, 30000);
+    return () => clearInterval(interval);
+  }, [loadDriverStats]);
+
+  useEffect(() => {
+    loadAvailableOrders();
+    if (isOnline) {
+      const interval = setInterval(loadAvailableOrders, 15000);
+      return () => clearInterval(interval);
+    }
+  }, [loadAvailableOrders, isOnline]);
+
+  const toggleOnlineStatus = () => {
+    const newStatus = !isOnline;
+    setIsOnline(newStatus);
+    if (newStatus) {
+      Alert.alert('En Línea', 'Ahora recibirás órdenes disponibles');
+    } else {
+      Alert.alert('Desconectado', 'No recibirás nuevas órdenes');
+      setAvailableOrders([]);
+    }
   };
 
-  const availableOrders = [
-    {
-      id: 'ord-001',
-      type: 'food',
-      businessName: 'Pizza Palace',
-      distance: 3.2,
-      estimatedTime: 15,
-      earnings: 12.50,
-      pickupAddress: 'Calle 45 #23-10',
-      deliveryAddress: 'Avenida 68 #15-23',
-    },
-    {
-      id: 'ord-002',
-      type: 'shopping',
-      businessName: 'Supermercado Central',
-      distance: 5.1,
-      estimatedTime: 25,
-      earnings: 18.20,
-      pickupAddress: 'Carrera 30 #50-12',
-      deliveryAddress: 'Calle 85 #12-34',
-    },
-    {
-      id: 'ord-003',
-      type: 'delivery',
-      businessName: 'Cliente Directo',
-      distance: 7.5,
-      estimatedTime: 35,
-      earnings: 22.50,
-      pickupAddress: 'Calle 100 #20-30',
-      deliveryAddress: 'Calle 127 #45-10',
-    },
-  ];
+  const openNavigation = (lat: number, lng: number, label: string) => {
+    const scheme = Platform.select({
+      ios: 'maps:',
+      android: 'geo:',
+    });
+    const url = Platform.select({
+      ios: `maps:?daddr=${lat},${lng}&dirflg=d`,
+      android: `google.navigation:q=${lat},${lng}`,
+    });
+
+    // Intentar abrir Waze primero, luego Google Maps
+    Linking.canOpenURL('waze://').then((supported) => {
+      if (supported) {
+        Linking.openURL(`waze://?ll=${lat},${lng}&navigate=yes`);
+      } else {
+        Linking.openURL(url || `https://www.google.com/maps/dir/?api=1&destination=${lat},${lng}`);
+      }
+    });
+  };
 
   const handleViewActiveOrder = () => {
     router.push('/driver/active-order');
@@ -100,8 +185,23 @@ export default function DriverDashboardScreen() {
           style={styles.header}
         >
           <View style={styles.headerContent}>
-            <Text style={styles.greeting}>Hola, {user?.name || 'Repartidor'}!</Text>
-            <Text style={styles.subtitle}>Bienvenido a tu dashboard</Text>
+            <View style={styles.headerTop}>
+              <View>
+                <Text style={styles.greeting}>Hola, {user?.name || 'Repartidor'}!</Text>
+                <Text style={styles.subtitle}>
+                  {isOnline ? 'Recibiendo órdenes' : 'Desconectado'}
+                </Text>
+              </View>
+              <TouchableOpacity
+                style={[styles.onlineToggle, isOnline && styles.onlineToggleActive]}
+                onPress={toggleOnlineStatus}
+              >
+                <Power size={20} color={isOnline ? Colors.white : Colors.text.secondary} />
+                <Text style={[styles.onlineText, isOnline && styles.onlineTextActive]}>
+                  {isOnline ? 'EN LÍNEA' : 'OFFLINE'}
+                </Text>
+              </TouchableOpacity>
+            </View>
           </View>
         </LinearGradient>
 
@@ -149,9 +249,46 @@ export default function DriverDashboardScreen() {
 
           <PanicButton />
 
+          <View style={styles.quickActionsSection}>
+            <Text style={styles.sectionTitle}>Acciones Rápidas</Text>
+            <View style={styles.quickActionsGrid}>
+              <TouchableOpacity style={styles.quickActionCard} onPress={() => router.push('/driver/history' as any)}>
+                <History size={24} color={Colors.primary} />
+                <Text style={styles.quickActionText}>Historial</Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={styles.quickActionCard} onPress={() => router.push('/driver/profile' as any)}>
+                <User size={24} color={Colors.accent} />
+                <Text style={styles.quickActionText}>Mi Perfil</Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={styles.quickActionCard} onPress={() => router.push('/driver/messages' as any)}>
+                <MessageCircle size={24} color={Colors.success} />
+                <Text style={styles.quickActionText}>Mensajes</Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={styles.quickActionCard} onPress={() => Alert.alert('Soporte', 'Contacta: soporte@yesswera.com\nTel: 33-1234-5678')}>
+                <HelpCircle size={24} color={Colors.warning} />
+                <Text style={styles.quickActionText}>Ayuda</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+
           <View style={styles.ordersSection}>
-            <Text style={styles.sectionTitle}>Órdenes Disponibles</Text>
-            {availableOrders.map((order) => (
+            <Text style={styles.sectionTitle}>
+              {isOnline ? 'Órdenes Disponibles' : 'Activa tu estado para ver órdenes'}
+            </Text>
+            {!isOnline && (
+              <View style={styles.offlineMessage}>
+                <Power size={32} color={Colors.text.light} />
+                <Text style={styles.offlineText}>Presiona "EN LÍNEA" arriba para comenzar a recibir órdenes</Text>
+              </View>
+            )}
+            {isOnline && availableOrders.length === 0 && (
+              <View style={styles.noOrdersMessage}>
+                <Package size={32} color={Colors.text.light} />
+                <Text style={styles.noOrdersText}>No hay órdenes disponibles en tu zona</Text>
+                <Text style={styles.noOrdersSubtext}>Te notificaremos cuando haya nuevas</Text>
+              </View>
+            )}
+            {isOnline && availableOrders.map((order) => (
               <View key={order.id} style={styles.orderCard}>
                 <View style={styles.orderHeader}>
                   <View style={styles.orderTypeTag}>
@@ -159,7 +296,7 @@ export default function DriverDashboardScreen() {
                       {order.type === 'food' ? '🍔 Alimentos' : order.type === 'shopping' ? '🛒 Compras' : '📦 Envío'}
                     </Text>
                   </View>
-                  <Text style={styles.earningsText}>${order.earnings}</Text>
+                  <Text style={styles.earningsText}>${order.earnings?.toFixed(2)}</Text>
                 </View>
 
                 <Text style={styles.businessName}>{order.businessName}</Text>
@@ -182,12 +319,23 @@ export default function DriverDashboardScreen() {
                   <Text style={styles.addressText}>{order.deliveryAddress}</Text>
                 </View>
 
-                <TouchableOpacity
-                  style={styles.acceptButton}
-                  onPress={() => handleAcceptOrder(order.id)}
-                >
-                  <Text style={styles.acceptButtonText}>Aceptar Orden</Text>
-                </TouchableOpacity>
+                <View style={styles.orderActions}>
+                  {order.pickupLat && order.pickupLng && (
+                    <TouchableOpacity
+                      style={styles.navButton}
+                      onPress={() => openNavigation(order.pickupLat, order.pickupLng, order.businessName)}
+                    >
+                      <Navigation size={18} color={Colors.white} />
+                      <Text style={styles.navButtonText}>Navegar</Text>
+                    </TouchableOpacity>
+                  )}
+                  <TouchableOpacity
+                    style={[styles.acceptButton, !order.pickupLat && styles.acceptButtonFull]}
+                    onPress={() => handleAcceptOrder(order.id)}
+                  >
+                    <Text style={styles.acceptButtonText}>Aceptar Orden</Text>
+                  </TouchableOpacity>
+                </View>
               </View>
             ))}
           </View>
@@ -211,21 +359,46 @@ const styles = StyleSheet.create({
   },
   header: {
     padding: 24,
-    paddingTop: 40,
+    paddingTop: 50,
     paddingBottom: 32,
   },
   headerContent: {
-    marginTop: 20,
+    marginTop: 10,
+  },
+  headerTop: {
+    flexDirection: 'row' as const,
+    justifyContent: 'space-between' as const,
+    alignItems: 'center' as const,
   },
   greeting: {
-    fontSize: 28,
+    fontSize: 24,
     fontWeight: '700' as const,
     color: Colors.white,
     marginBottom: 4,
   },
   subtitle: {
-    fontSize: 15,
+    fontSize: 14,
     color: 'rgba(255, 255, 255, 0.9)',
+  },
+  onlineToggle: {
+    flexDirection: 'row' as const,
+    alignItems: 'center' as const,
+    backgroundColor: 'rgba(255, 255, 255, 0.9)',
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    borderRadius: 25,
+    gap: 6,
+  },
+  onlineToggleActive: {
+    backgroundColor: Colors.success,
+  },
+  onlineText: {
+    fontSize: 12,
+    fontWeight: '700' as const,
+    color: Colors.text.secondary,
+  },
+  onlineTextActive: {
+    color: Colors.white,
   },
   content: {
     padding: 16,
@@ -341,17 +514,98 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: Colors.text.primary,
   },
+  orderActions: {
+    flexDirection: 'row' as const,
+    gap: 10,
+  },
+  navButton: {
+    flexDirection: 'row' as const,
+    alignItems: 'center' as const,
+    justifyContent: 'center' as const,
+    backgroundColor: Colors.accent,
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    borderRadius: 10,
+    gap: 6,
+  },
+  navButtonText: {
+    fontSize: 14,
+    fontWeight: '600' as const,
+    color: Colors.white,
+  },
   acceptButton: {
+    flex: 1,
     height: 44,
     backgroundColor: Colors.primary,
     borderRadius: 10,
     justifyContent: 'center' as const,
     alignItems: 'center' as const,
   },
+  acceptButtonFull: {
+    flex: 1,
+  },
   acceptButtonText: {
     fontSize: 15,
     fontWeight: '600' as const,
     color: Colors.white,
+  },
+  quickActionsSection: {
+    marginBottom: 24,
+  },
+  quickActionsGrid: {
+    flexDirection: 'row' as const,
+    flexWrap: 'wrap' as const,
+    gap: 12,
+  },
+  quickActionCard: {
+    flex: 1,
+    minWidth: '45%' as const,
+    backgroundColor: Colors.white,
+    borderRadius: 12,
+    padding: 16,
+    alignItems: 'center' as const,
+    shadowColor: Colors.shadow.medium,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.08,
+    shadowRadius: 8,
+    elevation: 2,
+  },
+  quickActionText: {
+    fontSize: 12,
+    fontWeight: '600' as const,
+    color: Colors.text.primary,
+    marginTop: 8,
+  },
+  offlineMessage: {
+    backgroundColor: Colors.background.secondary,
+    borderRadius: 12,
+    padding: 24,
+    alignItems: 'center' as const,
+    marginBottom: 16,
+  },
+  offlineText: {
+    fontSize: 14,
+    color: Colors.text.secondary,
+    textAlign: 'center' as const,
+    marginTop: 12,
+  },
+  noOrdersMessage: {
+    backgroundColor: Colors.white,
+    borderRadius: 12,
+    padding: 24,
+    alignItems: 'center' as const,
+    marginBottom: 16,
+  },
+  noOrdersText: {
+    fontSize: 16,
+    fontWeight: '600' as const,
+    color: Colors.text.primary,
+    marginTop: 12,
+  },
+  noOrdersSubtext: {
+    fontSize: 13,
+    color: Colors.text.secondary,
+    marginTop: 4,
   },
   logoutButton: {
     height: 52,

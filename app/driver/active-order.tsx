@@ -10,10 +10,11 @@ import {
   ActivityIndicator,
   Platform,
   Keyboard,
+  Linking,
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
-import { MapPin, Clock, Package, CheckCircle, ArrowLeft } from 'lucide-react-native';
+import { MapPin, Clock, Package, CheckCircle, ArrowLeft, Navigation, MessageCircle, Phone } from 'lucide-react-native';
 import Colors from '@/constants/colors';
 import { useAuth } from '@/contexts/auth';
 import { getActiveOrders, validatePickupCode, validateDeliveryCode } from '@/services/orders';
@@ -124,6 +125,40 @@ export default function ActiveOrderScreen() {
   const canPickup = !isPickedUp && (order.status === 'accepted' || order.status === 'ready' || order.status === 'confirmed');
   const canDeliver = isPickedUp && order.status === 'in_transit';
 
+  const openNavigation = (address: string, location?: { latitude: number; longitude: number }) => {
+    let url: string;
+
+    if (location?.latitude && location?.longitude) {
+      // Si tenemos coordenadas, usar navegación directa
+      url = Platform.select({
+        ios: `maps:?daddr=${location.latitude},${location.longitude}&dirflg=d`,
+        android: `google.navigation:q=${location.latitude},${location.longitude}`,
+      }) || `https://www.google.com/maps/dir/?api=1&destination=${location.latitude},${location.longitude}`;
+
+      // Intentar Waze primero
+      Linking.canOpenURL('waze://').then((supported) => {
+        if (supported) {
+          Linking.openURL(`waze://?ll=${location.latitude},${location.longitude}&navigate=yes`);
+        } else {
+          Linking.openURL(url);
+        }
+      });
+    } else {
+      // Si solo tenemos dirección, buscar en Google Maps
+      const encodedAddress = encodeURIComponent(address);
+      url = `https://www.google.com/maps/search/?api=1&query=${encodedAddress}`;
+      Linking.openURL(url);
+    }
+  };
+
+  const callClient = () => {
+    if (order.customerPhone) {
+      Linking.openURL(`tel:${order.customerPhone}`);
+    } else {
+      Alert.alert('Sin teléfono', 'No hay número de contacto disponible');
+    }
+  };
+
   return (
     <LinearGradient
       colors={[Colors.primary, Colors.primaryDark]}
@@ -147,20 +182,55 @@ export default function ActiveOrderScreen() {
 
           <View style={styles.card}>
             <Text style={styles.cardTitle}>Detalles de la Orden</Text>
-            <View style={styles.detailRow}>
-              <MapPin size={18} color={Colors.primary} />
-              <View style={styles.detailTextContainer}>
-                <Text style={styles.detailLabel}>Recogida:</Text>
-                <Text style={styles.detailText}>{order.pickupAddress || 'N/A'}</Text>
+
+            <View style={styles.addressCard}>
+              <View style={styles.addressHeader}>
+                <MapPin size={18} color={Colors.primary} />
+                <Text style={styles.addressTitle}>Recogida</Text>
               </View>
+              <Text style={styles.addressText}>{order.pickupAddress || 'N/A'}</Text>
+              {!isPickedUp && (
+                <TouchableOpacity
+                  style={styles.navButtonSmall}
+                  onPress={() => openNavigation(order.pickupAddress || '', order.pickupLocation)}
+                >
+                  <Navigation size={16} color={Colors.white} />
+                  <Text style={styles.navButtonSmallText}>Ir al negocio</Text>
+                </TouchableOpacity>
+              )}
             </View>
-            <View style={styles.detailRow}>
-              <MapPin size={18} color={Colors.success} />
-              <View style={styles.detailTextContainer}>
-                <Text style={styles.detailLabel}>Entrega:</Text>
-                <Text style={styles.detailText}>{order.deliveryAddress}</Text>
+
+            <View style={styles.addressCard}>
+              <View style={styles.addressHeader}>
+                <MapPin size={18} color={Colors.success} />
+                <Text style={styles.addressTitle}>Entrega</Text>
               </View>
+              <Text style={styles.addressText}>{order.deliveryAddress}</Text>
+              {isPickedUp && (
+                <TouchableOpacity
+                  style={[styles.navButtonSmall, styles.navButtonGreen]}
+                  onPress={() => openNavigation(order.deliveryAddress, order.deliveryLocation)}
+                >
+                  <Navigation size={16} color={Colors.white} />
+                  <Text style={styles.navButtonSmallText}>Ir al cliente</Text>
+                </TouchableOpacity>
+              )}
             </View>
+
+            <View style={styles.contactActions}>
+              <TouchableOpacity style={styles.contactButton} onPress={callClient}>
+                <Phone size={18} color={Colors.primary} />
+                <Text style={styles.contactButtonText}>Llamar</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={styles.contactButton}
+                onPress={() => router.push(`/chat/${order.id}` as any)}
+              >
+                <MessageCircle size={18} color={Colors.accent} />
+                <Text style={styles.contactButtonText}>Chat</Text>
+              </TouchableOpacity>
+            </View>
+
             <View style={styles.detailRow}>
               <Clock size={18} color={Colors.warning} />
               <View style={styles.detailTextContainer}>
@@ -389,6 +459,68 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     color: Colors.text.primary,
     marginBottom: 16,
+  },
+  addressCard: {
+    backgroundColor: Colors.background.secondary,
+    borderRadius: 10,
+    padding: 12,
+    marginBottom: 12,
+  },
+  addressHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 6,
+    gap: 6,
+  },
+  addressTitle: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: Colors.text.primary,
+  },
+  addressText: {
+    fontSize: 14,
+    color: Colors.text.secondary,
+    marginBottom: 10,
+  },
+  navButtonSmall: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: Colors.accent,
+    paddingVertical: 10,
+    paddingHorizontal: 16,
+    borderRadius: 8,
+    gap: 6,
+  },
+  navButtonGreen: {
+    backgroundColor: Colors.success,
+  },
+  navButtonSmallText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: Colors.white,
+  },
+  contactActions: {
+    flexDirection: 'row',
+    gap: 12,
+    marginBottom: 12,
+  },
+  contactButton: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: Colors.white,
+    borderWidth: 1.5,
+    borderColor: Colors.border.light,
+    paddingVertical: 10,
+    borderRadius: 8,
+    gap: 6,
+  },
+  contactButtonText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: Colors.text.primary,
   },
   detailRow: {
     flexDirection: 'row',
