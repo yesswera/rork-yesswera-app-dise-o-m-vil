@@ -2,7 +2,7 @@ import { View, Text, StyleSheet, ActivityIndicator, Platform } from 'react-nativ
 import { useRef, useEffect, useState } from 'react';
 import MapView, { Marker, Polyline, PROVIDER_GOOGLE } from 'react-native-maps';
 import { Clock, MapPin, Navigation } from 'lucide-react-native';
-import { getDriverLocation, GPSResponse, DriverLocation } from '@/services/gps';
+import { getDriverLocation, type GPSResponse, type DriverLocation } from '@/services/gps';
 import { useAuth } from '@/contexts/auth';
 import Colors from '@/constants/colors';
 
