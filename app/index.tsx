@@ -176,7 +176,7 @@ export default function HomeScreen() {
         >
           <View style={styles.logoGlow} />
           <Image 
-            source={{ uri: 'https://pub-e001eb4506b145aa938b5d3badbff6a5.r2.dev/attachments/kiumpzuloka2q3aib1mc0' }}
+            source={{ uri: 'https://r2-pub.rork.com/generated-images/d3fc3e94-98f7-47eb-9ee9-0cc86f57efab.png' }}
             style={styles.logoImage}
             contentFit="contain"
           />
