@@ -121,8 +121,8 @@ export default function ActiveOrderScreen() {
   }
 
   const isPickedUp = order.pickupValidation?.validated;
-  const canPickup = order.status === 'accepted' || order.status === 'ready' || order.status === 'assigned';
-  const canDeliver = isPickedUp && (order.status === 'in_transit' || order.status === 'picked_up');
+  const canPickup = order.status === 'accepted' || order.status === 'ready' || order.status === 'confirmed';
+  const canDeliver = isPickedUp && order.status === 'in_transit';
 
   return (
     <LinearGradient
