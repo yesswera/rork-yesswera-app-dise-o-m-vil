@@ -1,60 +1,175 @@
+import { supabase } from '@/constants/supabase';
 import { SavedAddress } from '@/constants/types';
 
-const API_BASE = 'http://192.168.100.3:3000/api';
-
-export async function getUserAddresses(userId: string, token: string): Promise<SavedAddress[]> {
-  const response = await fetch(`${API_BASE}/addresses/user/${userId}`, {
-    headers: {
-      'Authorization': `Bearer ${token}`,
-      'Content-Type': 'application/json',
-    },
-  });
-  if (!response.ok) throw new Error('Error al obtener direcciones');
-  return response.json();
+function mapAddress(dbAddress: any): SavedAddress {
+  return {
+    id: dbAddress.id,
+    userId: dbAddress.user_id,
+    label: dbAddress.label,
+    streetAddress: dbAddress.street_address,
+    reference: dbAddress.reference,
+    latitude: dbAddress.location?.coordinates?.[1],
+    longitude: dbAddress.location?.coordinates?.[0],
+    isDefault: dbAddress.is_default,
+    createdAt: dbAddress.created_at,
+  };
 }
 
-export async function createAddress(data: Omit<SavedAddress, 'id' | 'createdAt'>, token: string): Promise<SavedAddress> {
-  const response = await fetch(`${API_BASE}/addresses`, {
-    method: 'POST',
-    headers: {
-      'Authorization': `Bearer ${token}`,
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify(data),
-  });
-  if (!response.ok) throw new Error('Error al crear dirección');
-  return response.json();
+export async function getUserAddresses(userId: string): Promise<SavedAddress[]> {
+  try {
+    const { data, error } = await supabase
+      .from('addresses')
+      .select('*')
+      .eq('user_id', userId)
+      .order('is_default', { ascending: false })
+      .order('created_at', { ascending: false });
+
+    if (error) throw error;
+
+    return (data || []).map(mapAddress);
+  } catch (error) {
+    console.error('getUserAddresses error:', error);
+    throw error;
+  }
 }
 
-export async function updateAddress(addressId: string, data: Partial<SavedAddress>, token: string): Promise<SavedAddress> {
-  const response = await fetch(`${API_BASE}/addresses/${addressId}`, {
-    method: 'PATCH',
-    headers: {
-      'Authorization': `Bearer ${token}`,
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify(data),
-  });
-  if (!response.ok) throw new Error('Error al actualizar dirección');
-  return response.json();
+export async function createAddress(data: {
+  userId: string;
+  label: string;
+  streetAddress: string;
+  reference?: string;
+  latitude?: number;
+  longitude?: number;
+  isDefault?: boolean;
+}): Promise<SavedAddress> {
+  try {
+    // If this will be the default, unset other defaults first
+    if (data.isDefault) {
+      await supabase
+        .from('addresses')
+        .update({ is_default: false })
+        .eq('user_id', data.userId);
+    }
+
+    const insertData: any = {
+      user_id: data.userId,
+      label: data.label,
+      street_address: data.streetAddress,
+      reference: data.reference,
+      is_default: data.isDefault || false,
+    };
+
+    // Add location if coordinates provided
+    if (data.latitude && data.longitude) {
+      insertData.location = `POINT(${data.longitude} ${data.latitude})`;
+    }
+
+    const { data: address, error } = await supabase
+      .from('addresses')
+      .insert(insertData)
+      .select()
+      .single();
+
+    if (error) throw error;
+
+    return mapAddress(address);
+  } catch (error) {
+    console.error('createAddress error:', error);
+    throw error;
+  }
 }
 
-export async function deleteAddress(addressId: string, token: string): Promise<void> {
-  const response = await fetch(`${API_BASE}/addresses/${addressId}`, {
-    method: 'DELETE',
-    headers: {
-      'Authorization': `Bearer ${token}`,
-    },
-  });
-  if (!response.ok) throw new Error('Error al eliminar dirección');
+export async function updateAddress(
+  addressId: string,
+  data: Partial<{
+    label: string;
+    streetAddress: string;
+    reference: string;
+    latitude: number;
+    longitude: number;
+    isDefault: boolean;
+  }>
+): Promise<SavedAddress> {
+  try {
+    const updateData: any = {};
+
+    if (data.label !== undefined) updateData.label = data.label;
+    if (data.streetAddress !== undefined) updateData.street_address = data.streetAddress;
+    if (data.reference !== undefined) updateData.reference = data.reference;
+    if (data.isDefault !== undefined) updateData.is_default = data.isDefault;
+
+    if (data.latitude !== undefined && data.longitude !== undefined) {
+      updateData.location = `POINT(${data.longitude} ${data.latitude})`;
+    }
+
+    const { data: address, error } = await supabase
+      .from('addresses')
+      .update(updateData)
+      .eq('id', addressId)
+      .select()
+      .single();
+
+    if (error) throw error;
+
+    return mapAddress(address);
+  } catch (error) {
+    console.error('updateAddress error:', error);
+    throw error;
+  }
 }
 
-export async function setDefaultAddress(addressId: string, token: string): Promise<void> {
-  const response = await fetch(`${API_BASE}/addresses/${addressId}/default`, {
-    method: 'PUT',
-    headers: {
-      'Authorization': `Bearer ${token}`,
-    },
-  });
-  if (!response.ok) throw new Error('Error al cambiar dirección predeterminada');
+export async function deleteAddress(addressId: string): Promise<void> {
+  try {
+    const { error } = await supabase
+      .from('addresses')
+      .delete()
+      .eq('id', addressId);
+
+    if (error) throw error;
+  } catch (error) {
+    console.error('deleteAddress error:', error);
+    throw error;
+  }
+}
+
+export async function setDefaultAddress(addressId: string, userId: string): Promise<void> {
+  try {
+    // First unset all defaults for this user
+    await supabase
+      .from('addresses')
+      .update({ is_default: false })
+      .eq('user_id', userId);
+
+    // Then set the new default
+    const { error } = await supabase
+      .from('addresses')
+      .update({ is_default: true })
+      .eq('id', addressId);
+
+    if (error) throw error;
+  } catch (error) {
+    console.error('setDefaultAddress error:', error);
+    throw error;
+  }
+}
+
+export async function getDefaultAddress(userId: string): Promise<SavedAddress | null> {
+  try {
+    const { data, error } = await supabase
+      .from('addresses')
+      .select('*')
+      .eq('user_id', userId)
+      .eq('is_default', true)
+      .single();
+
+    if (error) {
+      if (error.code === 'PGRST116') return null; // No rows found
+      throw error;
+    }
+
+    return mapAddress(data);
+  } catch (error) {
+    console.error('getDefaultAddress error:', error);
+    throw error;
+  }
 }

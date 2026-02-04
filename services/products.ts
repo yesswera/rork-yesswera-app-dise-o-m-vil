@@ -1,172 +1,234 @@
-import { API_ENDPOINTS } from '@/constants/api';
+import { supabase } from '@/constants/supabase';
 import { ProductFull, ProductCategory } from '@/constants/types';
 
-export async function getBusinessProducts(businessId: string, token: string): Promise<ProductFull[]> {
-  const response = await fetch(API_ENDPOINTS.business.products(businessId), {
-    headers: {
-      'Authorization': `Bearer ${token}`,
-      'Content-Type': 'application/json',
-    },
-  });
-
-  if (!response.ok) {
-    throw new Error('Error al obtener productos');
-  }
-
-  return response.json();
+function mapProduct(dbProduct: any): ProductFull {
+  return {
+    id: dbProduct.id,
+    businessId: dbProduct.business_id,
+    categoryId: dbProduct.category_id,
+    name: dbProduct.name,
+    description: dbProduct.description,
+    price: dbProduct.price,
+    image: dbProduct.image_url,
+    isAvailable: dbProduct.is_available,
+    preparationTime: dbProduct.preparation_time_minutes,
+    variants: dbProduct.product_variants || [],
+  };
 }
 
-export async function getBusinessCategories(businessId: string, token: string): Promise<ProductCategory[]> {
-  const response = await fetch(API_ENDPOINTS.business.categories(businessId), {
-    headers: {
-      'Authorization': `Bearer ${token}`,
-      'Content-Type': 'application/json',
-    },
-  });
+function mapCategory(dbCategory: any): ProductCategory {
+  return {
+    id: dbCategory.id,
+    businessId: dbCategory.business_id,
+    name: dbCategory.name,
+    description: dbCategory.description,
+    sortOrder: dbCategory.sort_order,
+    isActive: dbCategory.is_active,
+  };
+}
 
-  if (!response.ok) {
-    throw new Error('Error al obtener categorías');
+export async function getBusinessProducts(businessId: string): Promise<ProductFull[]> {
+  try {
+    const { data, error } = await supabase
+      .from('products')
+      .select(`
+        *,
+        product_variants (*)
+      `)
+      .eq('business_id', businessId)
+      .eq('is_available', true)
+      .order('name');
+
+    if (error) throw error;
+
+    return (data || []).map(mapProduct);
+  } catch (error) {
+    console.error('getBusinessProducts error:', error);
+    throw error;
   }
+}
 
-  return response.json();
+export async function getBusinessCategories(businessId: string): Promise<ProductCategory[]> {
+  try {
+    const { data, error } = await supabase
+      .from('product_categories')
+      .select('*')
+      .eq('business_id', businessId)
+      .eq('is_active', true)
+      .order('sort_order');
+
+    if (error) throw error;
+
+    return (data || []).map(mapCategory);
+  } catch (error) {
+    console.error('getBusinessCategories error:', error);
+    throw error;
+  }
 }
 
 export async function createProduct(
   businessId: string,
-  productData: Partial<ProductFull>,
-  token: string
+  productData: Partial<ProductFull>
 ): Promise<ProductFull> {
-  const response = await fetch(API_ENDPOINTS.business.products(businessId), {
-    method: 'POST',
-    headers: {
-      'Authorization': `Bearer ${token}`,
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify(productData),
-  });
+  try {
+    const { data, error } = await supabase
+      .from('products')
+      .insert({
+        business_id: businessId,
+        category_id: productData.categoryId,
+        name: productData.name,
+        description: productData.description,
+        price: productData.price,
+        image_url: productData.image,
+        is_available: productData.isAvailable ?? true,
+        preparation_time_minutes: productData.preparationTime,
+      })
+      .select()
+      .single();
 
-  if (!response.ok) {
-    throw new Error('Error al crear producto');
+    if (error) throw error;
+
+    return mapProduct(data);
+  } catch (error) {
+    console.error('createProduct error:', error);
+    throw error;
   }
-
-  return response.json();
 }
 
 export async function updateProduct(
   businessId: string,
   productId: string,
-  productData: Partial<ProductFull>,
-  token: string
+  productData: Partial<ProductFull>
 ): Promise<ProductFull> {
-  const response = await fetch(API_ENDPOINTS.business.product(businessId, productId), {
-    method: 'PUT',
-    headers: {
-      'Authorization': `Bearer ${token}`,
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify(productData),
-  });
+  try {
+    const updateData: any = {};
 
-  if (!response.ok) {
-    throw new Error('Error al actualizar producto');
+    if (productData.name !== undefined) updateData.name = productData.name;
+    if (productData.description !== undefined) updateData.description = productData.description;
+    if (productData.price !== undefined) updateData.price = productData.price;
+    if (productData.image !== undefined) updateData.image_url = productData.image;
+    if (productData.isAvailable !== undefined) updateData.is_available = productData.isAvailable;
+    if (productData.categoryId !== undefined) updateData.category_id = productData.categoryId;
+    if (productData.preparationTime !== undefined) updateData.preparation_time_minutes = productData.preparationTime;
+
+    const { data, error } = await supabase
+      .from('products')
+      .update(updateData)
+      .eq('id', productId)
+      .eq('business_id', businessId)
+      .select()
+      .single();
+
+    if (error) throw error;
+
+    return mapProduct(data);
+  } catch (error) {
+    console.error('updateProduct error:', error);
+    throw error;
   }
-
-  return response.json();
 }
 
-export async function deleteProduct(
-  businessId: string,
-  productId: string,
-  token: string
-): Promise<void> {
-  const response = await fetch(API_ENDPOINTS.business.product(businessId, productId), {
-    method: 'DELETE',
-    headers: {
-      'Authorization': `Bearer ${token}`,
-    },
-  });
+export async function deleteProduct(businessId: string, productId: string): Promise<void> {
+  try {
+    const { error } = await supabase
+      .from('products')
+      .delete()
+      .eq('id', productId)
+      .eq('business_id', businessId);
 
-  if (!response.ok) {
-    throw new Error('Error al eliminar producto');
+    if (error) throw error;
+  } catch (error) {
+    console.error('deleteProduct error:', error);
+    throw error;
   }
 }
 
 export async function toggleProductAvailability(
   businessId: string,
   productId: string,
-  available: boolean,
-  token: string
+  available: boolean
 ): Promise<void> {
-  const response = await fetch(API_ENDPOINTS.business.productAvailability(businessId, productId), {
-    method: 'PATCH',
-    headers: {
-      'Authorization': `Bearer ${token}`,
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify({ available }),
-  });
+  try {
+    const { error } = await supabase
+      .from('products')
+      .update({ is_available: available })
+      .eq('id', productId)
+      .eq('business_id', businessId);
 
-  if (!response.ok) {
-    throw new Error('Error al cambiar disponibilidad');
+    if (error) throw error;
+  } catch (error) {
+    console.error('toggleProductAvailability error:', error);
+    throw error;
   }
 }
 
 export async function createCategory(
   businessId: string,
-  categoryData: Partial<ProductCategory>,
-  token: string
+  categoryData: Partial<ProductCategory>
 ): Promise<ProductCategory> {
-  const response = await fetch(API_ENDPOINTS.business.categories(businessId), {
-    method: 'POST',
-    headers: {
-      'Authorization': `Bearer ${token}`,
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify(categoryData),
-  });
+  try {
+    const { data, error } = await supabase
+      .from('product_categories')
+      .insert({
+        business_id: businessId,
+        name: categoryData.name,
+        description: categoryData.description,
+        sort_order: categoryData.sortOrder || 0,
+        is_active: true,
+      })
+      .select()
+      .single();
 
-  if (!response.ok) {
-    throw new Error('Error al crear categoría');
+    if (error) throw error;
+
+    return mapCategory(data);
+  } catch (error) {
+    console.error('createCategory error:', error);
+    throw error;
   }
-
-  return response.json();
 }
 
 export async function updateCategory(
   businessId: string,
   categoryId: string,
-  categoryData: Partial<ProductCategory>,
-  token: string
+  categoryData: Partial<ProductCategory>
 ): Promise<ProductCategory> {
-  const response = await fetch(API_ENDPOINTS.business.category(businessId, categoryId), {
-    method: 'PUT',
-    headers: {
-      'Authorization': `Bearer ${token}`,
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify(categoryData),
-  });
+  try {
+    const updateData: any = {};
 
-  if (!response.ok) {
-    throw new Error('Error al actualizar categoría');
+    if (categoryData.name !== undefined) updateData.name = categoryData.name;
+    if (categoryData.description !== undefined) updateData.description = categoryData.description;
+    if (categoryData.sortOrder !== undefined) updateData.sort_order = categoryData.sortOrder;
+    if (categoryData.isActive !== undefined) updateData.is_active = categoryData.isActive;
+
+    const { data, error } = await supabase
+      .from('product_categories')
+      .update(updateData)
+      .eq('id', categoryId)
+      .eq('business_id', businessId)
+      .select()
+      .single();
+
+    if (error) throw error;
+
+    return mapCategory(data);
+  } catch (error) {
+    console.error('updateCategory error:', error);
+    throw error;
   }
-
-  return response.json();
 }
 
-export async function deleteCategory(
-  businessId: string,
-  categoryId: string,
-  token: string
-): Promise<void> {
-  const response = await fetch(API_ENDPOINTS.business.category(businessId, categoryId), {
-    method: 'DELETE',
-    headers: {
-      'Authorization': `Bearer ${token}`,
-    },
-  });
+export async function deleteCategory(businessId: string, categoryId: string): Promise<void> {
+  try {
+    const { error } = await supabase
+      .from('product_categories')
+      .delete()
+      .eq('id', categoryId)
+      .eq('business_id', businessId);
 
-  if (!response.ok) {
-    throw new Error('Error al eliminar categoría');
+    if (error) throw error;
+  } catch (error) {
+    console.error('deleteCategory error:', error);
+    throw error;
   }
 }
