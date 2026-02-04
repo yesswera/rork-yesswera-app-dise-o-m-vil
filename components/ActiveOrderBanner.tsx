@@ -26,7 +26,7 @@ export default function ActiveOrderBanner({ userType }: ActiveOrderBannerProps) 
 
     const loadActiveOrder = async () => {
       try {
-        const orders = await getActiveOrders(user.id, token);
+        const orders = await getActiveOrders(user.id);
         if (orders.length > 0) {
           setActiveOrder(orders[0]);
         } else {

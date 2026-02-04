@@ -37,7 +37,7 @@ export default function ActiveOrderScreen() {
     if (!user || !token) return;
 
     try {
-      const activeOrders = await getActiveOrders(user.id, token);
+      const activeOrders = await getActiveOrders(user.id);
       if (activeOrders.length > 0) {
         setOrder(activeOrders[0]);
       } else {
@@ -67,7 +67,7 @@ export default function ActiveOrderScreen() {
 
     setValidating(true);
     try {
-      const result = await validatePickupCode(order.id.toString(), pickupCodeInput, token);
+      const result = await validatePickupCode(order.id.toString(), pickupCodeInput);
       if (result.success) {
         Alert.alert('¡Éxito!', 'Orden recogida correctamente');
         setPickupCodeInput('');
@@ -90,7 +90,7 @@ export default function ActiveOrderScreen() {
 
     setValidating(true);
     try {
-      const result = await validateDeliveryCode(order.id.toString(), deliveryCodeInput, token);
+      const result = await validateDeliveryCode(order.id.toString(), deliveryCodeInput);
       if (result.success) {
         Alert.alert(
           '¡Orden Completada!',

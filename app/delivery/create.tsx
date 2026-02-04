@@ -59,32 +59,23 @@ export default function DeliveryCreateScreen() {
     setIsProcessing(true);
 
     try {
-      const orderData = {
-        type: 'delivery',
-        pickupLocation: {
-          address: originAddress,
-          latitude: 0,
-          longitude: 0,
-        },
-        deliveryLocation: {
-          address: selectedDestination.address,
-          latitude: selectedDestination.latitude,
-          longitude: selectedDestination.longitude,
-        },
+      const createdOrder = await createOrder({
+        clientId: user.id,
+        businessId: '', // No business for delivery type
+        serviceType: 'delivery',
+        deliveryAddress: selectedDestination.address,
+        deliveryInstructions: packageWeight ? `Peso: ${packageWeight}` : undefined,
         items: [{
-          name: packageDescription,
+          productId: 'package',
+          productName: packageDescription,
           quantity: 1,
-          price: 0,
+          unitPrice: 0,
         }],
-        instructions: packageWeight ? `Peso: ${packageWeight}` : undefined,
-        paymentMethod: paymentMethod,
         subtotal: 0,
         deliveryFee: deliveryCost,
         tip: 0,
-        total: deliveryCost,
-      };
-
-      const createdOrder = await createOrder(orderData, token);
+        paymentMethod: paymentMethod === 'transfer' ? 'cash' : paymentMethod,
+      });
 
       Alert.alert(
         '¡Orden Creada!',

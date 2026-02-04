@@ -20,7 +20,7 @@ export default function BusinessProductsScreen() {
     if (!user || !token) return;
 
     try {
-      const data = await getBusinessProducts(user.id, token);
+      const data = await getBusinessProducts(user.id);
       setProducts(data);
     } catch (error) {
       console.error('Error loading products:', error);
@@ -44,7 +44,7 @@ export default function BusinessProductsScreen() {
     if (!user || !token) return;
 
     try {
-      await toggleProductAvailability(user.id, productId, !currentAvailability, token);
+      await toggleProductAvailability(user.id, productId, !currentAvailability);
       
       setProducts(prev =>
         prev.map(p => p.id === productId ? { ...p, available: !currentAvailability } : p)
@@ -72,7 +72,7 @@ export default function BusinessProductsScreen() {
             if (!user || !token) return;
 
             try {
-              await deleteProduct(user.id, productId, token);
+              await deleteProduct(user.id, productId);
               setProducts(prev => prev.filter(p => p.id !== productId));
               Toast.success('Producto eliminado');
             } catch (error) {

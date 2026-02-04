@@ -5,14 +5,19 @@ function mapProduct(dbProduct: any): ProductFull {
   return {
     id: dbProduct.id,
     businessId: dbProduct.business_id,
+    businessName: '',
     categoryId: dbProduct.category_id,
+    category: '',
     name: dbProduct.name,
-    description: dbProduct.description,
+    description: dbProduct.description || '',
     price: dbProduct.price,
-    image: dbProduct.image_url,
-    isAvailable: dbProduct.is_available,
+    image: dbProduct.image_url || '',
+    available: dbProduct.is_available,
+    inStock: dbProduct.is_available,
     preparationTime: dbProduct.preparation_time_minutes,
-    variants: dbProduct.product_variants || [],
+    featured: false,
+    createdAt: dbProduct.created_at || new Date().toISOString(),
+    updatedAt: dbProduct.updated_at || new Date().toISOString(),
   };
 }
 
@@ -22,8 +27,8 @@ function mapCategory(dbCategory: any): ProductCategory {
     businessId: dbCategory.business_id,
     name: dbCategory.name,
     description: dbCategory.description,
-    sortOrder: dbCategory.sort_order,
-    isActive: dbCategory.is_active,
+    order: dbCategory.sort_order || 0,
+    active: dbCategory.is_active,
   };
 }
 
@@ -80,7 +85,7 @@ export async function createProduct(
         description: productData.description,
         price: productData.price,
         image_url: productData.image,
-        is_available: productData.isAvailable ?? true,
+        is_available: productData.available ?? true,
         preparation_time_minutes: productData.preparationTime,
       })
       .select()
@@ -107,7 +112,7 @@ export async function updateProduct(
     if (productData.description !== undefined) updateData.description = productData.description;
     if (productData.price !== undefined) updateData.price = productData.price;
     if (productData.image !== undefined) updateData.image_url = productData.image;
-    if (productData.isAvailable !== undefined) updateData.is_available = productData.isAvailable;
+    if (productData.available !== undefined) updateData.is_available = productData.available;
     if (productData.categoryId !== undefined) updateData.category_id = productData.categoryId;
     if (productData.preparationTime !== undefined) updateData.preparation_time_minutes = productData.preparationTime;
 
@@ -173,7 +178,7 @@ export async function createCategory(
         business_id: businessId,
         name: categoryData.name,
         description: categoryData.description,
-        sort_order: categoryData.sortOrder || 0,
+        sort_order: categoryData.order || 0,
         is_active: true,
       })
       .select()
@@ -198,8 +203,8 @@ export async function updateCategory(
 
     if (categoryData.name !== undefined) updateData.name = categoryData.name;
     if (categoryData.description !== undefined) updateData.description = categoryData.description;
-    if (categoryData.sortOrder !== undefined) updateData.sort_order = categoryData.sortOrder;
-    if (categoryData.isActive !== undefined) updateData.is_active = categoryData.isActive;
+    if (categoryData.order !== undefined) updateData.sort_order = categoryData.order;
+    if (categoryData.active !== undefined) updateData.is_active = categoryData.active;
 
     const { data, error } = await supabase
       .from('product_categories')

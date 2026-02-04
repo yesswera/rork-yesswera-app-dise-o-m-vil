@@ -42,10 +42,12 @@ export default function RatingModal({
     try {
       await createRating({
         orderId,
-        driverId,
+        raterId: '', // Will be filled from context
+        ratedId: driverId,
+        ratedType: 'driver',
         stars: rating,
         comment: comment.trim() || undefined,
-      }, token);
+      });
 
       onSuccess();
       handleClose();

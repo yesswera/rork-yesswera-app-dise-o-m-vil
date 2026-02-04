@@ -19,11 +19,11 @@ export default function ProfileScreen() {
 
   const getUserTypeLabel = () => {
     switch (user.userType) {
-      case 'cliente':
+      case 'client':
         return 'Cliente';
-      case 'repartidor':
+      case 'driver':
         return 'Repartidor';
-      case 'negocio':
+      case 'business':
         return 'Negocio';
       default:
         return user.userType;
@@ -77,10 +77,10 @@ export default function ProfileScreen() {
           <Text style={styles.name}>{user.name}</Text>
           <Badge 
             label={getUserTypeLabel()} 
-            variant={user.userType === 'cliente' ? 'primary' : user.userType === 'repartidor' ? 'accent' : 'secondary'}
+            variant={user.userType === 'client' ? 'primary' : user.userType === 'driver' ? 'accent' : 'secondary'}
             size="medium"
           />
-          {user.userType === 'repartidor' && user.rating && (
+          {user.userType === 'driver' && user.rating && (
             <View style={styles.ratingContainer}>
               <Star size={18} color={Colors.gold} fill={Colors.gold} />
               <Text style={styles.ratingText}>{user.rating.toFixed(1)}</Text>

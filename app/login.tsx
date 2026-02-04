@@ -77,9 +77,9 @@ export default function LoginScreen() {
       
       // Redirigir según el tipo de usuario
       if (userData && userData.userType) {
-        if (userData.userType === 'repartidor') {
+        if (userData.userType === 'driver') {
           router.replace('/driver/dashboard' as any);
-        } else if (userData.userType === 'negocio') {
+        } else if (userData.userType === 'business') {
           router.replace('/business/dashboard' as any);
         } else if (userData.userType === 'admin') {
           router.replace('/admin/dashboard' as any);

@@ -181,8 +181,8 @@ export default function EditProfileScreen() {
           <View style={styles.infoCard}>
             <Text style={styles.infoLabel}>Tipo de Usuario</Text>
             <Text style={styles.infoValue}>
-              {user.userType === 'cliente' ? 'Cliente' : 
-               user.userType === 'repartidor' ? 'Repartidor' : 'Negocio'}
+              {user.userType === 'client' ? 'Cliente' :
+               user.userType === 'driver' ? 'Repartidor' : 'Negocio'}
             </Text>
           </View>
 

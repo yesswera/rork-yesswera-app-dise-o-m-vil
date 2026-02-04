@@ -30,7 +30,7 @@ export default function CreateRatingScreen() {
       if (!token || !orderId) return;
 
       try {
-        const orderData = await getOrderById(orderId as string, token);
+        const orderData = await getOrderById(orderId as string);
         setOrder(orderData);
         setError(null);
       } catch (err) {
@@ -117,10 +117,12 @@ export default function CreateRatingScreen() {
     try {
       await createRating({
         orderId: orderId as string,
-        driverId: driverId,
+        raterId: user.id,
+        ratedId: driverId,
+        ratedType: 'driver',
         stars: rating,
         comment: comment || undefined,
-      }, token);
+      });
       
       HapticFeedback.success();
       Toast.success('¡Gracias por tu calificación!');

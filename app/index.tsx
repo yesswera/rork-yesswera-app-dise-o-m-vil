@@ -43,7 +43,7 @@ export default function HomeScreen() {
 
     const checkActiveOrder = async () => {
       try {
-        const orders = await getActiveOrders(user.id, token);
+        const orders = await getActiveOrders(user.id);
         if (orders.length > 0) {
           setActiveOrder(orders[0]);
         } else {
@@ -57,7 +57,7 @@ export default function HomeScreen() {
 
     const loadRecentOrders = async () => {
       try {
-        const allOrders = await getUserOrders(user.id, token);
+        const allOrders = await getUserOrders(user.id);
         const completed = allOrders
           .filter((o: Order) => o.status === 'delivered')
           .sort((a: Order, b: Order) => new Date(b.deliveredAt || b.createdAt).getTime() - new Date(a.deliveredAt || a.createdAt).getTime())

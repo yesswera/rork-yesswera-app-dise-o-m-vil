@@ -93,17 +93,15 @@ export default function AddAddressScreen() {
 
     setIsSubmitting(true);
     try {
-      const newAddress: Omit<SavedAddress, 'id' | 'createdAt'> = {
+      await createAddress({
         userId: user.id,
         label: selectedLabel,
-        address: address.trim(),
+        streetAddress: address.trim(),
+        reference: instructions.trim() || undefined,
         latitude: location.latitude,
         longitude: location.longitude,
-        instructions: instructions.trim() || undefined,
         isDefault,
-      };
-
-      await createAddress(newAddress, token);
+      });
       await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       Toast.success('Dirección guardada exitosamente');
       router.back();

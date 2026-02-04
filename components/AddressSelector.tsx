@@ -25,7 +25,7 @@ export default function AddressSelector({ selectedAddress, onAddressSelect, onAd
 
     setIsLoading(true);
     try {
-      const userAddresses = await getUserAddresses(user.id, token);
+      const userAddresses = await getUserAddresses(user.id);
       // Ensure we always have an array
       const addressArray = Array.isArray(userAddresses) ? userAddresses : [];
       setAddresses(addressArray);
@@ -57,7 +57,7 @@ export default function AddressSelector({ selectedAddress, onAddressSelect, onAd
     if (!token) return;
     
     try {
-      await setDefaultAddress(addressId, token);
+      await setDefaultAddress(addressId, user?.id || '');
       await loadAddresses();
       Alert.alert('Éxito', 'Dirección predeterminada actualizada');
     } catch (error) {

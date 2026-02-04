@@ -86,7 +86,7 @@ export default function AdminUsersScreen() {
         nombre: 'Juan Pérez',
         email: 'juan@email.com',
         telefono: '33-1234-5678',
-        tipo: 'cliente',
+        tipo: 'client',
         rating: 4.8,
         createdAt: '2024-01-15',
         activo: true,
@@ -97,7 +97,7 @@ export default function AdminUsersScreen() {
         nombre: 'Carlos Mendoza',
         email: 'carlos@email.com',
         telefono: '33-9876-5432',
-        tipo: 'repartidor',
+        tipo: 'driver',
         rating: 4.9,
         createdAt: '2024-01-10',
         activo: true,
@@ -108,7 +108,7 @@ export default function AdminUsersScreen() {
         nombre: 'Tacos El Güero',
         email: 'tacos@guero.com',
         telefono: '33-5555-1234',
-        tipo: 'negocio',
+        tipo: 'business',
         rating: 4.7,
         createdAt: '2024-01-05',
         activo: true,
@@ -119,7 +119,7 @@ export default function AdminUsersScreen() {
         nombre: 'María García',
         email: 'maria@email.com',
         telefono: '33-4444-5678',
-        tipo: 'cliente',
+        tipo: 'client',
         rating: 5.0,
         createdAt: '2024-01-20',
         activo: true,
@@ -130,7 +130,7 @@ export default function AdminUsersScreen() {
         nombre: 'Luis Ramírez',
         email: 'luis@email.com',
         telefono: '33-3333-9999',
-        tipo: 'repartidor',
+        tipo: 'driver',
         rating: 4.5,
         createdAt: '2024-01-18',
         activo: false,
@@ -160,11 +160,11 @@ export default function AdminUsersScreen() {
 
   const getUserIcon = (tipo: UserType) => {
     switch (tipo) {
-      case 'cliente':
+      case 'client':
         return <Users size={20} color={Colors.primary} />;
-      case 'repartidor':
+      case 'driver':
         return <Truck size={20} color={Colors.accent} />;
-      case 'negocio':
+      case 'business':
         return <Store size={20} color={Colors.success} />;
       case 'admin':
         return <Shield size={20} color={Colors.error} />;
@@ -173,11 +173,11 @@ export default function AdminUsersScreen() {
 
   const getUserTypeLabel = (tipo: UserType) => {
     switch (tipo) {
-      case 'cliente':
+      case 'client':
         return 'Cliente';
-      case 'repartidor':
+      case 'driver':
         return 'Repartidor';
-      case 'negocio':
+      case 'business':
         return 'Negocio';
       case 'admin':
         return 'Admin';
@@ -245,28 +245,28 @@ export default function AdminUsersScreen() {
             </TouchableOpacity>
 
             <TouchableOpacity
-              style={[styles.filterButton, selectedFilter === 'cliente' && styles.filterButtonActive]}
-              onPress={() => setSelectedFilter('cliente')}
+              style={[styles.filterButton, selectedFilter === 'client' && styles.filterButtonActive]}
+              onPress={() => setSelectedFilter('client')}
             >
-              <Text style={[styles.filterText, selectedFilter === 'cliente' && styles.filterTextActive]}>
+              <Text style={[styles.filterText, selectedFilter === 'client' && styles.filterTextActive]}>
                 Clientes ({stats.totalClientes})
               </Text>
             </TouchableOpacity>
 
             <TouchableOpacity
-              style={[styles.filterButton, selectedFilter === 'repartidor' && styles.filterButtonActive]}
-              onPress={() => setSelectedFilter('repartidor')}
+              style={[styles.filterButton, selectedFilter === 'driver' && styles.filterButtonActive]}
+              onPress={() => setSelectedFilter('driver')}
             >
-              <Text style={[styles.filterText, selectedFilter === 'repartidor' && styles.filterTextActive]}>
+              <Text style={[styles.filterText, selectedFilter === 'driver' && styles.filterTextActive]}>
                 Repartidores ({stats.totalRepartidores})
               </Text>
             </TouchableOpacity>
 
             <TouchableOpacity
-              style={[styles.filterButton, selectedFilter === 'negocio' && styles.filterButtonActive]}
-              onPress={() => setSelectedFilter('negocio')}
+              style={[styles.filterButton, selectedFilter === 'business' && styles.filterButtonActive]}
+              onPress={() => setSelectedFilter('business')}
             >
-              <Text style={[styles.filterText, selectedFilter === 'negocio' && styles.filterTextActive]}>
+              <Text style={[styles.filterText, selectedFilter === 'business' && styles.filterTextActive]}>
                 Negocios ({stats.totalNegocios})
               </Text>
             </TouchableOpacity>

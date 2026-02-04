@@ -34,7 +34,7 @@ export default function TrackingScreen() {
       if (!token || !orderId) return;
 
       try {
-        const orderData = await getOrderById(orderId as string, token);
+        const orderData = await getOrderById(orderId as string);
         setOrder(orderData);
         setError(null);
       } catch (err) {
@@ -60,11 +60,11 @@ export default function TrackingScreen() {
       try {
         // Only fetch driver location if there's a driver assigned
         const promises: Promise<any>[] = [
-          getOrderById(orderId as string, token)
+          getOrderById(orderId as string)
         ];
 
         if (order.driverId) {
-          promises.unshift(getDriverLocation(orderId as string, token));
+          promises.unshift(getDriverLocation(orderId as string));
         }
 
         const results = await Promise.all(promises);
@@ -148,7 +148,7 @@ export default function TrackingScreen() {
     setIsLoading(true);
     setError(null);
     if (token && orderId) {
-      getOrderById(orderId as string, token)
+      getOrderById(orderId as string)
         .then(setOrder)
         .catch(() => setError('No se pudo cargar la orden'))
         .finally(() => setIsLoading(false));

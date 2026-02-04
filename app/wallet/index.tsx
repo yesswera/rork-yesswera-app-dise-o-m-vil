@@ -40,7 +40,7 @@ export default function WalletScreen() {
     }
 
     try {
-      const endpoint = user.userType === 'repartidor' 
+      const endpoint = user.userType === 'driver' 
         ? API_ENDPOINTS.driver.earnings(user.id, 'all')
         : `${API_ENDPOINTS.auth.login.replace('/login', '')}/wallet/${user.id}`;
 

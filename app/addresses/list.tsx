@@ -30,7 +30,7 @@ export default function AddressListScreen() {
 
     setIsLoading(true);
     try {
-      const userAddresses = await getUserAddresses(user.id, token);
+      const userAddresses = await getUserAddresses(user.id);
       setAddresses(Array.isArray(userAddresses) ? userAddresses : []);
     } catch (error) {
       console.error('Error cargando direcciones:', error);
@@ -55,7 +55,7 @@ export default function AddressListScreen() {
           onPress: async () => {
             setDeletingId(addressId);
             try {
-              await deleteAddress(addressId, token);
+              await deleteAddress(addressId);
               await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
               Toast.success('Dirección eliminada');
               await loadAddresses();
@@ -75,7 +75,7 @@ export default function AddressListScreen() {
     if (!token) return;
 
     try {
-      await setDefaultAddress(addressId, token);
+      await setDefaultAddress(addressId, user?.id || '');
       await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       Toast.success('Dirección predeterminada actualizada');
       await loadAddresses();

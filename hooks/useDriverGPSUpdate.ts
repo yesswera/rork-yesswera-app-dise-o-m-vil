@@ -6,10 +6,10 @@ import { updateDriverLocation } from '@/services/gps';
 export function useDriverGPSUpdate(orderId: string | null, isActive: boolean) {
   const [location, setLocation] = useState<Location.LocationObject | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const { token } = useAuth();
+  const { user } = useAuth();
 
   useEffect(() => {
-    if (!orderId || !isActive || !token) {
+    if (!orderId || !isActive || !user) {
       return;
     }
 
@@ -35,7 +35,7 @@ export function useDriverGPSUpdate(orderId: string | null, isActive: boolean) {
             setLocation(newLocation);
             console.log('[GPS] Updating location for order:', orderId);
 
-            await updateDriverLocation(orderId, newLocation, token);
+            await updateDriverLocation(user.id, orderId, newLocation);
           }
         );
       } catch (err) {
@@ -52,7 +52,7 @@ export function useDriverGPSUpdate(orderId: string | null, isActive: boolean) {
         console.log('[GPS] Stopped tracking for order:', orderId);
       }
     };
-  }, [orderId, isActive, token]);
+  }, [orderId, isActive, user]);
 
   return { location, error };
 }

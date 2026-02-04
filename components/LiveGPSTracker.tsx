@@ -26,9 +26,11 @@ export default function LiveGPSTracker({ orderId, deliveryLocation }: LiveGPSTra
 
     const fetchDriverLocation = async () => {
       try {
-        const response: GPSResponse = await getDriverLocation(orderId, token);
-        setDriverLocation(response.location);
-        setEta(response.eta || null);
+        const response = await getDriverLocation(orderId);
+        if (response) {
+          setDriverLocation(response.location);
+          setEta(response.eta || null);
+        }
         setIsLoading(false);
       } catch (error) {
         console.error('Error fetching GPS:', error);

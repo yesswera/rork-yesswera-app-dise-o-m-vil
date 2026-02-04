@@ -28,7 +28,7 @@ export default function OrderHistoryScreen() {
     if (!user || !token) return;
 
     try {
-      const userOrders = await getUserOrders(user.id, token);
+      const userOrders = await getUserOrders(user.id);
       setOrders(userOrders);
       setError(null);
     } catch (err) {

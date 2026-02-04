@@ -25,7 +25,7 @@ export default function OrderDetailsScreen() {
       if (!token || !orderId) return;
 
       try {
-        const orderData = await getOrderById(orderId as string, token);
+        const orderData = await getOrderById(orderId as string);
         setOrder(orderData);
         setError(null);
       } catch (err) {
@@ -49,7 +49,7 @@ export default function OrderDetailsScreen() {
 
     const interval = setInterval(async () => {
       try {
-        const updatedOrder = await getOrderById(orderId as string, token);
+        const updatedOrder = await getOrderById(orderId as string);
         setOrder(updatedOrder);
       } catch (err) {
         console.error('Error actualizando orden:', err);
@@ -68,7 +68,7 @@ export default function OrderDetailsScreen() {
     setIsLoading(true);
     setError(null);
     if (token && orderId) {
-      getOrderById(orderId as string, token)
+      getOrderById(orderId as string)
         .then(setOrder)
         .catch(() => setError('No se pudo cargar la orden'))
         .finally(() => setIsLoading(false));

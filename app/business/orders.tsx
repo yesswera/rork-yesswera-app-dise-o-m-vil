@@ -27,7 +27,7 @@ export default function BusinessOrdersScreen() {
     if (!user || !token) return;
 
     try {
-      const fetchedOrders = await getUserOrders(user.id, token);
+      const fetchedOrders = await getUserOrders(user.id);
       const businessOrders = fetchedOrders.filter(
         (order) => order.businessId === user.id
       );
@@ -59,7 +59,7 @@ export default function BusinessOrdersScreen() {
           text: 'Aceptar',
           onPress: async () => {
             try {
-              await acceptOrder(orderId, 20, token);
+              await acceptOrder(orderId, 20);
               Alert.alert('Éxito', 'Orden aceptada');
               loadOrders();
             } catch (error) {
