@@ -1,4 +1,4 @@
-export type UserType = 'cliente' | 'repartidor' | 'negocio' | 'admin';
+export type UserType = 'client' | 'driver' | 'business' | 'admin';
 
 export type OrderStatus = 'pending' | 'confirmed' | 'preparing' | 'ready' | 'accepted' | 'in_transit' | 'delivered' | 'cancelled';
 

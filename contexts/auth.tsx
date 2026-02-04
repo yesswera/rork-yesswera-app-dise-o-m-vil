@@ -1,8 +1,7 @@
 import createContextHook from '@nkzw/create-context-hook';
 import { useState, useEffect } from 'react';
 import type { User } from '@/constants/types';
-import storage from '@/utils/storage';
-import { API_ENDPOINTS } from '@/constants/api';
+import { supabase } from '@/constants/supabase';
 
 interface AuthState {
   user: User | null;
@@ -13,84 +12,106 @@ interface AuthState {
   logout: () => Promise<void>;
 }
 
-
-
 export const [AuthProvider, useAuth] = createContextHook<AuthState>(() => {
   const [user, setUser] = useState<User | null>(null);
   const [token, setToken] = useState<string | null>(null);
-  const [isLoading] = useState<boolean>(false);
+  const [isLoading, setIsLoading] = useState<boolean>(true);
 
   useEffect(() => {
-    let mounted = true;
-    const load = async () => {
-      if (mounted) {
-        await loadStoredAuth();
+    // Check current session on mount
+    checkSession();
+
+    // Listen for auth changes
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(
+      async (event, session) => {
+        if (session?.user) {
+          await loadUserProfile(session.user.id);
+          setToken(session.access_token);
+        } else {
+          setUser(null);
+          setToken(null);
+        }
+        setIsLoading(false);
       }
-    };
-    load();
+    );
+
     return () => {
-      mounted = false;
+      subscription.unsubscribe();
     };
   }, []);
 
-  const loadStoredAuth = async () => {
+  const checkSession = async () => {
     try {
-      const storedToken = await storage.getItem('auth_token');
-      const storedUser = await storage.getItem('auth_user');
-
-      if (storedToken && storedUser) {
-        try {
-          const parsedUser = JSON.parse(storedUser);
-          // Ensure userType is set (in case of old cached data)
-          if (parsedUser.tipo && !parsedUser.userType) {
-            parsedUser.userType = parsedUser.tipo;
-          }
-          setToken(storedToken);
-          setUser(parsedUser);
-        } catch (parseError) {
-          console.error('Error parsing stored user:', parseError);
-          await storage.removeItem('auth_token');
-          await storage.removeItem('auth_user');
-        }
+      const { data: { session } } = await supabase.auth.getSession();
+      if (session?.user) {
+        await loadUserProfile(session.user.id);
+        setToken(session.access_token);
       }
     } catch (error) {
-      console.error('Error loading auth:', error);
+      console.error('Error checking session:', error);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const loadUserProfile = async (userId: string) => {
+    try {
+      const { data, error } = await supabase
+        .from('users')
+        .select('*')
+        .eq('id', userId)
+        .single();
+
+      if (error) throw error;
+
+      if (data) {
+        const mappedUser: User = {
+          id: data.id,
+          email: data.email,
+          name: data.full_name,
+          phone: data.phone,
+          userType: data.user_type,
+          avatar: data.avatar_url,
+        };
+        setUser(mappedUser);
+      }
+    } catch (error) {
+      console.error('Error loading user profile:', error);
     }
   };
 
   const login = async (email: string, password: string): Promise<User> => {
     try {
-      const response = await fetch(API_ENDPOINTS.auth.login, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ email, password }),
+      const { data, error } = await supabase.auth.signInWithPassword({
+        email,
+        password,
       });
 
-      const data = await response.json();
+      if (error) throw error;
 
-      if (!response.ok) {
-        throw new Error(data.error || 'Login failed');
-      }
+      if (!data.user) throw new Error('No user returned');
 
-      // Map backend fields to app User type
+      // Load user profile from our users table
+      const { data: userData, error: userError } = await supabase
+        .from('users')
+        .select('*')
+        .eq('email', email)
+        .single();
+
+      if (userError) throw userError;
+
       const mappedUser: User = {
-        id: data.user.id,
-        email: data.user.email,
-        name: data.user.nombre || data.user.name,
-        phone: data.user.telefono || data.user.phone,
-        userType: data.user.tipo || data.user.userType,
-        rating: data.user.rating,
-        avatar: data.user.avatar,
+        id: userData.id,
+        email: userData.email,
+        name: userData.full_name,
+        phone: userData.phone,
+        userType: userData.user_type,
+        avatar: userData.avatar_url,
       };
 
-      setToken(data.token);
+      setToken(data.session?.access_token || null);
       setUser(mappedUser);
 
-      await storage.setItem('auth_token', data.token);
-      await storage.setItem('auth_user', JSON.stringify(mappedUser));
-      
       return mappedUser;
     } catch (error) {
       console.error('Login error:', error);
@@ -100,36 +121,62 @@ export const [AuthProvider, useAuth] = createContextHook<AuthState>(() => {
 
   const register = async (name: string, email: string, password: string, phone: string, userType: string) => {
     try {
-      const response = await fetch(API_ENDPOINTS.auth.register, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ name, email, password, phone, user_type: userType }),
+      // 1. Create auth user in Supabase Auth
+      const { data: authData, error: authError } = await supabase.auth.signUp({
+        email,
+        password,
       });
 
-      const data = await response.json();
+      if (authError) throw authError;
 
-      if (!response.ok) {
-        throw new Error(data.error || 'Registration failed');
+      if (!authData.user) throw new Error('No user returned from signup');
+
+      // 2. Create user profile in our users table
+      const { data: userData, error: userError } = await supabase
+        .from('users')
+        .insert({
+          id: authData.user.id,
+          email: email,
+          full_name: name,
+          phone: phone,
+          user_type: userType,
+          is_verified: false,
+        })
+        .select()
+        .single();
+
+      if (userError) throw userError;
+
+      // 3. If driver, create driver record
+      if (userType === 'driver') {
+        await supabase.from('drivers').insert({
+          user_id: authData.user.id,
+          is_online: false,
+          is_available: true,
+        });
       }
 
-      // Map backend fields to app User type
-      const mappedUser = {
-        id: data.user.id,
-        email: data.user.email,
-        name: data.user.nombre || data.user.name,
-        phone: data.user.telefono || data.user.phone,
-        userType: data.user.tipo || data.user.userType,
-        rating: data.user.rating,
-        avatar: data.user.avatar,
+      // 4. If business, create business record
+      if (userType === 'business') {
+        await supabase.from('businesses').insert({
+          user_id: authData.user.id,
+          business_name: name,
+          address: 'Por configurar',
+          is_open: false,
+        });
+      }
+
+      const mappedUser: User = {
+        id: userData.id,
+        email: userData.email,
+        name: userData.full_name,
+        phone: userData.phone,
+        userType: userData.user_type,
+        avatar: userData.avatar_url,
       };
 
-      setToken(data.token);
+      setToken(authData.session?.access_token || null);
       setUser(mappedUser);
-
-      await storage.setItem('auth_token', data.token);
-      await storage.setItem('auth_user', JSON.stringify(mappedUser));
     } catch (error) {
       console.error('Register error:', error);
       throw error;
@@ -137,10 +184,14 @@ export const [AuthProvider, useAuth] = createContextHook<AuthState>(() => {
   };
 
   const logout = async () => {
-    setUser(null);
-    setToken(null);
-    await storage.removeItem('auth_token');
-    await storage.removeItem('auth_user');
+    try {
+      await supabase.auth.signOut();
+      setUser(null);
+      setToken(null);
+    } catch (error) {
+      console.error('Logout error:', error);
+      throw error;
+    }
   };
 
   return {
