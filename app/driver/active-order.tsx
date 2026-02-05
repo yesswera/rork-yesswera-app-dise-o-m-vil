@@ -179,9 +179,6 @@ export default function ActiveOrderScreen() {
   const driverAtBusiness = order.driverAtBusiness;
   const isOrderReady = status === 'ready';
 
-  // Debug log
-  console.log('ORDER STATUS:', status, 'driverAtBusiness:', driverAtBusiness, 'full order:', JSON.stringify(order, null, 2));
-
   // Phases
   const isGoingToBusiness = status === 'assigned' || status === 'preparing' || (status === 'ready' && !driverAtBusiness);
   const isWaitingAtBusiness = driverAtBusiness && (status === 'assigned' || status === 'preparing');
