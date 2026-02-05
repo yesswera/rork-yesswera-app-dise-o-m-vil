@@ -211,21 +211,165 @@ export async function createOrder(orderData: {
   }
 }
 
-export async function cancelOrder(orderId: string, reason?: string): Promise<void> {
+// === CANCELLATION SYSTEM ===
+
+// Client cancels a pending order (before business accepts) — free, no penalty
+export async function cancelPendingOrder(orderId: string, reason?: string): Promise<void> {
   try {
+    // Verify order is still pending
+    const { data: order } = await supabase
+      .from('orders')
+      .select('status')
+      .eq('id', orderId)
+      .single();
+
+    if (!order) throw new Error('Orden no encontrada');
+    if (order.status !== 'pending') {
+      throw new Error('Esta orden ya fue aceptada. Contacta al negocio para cancelar.');
+    }
+
     const { error } = await supabase
       .from('orders')
       .update({
         status: 'cancelled',
         cancelled_at: new Date().toISOString(),
-        cancellation_reason: reason,
+        cancellation_reason: reason || 'Cancelado por cliente (pendiente)',
+      })
+      .eq('id', orderId)
+      .eq('status', 'pending'); // double-check to prevent race condition
+
+    if (error) throw error;
+  } catch (error) {
+    console.error('cancelPendingOrder error:', error);
+    throw error;
+  }
+}
+
+// Business cancels an accepted order (after client requests via chat)
+// If driver is assigned, calculates compensation
+export async function businessCancelOrder(
+  orderId: string,
+  reason?: string
+): Promise<{ driverCompensation: number; clientRefund: number }> {
+  try {
+    const { data: order } = await supabase
+      .from('orders')
+      .select('*, driver:drivers!driver_id(user_id)')
+      .eq('id', orderId)
+      .single();
+
+    if (!order) throw new Error('Orden no encontrada');
+    if (order.status === 'pending') throw new Error('Orden pendiente, el cliente puede cancelar directamente');
+    if (order.status === 'delivered') throw new Error('Orden ya entregada, no se puede cancelar');
+    if (order.status === 'cancelled') throw new Error('Orden ya cancelada');
+
+    let driverCompensation = 0;
+    const orderTotal = Number(order.total) || 0;
+
+    // If driver is assigned, calculate compensation
+    if (order.driver_id) {
+      driverCompensation = calculateDriverCompensation(order);
+    }
+
+    const clientRefund = Math.max(0, orderTotal - driverCompensation);
+
+    const cancellationDetail = [
+      reason || 'Cancelado por negocio a solicitud del cliente',
+      order.driver_id ? `| Compensación driver: $${driverCompensation.toFixed(2)}` : '',
+      `| Reembolso cliente: $${clientRefund.toFixed(2)}`,
+    ].filter(Boolean).join(' ');
+
+    const { error } = await supabase
+      .from('orders')
+      .update({
+        status: 'cancelled',
+        cancelled_at: new Date().toISOString(),
+        cancellation_reason: cancellationDetail,
       })
       .eq('id', orderId);
 
     if (error) throw error;
+
+    return { driverCompensation, clientRefund };
   } catch (error) {
-    console.error('cancelOrder error:', error);
+    console.error('businessCancelOrder error:', error);
     throw error;
+  }
+}
+
+// Calculate driver compensation based on time elapsed since assignment
+// Formula: $15 base + ($4 × estimated km) + ($1 × minutes elapsed)
+function calculateDriverCompensation(order: any): number {
+  const BASE_FEE = 15; // MXN minimum
+  const COST_PER_KM = 4; // MXN per km
+  const COST_PER_MINUTE = 1; // MXN per minute
+
+  // Time elapsed since order was accepted (driver likely started moving)
+  const acceptedAt = order.accepted_at ? new Date(order.accepted_at) : null;
+  const now = new Date();
+  const minutesElapsed = acceptedAt
+    ? Math.max(0, (now.getTime() - acceptedAt.getTime()) / 60000)
+    : 0;
+
+  // Estimate distance from delivery fee (reverse our formula: fee = $15 + $4*km)
+  // If delivery_fee > 15, estimate km = (fee - 15) / 4
+  const deliveryFee = Number(order.delivery_fee) || 0;
+  const estimatedKm = deliveryFee > 15 ? (deliveryFee - 15) / 4 : 1;
+
+  // Scale by how far in the process we are
+  // assigned/driver_verified = driver going to business (partial distance)
+  // in_transit = driver has product, going to client (more distance)
+  const status = order.status;
+  let distanceFactor = 0.5; // default: assume halfway
+
+  if (['assigned'].includes(status)) {
+    distanceFactor = 0.3; // just started going to business
+  } else if (['picked_up', 'in_transit', 'arrived'].includes(status)) {
+    distanceFactor = 0.8; // already picked up, most distance covered
+  }
+
+  const distanceCompensation = estimatedKm * distanceFactor * COST_PER_KM;
+  const timeCompensation = minutesElapsed * COST_PER_MINUTE;
+
+  const total = BASE_FEE + distanceCompensation + timeCompensation;
+
+  // Cap at delivery fee (driver shouldn't earn more than the delivery fee)
+  return Math.min(Math.round(total * 100) / 100, deliveryFee);
+}
+
+// Get estimated compensation (for UI display before business confirms)
+export async function getEstimatedCompensation(orderId: string): Promise<{
+  driverCompensation: number;
+  clientRefund: number;
+  hasDriver: boolean;
+}> {
+  const { data: order } = await supabase
+    .from('orders')
+    .select('*')
+    .eq('id', orderId)
+    .single();
+
+  if (!order) return { driverCompensation: 0, clientRefund: 0, hasDriver: false };
+
+  const hasDriver = !!order.driver_id;
+  const driverCompensation = hasDriver ? calculateDriverCompensation(order) : 0;
+  const clientRefund = Math.max(0, (Number(order.total) || 0) - driverCompensation);
+
+  return { driverCompensation, clientRefund, hasDriver };
+}
+
+// Legacy wrapper (keep backward compatibility)
+export async function cancelOrder(orderId: string, reason?: string): Promise<void> {
+  const { data: order } = await supabase
+    .from('orders')
+    .select('status')
+    .eq('id', orderId)
+    .single();
+
+  if (order?.status === 'pending') {
+    await cancelPendingOrder(orderId, reason);
+  } else {
+    await businessCancelOrder(orderId, reason);
   }
 }
 
