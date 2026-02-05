@@ -1,14 +1,15 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import { StyleSheet, Text, View, TouchableOpacity, ScrollView, TextInput, Alert, ActivityIndicator } from 'react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { ShoppingBag } from 'lucide-react-native';
 import Colors from '@/constants/colors';
 import { useAuth } from '@/contexts/auth';
 import { Business, SavedAddress, PaymentMethod } from '@/constants/types';
-import { getBusinessById } from '@/services/products';
+import { getBusinessById, getBusinessLocation } from '@/services/products';
 import { createOrder } from '@/services/orders';
 import AddressSelector from '@/components/AddressSelector';
 import PaymentMethodSelector from '@/components/PaymentMethodSelector';
+import { calculateDistance, calculateDeliveryFee, formatDistance } from '@/utils/distance';
 
 export default function ShoppingListScreen() {
   const router = useRouter();
@@ -20,12 +21,17 @@ export default function ShoppingListScreen() {
   const [selectedAddress, setSelectedAddress] = useState<SavedAddress | null>(null);
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>('cash');
   const [isProcessing, setIsProcessing] = useState<boolean>(false);
+  const [businessLocation, setBusinessLocation] = useState<{ latitude: number; longitude: number } | null>(null);
 
   const loadStore = useCallback(async () => {
     if (!storeId) return;
     try {
-      const data = await getBusinessById(storeId);
+      const [data, loc] = await Promise.all([
+        getBusinessById(storeId),
+        getBusinessLocation(storeId),
+      ]);
       setStore(data);
+      setBusinessLocation(loc);
     } catch (error) {
       console.error('Error loading store:', error);
     } finally {
@@ -54,8 +60,18 @@ export default function ShoppingListScreen() {
   }
 
   const estimatedCost = 25.0;
-  const distance = 4;
-  const deliveryCost = distance * 1.5 + estimatedCost * 0.1;
+
+  // Calculate real distance from store to delivery address
+  const distance = useMemo(() => {
+    if (!businessLocation || !selectedAddress) return null;
+    if (!selectedAddress.latitude || !selectedAddress.longitude) return null;
+    return calculateDistance(
+      businessLocation,
+      { latitude: selectedAddress.latitude, longitude: selectedAddress.longitude }
+    );
+  }, [businessLocation, selectedAddress]);
+
+  const deliveryCost = distance !== null ? calculateDeliveryFee(distance) : 0;
   const totalEstimated = estimatedCost + deliveryCost;
 
   const handleSubmit = async () => {
@@ -165,7 +181,7 @@ export default function ShoppingListScreen() {
                 <Text style={styles.estimateValue}>~${estimatedCost.toFixed(2)}</Text>
               </View>
               <View style={styles.estimateRow}>
-                <Text style={styles.estimateLabel}>Entrega ({distance} km)</Text>
+                <Text style={styles.estimateLabel}>Entrega {distance !== null ? `(${formatDistance(distance)})` : ''}</Text>
                 <Text style={styles.estimateValue}>${deliveryCost.toFixed(2)}</Text>
               </View>
               <View style={styles.divider} />

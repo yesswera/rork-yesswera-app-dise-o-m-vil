@@ -1,5 +1,5 @@
 import * as Location from 'expo-location';
-import { ref, set, onValue, off } from 'firebase/database';
+import { ref, set, onValue, off, get } from 'firebase/database';
 import { realtimeDb } from '@/constants/firebase';
 
 export interface DriverLocation {
@@ -52,34 +52,26 @@ export async function updateDriverLocation(
 
 // Get driver location once (not real-time)
 export async function getDriverLocation(orderId: string): Promise<GPSResponse | null> {
-  return new Promise((resolve, reject) => {
-    try {
-      const orderRef = ref(realtimeDb, `orders_tracking/${orderId}`);
-
-      onValue(orderRef, (snapshot) => {
-        const data = snapshot.val();
-        if (data) {
-          resolve({
-            location: {
-              latitude: data.latitude,
-              longitude: data.longitude,
-              timestamp: data.timestamp,
-              speed: data.speed,
-              heading: data.heading,
-            },
-          });
-        } else {
-          resolve(null);
-        }
-        // Unsubscribe after getting the value once
-        off(orderRef);
-      }, (error) => {
-        reject(error);
-      });
-    } catch (error) {
-      reject(error);
+  try {
+    const orderRef = ref(realtimeDb, `orders_tracking/${orderId}`);
+    const snapshot = await get(orderRef);
+    const data = snapshot.val();
+    if (data) {
+      return {
+        location: {
+          latitude: data.latitude,
+          longitude: data.longitude,
+          timestamp: data.timestamp,
+          speed: data.speed,
+          heading: data.heading,
+        },
+      };
     }
-  });
+    return null;
+  } catch (error) {
+    console.error('Error getting driver location:', error);
+    return null;
+  }
 }
 
 // Subscribe to real-time driver location updates

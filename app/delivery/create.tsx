@@ -8,6 +8,7 @@ import { SavedAddress, PaymentMethod } from '@/constants/types';
 import AddressSelector from '@/components/AddressSelector';
 import PaymentMethodSelector from '@/components/PaymentMethodSelector';
 import { createOrder } from '@/services/orders';
+import { calculateDeliveryFee } from '@/utils/distance';
 
 export default function DeliveryCreateScreen() {
   const router = useRouter();
@@ -20,10 +21,12 @@ export default function DeliveryCreateScreen() {
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>('cash');
   const [isProcessing, setIsProcessing] = useState<boolean>(false);
 
-  const distance = 7.5;
-  const baseRate = distance * 1.5;
+  // Delivery: distance can't be calculated without geocoding origin
+  // Show estimated cost based on a default, recalculated when both have coords
+  const estimatedDistance = 5; // km default for Tomatlán area
+  const baseFee = calculateDeliveryFee(estimatedDistance);
   const urgencyMultiplier = urgency === 'express' ? 1.5 : 1;
-  const deliveryCost = baseRate * urgencyMultiplier;
+  const deliveryCost = Math.round(baseFee * urgencyMultiplier * 100) / 100;
 
   const handleSubmit = async () => {
     if (!originAddress.trim()) {
@@ -198,16 +201,16 @@ export default function DeliveryCreateScreen() {
             <View style={styles.costCard}>
               <View style={styles.costRow}>
                 <Text style={styles.costLabel}>Distancia estimada</Text>
-                <Text style={styles.costValue}>{distance} km</Text>
+                <Text style={styles.costValue}>~{estimatedDistance} km</Text>
               </View>
               <View style={styles.costRow}>
-                <Text style={styles.costLabel}>Tarifa base</Text>
-                <Text style={styles.costValue}>${baseRate.toFixed(2)}</Text>
+                <Text style={styles.costLabel}>Tarifa base ($15 + $4/km)</Text>
+                <Text style={styles.costValue}>${baseFee.toFixed(2)}</Text>
               </View>
               {urgency === 'express' && (
                 <View style={styles.costRow}>
                   <Text style={styles.costLabel}>Express (+50%)</Text>
-                  <Text style={styles.costValue}>+${(baseRate * 0.5).toFixed(2)}</Text>
+                  <Text style={styles.costValue}>+${(baseFee * 0.5).toFixed(2)}</Text>
                 </View>
               )}
               <View style={styles.divider} />

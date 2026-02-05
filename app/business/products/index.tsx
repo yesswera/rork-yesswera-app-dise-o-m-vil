@@ -8,6 +8,7 @@ import { ProductFull } from '@/constants/types';
 import Colors from '@/constants/colors';
 import { Toast } from '@/utils/toast';
 import EmptyState from '@/components/EmptyState';
+import { supabase } from '@/constants/supabase';
 
 export default function BusinessProductsScreen() {
   const router = useRouter();
@@ -15,12 +16,26 @@ export default function BusinessProductsScreen() {
   const [products, setProducts] = useState<ProductFull[]>([]);
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [refreshing, setRefreshing] = useState<boolean>(false);
+  const [businessId, setBusinessId] = useState<string | null>(null);
+
+  // Look up business record for this user
+  useEffect(() => {
+    if (!user) return;
+    supabase
+      .from('businesses')
+      .select('id')
+      .eq('user_id', user.id)
+      .single()
+      .then(({ data }) => {
+        if (data) setBusinessId(data.id);
+      });
+  }, [user]);
 
   const loadProducts = useCallback(async () => {
-    if (!user || !token) return;
+    if (!businessId) return;
 
     try {
-      const data = await getBusinessProducts(user.id);
+      const data = await getBusinessProducts(businessId);
       setProducts(data);
     } catch (error) {
       console.error('Error loading products:', error);
@@ -29,7 +44,7 @@ export default function BusinessProductsScreen() {
       setIsLoading(false);
       setRefreshing(false);
     }
-  }, [user, token]);
+  }, [businessId]);
 
   useEffect(() => {
     loadProducts();
@@ -41,10 +56,10 @@ export default function BusinessProductsScreen() {
   };
 
   const handleToggleAvailability = async (productId: string, currentAvailability: boolean) => {
-    if (!user || !token) return;
+    if (!businessId) return;
 
     try {
-      await toggleProductAvailability(user.id, productId, !currentAvailability);
+      await toggleProductAvailability(businessId, productId, !currentAvailability);
       
       setProducts(prev =>
         prev.map(p => p.id === productId ? { ...p, available: !currentAvailability } : p)
@@ -69,10 +84,10 @@ export default function BusinessProductsScreen() {
           text: 'Eliminar',
           style: 'destructive',
           onPress: async () => {
-            if (!user || !token) return;
+            if (!businessId) return;
 
             try {
-              await deleteProduct(user.id, productId);
+              await deleteProduct(businessId, productId);
               setProducts(prev => prev.filter(p => p.id !== productId));
               Toast.success('Producto eliminado');
             } catch (error) {

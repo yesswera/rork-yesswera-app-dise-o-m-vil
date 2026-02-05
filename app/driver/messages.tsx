@@ -1,95 +1,182 @@
-import { useState, useMemo } from 'react';
-import { StyleSheet, Text, View, TouchableOpacity, ScrollView, TextInput } from 'react-native';
+import { useState, useMemo, useEffect, useCallback } from 'react';
+import { StyleSheet, Text, View, TouchableOpacity, ScrollView, TextInput, ActivityIndicator, RefreshControl } from 'react-native';
 import { useRouter } from 'expo-router';
 import { ArrowLeft, Search, MessageCircle, User, Store, ShieldCheck } from 'lucide-react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import Colors from '@/constants/colors';
 import { format, isToday, isYesterday } from 'date-fns';
 import { es } from 'date-fns/locale';
+import { useAuth } from '@/contexts/auth';
+import { supabase } from '@/constants/supabase';
 
-interface Conversation {
-  id: string;
+interface DriverConversation {
+  id: string;          // order_id (used as conversation id)
   orderId: string;
   orderNumber: string;
-  type: 'client' | 'business' | 'support';
+  type: 'client' | 'business';
   name: string;
-  avatar?: string;
   lastMessage: string;
   lastMessageTime: Date;
   unreadCount: number;
   status: 'active' | 'closed';
 }
 
-const MOCK_CONVERSATIONS: Conversation[] = [
-  {
-    id: 'conv-1',
-    orderId: 'YS-1234',
-    orderNumber: 'YS-1234',
-    type: 'client',
-    name: 'Juan Pérez',
-    lastMessage: '¿Ya viene en camino?',
-    lastMessageTime: new Date(Date.now() - 2 * 60000),
-    unreadCount: 2,
-    status: 'active',
-  },
-  {
-    id: 'conv-2',
-    orderId: 'YS-1230',
-    orderNumber: 'YS-1230',
-    type: 'business',
-    name: 'Tacos El Güero',
-    lastMessage: 'La orden está lista',
-    lastMessageTime: new Date(Date.now() - 15 * 60000),
-    unreadCount: 0,
-    status: 'active',
-  },
-  {
-    id: 'conv-3',
-    orderId: 'support-001',
-    orderNumber: 'Support',
-    type: 'support',
-    name: 'Soporte Yesswera',
-    lastMessage: 'Tu reporte fue recibido',
-    lastMessageTime: new Date(Date.now() - 1 * 24 * 60 * 60000),
-    unreadCount: 0,
-    status: 'closed',
-  },
-  {
-    id: 'conv-4',
-    orderId: 'YS-1228',
-    orderNumber: 'YS-1228',
-    type: 'client',
-    name: 'María González',
-    lastMessage: 'Muchas gracias por la entrega',
-    lastMessageTime: new Date(Date.now() - 2 * 24 * 60 * 60000),
-    unreadCount: 0,
-    status: 'closed',
-  },
-  {
-    id: 'conv-5',
-    orderId: 'YS-1225',
-    orderNumber: 'YS-1225',
-    type: 'business',
-    name: 'Pizza Palace',
-    lastMessage: 'Te esperamos para recoger',
-    lastMessageTime: new Date(Date.now() - 3 * 24 * 60 * 60000),
-    unreadCount: 0,
-    status: 'closed',
-  },
-];
+const CLOSED_STATUSES = ['delivered', 'cancelled'];
 
 export default function DriverMessagesScreen() {
   const router = useRouter();
+  const { user } = useAuth();
   const [searchQuery, setSearchQuery] = useState('');
+  const [conversations, setConversations] = useState<DriverConversation[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [isRefreshing, setIsRefreshing] = useState(false);
+
+  const loadConversations = useCallback(async () => {
+    if (!user) return;
+
+    try {
+      // 1. Get the driver record for this user
+      const { data: driver, error: driverError } = await supabase
+        .from('drivers')
+        .select('id')
+        .eq('user_id', user.id)
+        .single();
+
+      if (driverError || !driver) {
+        console.error('Error fetching driver record:', driverError);
+        setConversations([]);
+        return;
+      }
+
+      // 2. Get orders assigned to this driver (recent 30)
+      const { data: orders, error: ordersError } = await supabase
+        .from('orders')
+        .select(`
+          id,
+          order_number,
+          status,
+          client_id,
+          business_id,
+          updated_at
+        `)
+        .eq('driver_id', driver.id)
+        .order('updated_at', { ascending: false })
+        .limit(30);
+
+      if (ordersError || !orders || orders.length === 0) {
+        setConversations([]);
+        return;
+      }
+
+      // 3. Get client names for all orders
+      const clientIds = [...new Set(orders.map(o => o.client_id).filter(Boolean))];
+      const { data: clients } = await supabase
+        .from('users')
+        .select('id, full_name')
+        .in('id', clientIds);
+
+      const clientMap = new Map<string, string>();
+      (clients || []).forEach((c: any) => clientMap.set(c.id, c.full_name));
+
+      // 4. Get business names for all orders
+      const businessIds = [...new Set(orders.map(o => o.business_id).filter(Boolean))];
+      const { data: businesses } = await supabase
+        .from('businesses')
+        .select('id, business_name')
+        .in('id', businessIds);
+
+      const businessMap = new Map<string, string>();
+      (businesses || []).forEach((b: any) => businessMap.set(b.id, b.business_name));
+
+      // 5. For each order, get last message and unread count
+      const orderIds = orders.map(o => o.id);
+
+      // Get all messages for these orders in one query (last message per order)
+      const { data: allMessages } = await supabase
+        .from('chat_messages')
+        .select('id, order_id, message, created_at, sender_id, receiver_id, is_read')
+        .in('order_id', orderIds)
+        .order('created_at', { ascending: false });
+
+      // Group messages by order and find last message + unread count
+      const lastMessageMap = new Map<string, { message: string; created_at: string }>();
+      const unreadCountMap = new Map<string, number>();
+
+      (allMessages || []).forEach((msg: any) => {
+        // Track last message per order (first one found since sorted desc)
+        if (!lastMessageMap.has(msg.order_id)) {
+          lastMessageMap.set(msg.order_id, {
+            message: msg.message,
+            created_at: msg.created_at,
+          });
+        }
+
+        // Count unread messages where this driver is the receiver
+        if (msg.receiver_id === user.id && !msg.is_read) {
+          unreadCountMap.set(msg.order_id, (unreadCountMap.get(msg.order_id) || 0) + 1);
+        }
+      });
+
+      // 6. Build conversation list - only include orders that have messages
+      const convos: DriverConversation[] = [];
+
+      for (const order of orders) {
+        const lastMsg = lastMessageMap.get(order.id);
+        if (!lastMsg) continue; // Skip orders with no messages
+
+        const isClosed = CLOSED_STATUSES.includes(order.status);
+        const clientName = clientMap.get(order.client_id) || 'Cliente';
+
+        convos.push({
+          id: order.id,
+          orderId: order.id,
+          orderNumber: order.order_number ? `YS-${order.order_number}` : order.id.substring(0, 8),
+          type: 'client',
+          name: clientName,
+          lastMessage: lastMsg.message,
+          lastMessageTime: new Date(lastMsg.created_at),
+          unreadCount: unreadCountMap.get(order.id) || 0,
+          status: isClosed ? 'closed' : 'active',
+        });
+      }
+
+      // Sort: active first (by lastMessageTime desc), then closed (by lastMessageTime desc)
+      convos.sort((a, b) => {
+        if (a.status === 'active' && b.status === 'closed') return -1;
+        if (a.status === 'closed' && b.status === 'active') return 1;
+        return b.lastMessageTime.getTime() - a.lastMessageTime.getTime();
+      });
+
+      setConversations(convos);
+    } catch (error) {
+      console.error('Error loading conversations:', error);
+      setConversations([]);
+    }
+  }, [user]);
+
+  useEffect(() => {
+    const init = async () => {
+      setIsLoading(true);
+      await loadConversations();
+      setIsLoading(false);
+    };
+    init();
+  }, [loadConversations]);
+
+  const handleRefresh = useCallback(async () => {
+    setIsRefreshing(true);
+    await loadConversations();
+    setIsRefreshing(false);
+  }, [loadConversations]);
 
   const filteredConversations = useMemo(() => {
-    if (!searchQuery) return MOCK_CONVERSATIONS;
-    
-    return MOCK_CONVERSATIONS.filter(conv => 
+    if (!searchQuery) return conversations;
+
+    return conversations.filter(conv =>
       conv.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
       conv.orderNumber.toLowerCase().includes(searchQuery.toLowerCase())
     );
-  }, [searchQuery]);
+  }, [searchQuery, conversations]);
 
   const activeConversations = useMemo(() => {
     return filteredConversations.filter(conv => conv.status === 'active');
@@ -161,8 +248,24 @@ export default function DriverMessagesScreen() {
         </View>
       </View>
 
-      <ScrollView style={styles.scrollView} showsVerticalScrollIndicator={false}>
-        {activeConversations.length === 0 && closedConversations.length === 0 ? (
+      <ScrollView
+        style={styles.scrollView}
+        showsVerticalScrollIndicator={false}
+        refreshControl={
+          <RefreshControl
+            refreshing={isRefreshing}
+            onRefresh={handleRefresh}
+            colors={[Colors.primary]}
+            tintColor={Colors.primary}
+          />
+        }
+      >
+        {isLoading ? (
+          <View style={styles.emptyState}>
+            <ActivityIndicator size="large" color={Colors.primary} />
+            <Text style={[styles.emptySubtext, { marginTop: 16 }]}>Cargando conversaciones...</Text>
+          </View>
+        ) : activeConversations.length === 0 && closedConversations.length === 0 ? (
           <View style={styles.emptyState}>
             <MessageCircle size={48} color={Colors.text.light} />
             <Text style={styles.emptyText}>No hay conversaciones</Text>

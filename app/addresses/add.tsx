@@ -22,8 +22,8 @@ export default function AddAddressScreen() {
   const [isDefault, setIsDefault] = useState<boolean>(false);
   const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
   const [location, setLocation] = useState<{ latitude: number; longitude: number }>({
-    latitude: 18.4861,
-    longitude: -69.9312,
+    latitude: 19.9333,
+    longitude: -105.2500,
   });
   const [isLoadingLocation, setIsLoadingLocation] = useState<boolean>(false);
 
@@ -165,7 +165,7 @@ export default function AddAddressScreen() {
           <Text style={styles.sectionTitle}>Dirección</Text>
           <TextInput
             style={styles.textArea}
-            placeholder="Ej: Calle Principal 123, Apto 302, Santo Domingo"
+            placeholder="Ej: Calle Morelos 456, Col. Centro, Tomatlán"
             placeholderTextColor={Colors.text.light}
             value={address}
             onChangeText={setAddress}

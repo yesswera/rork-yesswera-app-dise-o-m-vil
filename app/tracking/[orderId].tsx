@@ -12,6 +12,7 @@ import { useAuth } from '@/contexts/auth';
 import { Order, OrderStatus } from '@/constants/types';
 import ErrorState from '@/components/ErrorState';
 import { calculateETA, formatETA } from '@/utils/distance';
+import { createRating } from '@/services/ratings';
 
 const { width, height } = Dimensions.get('window');
 
@@ -25,6 +26,8 @@ export default function TrackingScreen() {
   const [error, setError] = useState<string | null>(null);
   const [showRating, setShowRating] = useState(false);
   const [eta, setEta] = useState<number | null>(null);
+  const [gpsUnavailable, setGpsUnavailable] = useState(false);
+  const gpsFailCount = useRef(0);
   const prevStatusRef = useRef<OrderStatus | null>(null);
   const markerRotation = useRef(new Animated.Value(0)).current;
   const prevLocationRef = useRef<DriverLocation | null>(null);
@@ -72,6 +75,9 @@ export default function TrackingScreen() {
         const updatedOrder = order.driverId ? results[1] : results[0];
 
         if (location) {
+          gpsFailCount.current = 0;
+          setGpsUnavailable(false);
+
           if (prevLocationRef.current && location.heading !== undefined) {
             Animated.spring(markerRotation, {
               toValue: location.heading,
@@ -103,7 +109,10 @@ export default function TrackingScreen() {
         setOrder(updatedOrder);
       } catch (err) {
         console.error('Error obteniendo datos:', err);
-        // Don't show error for GPS unavailable
+        gpsFailCount.current += 1;
+        if (gpsFailCount.current >= 3) {
+          setGpsUnavailable(true);
+        }
       }
     };
 
@@ -308,11 +317,27 @@ export default function TrackingScreen() {
 }
 
 function RatingComponent({ orderId, driverName, driverId, onComplete }: { orderId: string; driverName: string; driverId: string; onComplete: () => void }) {
+  const { user } = useAuth();
   const [rating, setRating] = useState(0);
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const handleSubmit = () => {
-    console.log('Rating submitted:', { orderId, rating });
-    onComplete();
+  const handleSubmit = async () => {
+    if (rating === 0 || !user) return;
+    setIsSubmitting(true);
+    try {
+      await createRating({
+        orderId,
+        raterId: user.id,
+        ratedId: driverId,
+        ratedType: 'driver',
+        stars: rating,
+      });
+      onComplete();
+    } catch (err) {
+      console.error('Error enviando calificación:', err);
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   return (

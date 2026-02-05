@@ -18,25 +18,31 @@ export default function MenuScreen() {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
 
-  const loadData = useCallback(async () => {
+  const loadData = useCallback(async (signal?: { cancelled: boolean }) => {
     if (!businessId) return;
     try {
       const [biz, menu] = await Promise.all([
         getBusinessById(businessId),
         getBusinessMenu(businessId),
       ]);
+      if (signal?.cancelled) return;
       setBusiness(biz);
       setProducts(menu);
     } catch (error) {
       console.error('Error loading menu:', error);
     } finally {
-      setLoading(false);
-      setRefreshing(false);
+      if (!signal?.cancelled) {
+        setLoading(false);
+        setRefreshing(false);
+      }
     }
   }, [businessId]);
 
   useEffect(() => {
-    loadData();
+    const signal = { cancelled: false };
+    setLoading(true);
+    loadData(signal);
+    return () => { signal.cancelled = true; };
   }, [loadData]);
 
   const onRefresh = () => {

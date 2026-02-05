@@ -1,8 +1,25 @@
-import { Tabs } from 'expo-router';
+import { Tabs, useRouter } from 'expo-router';
 import { BarChart3, Users, ShoppingBag, MessageSquare, Settings } from 'lucide-react-native';
+import { useEffect } from 'react';
+import { Alert } from 'react-native';
 import Colors from '@/constants/colors';
+import { useAuth } from '@/contexts/auth';
 
 export default function AdminLayout() {
+  const { user } = useAuth();
+  const router = useRouter();
+
+  useEffect(() => {
+    if (user && user.userType !== 'admin') {
+      Alert.alert('Acceso Denegado', 'No tienes permisos de administrador');
+      router.replace('/');
+    }
+  }, [user]);
+
+  if (!user || user.userType !== 'admin') {
+    return null;
+  }
+
   return (
     <Tabs
       screenOptions={{

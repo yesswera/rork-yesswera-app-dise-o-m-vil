@@ -42,3 +42,25 @@ export function formatETA(minutes: number): string {
   const mins = minutes % 60;
   return mins > 0 ? `${hours}h ${mins}min` : `${hours}h`;
 }
+
+/**
+ * Calculate delivery fee based on distance
+ * Formula: $15 base + $4 per km after first 2km
+ * Fase 1: Sin comisiones (GRATIS para negocios)
+ */
+export function calculateDeliveryFee(distanceKm: number): number {
+  const BASE_FEE = 15; // MXN mínimo
+  const COST_PER_KM = 4; // MXN por km después de 2km
+  const FREE_KM = 2;
+
+  if (distanceKm <= FREE_KM) return BASE_FEE;
+  return Math.round((BASE_FEE + (distanceKm - FREE_KM) * COST_PER_KM) * 100) / 100;
+}
+
+/**
+ * Format distance for display
+ */
+export function formatDistance(km: number): string {
+  if (km < 1) return `${Math.round(km * 1000)} m`;
+  return `${km.toFixed(1)} km`;
+}

@@ -108,7 +108,7 @@ export async function getUserOrders(userId: string): Promise<Order[]> {
   }
 }
 
-export async function getOrderById(orderId: string): Promise<Order> {
+export async function getOrderById(orderId: string): Promise<Order | null> {
   try {
     const { data, error } = await supabase
       .from('orders')
@@ -121,7 +121,10 @@ export async function getOrderById(orderId: string): Promise<Order> {
       .eq('id', orderId)
       .single();
 
-    if (error) throw error;
+    if (error) {
+      if (error.code === 'PGRST116') return null;
+      throw error;
+    }
 
     return mapOrder(data);
   } catch (error) {
@@ -147,7 +150,7 @@ export async function createOrder(orderData: {
   subtotal: number;
   deliveryFee: number;
   tip?: number;
-  paymentMethod: 'cash' | 'card' | 'wallet';
+  paymentMethod: 'cash' | 'card' | 'transfer';
 }): Promise<Order> {
   try {
     const total = orderData.subtotal + orderData.deliveryFee + (orderData.tip || 0);
@@ -217,13 +220,13 @@ export async function createOrder(orderData: {
 export async function cancelPendingOrder(orderId: string, reason?: string): Promise<void> {
   try {
     // Verify order is still pending
-    const { data: order } = await supabase
+    const { data: order, error: fetchError } = await supabase
       .from('orders')
       .select('status')
       .eq('id', orderId)
       .single();
 
-    if (!order) throw new Error('Orden no encontrada');
+    if (fetchError?.code === 'PGRST116' || !order) throw new Error('Orden no encontrada');
     if (order.status !== 'pending') {
       throw new Error('Esta orden ya fue aceptada. Contacta al negocio para cancelar.');
     }
@@ -252,13 +255,13 @@ export async function businessCancelOrder(
   reason?: string
 ): Promise<{ driverCompensation: number; clientRefund: number }> {
   try {
-    const { data: order } = await supabase
+    const { data: order, error: fetchError } = await supabase
       .from('orders')
       .select('*, driver:drivers!driver_id(user_id)')
       .eq('id', orderId)
       .single();
 
-    if (!order) throw new Error('Orden no encontrada');
+    if (fetchError?.code === 'PGRST116' || !order) throw new Error('Orden no encontrada');
     if (order.status === 'pending') throw new Error('Orden pendiente, el cliente puede cancelar directamente');
     if (order.status === 'delivered') throw new Error('Orden ya entregada, no se puede cancelar');
     if (order.status === 'cancelled') throw new Error('Orden ya cancelada');
@@ -343,13 +346,13 @@ export async function getEstimatedCompensation(orderId: string): Promise<{
   clientRefund: number;
   hasDriver: boolean;
 }> {
-  const { data: order } = await supabase
+  const { data: order, error } = await supabase
     .from('orders')
     .select('*')
     .eq('id', orderId)
     .single();
 
-  if (!order) return { driverCompensation: 0, clientRefund: 0, hasDriver: false };
+  if (error || !order) return { driverCompensation: 0, clientRefund: 0, hasDriver: false };
 
   const hasDriver = !!order.driver_id;
   const driverCompensation = hasDriver ? calculateDriverCompensation(order) : 0;
@@ -360,11 +363,13 @@ export async function getEstimatedCompensation(orderId: string): Promise<{
 
 // Legacy wrapper (keep backward compatibility)
 export async function cancelOrder(orderId: string, reason?: string): Promise<void> {
-  const { data: order } = await supabase
+  const { data: order, error } = await supabase
     .from('orders')
     .select('status')
     .eq('id', orderId)
     .single();
+
+  if (error?.code === 'PGRST116' || !order) throw new Error('Orden no encontrada');
 
   if (order?.status === 'pending') {
     await cancelPendingOrder(orderId, reason);
@@ -408,10 +413,13 @@ export async function validateDriverCode(
       .eq('id', orderId)
       .single();
 
-    if (fetchError) throw fetchError;
+    if (fetchError) {
+      if (fetchError.code === 'PGRST116') return { success: false, message: 'Orden no encontrada' };
+      throw fetchError;
+    }
 
     if (order.driver_code?.toUpperCase() !== driverCode.toUpperCase()) {
-      return { success: false, message: 'Codigo de repartidor incorrecto' };
+      return { success: false, message: 'Código de repartidor incorrecto' };
     }
 
     // Update status to driver_verified
@@ -432,7 +440,7 @@ export async function validateDriverCode(
     };
   } catch (error) {
     console.error('validateDriverCode error:', error);
-    return { success: false, message: 'Error al validar codigo' };
+    return { success: false, message: 'Error al validar código' };
   }
 }
 
@@ -478,10 +486,13 @@ export async function validateDeliveryCode(
       .eq('id', orderId)
       .single();
 
-    if (fetchError) throw fetchError;
+    if (fetchError) {
+      if (fetchError.code === 'PGRST116') return { success: false, message: 'Orden no encontrada' };
+      throw fetchError;
+    }
 
     if (order.delivery_code?.toUpperCase() !== deliveryCode.toUpperCase()) {
-      return { success: false, message: 'Codigo incorrecto' };
+      return { success: false, message: 'Código incorrecto' };
     }
 
     // Update order status
@@ -499,7 +510,7 @@ export async function validateDeliveryCode(
     return { success: true, message: 'Entrega validada exitosamente' };
   } catch (error) {
     console.error('validateDeliveryCode error:', error);
-    return { success: false, message: 'Error al validar codigo' };
+    return { success: false, message: 'Error al validar código' };
   }
 }
 

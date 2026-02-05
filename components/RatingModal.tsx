@@ -23,7 +23,7 @@ export default function RatingModal({
   onClose,
   onSuccess,
 }: RatingModalProps) {
-  const { token } = useAuth();
+  const { user, token } = useAuth();
   const [rating, setRating] = useState(0);
   const [comment, setComment] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -42,7 +42,7 @@ export default function RatingModal({
     try {
       await createRating({
         orderId,
-        raterId: '', // Will be filled from context
+        raterId: user?.id || '',
         ratedId: driverId,
         ratedType: 'driver',
         stars: rating,

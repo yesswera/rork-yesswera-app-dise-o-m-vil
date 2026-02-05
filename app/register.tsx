@@ -161,7 +161,7 @@ export default function RegisterScreen() {
             value={phone}
             onChangeText={handlePhoneChange}
             error={errors.phone}
-            placeholder="+1 234 567 8900"
+            placeholder="+52 333 123 4567"
             keyboardType="phone-pad"
             editable={!isLoading}
           />

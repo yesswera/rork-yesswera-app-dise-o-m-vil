@@ -105,7 +105,7 @@ export default function PasswordRecoveryVerifyScreen() {
           <Text style={styles.title}>Verifica tu Código</Text>
           
           <Text style={styles.subtitle}>
-            Ingresamos un código de 6 dígitos a {email || 'tu correo'}
+            Enviamos un código de 6 dígitos a {email || 'tu correo'}
           </Text>
 
           <View style={styles.codeContainer}>

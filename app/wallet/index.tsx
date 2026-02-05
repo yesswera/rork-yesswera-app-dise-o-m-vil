@@ -5,7 +5,7 @@ import { DollarSign, TrendingUp, TrendingDown, Clock, ArrowLeft } from 'lucide-r
 import { LinearGradient } from 'expo-linear-gradient';
 import Colors from '@/constants/colors';
 import { useAuth } from '@/contexts/auth';
-import { API_ENDPOINTS } from '@/constants/api';
+import { supabase } from '@/constants/supabase';
 
 interface Transaction {
   id: string;
@@ -40,70 +40,61 @@ export default function WalletScreen() {
     }
 
     try {
-      const endpoint = user.userType === 'driver' 
-        ? API_ENDPOINTS.driver.earnings(user.id, 'all')
-        : `${API_ENDPOINTS.auth.login.replace('/login', '')}/wallet/${user.id}`;
+      if (user.userType === 'driver') {
+        // Get driver balance and completed orders as transactions
+        const { data: driver } = await supabase
+          .from('drivers')
+          .select('id, balance')
+          .eq('user_id', user.id)
+          .single();
 
-      const response = await fetch(endpoint, {
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json',
-        },
-      });
+        const driverId = driver?.id;
+        const balance = Number(driver?.balance) || 0;
 
-      if (response.ok) {
-        const data = await response.json();
-        
-        // Mock data si el endpoint no está implementado
-        const mockData: WalletData = {
-          balance: 523.20,
-          pendingBalance: 75.40,
-          totalEarnings: 1250.80,
-          transactions: [
-            {
-              id: '1',
-              type: 'earning',
-              amount: 45.50,
-              description: 'Entrega completada - Orden #YS-1234',
-              createdAt: new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString(),
-              orderId: 'YS-1234',
-            },
-            {
-              id: '2',
-              type: 'bonus',
-              amount: 20.00,
-              description: 'Bono por 10 entregas completadas',
-              createdAt: new Date(Date.now() - 5 * 60 * 60 * 1000).toISOString(),
-            },
-            {
-              id: '3',
-              type: 'earning',
-              amount: 32.80,
-              description: 'Entrega completada - Orden #YS-1235',
-              createdAt: new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString(),
-              orderId: 'YS-1235',
-            },
-            {
-              id: '4',
-              type: 'earning',
-              amount: 28.60,
-              description: 'Entrega completada - Orden #YS-1236',
-              createdAt: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000).toISOString(),
-              orderId: 'YS-1236',
-            },
-          ],
-        };
+        // Get recent delivered orders as earning transactions
+        let transactions: Transaction[] = [];
+        if (driverId) {
+          const { data: orders } = await supabase
+            .from('orders')
+            .select('id, order_number, delivery_fee, delivered_at')
+            .eq('driver_id', driverId)
+            .eq('status', 'delivered')
+            .order('delivered_at', { ascending: false })
+            .limit(20);
 
-        setWalletData(mockData);
+          transactions = (orders || []).map((order: any) => ({
+            id: order.id,
+            type: 'earning' as const,
+            amount: Number(order.delivery_fee) || 0,
+            description: `Entrega completada - Orden #${order.order_number || order.id.slice(0, 6)}`,
+            createdAt: order.delivered_at || new Date().toISOString(),
+            orderId: order.id,
+          }));
+        }
+
+        const totalEarnings = transactions.reduce((sum, t) => sum + t.amount, 0);
+
+        setWalletData({
+          balance,
+          pendingBalance: 0,
+          totalEarnings,
+          transactions,
+        });
+      } else {
+        // Clients don't have wallet yet
+        setWalletData({
+          balance: 0,
+          pendingBalance: 0,
+          totalEarnings: 0,
+          transactions: [],
+        });
       }
     } catch (error) {
       console.error('Error loading wallet data:', error);
-      
-      // Mock data en caso de error
       setWalletData({
-        balance: 523.20,
-        pendingBalance: 75.40,
-        totalEarnings: 1250.80,
+        balance: 0,
+        pendingBalance: 0,
+        totalEarnings: 0,
         transactions: [],
       });
     } finally {

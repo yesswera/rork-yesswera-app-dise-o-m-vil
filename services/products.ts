@@ -92,6 +92,28 @@ export async function getBusinessMenu(businessId: string): Promise<Product[]> {
   }
 }
 
+// Fetch business location (lat/lng from PostGIS geography column)
+export async function getBusinessLocation(businessId: string): Promise<{ latitude: number; longitude: number } | null> {
+  try {
+    const { data, error } = await supabase
+      .from('businesses')
+      .select('location')
+      .eq('id', businessId)
+      .single();
+
+    if (error || !data?.location) return null;
+
+    // PostGIS returns GeoJSON: { type: "Point", coordinates: [lng, lat] }
+    const coords = data.location?.coordinates;
+    if (!coords || coords.length < 2) return null;
+
+    return { latitude: coords[1], longitude: coords[0] };
+  } catch (error) {
+    console.error('getBusinessLocation error:', error);
+    return null;
+  }
+}
+
 function mapProduct(dbProduct: any): ProductFull {
   return {
     id: dbProduct.id,

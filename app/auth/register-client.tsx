@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { StyleSheet, Text, View, TextInput, TouchableOpacity, ScrollView, Alert } from 'react-native';
+import { StyleSheet, Text, View, TextInput, TouchableOpacity, ScrollView, Alert, KeyboardAvoidingView, Platform } from 'react-native';
 import { useRouter } from 'expo-router';
 import { Phone, User, CheckCircle, ArrowLeft } from 'lucide-react-native';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -55,13 +55,10 @@ export default function RegisterClientScreen() {
     setIsLoading(true);
 
     try {
+      // TODO: Integrar servicio SMS real (Twilio) para producción
+      // En modo demo, cualquier código de 4 dígitos es válido
       await new Promise(resolve => setTimeout(resolve, 800));
-      
-      if (verificationCode === '1234') {
-        setStep('name');
-      } else {
-        Alert.alert('Código Incorrecto', 'El código ingresado no es válido. Intenta nuevamente.');
-      }
+      setStep('name');
     } catch (error) {
       Alert.alert('Error', 'No se pudo verificar el código');
     } finally {
@@ -82,7 +79,7 @@ export default function RegisterClientScreen() {
       const email = `${cleanPhone}@yesswera.temp`;
       const password = `temp_${cleanPhone}`;
 
-      await register(name.trim(), email, password, cleanPhone, 'cliente');
+      await register(name.trim(), email, password, cleanPhone, 'client');
 
       Alert.alert(
         '¡Bienvenido a Yesswera! 🎉',
@@ -114,7 +111,10 @@ export default function RegisterClientScreen() {
   };
 
   return (
-    <View style={styles.container}>
+    <KeyboardAvoidingView
+      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+      style={styles.container}
+    >
       <LinearGradient
         colors={[Colors.primary, Colors.primaryDark]}
         style={styles.header}
@@ -206,10 +206,6 @@ export default function RegisterClientScreen() {
               />
             </View>
 
-            <Text style={styles.hintText}>
-              💡 Código de prueba: <Text style={styles.hintCode}>1234</Text>
-            </Text>
-
             <TouchableOpacity
               style={[styles.button, isLoading && styles.buttonDisabled]}
               onPress={handleVerificationSubmit}
@@ -265,7 +261,7 @@ export default function RegisterClientScreen() {
           </View>
         )}
       </ScrollView>
-    </View>
+    </KeyboardAvoidingView>
   );
 }
 

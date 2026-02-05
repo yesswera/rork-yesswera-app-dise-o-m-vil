@@ -8,6 +8,7 @@ import { CartProvider } from "@/contexts/cart";
 import { AnalyticsProvider } from "@/contexts/analytics";
 import { QueryProvider } from "@/providers/QueryProvider";
 import ToastContainer from "@/components/ToastContainer";
+import ErrorBoundary from "@/components/ErrorBoundary";
 import {
   registerForPushNotifications,
   addNotificationResponseReceivedListener,
@@ -81,20 +82,22 @@ export default function RootLayout() {
   }, []);
 
   return (
-    <QueryProvider>
-      <GestureHandlerRootView style={{ flex: 1 }}>
-        <AuthProvider>
-          <AnalyticsProvider>
-            <CartProvider>
-              <View style={{ flex: 1 }}>
-                <NotificationHandler />
-                <RootLayoutNav />
-                <ToastContainer />
-              </View>
-            </CartProvider>
-          </AnalyticsProvider>
-        </AuthProvider>
-      </GestureHandlerRootView>
-    </QueryProvider>
+    <ErrorBoundary>
+      <QueryProvider>
+        <GestureHandlerRootView style={{ flex: 1 }}>
+          <AuthProvider>
+            <AnalyticsProvider>
+              <CartProvider>
+                <View style={{ flex: 1 }}>
+                  <NotificationHandler />
+                  <RootLayoutNav />
+                  <ToastContainer />
+                </View>
+              </CartProvider>
+            </AnalyticsProvider>
+          </AuthProvider>
+        </GestureHandlerRootView>
+      </QueryProvider>
+    </ErrorBoundary>
   );
 }

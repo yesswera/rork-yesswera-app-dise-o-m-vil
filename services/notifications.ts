@@ -1,20 +1,36 @@
-import * as Notifications from 'expo-notifications';
-import * as Device from 'expo-device';
-import Constants from 'expo-constants';
 import { Platform } from 'react-native';
 import { supabase } from '@/constants/supabase';
 
-Notifications.setNotificationHandler({
-  handleNotification: async () => ({
-    shouldShowAlert: true,
-    shouldPlaySound: true,
-    shouldSetBadge: true,
-    shouldShowBanner: true,
-    shouldShowList: true,
-  }),
-});
+// expo-notifications no funciona en Expo Go desde SDK 53
+// Lo cargamos dinámicamente para evitar crash
+let Notifications: typeof import('expo-notifications') | null = null;
+let Device: typeof import('expo-device') | null = null;
+let Constants: typeof import('expo-constants').default | null = null;
+
+try {
+  Notifications = require('expo-notifications');
+  Device = require('expo-device');
+  Constants = require('expo-constants').default;
+
+  Notifications.setNotificationHandler({
+    handleNotification: async () => ({
+      shouldShowAlert: true,
+      shouldPlaySound: true,
+      shouldSetBadge: true,
+      shouldShowBanner: true,
+      shouldShowList: true,
+    }),
+  });
+} catch (error) {
+  console.warn('[Notifications] expo-notifications no disponible (Expo Go). Push deshabilitado.');
+}
 
 export async function registerForPushNotifications(userId: string): Promise<string | null> {
+  if (!Notifications || !Device || !Constants) {
+    console.log('[Notifications] Push no disponible en este entorno');
+    return null;
+  }
+
   if (Platform.OS === 'web') {
     console.log('[Notifications] Push notifications not supported on web');
     return null;
@@ -79,6 +95,11 @@ export async function registerForPushNotifications(userId: string): Promise<stri
 }
 
 export async function sendLocalNotification(title: string, body: string, data?: any): Promise<void> {
+  if (!Notifications) {
+    console.log('[Notifications] Local notifications no disponibles');
+    return;
+  }
+
   try {
     await Notifications.scheduleNotificationAsync({
       content: {
@@ -94,14 +115,23 @@ export async function sendLocalNotification(title: string, body: string, data?: 
   }
 }
 
+// Tipo dummy para cuando expo-notifications no está disponible
+type DummySubscription = { remove: () => void };
+
 export function addNotificationReceivedListener(
-  handler: (notification: Notifications.Notification) => void
-): Notifications.Subscription {
+  handler: (notification: any) => void
+): DummySubscription {
+  if (!Notifications) {
+    return { remove: () => {} };
+  }
   return Notifications.addNotificationReceivedListener(handler);
 }
 
 export function addNotificationResponseReceivedListener(
-  handler: (response: Notifications.NotificationResponse) => void
-): Notifications.Subscription {
+  handler: (response: any) => void
+): DummySubscription {
+  if (!Notifications) {
+    return { remove: () => {} };
+  }
   return Notifications.addNotificationResponseReceivedListener(handler);
 }

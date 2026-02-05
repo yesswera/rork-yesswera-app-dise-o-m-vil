@@ -348,8 +348,8 @@ export default function BusinessOrdersScreen() {
         <View style={styles.tabsRow}>
           {([
             { key: 'new' as const, label: 'Nuevas', count: orders.filter(o => o.status === 'pending').length },
-            { key: 'active' as const, label: 'Activas', count: orders.filter(o => ['accepted', 'preparing', 'ready', 'assigned', 'driver_verified'].includes(o.status)).length },
-            { key: 'done' as const, label: 'Completadas', count: orders.filter(o => ['delivered', 'cancelled', 'in_transit'].includes(o.status)).length },
+            { key: 'active' as const, label: 'Activas', count: orders.filter(o => ['accepted', 'preparing', 'ready', 'assigned', 'driver_verified', 'in_transit'].includes(o.status)).length },
+            { key: 'done' as const, label: 'Completadas', count: orders.filter(o => ['delivered', 'cancelled'].includes(o.status)).length },
           ]).map(tab => (
             <TouchableOpacity
               key={tab.key}
@@ -381,8 +381,8 @@ export default function BusinessOrdersScreen() {
           ) : (() => {
             const filtered = orders.filter(o => {
               if (activeTab === 'new') return o.status === 'pending';
-              if (activeTab === 'active') return ['accepted', 'preparing', 'ready', 'assigned', 'driver_verified'].includes(o.status);
-              return ['delivered', 'cancelled', 'in_transit'].includes(o.status);
+              if (activeTab === 'active') return ['accepted', 'preparing', 'ready', 'assigned', 'driver_verified', 'in_transit'].includes(o.status);
+              return ['delivered', 'cancelled'].includes(o.status);
             });
             return filtered.length === 0 ? (
               <Text style={styles.emptyText}>

@@ -301,7 +301,7 @@ export default function DriverDashboardScreen() {
                 <MessageCircle size={24} color={Colors.success} />
                 <Text style={styles.quickActionText}>Mensajes</Text>
               </TouchableOpacity>
-              <TouchableOpacity style={styles.quickActionCard} onPress={() => Alert.alert('Soporte', 'Contacta: soporte@yesswera.com\nTel: 33-1234-5678')}>
+              <TouchableOpacity style={styles.quickActionCard} onPress={() => Alert.alert('Soporte Yesswera', '¿Necesitas ayuda?\n\nWhatsApp: 322-100-0000\nEmail: soporte@yesswera.com', [{ text: 'OK' }])}>
                 <HelpCircle size={24} color={Colors.warning} />
                 <Text style={styles.quickActionText}>Ayuda</Text>
               </TouchableOpacity>

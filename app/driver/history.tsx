@@ -1,11 +1,13 @@
-import { useState, useMemo } from 'react';
-import { StyleSheet, Text, View, TouchableOpacity, ScrollView, TextInput, Modal, Alert } from 'react-native';
+import { useState, useMemo, useEffect, useCallback } from 'react';
+import { StyleSheet, Text, View, TouchableOpacity, ScrollView, TextInput, Modal, Alert, ActivityIndicator, RefreshControl } from 'react-native';
 import { useRouter } from 'expo-router';
 import { ArrowLeft, Search, SlidersHorizontal, Calendar, Package, X, Download, Star, Clock, MapPin } from 'lucide-react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import Colors from '@/constants/colors';
 import { format, isToday, isYesterday, isThisWeek } from 'date-fns';
 import { es } from 'date-fns/locale';
+import { useAuth } from '@/contexts/auth';
+import { supabase } from '@/constants/supabase';
 
 interface DeliveryHistory {
   id: string;
@@ -14,141 +16,134 @@ interface DeliveryHistory {
   businessName: string;
   earnings: number;
   rating?: number;
-  distance: number;
-  duration: number;
+  distance: string;
+  duration: string;
   pickupAddress: string;
   deliveryAddress: string;
   completedAt: Date;
   status: 'completed' | 'cancelled';
 }
 
-const MOCK_HISTORY: DeliveryHistory[] = [
-  {
-    id: '1',
-    orderNumber: 'YS-1234',
-    type: 'food',
-    businessName: 'Pizza Palace',
-    earnings: 45.00,
-    rating: 5.0,
-    distance: 3.2,
-    duration: 18,
-    pickupAddress: 'Av. Vallarta #1234',
-    deliveryAddress: 'Col. Centro',
-    completedAt: new Date(2024, 0, 4, 14, 45),
-    status: 'completed',
-  },
-  {
-    id: '2',
-    orderNumber: 'YS-1230',
-    type: 'shopping',
-    businessName: 'Super Central',
-    earnings: 32.00,
-    rating: 4.5,
-    distance: 5.1,
-    duration: 25,
-    pickupAddress: 'Plaza del Sol',
-    deliveryAddress: 'Chapalita',
-    completedAt: new Date(2024, 0, 4, 13, 20),
-    status: 'completed',
-  },
-  {
-    id: '3',
-    orderNumber: 'YS-1228',
-    type: 'delivery',
-    businessName: 'Envío Express',
-    earnings: 28.50,
-    rating: 5.0,
-    distance: 4.3,
-    duration: 20,
-    pickupAddress: 'Centro Comercial Andares',
-    deliveryAddress: 'Zapopan Centro',
-    completedAt: new Date(2024, 0, 4, 12, 10),
-    status: 'completed',
-  },
-  {
-    id: '4',
-    orderNumber: 'YS-1225',
-    type: 'food',
-    businessName: 'Tacos El Güero',
-    earnings: 38.50,
-    rating: 4.8,
-    distance: 2.8,
-    duration: 15,
-    pickupAddress: 'Av. México #890',
-    deliveryAddress: 'Col. Americana',
-    completedAt: new Date(2024, 0, 4, 11, 30),
-    status: 'completed',
-  },
-  {
-    id: '5',
-    orderNumber: 'YS-1220',
-    type: 'food',
-    businessName: 'Sushi Master',
-    earnings: 43.50,
-    rating: 5.0,
-    distance: 6.2,
-    duration: 28,
-    pickupAddress: 'Av. Patria #456',
-    deliveryAddress: 'Col. Providencia',
-    completedAt: new Date(2024, 0, 4, 10, 15),
-    status: 'completed',
-  },
-  {
-    id: '6',
-    orderNumber: 'YS-1215',
-    type: 'shopping',
-    businessName: 'Farmacia Guadalajara',
-    earnings: 25.00,
-    distance: 3.5,
-    duration: 18,
-    pickupAddress: 'Av. López Mateos #1500',
-    deliveryAddress: 'Col. Chapalita',
-    completedAt: new Date(2024, 0, 3, 18, 45),
-    status: 'completed',
-  },
-  {
-    id: '7',
-    orderNumber: 'YS-1210',
-    type: 'food',
-    businessName: 'Burger King',
-    earnings: 30.00,
-    rating: 4.0,
-    distance: 2.1,
-    duration: 12,
-    pickupAddress: 'Plaza Galerías',
-    deliveryAddress: 'Col. Del Valle',
-    completedAt: new Date(2024, 0, 3, 17, 30),
-    status: 'completed',
-  },
-  {
-    id: '8',
-    orderNumber: 'YS-1205',
-    type: 'delivery',
-    businessName: 'Paquetería Rápida',
-    earnings: 35.00,
-    rating: 5.0,
-    distance: 7.8,
-    duration: 32,
-    pickupAddress: 'Zona Industrial',
-    deliveryAddress: 'Tlaquepaque Centro',
-    completedAt: new Date(2024, 0, 3, 15, 20),
-    status: 'completed',
-  },
-];
+function mapOrderToHistory(order: any): DeliveryHistory {
+  // Calculate duration from picked_up_at to delivered_at
+  let duration = '-';
+  if (order.picked_up_at && order.delivered_at) {
+    const pickedUp = new Date(order.picked_up_at).getTime();
+    const delivered = new Date(order.delivered_at).getTime();
+    const diffMinutes = Math.round((delivered - pickedUp) / 60000);
+    if (diffMinutes > 0) {
+      duration = `${diffMinutes}`;
+    }
+  }
+
+  // Calculate distance from pickup/delivery locations if coordinates exist
+  let distance = '-';
+  if (
+    order.pickup_latitude && order.pickup_longitude &&
+    order.delivery_latitude && order.delivery_longitude
+  ) {
+    const R = 6371; // Earth radius in km
+    const dLat = ((order.delivery_latitude - order.pickup_latitude) * Math.PI) / 180;
+    const dLon = ((order.delivery_longitude - order.pickup_longitude) * Math.PI) / 180;
+    const a =
+      Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+      Math.cos((order.pickup_latitude * Math.PI) / 180) *
+        Math.cos((order.delivery_latitude * Math.PI) / 180) *
+        Math.sin(dLon / 2) *
+        Math.sin(dLon / 2);
+    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+    const km = R * c;
+    if (km > 0) {
+      distance = km.toFixed(1);
+    }
+  }
+
+  return {
+    id: order.id,
+    orderNumber: `YS-${order.order_number || order.id.slice(0, 4).toUpperCase()}`,
+    type: order.service_type || 'food',
+    businessName: order.businesses?.business_name || 'Pedido',
+    earnings: Number(order.delivery_fee) || 0,
+    distance,
+    duration,
+    pickupAddress: order.pickup_address || '',
+    deliveryAddress: order.delivery_address || '',
+    completedAt: new Date(order.delivered_at || order.cancelled_at || order.created_at),
+    status: order.status === 'delivered' ? 'completed' : 'cancelled',
+  };
+}
 
 type FilterType = 'all' | 'food' | 'shopping' | 'delivery';
 type DateFilter = 'today' | 'yesterday' | 'week' | 'month' | 'all';
 
 export default function DriverHistoryScreen() {
   const router = useRouter();
+  const { user } = useAuth();
   const [searchQuery, setSearchQuery] = useState('');
   const [showFilters, setShowFilters] = useState(false);
   const [typeFilter, setTypeFilter] = useState<FilterType>('all');
   const [dateFilter, setDateFilter] = useState<DateFilter>('all');
   const [statusFilter, setStatusFilter] = useState<'all' | 'completed' | 'cancelled'>('all');
+  const [history, setHistory] = useState<DeliveryHistory[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
+
+  const loadHistory = useCallback(async () => {
+    if (!user?.id) return;
+
+    try {
+      // First get the driver record for this user
+      const { data: driver, error: driverError } = await supabase
+        .from('drivers')
+        .select('id')
+        .eq('user_id', user.id)
+        .single();
+
+      if (driverError || !driver) {
+        console.error('Driver not found:', driverError);
+        setHistory([]);
+        return;
+      }
+
+      // Load delivered/cancelled orders for this driver
+      const { data: orders, error: ordersError } = await supabase
+        .from('orders')
+        .select('*, businesses(business_name), order_items(*)')
+        .eq('driver_id', driver.id)
+        .in('status', ['delivered', 'cancelled'])
+        .order('delivered_at', { ascending: false });
+
+      if (ordersError) {
+        console.error('Error loading driver history:', ordersError);
+        setHistory([]);
+        return;
+      }
+
+      const mapped = (orders || []).map(mapOrderToHistory);
+      setHistory(mapped);
+    } catch (error) {
+      console.error('loadHistory error:', error);
+      setHistory([]);
+    }
+  }, [user?.id]);
+
+  useEffect(() => {
+    const init = async () => {
+      setLoading(true);
+      await loadHistory();
+      setLoading(false);
+    };
+    init();
+  }, [loadHistory]);
+
+  const onRefresh = useCallback(async () => {
+    setRefreshing(true);
+    await loadHistory();
+    setRefreshing(false);
+  }, [loadHistory]);
 
   const filteredHistory = useMemo(() => {
-    let filtered = MOCK_HISTORY;
+    let filtered = history;
 
     if (searchQuery) {
       filtered = filtered.filter(item => 
@@ -176,7 +171,7 @@ export default function DriverHistoryScreen() {
     }
 
     return filtered.sort((a, b) => b.completedAt.getTime() - a.completedAt.getTime());
-  }, [searchQuery, typeFilter, dateFilter, statusFilter]);
+  }, [history, searchQuery, typeFilter, dateFilter, statusFilter]);
 
   const groupedHistory = useMemo(() => {
     const groups: { [key: string]: DeliveryHistory[] } = {};
@@ -205,17 +200,20 @@ export default function DriverHistoryScreen() {
   const monthSummary = useMemo(() => {
     const thisMonth = filteredHistory.filter(item => {
       const now = new Date();
-      return item.completedAt.getMonth() === now.getMonth() && 
+      return item.completedAt.getMonth() === now.getMonth() &&
              item.completedAt.getFullYear() === now.getFullYear() &&
              item.status === 'completed';
     });
 
     const totalDeliveries = thisMonth.length;
     const totalEarned = thisMonth.reduce((sum, item) => sum + item.earnings, 0);
-    const totalKm = thisMonth.reduce((sum, item) => sum + item.distance, 0);
+    const totalKm = thisMonth.reduce((sum, item) => {
+      const km = parseFloat(item.distance);
+      return sum + (isNaN(km) ? 0 : km);
+    }, 0);
     const ratingsCount = thisMonth.filter(item => item.rating).length;
-    const avgRating = ratingsCount > 0 
-      ? thisMonth.reduce((sum, item) => sum + (item.rating || 0), 0) / ratingsCount 
+    const avgRating = ratingsCount > 0
+      ? thisMonth.reduce((sum, item) => sum + (item.rating || 0), 0) / ratingsCount
       : 0;
 
     return { totalDeliveries, totalEarned, totalKm, avgRating };
@@ -291,8 +289,19 @@ export default function DriverHistoryScreen() {
         </TouchableOpacity>
       </View>
 
-      <ScrollView style={styles.scrollView} showsVerticalScrollIndicator={false}>
-        {Object.keys(groupedHistory).length === 0 ? (
+      <ScrollView
+        style={styles.scrollView}
+        showsVerticalScrollIndicator={false}
+        refreshControl={
+          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={[Colors.primary]} />
+        }
+      >
+        {loading ? (
+          <View style={styles.emptyState}>
+            <ActivityIndicator size="large" color={Colors.primary} />
+            <Text style={styles.emptySubtext}>Cargando historial...</Text>
+          </View>
+        ) : Object.keys(groupedHistory).length === 0 ? (
           <View style={styles.emptyState}>
             <Package size={48} color={Colors.text.light} />
             <Text style={styles.emptyText}>No hay entregas que mostrar</Text>
@@ -334,11 +343,11 @@ export default function DriverHistoryScreen() {
                         )}
                         <View style={styles.detailItem}>
                           <MapPin size={14} color={Colors.text.secondary} />
-                          <Text style={styles.detailText}>{item.distance} km</Text>
+                          <Text style={styles.detailText}>{item.distance === '-' ? '-' : `${item.distance} km`}</Text>
                         </View>
                         <View style={styles.detailItem}>
                           <Clock size={14} color={Colors.text.secondary} />
-                          <Text style={styles.detailText}>{item.duration} min</Text>
+                          <Text style={styles.detailText}>{item.duration === '-' ? '-' : `${item.duration} min`}</Text>
                         </View>
                       </View>
 

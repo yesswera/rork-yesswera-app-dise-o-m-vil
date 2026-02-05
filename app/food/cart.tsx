@@ -2,7 +2,7 @@ import { StyleSheet, Text, View, TouchableOpacity, ScrollView, Alert } from 'rea
 import { useRouter } from 'expo-router';
 import { Trash2, Plus, Minus } from 'lucide-react-native';
 import { Image } from 'expo-image';
-import { useState } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import Colors from '@/constants/colors';
 import { useCart } from '@/contexts/cart';
 import { useAuth } from '@/contexts/auth';
@@ -11,6 +11,8 @@ import AddressSelector from '@/components/AddressSelector';
 import PaymentMethodSelector from '@/components/PaymentMethodSelector';
 import TipSelector from '@/components/TipSelector';
 import { createOrder } from '@/services/orders';
+import { getBusinessLocation } from '@/services/products';
+import { calculateDistance, calculateDeliveryFee, formatDistance } from '@/utils/distance';
 
 export default function CartScreen() {
   const router = useRouter();
@@ -20,14 +22,37 @@ export default function CartScreen() {
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>('cash');
   const [tip, setTip] = useState<number>(0);
   const [isProcessing, setIsProcessing] = useState<boolean>(false);
+  const [businessLocation, setBusinessLocation] = useState<{ latitude: number; longitude: number } | null>(null);
 
-  const distance = 5;
-  const deliveryCost = distance * 1.5 + total * 0.1;
+  // Fetch business location when items change
+  const businessId = items[0]?.businessId;
+  useEffect(() => {
+    if (businessId) {
+      getBusinessLocation(businessId).then(setBusinessLocation);
+    }
+  }, [businessId]);
+
+  // Calculate real distance when both locations are available
+  const distance = useMemo(() => {
+    if (!businessLocation || !selectedAddress) return null;
+    if (!selectedAddress.latitude || !selectedAddress.longitude) return null;
+    return calculateDistance(
+      businessLocation,
+      { latitude: selectedAddress.latitude, longitude: selectedAddress.longitude }
+    );
+  }, [businessLocation, selectedAddress]);
+
+  const deliveryCost = distance !== null ? calculateDeliveryFee(distance) : 0;
   const finalTotal = total + deliveryCost + tip;
 
   const handleCheckout = async () => {
     if (!selectedAddress) {
       Alert.alert('Error', 'Por favor selecciona una dirección de entrega');
+      return;
+    }
+
+    if (distance === null) {
+      Alert.alert('Error', 'No se pudo calcular la distancia. Verifica tu dirección.');
       return;
     }
 
@@ -75,7 +100,7 @@ export default function CartScreen() {
         subtotal: total,
         deliveryFee: deliveryCost,
         tip: tip,
-        paymentMethod: paymentMethod as 'cash' | 'card' | 'wallet',
+        paymentMethod: paymentMethod as 'cash' | 'card' | 'transfer',
       });
 
       console.log('Orden creada exitosamente:', order);
@@ -180,21 +205,23 @@ export default function CartScreen() {
             ))}
           </View>
 
-          <AddressSelector
-            selectedAddress={selectedAddress}
-            onAddressSelect={setSelectedAddress}
-          />
+          <View pointerEvents={isProcessing ? 'none' : 'auto'} style={isProcessing ? { opacity: 0.5 } : undefined}>
+            <AddressSelector
+              selectedAddress={selectedAddress}
+              onAddressSelect={setSelectedAddress}
+            />
 
-          <PaymentMethodSelector
-            selectedMethod={paymentMethod}
-            onSelectMethod={setPaymentMethod}
-          />
+            <PaymentMethodSelector
+              selectedMethod={paymentMethod}
+              onSelectMethod={setPaymentMethod}
+            />
 
-          <TipSelector
-            selectedTip={tip}
-            onTipSelect={setTip}
-            orderTotal={total}
-          />
+            <TipSelector
+              selectedTip={tip}
+              onTipSelect={setTip}
+              orderTotal={total}
+            />
+          </View>
 
           <View style={styles.summarySection}>
             <Text style={styles.sectionTitle}>Resumen</Text>
@@ -204,9 +231,11 @@ export default function CartScreen() {
             </View>
             <View style={styles.summaryRow}>
               <Text style={styles.summaryLabel}>
-                Entrega ({distance} km)
+                Entrega {distance !== null ? `(${formatDistance(distance)})` : ''}
               </Text>
-              <Text style={styles.summaryValue}>${deliveryCost.toFixed(2)}</Text>
+              <Text style={styles.summaryValue}>
+                {distance !== null ? `$${deliveryCost.toFixed(2)}` : 'Selecciona dirección'}
+              </Text>
             </View>
             {tip > 0 && (
               <View style={styles.summaryRow}>
@@ -220,7 +249,7 @@ export default function CartScreen() {
               <Text style={styles.totalValue}>${finalTotal.toFixed(2)}</Text>
             </View>
             <Text style={styles.costExplanation}>
-              Costo de entrega: ${distance} km × $1.50 + {(total * 0.1).toFixed(2)} (10% comisión)
+              Tarifa: $15 base {distance !== null && distance > 2 ? `+ $4 × ${(distance - 2).toFixed(1)} km extra` : '(primeros 2 km incluidos)'}
             </Text>
           </View>
         </View>

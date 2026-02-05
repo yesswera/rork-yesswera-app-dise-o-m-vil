@@ -265,14 +265,14 @@ export default function ActiveOrderScreen() {
                 <Text style={styles.stepTitle}>Paso 1: Identificarte</Text>
               </View>
               <Text style={styles.stepInstruction}>
-                Muestra este codigo al negocio para que te identifiquen:
+                Muestra este código al negocio para que te identifiquen:
               </Text>
               <View style={styles.codeDisplayContainer}>
-                <Text style={styles.codeDisplayLabel}>Tu codigo de repartidor:</Text>
+                <Text style={styles.codeDisplayLabel}>Tu código de repartidor:</Text>
                 <Text style={styles.codeDisplay}>{order.driverCode}</Text>
               </View>
               <Text style={styles.stepInstruction}>
-                Espera a que el negocio valide tu codigo y te entregue el pedido.
+                Espera a que el negocio valide tu código y te entregue el pedido.
               </Text>
             </View>
           )}
@@ -280,7 +280,7 @@ export default function ActiveOrderScreen() {
           {isDriverVerified && !isPickedUp && (
             <View style={[styles.card, styles.successCard]}>
               <CheckCircle size={32} color={Colors.success} />
-              <Text style={styles.successText}>Negocio te verifico</Text>
+              <Text style={styles.successText}>Negocio te verificó</Text>
             </View>
           )}
 
@@ -326,7 +326,7 @@ export default function ActiveOrderScreen() {
                 <Text style={styles.stepTitle}>Paso 3: Entregar Orden</Text>
               </View>
               <Text style={styles.stepInstruction}>
-                Pide el codigo de entrega al cliente (5 caracteres)
+                Pide el código de entrega al cliente (5 caracteres)
               </Text>
               <TextInput
                 ref={deliveryInputRef}

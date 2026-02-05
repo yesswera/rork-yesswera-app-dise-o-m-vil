@@ -1,94 +1,134 @@
-import { useState } from 'react';
-import { StyleSheet, Text, View, TouchableOpacity, ScrollView, Image, Alert } from 'react-native';
+import { useState, useEffect } from 'react';
+import { StyleSheet, Text, View, TouchableOpacity, ScrollView, Image, Alert, ActivityIndicator } from 'react-native';
 import { useRouter } from 'expo-router';
 import { ArrowLeft, Camera, Edit2, Phone, Mail, FileText, Car, CreditCard, UserPlus, Award, CheckCircle, Clock, TrendingUp, Package, MapPin } from 'lucide-react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import Colors from '@/constants/colors';
 import { useAuth } from '@/contexts/auth';
-
-const MOCK_DRIVER_PROFILE = {
-  name: 'Carlos Mendoza',
-  email: 'carlos@email.com',
-  phone: '33-1234-5678',
-  curp: 'MERC901215HJCLRD09',
-  rating: 4.8,
-  totalRatings: 256,
-  memberSince: 'Ene 2024',
-  avatar: 'https://i.pravatar.cc/150?u=carlos',
-  vehicle: {
-    type: 'Moto',
-    brand: 'Yamaha',
-    model: 'FZ 150',
-    year: 2022,
-    color: 'Roja',
-    licensePlate: 'ABC-123-D',
-    photo: 'https://images.unsplash.com/photo-1558981852-426c6c22a060?w=400&h=300&fit=crop',
-  },
-  documents: {
-    ine: { verified: true, status: 'Verificado' },
-    license: { verified: true, status: 'Vigente', expiryDate: 'Dic 2026' },
-    proofOfAddress: { verified: true, status: 'Verificado' },
-  },
-  bankAccount: {
-    bank: 'BBVA',
-    clabe: '****5678',
-    accountHolder: 'Carlos Mendoza',
-  },
-  emergencyContact: {
-    name: 'María García',
-    relationship: 'Esposa',
-    phone: '33-9876-5432',
-  },
-  stats: {
-    totalDeliveries: 1245,
-    acceptanceRate: 94,
-    onTimeRate: 97,
-    totalKm: 8450,
-    activeHours: 487,
-    completionRate: 98,
-  },
-  achievements: [
-    { id: 1, icon: '🥇', name: '100 Entregas', unlocked: true },
-    { id: 2, icon: '⭐', name: 'Top Repartidor', unlocked: true },
-    { id: 3, icon: '🚀', name: 'Entrega Veloz', unlocked: true },
-    { id: 4, icon: '💎', name: 'Cliente VIP', unlocked: false },
-    { id: 5, icon: '🔥', name: 'Racha 30 Días', unlocked: true },
-    { id: 6, icon: '🎯', name: '1000 Entregas', unlocked: true },
-  ],
-};
+import { supabase } from '@/constants/supabase';
 
 export default function DriverProfileScreen() {
   const router = useRouter();
   const { user } = useAuth();
-  const [profile] = useState(MOCK_DRIVER_PROFILE);
+  const [driverData, setDriverData] = useState<any>(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    if (!user) return;
+    loadDriverProfile();
+  }, [user]);
+
+  async function loadDriverProfile() {
+    try {
+      // Get driver record
+      const { data: driver } = await supabase
+        .from('drivers')
+        .select('*')
+        .eq('user_id', user!.id)
+        .single();
+
+      // Get delivery stats
+      const { count: totalDeliveries } = await supabase
+        .from('orders')
+        .select('*', { count: 'exact', head: true })
+        .eq('driver_id', driver?.id)
+        .eq('status', 'delivered');
+
+      setDriverData({
+        ...driver,
+        totalDeliveries: totalDeliveries || 0,
+      });
+    } catch (error) {
+      console.error('Error loading driver profile:', error);
+    } finally {
+      setLoading(false);
+    }
+  }
 
   const handleEditPhoto = () => {
     Alert.alert('Cambiar Foto', '¿Qué deseas hacer?', [
-      { text: 'Tomar Foto', onPress: () => Alert.alert('Cámara', 'Abrir cámara...') },
-      { text: 'Elegir de Galería', onPress: () => Alert.alert('Galería', 'Abrir galería...') },
+      { text: 'Tomar Foto', onPress: () => Alert.alert('Cámara', 'Disponible próximamente') },
+      { text: 'Elegir de Galería', onPress: () => Alert.alert('Galería', 'Disponible próximamente') },
       { text: 'Cancelar', style: 'cancel' },
     ]);
   };
 
   const handleEditPersonalInfo = () => {
-    Alert.alert('Editar Datos', 'Función disponible próximamente');
+    Alert.alert('Editar Datos', 'Disponible próximamente');
   };
 
   const handleEditVehicle = () => {
-    Alert.alert('Editar Vehículo', 'Función disponible próximamente');
+    Alert.alert('Editar Vehículo', 'Disponible próximamente');
   };
 
   const handleUpdateDocuments = () => {
-    Alert.alert('Actualizar Documentos', 'Función disponible próximamente');
+    Alert.alert('Actualizar Documentos', 'Disponible próximamente');
   };
 
   const handleEditBankAccount = () => {
-    Alert.alert('Editar Cuenta Bancaria', 'Función disponible próximamente');
+    Alert.alert('Editar Cuenta Bancaria', 'Disponible próximamente');
   };
 
   const handleEditEmergencyContact = () => {
-    Alert.alert('Cambiar Contacto', 'Función disponible próximamente');
+    Alert.alert('Cambiar Contacto', 'Disponible próximamente');
   };
+
+  // Format date to readable string
+  const formatMemberSince = (dateStr?: string): string => {
+    if (!dateStr) return 'Nuevo';
+    try {
+      const date = new Date(dateStr);
+      const months = ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun', 'Jul', 'Ago', 'Sep', 'Oct', 'Nov', 'Dic'];
+      return `${months[date.getMonth()]} ${date.getFullYear()}`;
+    } catch {
+      return 'Nuevo';
+    }
+  };
+
+  // Capitalize vehicle type for display
+  const formatVehicleType = (type?: string): string => {
+    if (!type) return 'No registrado';
+    const map: Record<string, string> = {
+      moto: 'Moto',
+      bicicleta: 'Bicicleta',
+      auto: 'Auto',
+      pie: 'A pie',
+    };
+    return map[type] || type;
+  };
+
+  if (loading) {
+    return (
+      <View style={styles.container}>
+        <LinearGradient
+          colors={[Colors.primary, Colors.primaryDark]}
+          style={styles.header}
+        >
+          <View style={styles.headerContent}>
+            <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
+              <ArrowLeft size={24} color={Colors.white} />
+            </TouchableOpacity>
+            <Text style={styles.headerTitle}>Mi Perfil</Text>
+            <View style={styles.editButton} />
+          </View>
+        </LinearGradient>
+        <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
+          <ActivityIndicator size="large" color={Colors.primary} />
+          <Text style={{ marginTop: 12, color: Colors.text.secondary, fontSize: 14 }}>Cargando perfil...</Text>
+        </View>
+      </View>
+    );
+  }
+
+  const displayName = user?.name || 'Repartidor';
+  const displayEmail = user?.email || 'Sin email';
+  const displayPhone = user?.phone || 'Sin teléfono';
+  const displayAvatar = user?.avatar || `https://ui-avatars.com/api/?name=${encodeURIComponent(displayName)}&background=00C896&color=fff&size=150`;
+  const displayRating = driverData?.rating_average ?? 0;
+  const displayRatingCount = driverData?.rating_count ?? 0;
+  const displayMemberSince = formatMemberSince(driverData?.created_at);
+  const displayVehicleType = formatVehicleType(driverData?.vehicle_type);
+  const totalDeliveries = driverData?.totalDeliveries ?? 0;
 
   return (
     <View style={styles.container}>
@@ -110,17 +150,17 @@ export default function DriverProfileScreen() {
       <ScrollView style={styles.scrollView} showsVerticalScrollIndicator={false}>
         <View style={styles.profileHeader}>
           <View style={styles.avatarContainer}>
-            <Image source={{ uri: profile.avatar }} style={styles.avatar} />
+            <Image source={{ uri: displayAvatar }} style={styles.avatar} />
             <TouchableOpacity style={styles.cameraButton} onPress={handleEditPhoto}>
               <Camera size={18} color={Colors.white} />
             </TouchableOpacity>
           </View>
-          <Text style={styles.profileName}>{profile.name}</Text>
+          <Text style={styles.profileName}>{displayName}</Text>
           <View style={styles.ratingContainer}>
-            <Text style={styles.ratingText}>⭐ {profile.rating}</Text>
-            <Text style={styles.ratingsCount}>({profile.totalRatings} calificaciones)</Text>
+            <Text style={styles.ratingText}>⭐ {displayRating.toFixed(1)}</Text>
+            <Text style={styles.ratingsCount}>({displayRatingCount} calificaciones)</Text>
           </View>
-          <Text style={styles.memberSince}>🟢 Activo desde {profile.memberSince}</Text>
+          <Text style={styles.memberSince}>🟢 Activo desde {displayMemberSince}</Text>
         </View>
 
         <View style={styles.section}>
@@ -131,17 +171,17 @@ export default function DriverProfileScreen() {
           <View style={styles.infoCard}>
             <View style={styles.infoRow}>
               <Text style={styles.infoLabel}>Teléfono:</Text>
-              <Text style={styles.infoValue}>{profile.phone}</Text>
+              <Text style={styles.infoValue}>{displayPhone}</Text>
             </View>
             <View style={styles.divider} />
             <View style={styles.infoRow}>
               <Text style={styles.infoLabel}>Email:</Text>
-              <Text style={styles.infoValue}>{profile.email}</Text>
+              <Text style={styles.infoValue}>{displayEmail}</Text>
             </View>
             <View style={styles.divider} />
             <View style={styles.infoRow}>
               <Text style={styles.infoLabel}>CURP:</Text>
-              <Text style={styles.infoValue}>{profile.curp}</Text>
+              <Text style={styles.infoValue}>No registrado</Text>
             </View>
           </View>
         </View>
@@ -152,20 +192,17 @@ export default function DriverProfileScreen() {
             <Text style={styles.sectionTitle}>Mi Vehículo</Text>
           </View>
           <View style={styles.vehicleCard}>
-            {profile.vehicle.photo && (
-              <Image source={{ uri: profile.vehicle.photo }} style={styles.vehiclePhoto} />
-            )}
             <View style={styles.vehicleInfo}>
               <Text style={styles.vehicleName}>
-                {profile.vehicle.brand} {profile.vehicle.model} {profile.vehicle.year}
+                {displayVehicleType}
               </Text>
               <Text style={styles.vehicleDetails}>
-                {profile.vehicle.type} - {profile.vehicle.color}
+                Marca y modelo: No registrado
               </Text>
-              <Text style={styles.vehiclePlate}>Placas: {profile.vehicle.licensePlate}</Text>
+              <Text style={styles.vehiclePlate}>Placas: No registrado</Text>
             </View>
             <TouchableOpacity style={styles.updateButton} onPress={handleEditVehicle}>
-              <Text style={styles.updateButtonText}>Actualizar foto</Text>
+              <Text style={styles.updateButtonText}>Registrar vehículo</Text>
             </TouchableOpacity>
           </View>
         </View>
@@ -179,13 +216,9 @@ export default function DriverProfileScreen() {
             <View style={styles.documentRow}>
               <Text style={styles.documentLabel}>INE:</Text>
               <View style={styles.documentStatus}>
-                {profile.documents.ine.verified ? (
-                  <CheckCircle size={16} color={Colors.success} />
-                ) : (
-                  <Clock size={16} color={Colors.warning} />
-                )}
-                <Text style={[styles.documentText, profile.documents.ine.verified && styles.documentVerified]}>
-                  {profile.documents.ine.status}
+                <Clock size={16} color={Colors.warning} />
+                <Text style={styles.documentText}>
+                  Pendiente
                 </Text>
               </View>
             </View>
@@ -193,13 +226,9 @@ export default function DriverProfileScreen() {
             <View style={styles.documentRow}>
               <Text style={styles.documentLabel}>Licencia:</Text>
               <View style={styles.documentStatus}>
-                {profile.documents.license.verified ? (
-                  <CheckCircle size={16} color={Colors.success} />
-                ) : (
-                  <Clock size={16} color={Colors.warning} />
-                )}
-                <Text style={[styles.documentText, profile.documents.license.verified && styles.documentVerified]}>
-                  {profile.documents.license.status} ({profile.documents.license.expiryDate})
+                <Clock size={16} color={Colors.warning} />
+                <Text style={styles.documentText}>
+                  Pendiente
                 </Text>
               </View>
             </View>
@@ -207,18 +236,14 @@ export default function DriverProfileScreen() {
             <View style={styles.documentRow}>
               <Text style={styles.documentLabel}>Comprobante:</Text>
               <View style={styles.documentStatus}>
-                {profile.documents.proofOfAddress.verified ? (
-                  <CheckCircle size={16} color={Colors.success} />
-                ) : (
-                  <Clock size={16} color={Colors.warning} />
-                )}
-                <Text style={[styles.documentText, profile.documents.proofOfAddress.verified && styles.documentVerified]}>
-                  {profile.documents.proofOfAddress.status}
+                <Clock size={16} color={Colors.warning} />
+                <Text style={styles.documentText}>
+                  Pendiente
                 </Text>
               </View>
             </View>
             <TouchableOpacity style={styles.linkButton} onPress={handleUpdateDocuments}>
-              <Text style={styles.linkButtonText}>Actualizar documentos</Text>
+              <Text style={styles.linkButtonText}>Subir documentos</Text>
             </TouchableOpacity>
           </View>
         </View>
@@ -230,16 +255,11 @@ export default function DriverProfileScreen() {
           </View>
           <View style={styles.infoCard}>
             <View style={styles.infoRow}>
-              <Text style={styles.infoLabel}>Banco:</Text>
-              <Text style={styles.infoValue}>{profile.bankAccount.bank}</Text>
-            </View>
-            <View style={styles.divider} />
-            <View style={styles.infoRow}>
-              <Text style={styles.infoLabel}>CLABE:</Text>
-              <Text style={styles.infoValue}>{profile.bankAccount.clabe}</Text>
+              <Text style={styles.infoLabel}>Estado:</Text>
+              <Text style={styles.infoValue}>No configurada</Text>
             </View>
             <TouchableOpacity style={styles.linkButton} onPress={handleEditBankAccount}>
-              <Text style={styles.linkButtonText}>Actualizar cuenta</Text>
+              <Text style={styles.linkButtonText}>Configurar cuenta</Text>
             </TouchableOpacity>
           </View>
         </View>
@@ -251,16 +271,11 @@ export default function DriverProfileScreen() {
           </View>
           <View style={styles.infoCard}>
             <View style={styles.infoRow}>
-              <Text style={styles.infoLabel}>{profile.emergencyContact.name}</Text>
-              <Text style={styles.infoValue}>({profile.emergencyContact.relationship})</Text>
-            </View>
-            <View style={styles.divider} />
-            <View style={styles.infoRow}>
-              <Text style={styles.infoLabel}>Tel:</Text>
-              <Text style={styles.infoValue}>{profile.emergencyContact.phone}</Text>
+              <Text style={styles.infoLabel}>Estado:</Text>
+              <Text style={styles.infoValue}>No configurado</Text>
             </View>
             <TouchableOpacity style={styles.linkButton} onPress={handleEditEmergencyContact}>
-              <Text style={styles.linkButtonText}>Cambiar contacto</Text>
+              <Text style={styles.linkButtonText}>Agregar contacto</Text>
             </TouchableOpacity>
           </View>
         </View>
@@ -274,48 +289,25 @@ export default function DriverProfileScreen() {
             <View style={styles.statsGrid}>
               <View style={styles.statItem}>
                 <Package size={20} color={Colors.primary} />
-                <Text style={styles.statValue}>{profile.stats.totalDeliveries}</Text>
+                <Text style={styles.statValue}>{totalDeliveries}</Text>
                 <Text style={styles.statLabel}>Entregas totales</Text>
               </View>
               <View style={styles.statItem}>
                 <CheckCircle size={20} color={Colors.success} />
-                <Text style={styles.statValue}>{profile.stats.acceptanceRate}%</Text>
+                <Text style={styles.statValue}>--</Text>
                 <Text style={styles.statLabel}>Aceptación</Text>
               </View>
               <View style={styles.statItem}>
                 <Clock size={20} color={Colors.accent} />
-                <Text style={styles.statValue}>{profile.stats.onTimeRate}%</Text>
+                <Text style={styles.statValue}>--</Text>
                 <Text style={styles.statLabel}>A tiempo</Text>
               </View>
               <View style={styles.statItem}>
                 <MapPin size={20} color={Colors.warning} />
-                <Text style={styles.statValue}>{profile.stats.totalKm}</Text>
+                <Text style={styles.statValue}>--</Text>
                 <Text style={styles.statLabel}>Km recorridos</Text>
               </View>
             </View>
-          </View>
-        </View>
-
-        <View style={styles.section}>
-          <View style={styles.sectionHeader}>
-            <Award size={20} color={Colors.primary} />
-            <Text style={styles.sectionTitle}>Mis Logros</Text>
-          </View>
-          <View style={styles.achievementsGrid}>
-            {profile.achievements.map((achievement) => (
-              <View
-                key={achievement.id}
-                style={[
-                  styles.achievementCard,
-                  !achievement.unlocked && styles.achievementLocked,
-                ]}
-              >
-                <Text style={styles.achievementIcon}>{achievement.icon}</Text>
-                <Text style={[styles.achievementName, !achievement.unlocked && styles.achievementNameLocked]}>
-                  {achievement.name}
-                </Text>
-              </View>
-            ))}
           </View>
         </View>
 

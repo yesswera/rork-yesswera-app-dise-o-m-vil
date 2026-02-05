@@ -48,7 +48,7 @@ export interface OrderItem {
 }
 
 export interface Order {
-  id: number;
+  id: string;
   orderNumber: string;
   type: 'food' | 'shopping' | 'delivery';
   status: OrderStatus;

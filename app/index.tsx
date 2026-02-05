@@ -41,9 +41,12 @@ export default function HomeScreen() {
       return;
     }
 
+    let isMounted = true;
+
     const checkActiveOrder = async () => {
       try {
         const orders = await getActiveOrders(user.id);
+        if (!isMounted) return;
         if (orders.length > 0) {
           setActiveOrder(orders[0]);
         } else {
@@ -51,13 +54,14 @@ export default function HomeScreen() {
         }
       } catch (error) {
         console.error('Error obteniendo orden activa:', error);
-        setActiveOrder(null);
+        if (isMounted) setActiveOrder(null);
       }
     };
 
     const loadRecentOrders = async () => {
       try {
         const allOrders = await getUserOrders(user.id);
+        if (!isMounted) return;
         const completed = allOrders
           .filter((o: Order) => o.status === 'delivered')
           .sort((a: Order, b: Order) => new Date(b.deliveredAt || b.createdAt).getTime() - new Date(a.deliveredAt || a.createdAt).getTime())
@@ -72,7 +76,10 @@ export default function HomeScreen() {
     loadRecentOrders();
 
     const interval = setInterval(checkActiveOrder, 10000);
-    return () => clearInterval(interval);
+    return () => {
+      isMounted = false;
+      clearInterval(interval);
+    };
   }, [user, token]);
 
   const getOrderStatusText = (status: OrderStatus) => {

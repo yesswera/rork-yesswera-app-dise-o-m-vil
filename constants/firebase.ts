@@ -3,7 +3,6 @@
 
 import { initializeApp } from 'firebase/app';
 import { getDatabase } from 'firebase/database';
-import { getMessaging } from 'firebase/messaging';
 
 const firebaseConfig = {
   apiKey: "AIzaSyD3NlXA0fB3YByvVBmDUU7iTw9xZJVcsIM",
@@ -21,8 +20,5 @@ const app = initializeApp(firebaseConfig);
 
 // Realtime Database para tracking GPS
 export const realtimeDb = getDatabase(app);
-
-// Cloud Messaging para push notifications (solo funciona en dispositivo real)
-// export const messaging = getMessaging(app);
 
 export default app;

@@ -1,4 +1,4 @@
-import { StyleSheet, Text, View, TouchableOpacity, ScrollView, TextInput, ActivityIndicator, RefreshControl } from 'react-native';
+import { StyleSheet, Text, View, TouchableOpacity, ScrollView, TextInput, ActivityIndicator, RefreshControl, Alert } from 'react-native';
 import { useRouter } from 'expo-router';
 import { Search, Star, Clock } from 'lucide-react-native';
 import { Image } from 'expo-image';
@@ -21,6 +21,7 @@ export default function RestaurantsScreen() {
       setBusinesses(data);
     } catch (error) {
       console.error('Error loading businesses:', error);
+      Alert.alert('Error', 'No se pudieron cargar los restaurantes. Desliza hacia abajo para reintentar.');
     } finally {
       setLoading(false);
       setRefreshing(false);

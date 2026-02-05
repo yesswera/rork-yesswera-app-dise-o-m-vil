@@ -183,6 +183,8 @@ export default function OrderDetailsScreen() {
         return 'Compras';
       case 'delivery':
         return 'Envío';
+      default:
+        return 'Pedido';
     }
   };
 
