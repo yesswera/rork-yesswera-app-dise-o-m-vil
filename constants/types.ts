@@ -1,6 +1,6 @@
 export type UserType = 'client' | 'driver' | 'business' | 'admin';
 
-export type OrderStatus = 'pending' | 'confirmed' | 'preparing' | 'ready' | 'accepted' | 'assigned' | 'driver_verified' | 'in_transit' | 'delivered' | 'cancelled';
+export type OrderStatus = 'pending' | 'confirmed' | 'preparing' | 'ready' | 'accepted' | 'assigned' | 'driver_verified' | 'handed_to_driver' | 'in_transit' | 'arrived' | 'delivered' | 'cancelled';
 
 export type PaymentMethod = 'cash' | 'card' | 'transfer';
 
@@ -97,6 +97,7 @@ export interface Order {
     validatedAt?: string;
     validatedBy?: string;
   };
+  driverAtBusiness?: boolean;
 }
 
 export interface PackageDetails {

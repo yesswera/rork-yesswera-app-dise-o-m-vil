@@ -83,6 +83,7 @@ function mapOrder(dbOrder: any): Order {
       latitude: dbOrder.delivery_latitude || 0,
       longitude: dbOrder.delivery_longitude || 0,
     },
+    driverAtBusiness: !!dbOrder.driver_at_business,
   };
 }
 
@@ -466,6 +467,129 @@ export async function confirmPickup(
   }
 }
 
+// Driver confirms arrival at CLIENT's location (for delivery)
+export async function confirmArrivalAtClient(
+  orderId: string
+): Promise<{ success: boolean; message: string }> {
+  try {
+    const { error } = await supabase
+      .from('orders')
+      .update({
+        status: 'arrived',
+      })
+      .eq('id', orderId);
+
+    if (error) throw error;
+
+    return { success: true, message: 'Llegada confirmada, el cliente fue notificado' };
+  } catch (error) {
+    console.error('confirmArrivalAtClient error:', error);
+    return { success: false, message: 'Error al confirmar llegada' };
+  }
+}
+
+// Driver confirms arrival at BUSINESS (waiting for order to be ready)
+export async function confirmArrivalAtBusiness(
+  orderId: string
+): Promise<{ success: boolean; message: string }> {
+  try {
+    const { error } = await supabase
+      .from('orders')
+      .update({
+        driver_at_business: true,
+        driver_arrived_at_business_at: new Date().toISOString(),
+      })
+      .eq('id', orderId);
+
+    if (error) throw error;
+
+    return { success: true, message: 'Llegada al negocio confirmada' };
+  } catch (error) {
+    console.error('confirmArrivalAtBusiness error:', error);
+    return { success: false, message: 'Error al confirmar llegada' };
+  }
+}
+
+// Business validates pickup code and hands order to driver
+export async function validatePickupAndHandover(
+  orderId: string,
+  pickupCode: string
+): Promise<{ success: boolean; message: string; comandaCode?: string }> {
+  try {
+    const { data: order, error: fetchError } = await supabase
+      .from('orders')
+      .select('comanda_code, status, driver_at_business')
+      .eq('id', orderId)
+      .single();
+
+    if (fetchError) {
+      if (fetchError.code === 'PGRST116') return { success: false, message: 'Orden no encontrada' };
+      throw fetchError;
+    }
+
+    if (order.status !== 'ready') {
+      return { success: false, message: 'La orden aún no está lista' };
+    }
+
+    if (!order.driver_at_business) {
+      return { success: false, message: 'El repartidor aún no ha llegado' };
+    }
+
+    if (order.comanda_code?.toUpperCase() !== pickupCode.toUpperCase()) {
+      return { success: false, message: 'Código de recolección incorrecto' };
+    }
+
+    // Update status to handed_to_driver
+    const { error: updateError } = await supabase
+      .from('orders')
+      .update({
+        status: 'handed_to_driver',
+        handed_to_driver_at: new Date().toISOString(),
+      })
+      .eq('id', orderId);
+
+    if (updateError) throw updateError;
+
+    return {
+      success: true,
+      message: 'Código verificado. Entrega el pedido al repartidor.',
+      comandaCode: order.comanda_code,
+    };
+  } catch (error) {
+    console.error('validatePickupAndHandover error:', error);
+    return { success: false, message: 'Error al validar código' };
+  }
+}
+
+// Driver confirms they received the order from business
+export async function confirmOrderReceived(
+  orderId: string
+): Promise<{ success: boolean; message: string }> {
+  try {
+    const { error } = await supabase
+      .from('orders')
+      .update({
+        status: 'in_transit',
+        picked_up_at: new Date().toISOString(),
+      })
+      .eq('id', orderId);
+
+    if (error) throw error;
+
+    return { success: true, message: 'Orden recibida. En camino al cliente.' };
+  } catch (error) {
+    console.error('confirmOrderReceived error:', error);
+    return { success: false, message: 'Error al confirmar recepción' };
+  }
+}
+
+// Legacy alias for backward compatibility
+export async function confirmArrival(
+  orderId: string
+): Promise<{ success: boolean; message: string }> {
+  return confirmArrivalAtClient(orderId);
+}
+
 // Legacy: kept for backward compatibility
 export async function validatePickupCode(
   orderId: string,
@@ -569,7 +693,7 @@ export async function getAvailableOrdersForDriver(): Promise<Order[]> {
         *,
         businesses (id, business_name, address, logo_url)
       `)
-      .eq('status', 'ready')
+      .in('status', ['preparing', 'ready'])
       .is('driver_id', null)
       .order('created_at', { ascending: true });
 

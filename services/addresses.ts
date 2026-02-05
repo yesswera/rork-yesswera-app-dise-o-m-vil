@@ -1,14 +1,16 @@
 import { supabase } from '@/constants/supabase';
 import { SavedAddress } from '@/constants/types';
+import { parseLocation } from '@/utils/geo';
 
 function mapAddress(dbAddress: any): SavedAddress {
+  const coords = parseLocation(dbAddress.location);
   return {
     id: dbAddress.id,
     userId: dbAddress.user_id,
     label: dbAddress.label,
     address: dbAddress.street_address,
-    latitude: dbAddress.location?.coordinates?.[1] || 0,
-    longitude: dbAddress.location?.coordinates?.[0] || 0,
+    latitude: coords?.latitude || 0,
+    longitude: coords?.longitude || 0,
     instructions: dbAddress.reference,
     isDefault: dbAddress.is_default,
     createdAt: dbAddress.created_at,

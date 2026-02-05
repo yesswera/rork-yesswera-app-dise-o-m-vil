@@ -14,10 +14,16 @@ import {
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
-import { MapPin, Clock, Package, CheckCircle, ArrowLeft, Navigation, MessageCircle, Phone } from 'lucide-react-native';
+import { MapPin, Clock, Package, CheckCircle, ArrowLeft, Navigation, MessageCircle, Phone, Store } from 'lucide-react-native';
 import Colors from '@/constants/colors';
 import { useAuth } from '@/contexts/auth';
-import { getDriverOrders, confirmPickup, validateDeliveryCode } from '@/services/orders';
+import {
+  getDriverOrders,
+  confirmArrivalAtBusiness,
+  confirmOrderReceived,
+  confirmArrivalAtClient,
+  validateDeliveryCode
+} from '@/services/orders';
 import { supabase } from '@/constants/supabase';
 import { Order } from '@/constants/types';
 
@@ -29,14 +35,12 @@ export default function ActiveOrderScreen() {
   const [loading, setLoading] = useState(true);
   const [validating, setValidating] = useState(false);
 
-  // Ref for TextInput focus (Android fix)
   const deliveryInputRef = useRef<TextInput>(null);
 
   const loadActiveOrder = useCallback(async () => {
     if (!user || !token) return;
 
     try {
-      // Get driver record for this user
       const { data: driver } = await supabase
         .from('drivers')
         .select('id')
@@ -44,7 +48,7 @@ export default function ActiveOrderScreen() {
         .single();
 
       if (!driver) {
-        Alert.alert('Error', 'No se encontró tu registro de repartidor');
+        Alert.alert('Error', 'No se encontro tu registro de repartidor');
         return;
       }
 
@@ -52,7 +56,7 @@ export default function ActiveOrderScreen() {
       if (activeOrders.length > 0) {
         setOrder(activeOrders[0]);
       } else {
-        Alert.alert('Sin órdenes', 'No tienes órdenes activas', [
+        Alert.alert('Sin ordenes', 'No tienes ordenes activas', [
           { text: 'OK', onPress: () => router.back() },
         ]);
       }
@@ -66,32 +70,74 @@ export default function ActiveOrderScreen() {
 
   useEffect(() => {
     loadActiveOrder();
-    const interval = setInterval(loadActiveOrder, 10000);
+    const interval = setInterval(loadActiveOrder, 5000); // Poll every 5s for status changes
     return () => clearInterval(interval);
   }, [loadActiveOrder]);
 
-  const handleConfirmPickup = async () => {
+  // Handler: Driver arrived at business
+  const handleArrivedAtBusiness = async () => {
     if (!order || !token) return;
 
     setValidating(true);
     try {
-      const result = await confirmPickup(order.id.toString());
+      const result = await confirmArrivalAtBusiness(order.id.toString());
       if (result.success) {
-        Alert.alert('En Camino', 'Orden recogida. Ahora ve al cliente.');
+        Alert.alert('Llegada Confirmada', 'Cuando el pedido este listo, te aparecera el codigo de recoleccion.');
         await loadActiveOrder();
       } else {
         Alert.alert('Error', result.message);
       }
     } catch (error: any) {
-      Alert.alert('Error', error.message || 'No se pudo confirmar la recogida');
+      Alert.alert('Error', error.message || 'No se pudo confirmar la llegada');
     } finally {
       setValidating(false);
     }
   };
 
+  // Handler: Driver confirms received order from business
+  const handleOrderReceived = async () => {
+    if (!order || !token) return;
+
+    setValidating(true);
+    try {
+      const result = await confirmOrderReceived(order.id.toString());
+      if (result.success) {
+        Alert.alert('Orden Recibida', 'Ahora ve al cliente para entregar.');
+        await loadActiveOrder();
+      } else {
+        Alert.alert('Error', result.message);
+      }
+    } catch (error: any) {
+      Alert.alert('Error', error.message || 'No se pudo confirmar la recepcion');
+    } finally {
+      setValidating(false);
+    }
+  };
+
+  // Handler: Driver arrived at client
+  const handleArrivedAtClient = async () => {
+    if (!order || !token) return;
+
+    setValidating(true);
+    try {
+      const result = await confirmArrivalAtClient(order.id.toString());
+      if (result.success) {
+        Alert.alert('Llegada Confirmada', 'El cliente fue notificado. Pide el codigo de entrega.');
+        await loadActiveOrder();
+      } else {
+        Alert.alert('Error', result.message);
+      }
+    } catch (error: any) {
+      Alert.alert('Error', error.message || 'No se pudo confirmar la llegada');
+    } finally {
+      setValidating(false);
+    }
+  };
+
+  // Handler: Validate delivery code
   const handleValidateDelivery = async () => {
     if (!order || !token || !deliveryCodeInput) {
-      Alert.alert('Error', 'Ingresa el código de entrega');
+      Alert.alert('Error', 'Ingresa el codigo de entrega');
       return;
     }
 
@@ -100,16 +146,16 @@ export default function ActiveOrderScreen() {
       const result = await validateDeliveryCode(order.id.toString(), deliveryCodeInput);
       if (result.success) {
         Alert.alert(
-          '¡Orden Completada!',
+          'Orden Completada!',
           'Entrega registrada exitosamente',
           [{ text: 'OK', onPress: () => router.push('/driver/dashboard') }]
         );
         setDeliveryCodeInput('');
       } else {
-        Alert.alert('Código Incorrecto', result.message);
+        Alert.alert('Codigo Incorrecto', result.message);
       }
     } catch (error: any) {
-      Alert.alert('Error', error.message || 'No se pudo validar el código');
+      Alert.alert('Error', error.message || 'No se pudo validar el codigo');
     } finally {
       setValidating(false);
     }
@@ -128,23 +174,32 @@ export default function ActiveOrderScreen() {
     return null;
   }
 
-  const isDriverVerified = order.driverVerification?.validated || order.status === 'driver_verified';
-  const isPickedUp = order.pickupValidation?.validated || order.status === 'in_transit';
-  const canShowDriverCode = !isDriverVerified && (order.status === 'assigned' || order.status === 'accepted' || order.status === 'ready');
-  const canConfirmPickup = isDriverVerified && order.status === 'driver_verified';
-  const canDeliver = isPickedUp && order.status === 'in_transit';
+  // === STATUS LOGIC ===
+  const status = order.status;
+  const driverAtBusiness = order.driverAtBusiness;
+  const isOrderReady = status === 'ready';
+
+  // Debug log
+  console.log('ORDER STATUS:', status, 'driverAtBusiness:', driverAtBusiness, 'full order:', JSON.stringify(order, null, 2));
+
+  // Phases
+  const isGoingToBusiness = status === 'assigned' || status === 'preparing' || (status === 'ready' && !driverAtBusiness);
+  const isWaitingAtBusiness = driverAtBusiness && (status === 'assigned' || status === 'preparing');
+  const canShowPickupCode = driverAtBusiness && isOrderReady; // BOTH conditions must be true
+  const isHandedToDriver = status === 'handed_to_driver';
+  const isInTransit = status === 'in_transit';
+  const isAtClient = status === 'arrived';
+  const isDelivered = status === 'delivered';
 
   const openNavigation = (address: string, location?: { latitude: number; longitude: number }) => {
     let url: string;
 
     if (location?.latitude && location?.longitude) {
-      // Si tenemos coordenadas, usar navegación directa
       url = Platform.select({
         ios: `maps:?daddr=${location.latitude},${location.longitude}&dirflg=d`,
         android: `google.navigation:q=${location.latitude},${location.longitude}`,
       }) || `https://www.google.com/maps/dir/?api=1&destination=${location.latitude},${location.longitude}`;
 
-      // Intentar Waze primero
       Linking.canOpenURL('waze://').then((supported) => {
         if (supported) {
           Linking.openURL(`waze://?ll=${location.latitude},${location.longitude}&navigate=yes`);
@@ -153,7 +208,6 @@ export default function ActiveOrderScreen() {
         }
       });
     } else {
-      // Si solo tenemos dirección, buscar en Google Maps
       const encodedAddress = encodeURIComponent(address);
       url = `https://www.google.com/maps/search/?api=1&query=${encodedAddress}`;
       Linking.openURL(url);
@@ -164,7 +218,7 @@ export default function ActiveOrderScreen() {
     if (order.customerPhone) {
       Linking.openURL(`tel:${order.customerPhone}`);
     } else {
-      Alert.alert('Sin teléfono', 'No hay número de contacto disponible');
+      Alert.alert('Sin telefono', 'No hay numero de contacto disponible');
     }
   };
 
@@ -183,22 +237,25 @@ export default function ActiveOrderScreen() {
 
       <View style={styles.content}>
         <ScrollView showsVerticalScrollIndicator={false}>
+          {/* Status Badge */}
           <View style={styles.statusCard}>
             <View style={styles.statusBadge}>
-              <Text style={styles.statusText}>{getStatusLabel(order.status)}</Text>
+              <Text style={styles.statusText}>{getStatusLabel(status, driverAtBusiness)}</Text>
             </View>
           </View>
 
+          {/* Order Details Card */}
           <View style={styles.card}>
             <Text style={styles.cardTitle}>Detalles de la Orden</Text>
 
+            {/* Pickup Address */}
             <View style={styles.addressCard}>
               <View style={styles.addressHeader}>
-                <MapPin size={18} color={Colors.primary} />
-                <Text style={styles.addressTitle}>Recogida</Text>
+                <Store size={18} color={Colors.primary} />
+                <Text style={styles.addressTitle}>Negocio</Text>
               </View>
               <Text style={styles.addressText}>{order.pickupAddress || 'N/A'}</Text>
-              {!isPickedUp && (
+              {isGoingToBusiness && (
                 <TouchableOpacity
                   style={styles.navButtonSmall}
                   onPress={() => openNavigation(order.pickupAddress || '', order.pickupLocation)}
@@ -209,13 +266,14 @@ export default function ActiveOrderScreen() {
               )}
             </View>
 
+            {/* Delivery Address */}
             <View style={styles.addressCard}>
               <View style={styles.addressHeader}>
                 <MapPin size={18} color={Colors.success} />
-                <Text style={styles.addressTitle}>Entrega</Text>
+                <Text style={styles.addressTitle}>Cliente</Text>
               </View>
               <Text style={styles.addressText}>{order.deliveryAddress}</Text>
-              {isPickedUp && (
+              {(isInTransit || isAtClient) && (
                 <TouchableOpacity
                   style={[styles.navButtonSmall, styles.navButtonGreen]}
                   onPress={() => openNavigation(order.deliveryAddress, order.deliveryLocation)}
@@ -226,6 +284,7 @@ export default function ActiveOrderScreen() {
               )}
             </View>
 
+            {/* Contact Actions */}
             <View style={styles.contactActions}>
               <TouchableOpacity style={styles.contactButton} onPress={callClient}>
                 <Phone size={18} color={Colors.primary} />
@@ -240,6 +299,7 @@ export default function ActiveOrderScreen() {
               </TouchableOpacity>
             </View>
 
+            {/* Time and Total */}
             <View style={styles.detailRow}>
               <Clock size={18} color={Colors.warning} />
               <View style={styles.detailTextContainer}>
@@ -258,44 +318,79 @@ export default function ActiveOrderScreen() {
             </View>
           </View>
 
-          {canShowDriverCode && (
+          {/* === PHASE 1: Going to business === */}
+          {isGoingToBusiness && !driverAtBusiness && (
             <View style={styles.card}>
               <View style={styles.stepHeader}>
-                <Package size={24} color={Colors.primary} />
-                <Text style={styles.stepTitle}>Paso 1: Identificarte</Text>
+                <Store size={24} color={Colors.primary} />
+                <Text style={styles.stepTitle}>Paso 1: Ir al Negocio</Text>
               </View>
               <Text style={styles.stepInstruction}>
-                Muestra este código al negocio para que te identifiquen:
-              </Text>
-              <View style={styles.codeDisplayContainer}>
-                <Text style={styles.codeDisplayLabel}>Tu código de repartidor:</Text>
-                <Text style={styles.codeDisplay}>{order.driverCode}</Text>
-              </View>
-              <Text style={styles.stepInstruction}>
-                Espera a que el negocio valide tu código y te entregue el pedido.
-              </Text>
-            </View>
-          )}
-
-          {isDriverVerified && !isPickedUp && (
-            <View style={[styles.card, styles.successCard]}>
-              <CheckCircle size={32} color={Colors.success} />
-              <Text style={styles.successText}>Negocio te verificó</Text>
-            </View>
-          )}
-
-          {canConfirmPickup && (
-            <View style={styles.card}>
-              <View style={styles.stepHeader}>
-                <Package size={24} color={Colors.primary} />
-                <Text style={styles.stepTitle}>Paso 2: Confirmar Recogida</Text>
-              </View>
-              <Text style={styles.stepInstruction}>
-                Ya tienes el pedido en mano? Confirma para iniciar el viaje al cliente.
+                Dirigete al negocio. Cuando llegues, presiona el boton para confirmar tu llegada.
               </Text>
               <TouchableOpacity
                 style={[styles.validateButton, validating && styles.validateButtonDisabled]}
-                onPress={handleConfirmPickup}
+                onPress={handleArrivedAtBusiness}
+                disabled={validating}
+              >
+                {validating ? (
+                  <ActivityIndicator size="small" color={Colors.white} />
+                ) : (
+                  <>
+                    <Store size={20} color={Colors.white} />
+                    <Text style={styles.validateButtonText}>Ya Llegue al Negocio</Text>
+                  </>
+                )}
+              </TouchableOpacity>
+            </View>
+          )}
+
+          {/* === PHASE 2: Waiting at business (order not ready yet) === */}
+          {isWaitingAtBusiness && (
+            <View style={styles.card}>
+              <View style={[styles.waitingCard]}>
+                <Clock size={32} color={Colors.warning} />
+                <Text style={styles.waitingText}>Esperando que el pedido este listo...</Text>
+                <Text style={styles.waitingSubtext}>
+                  Cuando el negocio termine de preparar, te aparecera el codigo de recoleccion automaticamente.
+                </Text>
+              </View>
+            </View>
+          )}
+
+          {/* === PHASE 3: Order ready + Driver at business = Show pickup code === */}
+          {canShowPickupCode && (
+            <View style={styles.card}>
+              <View style={styles.stepHeader}>
+                <Package size={24} color={Colors.success} />
+                <Text style={styles.stepTitle}>Paso 2: Recoger Pedido</Text>
+              </View>
+              <Text style={styles.stepInstruction}>
+                El pedido esta listo! Muestra este codigo al negocio para que te entreguen la comanda:
+              </Text>
+              <View style={styles.codeDisplayContainer}>
+                <Text style={styles.codeDisplayLabel}>Codigo de recoleccion:</Text>
+                <Text style={styles.codeDisplay}>{order.comandaCode}</Text>
+              </View>
+              <Text style={styles.stepInstruction}>
+                El negocio validara tu codigo y te entregara el pedido.
+              </Text>
+            </View>
+          )}
+
+          {/* === PHASE 4: Business handed order, driver confirms === */}
+          {isHandedToDriver && (
+            <View style={styles.card}>
+              <View style={styles.stepHeader}>
+                <CheckCircle size={24} color={Colors.success} />
+                <Text style={styles.stepTitle}>Paso 3: Confirmar Recepcion</Text>
+              </View>
+              <Text style={styles.stepInstruction}>
+                El negocio te entrego el pedido? Confirma para iniciar el viaje al cliente.
+              </Text>
+              <TouchableOpacity
+                style={[styles.validateButton, styles.successButton, validating && styles.validateButtonDisabled]}
+                onPress={handleOrderReceived}
                 disabled={validating}
               >
                 {validating ? (
@@ -303,67 +398,98 @@ export default function ActiveOrderScreen() {
                 ) : (
                   <>
                     <CheckCircle size={20} color={Colors.white} />
-                    <Text style={styles.validateButtonText}>Confirmar Recogida</Text>
+                    <Text style={styles.validateButtonText}>Recibi la Orden</Text>
                   </>
                 )}
               </TouchableOpacity>
             </View>
           )}
 
-          {isPickedUp && (
-            <View style={[styles.card, styles.successCard]}>
-              <CheckCircle size={32} color={Colors.success} />
-              <Text style={styles.successText}>
-                Orden recogida - En camino al cliente
-              </Text>
-            </View>
-          )}
-
-          {canDeliver && (
-            <View style={styles.card}>
-              <View style={styles.stepHeader}>
-                <MapPin size={24} color={Colors.success} />
-                <Text style={styles.stepTitle}>Paso 3: Entregar Orden</Text>
+          {/* === PHASE 5: In transit to client === */}
+          {isInTransit && (
+            <>
+              <View style={[styles.card, styles.successCard]}>
+                <CheckCircle size={32} color={Colors.success} />
+                <Text style={styles.successText}>En camino al cliente</Text>
               </View>
-              <Text style={styles.stepInstruction}>
-                Pide el código de entrega al cliente (5 caracteres)
-              </Text>
-              <TextInput
-                ref={deliveryInputRef}
-                style={styles.codeInput}
-                placeholder="Código de entrega"
-                placeholderTextColor={Colors.text.light}
-                value={deliveryCodeInput}
-                onChangeText={(text) => setDeliveryCodeInput(text.toUpperCase())}
-                maxLength={5}
-                autoCapitalize="characters"
-                editable={!validating}
-                keyboardType="default"
-                returnKeyType="done"
-                autoCorrect={false}
-                blurOnSubmit={true}
-                onSubmitEditing={() => Keyboard.dismiss()}
-                selectTextOnFocus={true}
-              />
-              <TouchableOpacity
-                style={[
-                  styles.validateButton,
-                  styles.deliveryButton,
-                  (deliveryCodeInput.length !== 5 || validating) && styles.validateButtonDisabled,
-                ]}
-                onPress={handleValidateDelivery}
-                disabled={deliveryCodeInput.length !== 5 || validating}
-              >
-                {validating ? (
-                  <ActivityIndicator size="small" color={Colors.white} />
-                ) : (
-                  <>
-                    <CheckCircle size={20} color={Colors.white} />
-                    <Text style={styles.validateButtonText}>Completar Entrega</Text>
-                  </>
-                )}
-              </TouchableOpacity>
-            </View>
+              <View style={styles.card}>
+                <View style={styles.stepHeader}>
+                  <MapPin size={24} color={Colors.accent} />
+                  <Text style={styles.stepTitle}>Paso 4: Llegar al Cliente</Text>
+                </View>
+                <Text style={styles.stepInstruction}>
+                  Cuando estes en el domicilio del cliente, confirma tu llegada.
+                </Text>
+                <TouchableOpacity
+                  style={[styles.validateButton, styles.arrivalButton, validating && styles.validateButtonDisabled]}
+                  onPress={handleArrivedAtClient}
+                  disabled={validating}
+                >
+                  {validating ? (
+                    <ActivityIndicator size="small" color={Colors.white} />
+                  ) : (
+                    <>
+                      <MapPin size={20} color={Colors.white} />
+                      <Text style={styles.validateButtonText}>Ya Llegue</Text>
+                    </>
+                  )}
+                </TouchableOpacity>
+              </View>
+            </>
+          )}
+
+          {/* === PHASE 6: At client, enter delivery code === */}
+          {isAtClient && (
+            <>
+              <View style={[styles.card, styles.successCard]}>
+                <CheckCircle size={32} color={Colors.success} />
+                <Text style={styles.successText}>Cliente notificado - Esperando</Text>
+              </View>
+              <View style={styles.card}>
+                <View style={styles.stepHeader}>
+                  <Package size={24} color={Colors.success} />
+                  <Text style={styles.stepTitle}>Paso 5: Entregar Orden</Text>
+                </View>
+                <Text style={styles.stepInstruction}>
+                  Pide el codigo de entrega al cliente (5 caracteres)
+                </Text>
+                <TextInput
+                  ref={deliveryInputRef}
+                  style={styles.codeInput}
+                  placeholder="Codigo de entrega"
+                  placeholderTextColor={Colors.text.light}
+                  value={deliveryCodeInput}
+                  onChangeText={(text) => setDeliveryCodeInput(text.toUpperCase())}
+                  maxLength={5}
+                  autoCapitalize="characters"
+                  editable={!validating}
+                  keyboardType="default"
+                  returnKeyType="done"
+                  autoCorrect={false}
+                  blurOnSubmit={true}
+                  onSubmitEditing={() => Keyboard.dismiss()}
+                  selectTextOnFocus={true}
+                />
+                <TouchableOpacity
+                  style={[
+                    styles.validateButton,
+                    styles.deliveryButton,
+                    (deliveryCodeInput.length !== 5 || validating) && styles.validateButtonDisabled,
+                  ]}
+                  onPress={handleValidateDelivery}
+                  disabled={deliveryCodeInput.length !== 5 || validating}
+                >
+                  {validating ? (
+                    <ActivityIndicator size="small" color={Colors.white} />
+                  ) : (
+                    <>
+                      <CheckCircle size={20} color={Colors.white} />
+                      <Text style={styles.validateButtonText}>Completar Entrega</Text>
+                    </>
+                  )}
+                </TouchableOpacity>
+              </View>
+            </>
           )}
         </ScrollView>
       </View>
@@ -371,16 +497,21 @@ export default function ActiveOrderScreen() {
   );
 }
 
-function getStatusLabel(status: string): string {
+function getStatusLabel(status: string, driverAtBusiness?: boolean): string {
+  if (driverAtBusiness && (status === 'assigned' || status === 'preparing')) {
+    return 'Esperando pedido en negocio';
+  }
+  if (driverAtBusiness && status === 'ready') {
+    return 'Pedido listo - Recoge ahora';
+  }
+
   const labels: Record<string, string> = {
-    pending: 'Pendiente',
-    assigned: 'Asignada - Ve al negocio',
-    accepted: 'Aceptada - Lista para recoger',
-    preparing: 'En preparación',
-    ready: 'Lista para recoger',
-    driver_verified: 'Verificado - Recoge el pedido',
-    picked_up: 'Recogida - En camino',
+    assigned: 'Ve al negocio',
+    preparing: 'En preparacion - Ve al negocio',
+    ready: 'Listo - Ve al negocio',
+    handed_to_driver: 'Confirma recepcion',
     in_transit: 'En camino al cliente',
+    arrived: 'En domicilio del cliente',
     delivered: 'Entregada',
     cancelled: 'Cancelada',
   };
@@ -572,11 +703,13 @@ const styles = StyleSheet.create({
     marginBottom: 16,
   },
   codeDisplayContainer: {
-    backgroundColor: Colors.primary + '15',
+    backgroundColor: Colors.success + '20',
     borderRadius: 12,
     padding: 16,
     alignItems: 'center',
     marginBottom: 16,
+    borderWidth: 2,
+    borderColor: Colors.success,
   },
   codeDisplayLabel: {
     fontSize: 12,
@@ -584,9 +717,9 @@ const styles = StyleSheet.create({
     marginBottom: 8,
   },
   codeDisplay: {
-    fontSize: 36,
+    fontSize: 40,
     fontWeight: '700',
-    color: Colors.primary,
+    color: Colors.success,
     letterSpacing: 8,
   },
   codeInput: {
@@ -613,8 +746,14 @@ const styles = StyleSheet.create({
   validateButtonDisabled: {
     opacity: 0.5,
   },
+  successButton: {
+    backgroundColor: Colors.success,
+  },
   deliveryButton: {
     backgroundColor: Colors.success,
+  },
+  arrivalButton: {
+    backgroundColor: Colors.accent,
   },
   validateButtonText: {
     fontSize: 16,
@@ -632,6 +771,25 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: Colors.text.primary,
     marginTop: 12,
+    textAlign: 'center',
+  },
+  waitingCard: {
+    alignItems: 'center',
+    backgroundColor: Colors.warning + '15',
+    borderRadius: 12,
+    padding: 20,
+  },
+  waitingText: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: Colors.warning,
+    marginTop: 12,
+    textAlign: 'center',
+  },
+  waitingSubtext: {
+    fontSize: 13,
+    color: Colors.text.secondary,
+    marginTop: 8,
     textAlign: 'center',
   },
   loadingContainer: {

@@ -57,8 +57,8 @@ function RootLayoutNav() {
       <Stack.Screen name="shopping/list/[storeId]" options={{ title: "Lista de Compras" }} />
       <Stack.Screen name="delivery/create" options={{ title: "Coger y Entregar" }} />
       <Stack.Screen name="tracking/[orderId]" options={{ title: "Seguimiento" }} />
-      <Stack.Screen name="driver/dashboard" options={{ title: "Portal Repartidor" }} />
-      <Stack.Screen name="business/dashboard" options={{ title: "Portal Negocio" }} />
+      <Stack.Screen name="driver/dashboard" options={{ title: "Portal Repartidor", headerShown: false, gestureEnabled: false }} />
+      <Stack.Screen name="business/dashboard" options={{ title: "Portal Negocio", headerShown: false, gestureEnabled: false }} />
       <Stack.Screen name="business/comanda/[orderId]" options={{ title: "Comanda", headerShown: false }} />
       <Stack.Screen name="driver/earnings" options={{ title: "Mis Ganancias", headerShown: false }} />
       <Stack.Screen name="profile" options={{ title: "Mi Perfil" }} />

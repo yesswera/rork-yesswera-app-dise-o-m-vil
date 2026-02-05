@@ -13,11 +13,23 @@ import { Toast } from '@/utils/toast';
 
 export default function HomeScreen() {
   const router = useRouter();
-  const { user, token } = useAuth();
+  const { user, token, isLoading } = useAuth();
   const [activeOrder, setActiveOrder] = useState<Order | null>(null);
   const [recentOrders, setRecentOrders] = useState<Order[]>([]);
   const logoScale = useRef(new Animated.Value(0)).current;
   const logoOpacity = useRef(new Animated.Value(0)).current;
+
+  // Redirigir por rol: negocio y driver no deben ver el home de cliente
+  useEffect(() => {
+    if (isLoading || !user) return;
+    if (user.userType === 'business') {
+      router.replace('/business/dashboard' as any);
+    } else if (user.userType === 'driver') {
+      router.replace('/driver/dashboard' as any);
+    } else if (user.userType === 'admin') {
+      router.replace('/admin/dashboard' as any);
+    }
+  }, [user, isLoading]);
 
   useEffect(() => {
     Animated.parallel([

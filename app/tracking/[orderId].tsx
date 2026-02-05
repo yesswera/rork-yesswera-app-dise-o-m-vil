@@ -129,21 +129,25 @@ export default function TrackingScreen() {
     if (!order) return 'Cargando...';
     switch (order.status) {
       case 'pending':
-        return 'Buscando repartidor...';
-      case 'confirmed':
-        return 'Orden confirmada';
-      case 'preparing':
-        return 'Preparando orden';
-      case 'ready':
-        return 'Listo para recoger';
+        return 'Esperando confirmación del negocio...';
       case 'accepted':
-        return 'Repartidor asignado';
+        return 'Negocio aceptó tu pedido';
+      case 'preparing':
+        return 'Preparando tu pedido';
+      case 'ready':
+        return 'Pedido listo, buscando repartidor...';
+      case 'assigned':
+        return 'Repartidor va al negocio';
+      case 'handed_to_driver':
+        return 'Repartidor recibio tu pedido';
       case 'in_transit':
-        return 'En camino';
+        return 'Tu pedido va en camino';
+      case 'arrived':
+        return 'Tu repartidor llegó';
       case 'delivered':
-        return 'Entregado';
+        return 'Pedido entregado';
       case 'cancelled':
-        return 'Cancelada';
+        return 'Pedido cancelado';
       default:
         return 'Procesando';
     }
@@ -268,13 +272,29 @@ export default function TrackingScreen() {
       <View style={styles.infoContainer}>
         <View style={styles.statusCard}>
           <View style={styles.statusHeader}>
-            <Clock size={20} color={Colors.primary} />
-            <Text style={styles.statusText}>{getStatusText()}</Text>
+            <Clock size={20} color={order.status === 'arrived' ? Colors.success : Colors.primary} />
+            <Text style={[styles.statusText, order.status === 'arrived' && { color: Colors.success }]}>{getStatusText()}</Text>
           </View>
-          <Text style={styles.etaText}>
-            {eta ? `Llega en ${formatETA(eta)}` : 'Calculando tiempo...'}
-          </Text>
+          {order.status === 'arrived' ? (
+            <Text style={styles.etaText}>Sal a recibir tu pedido</Text>
+          ) : (
+            <Text style={styles.etaText}>
+              {eta ? `Llega en ${formatETA(eta)}` : order.status === 'pending' || order.status === 'accepted' || order.status === 'preparing' ? '' : 'Calculando tiempo...'}
+            </Text>
+          )}
         </View>
+
+        {(order.status === 'arrived' || order.status === 'in_transit') && order.deliveryCode && (
+          <View style={styles.deliveryCodeCard}>
+            <Text style={styles.deliveryCodeLabel}>
+              {order.status === 'arrived' ? 'Dale este código al repartidor:' : 'Tu código de entrega:'}
+            </Text>
+            <Text style={styles.deliveryCodeValue}>{order.deliveryCode}</Text>
+            <Text style={styles.deliveryCodeHint}>
+              {order.status === 'arrived' ? 'El repartidor te lo pedirá para completar la entrega' : 'Tenlo listo para cuando llegue el repartidor'}
+            </Text>
+          </View>
+        )}
 
         <View style={styles.driverCard}>
           <View style={styles.driverInfo}>
@@ -437,6 +457,31 @@ const styles = StyleSheet.create({
   etaText: {
     fontSize: 14,
     color: Colors.text.secondary,
+  },
+  deliveryCodeCard: {
+    backgroundColor: Colors.success + '15',
+    borderWidth: 2,
+    borderColor: Colors.success,
+    borderRadius: 12,
+    padding: 16,
+    alignItems: 'center' as const,
+  },
+  deliveryCodeLabel: {
+    fontSize: 14,
+    color: Colors.text.secondary,
+    marginBottom: 8,
+  },
+  deliveryCodeValue: {
+    fontSize: 36,
+    fontWeight: '700' as const,
+    color: Colors.success,
+    letterSpacing: 8,
+    marginBottom: 8,
+  },
+  deliveryCodeHint: {
+    fontSize: 12,
+    color: Colors.text.light,
+    textAlign: 'center' as const,
   },
   driverCard: {
     backgroundColor: Colors.white,

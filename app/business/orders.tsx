@@ -14,7 +14,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { Clock, MapPin, CheckCircle, ArrowLeft, ShieldCheck, Package, CookingPot } from 'lucide-react-native';
 import Colors from '@/constants/colors';
 import { useAuth } from '@/contexts/auth';
-import { getBusinessOrders, acceptOrder, validateDriverCode, updateOrderStatus } from '@/services/orders';
+import { getBusinessOrders, acceptOrder, updateOrderStatus, validatePickupAndHandover } from '@/services/orders';
 import { Order } from '@/constants/types';
 import { supabase } from '@/constants/supabase';
 
@@ -24,8 +24,8 @@ export default function BusinessOrdersScreen() {
   const [orders, setOrders] = useState<Order[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
-  const [driverCodeInputs, setDriverCodeInputs] = useState<Record<string, string>>({});
-  const [validatingDriver, setValidatingDriver] = useState<string | null>(null);
+  const [pickupCodeInputs, setPickupCodeInputs] = useState<Record<string, string>>({});
+  const [validatingPickup, setValidatingPickup] = useState<string | null>(null);
   const [showPrepTimeFor, setShowPrepTimeFor] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<'new' | 'active' | 'done'>('new');
 
@@ -77,30 +77,31 @@ export default function BusinessOrdersScreen() {
     }
   };
 
-  const handleValidateDriver = async (orderId: string) => {
-    const code = driverCodeInputs[orderId]?.trim();
+  // Business validates pickup code from driver and hands over order
+  const handleValidatePickup = async (orderId: string) => {
+    const code = pickupCodeInputs[orderId]?.trim();
     if (!code || code.length !== 4) {
-      Alert.alert('Error', 'Ingresa el código de 4 caracteres del repartidor');
+      Alert.alert('Error', 'Ingresa el codigo de recoleccion del repartidor (4 caracteres)');
       return;
     }
 
-    setValidatingDriver(orderId);
+    setValidatingPickup(orderId);
     try {
-      const result = await validateDriverCode(orderId, code);
+      const result = await validatePickupAndHandover(orderId, code);
       if (result.success) {
         Alert.alert(
-          'Repartidor Verificado',
-          `Código de comanda: ${result.comandaCode}\n\nUsa este código para identificar el pedido.`
+          'Pedido Entregado',
+          'El repartidor tiene el pedido. Ahora debe confirmar la recepcion para iniciar el viaje al cliente.'
         );
-        setDriverCodeInputs(prev => ({ ...prev, [orderId]: '' }));
+        setPickupCodeInputs(prev => ({ ...prev, [orderId]: '' }));
         loadOrders();
       } else {
         Alert.alert('Error', result.message);
       }
     } catch (error) {
-      Alert.alert('Error', 'No se pudo validar el código');
+      Alert.alert('Error', 'No se pudo validar el codigo');
     } finally {
-      setValidatingDriver(null);
+      setValidatingPickup(null);
     }
   };
 
@@ -128,15 +129,20 @@ export default function BusinessOrdersScreen() {
     loadOrders();
   };
 
-  const getStatusLabel = (status: string) => {
+  const getStatusLabel = (status: string, driverAtBusiness?: boolean) => {
+    // Special case: order ready and driver waiting
+    if (status === 'ready' && driverAtBusiness) {
+      return 'Repartidor esperando';
+    }
     const labels: Record<string, string> = {
       pending: 'Pendiente',
       accepted: 'Aceptada',
       preparing: 'Preparando',
       ready: 'Lista para recoger',
-      assigned: 'Repartidor asignado',
-      driver_verified: 'Repartidor verificado',
-      in_transit: 'En camino',
+      assigned: 'Repartidor en camino',
+      handed_to_driver: 'Entregado a repartidor',
+      in_transit: 'En camino al cliente',
+      arrived: 'Repartidor en domicilio',
       delivered: 'Entregada',
       cancelled: 'Cancelada',
     };
@@ -147,7 +153,7 @@ export default function BusinessOrdersScreen() {
     if (status === 'pending') return Colors.warning;
     if (status === 'accepted' || status === 'preparing') return Colors.accent;
     if (status === 'ready' || status === 'assigned') return Colors.primary;
-    if (status === 'driver_verified' || status === 'in_transit') return Colors.success;
+    if (status === 'handed_to_driver' || status === 'in_transit' || status === 'arrived') return Colors.success;
     if (status === 'delivered') return Colors.success;
     if (status === 'cancelled') return Colors.error;
     return Colors.mediumGray;
@@ -173,7 +179,7 @@ export default function BusinessOrdersScreen() {
             ]}
           >
             <Text style={[styles.statusText, { color: getStatusColor(order.status) }]}>
-              {getStatusLabel(order.status)}
+              {getStatusLabel(order.status, order.driverAtBusiness)}
             </Text>
           </View>
         </View>
@@ -232,19 +238,41 @@ export default function BusinessOrdersScreen() {
           </TouchableOpacity>
         )}
 
-        {/* Paso: Verificar repartidor (assigned → driver_verified) */}
-        {order.status === 'assigned' && (
+        {/* Repartidor asignado pero no ha llegado al negocio */}
+        {order.status === 'assigned' && !order.driverAtBusiness && (
+          <View style={[styles.codeContainer, { backgroundColor: Colors.accent + '15' }]}>
+            <Clock size={24} color={Colors.accent} />
+            <Text style={[styles.codeInstruction, { color: Colors.accent, fontWeight: '600', marginTop: 8 }]}>
+              Repartidor en camino al negocio...
+            </Text>
+          </View>
+        )}
+
+        {/* Repartidor en el negocio pero orden aun no lista */}
+        {order.status === 'assigned' && order.driverAtBusiness && (
+          <View style={[styles.codeContainer, { backgroundColor: Colors.warning + '15' }]}>
+            <Clock size={24} color={Colors.warning} />
+            <Text style={[styles.codeInstruction, { color: Colors.warning, fontWeight: '600', marginTop: 8 }]}>
+              Repartidor esperando - Termina de preparar el pedido
+            </Text>
+          </View>
+        )}
+
+        {/* Orden lista Y repartidor en el negocio = Pedir codigo de recoleccion */}
+        {order.status === 'ready' && order.driverAtBusiness && (
           <View style={styles.codeContainer}>
-            <ShieldCheck size={24} color={Colors.primary} />
-            <Text style={styles.codeLabel}>Verificar Repartidor</Text>
+            <Package size={24} color={Colors.success} />
+            <Text style={[styles.codeLabel, { marginTop: 8, fontWeight: '700', fontSize: 14, color: Colors.success }]}>
+              Repartidor listo para recoger
+            </Text>
             <Text style={styles.codeInstruction}>
-              Pide el código de 4 caracteres al repartidor
+              Pide el codigo de recoleccion al repartidor para entregar el pedido:
             </Text>
             <TextInput
-              style={styles.codeInput}
-              value={driverCodeInputs[order.id.toString()] || ''}
+              style={[styles.codeInput, { borderColor: Colors.success }]}
+              value={pickupCodeInputs[order.id.toString()] || ''}
               onChangeText={(text) =>
-                setDriverCodeInputs(prev => ({
+                setPickupCodeInputs(prev => ({
                   ...prev,
                   [order.id.toString()]: text.toUpperCase(),
                 }))
@@ -256,29 +284,47 @@ export default function BusinessOrdersScreen() {
             />
             <TouchableOpacity
               style={[
-                styles.verifyButton,
-                validatingDriver === order.id.toString() && { opacity: 0.6 },
+                styles.acceptButton,
+                { backgroundColor: Colors.success },
+                validatingPickup === order.id.toString() && { opacity: 0.6 },
               ]}
-              onPress={() => handleValidateDriver(order.id.toString())}
-              disabled={validatingDriver === order.id.toString()}
+              onPress={() => handleValidatePickup(order.id.toString())}
+              disabled={validatingPickup === order.id.toString()}
             >
-              <ShieldCheck size={18} color="#fff" />
-              <Text style={styles.verifyButtonText}>
-                {validatingDriver === order.id.toString() ? 'Validando...' : 'Verificar Código'}
+              <Package size={20} color="#fff" />
+              <Text style={styles.acceptButtonText}>
+                {validatingPickup === order.id.toString() ? 'Validando...' : 'Entregar Pedido'}
               </Text>
             </TouchableOpacity>
           </View>
         )}
 
-        {/* Mostrar código de comanda después de verificar */}
-        {order.status === 'driver_verified' && order.comandaCode && (
-          <View style={styles.codeContainer}>
-            <Text style={styles.codeLabel}>Código de Comanda:</Text>
-            <View style={styles.codeBadge}>
-              <Text style={styles.codeText}>{order.comandaCode}</Text>
-            </View>
-            <Text style={styles.codeInstruction}>
-              Repartidor verificado. Entrega el pedido al repartidor.
+        {/* Orden lista pero repartidor no ha llegado */}
+        {order.status === 'ready' && !order.driverAtBusiness && (
+          <View style={[styles.codeContainer, { backgroundColor: Colors.primary + '15' }]}>
+            <Clock size={24} color={Colors.primary} />
+            <Text style={[styles.codeInstruction, { color: Colors.primary, fontWeight: '600', marginTop: 8 }]}>
+              Pedido listo - Esperando que llegue el repartidor
+            </Text>
+          </View>
+        )}
+
+        {/* Orden entregada al repartidor, esperando confirmacion */}
+        {order.status === 'handed_to_driver' && (
+          <View style={[styles.codeContainer, { backgroundColor: Colors.success + '15' }]}>
+            <CheckCircle size={24} color={Colors.success} />
+            <Text style={[styles.codeInstruction, { color: Colors.success, fontWeight: '600', marginTop: 8 }]}>
+              Entregado - Esperando que el repartidor confirme recepcion
+            </Text>
+          </View>
+        )}
+
+        {/* Orden en tránsito - ya fue entregada al repartidor */}
+        {(order.status === 'in_transit' || order.status === 'arrived') && (
+          <View style={[styles.codeContainer, { backgroundColor: Colors.success + '15' }]}>
+            <CheckCircle size={24} color={Colors.success} />
+            <Text style={[styles.codeInstruction, { color: Colors.success, fontWeight: '700', marginTop: 8 }]}>
+              Pedido entregado al repartidor - En camino al cliente
             </Text>
           </View>
         )}
@@ -348,7 +394,7 @@ export default function BusinessOrdersScreen() {
         <View style={styles.tabsRow}>
           {([
             { key: 'new' as const, label: 'Nuevas', count: orders.filter(o => o.status === 'pending').length },
-            { key: 'active' as const, label: 'Activas', count: orders.filter(o => ['accepted', 'preparing', 'ready', 'assigned', 'driver_verified', 'in_transit'].includes(o.status)).length },
+            { key: 'active' as const, label: 'Activas', count: orders.filter(o => ['accepted', 'preparing', 'ready', 'assigned', 'handed_to_driver', 'in_transit', 'arrived'].includes(o.status)).length },
             { key: 'done' as const, label: 'Completadas', count: orders.filter(o => ['delivered', 'cancelled'].includes(o.status)).length },
           ]).map(tab => (
             <TouchableOpacity
@@ -381,7 +427,7 @@ export default function BusinessOrdersScreen() {
           ) : (() => {
             const filtered = orders.filter(o => {
               if (activeTab === 'new') return o.status === 'pending';
-              if (activeTab === 'active') return ['accepted', 'preparing', 'ready', 'assigned', 'driver_verified', 'in_transit'].includes(o.status);
+              if (activeTab === 'active') return ['accepted', 'preparing', 'ready', 'assigned', 'handed_to_driver', 'in_transit', 'arrived'].includes(o.status);
               return ['delivered', 'cancelled'].includes(o.status);
             });
             return filtered.length === 0 ? (

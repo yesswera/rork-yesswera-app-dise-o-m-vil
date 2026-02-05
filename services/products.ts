@@ -1,5 +1,6 @@
 import { supabase } from '@/constants/supabase';
 import { Business, Product, ProductFull, ProductCategory } from '@/constants/types';
+import { parseLocation } from '@/utils/geo';
 
 function mapBusiness(db: any): Business {
   const prepTime = db.preparation_time_minutes || 20;
@@ -103,11 +104,8 @@ export async function getBusinessLocation(businessId: string): Promise<{ latitud
 
     if (error || !data?.location) return null;
 
-    // PostGIS returns GeoJSON: { type: "Point", coordinates: [lng, lat] }
-    const coords = data.location?.coordinates;
-    if (!coords || coords.length < 2) return null;
-
-    return { latitude: coords[1], longitude: coords[0] };
+    // PostGIS devuelve WKB hex via REST API, parseLocation maneja ambos formatos
+    return parseLocation(data.location);
   } catch (error) {
     console.error('getBusinessLocation error:', error);
     return null;
