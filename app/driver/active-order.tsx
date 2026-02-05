@@ -331,7 +331,7 @@ export default function ActiveOrderScreen() {
               <TextInput
                 ref={deliveryInputRef}
                 style={styles.codeInput}
-                placeholder="Codigo (5 chars)"
+                placeholder="Código de entrega"
                 placeholderTextColor={Colors.text.light}
                 value={deliveryCodeInput}
                 onChangeText={(text) => setDeliveryCodeInput(text.toUpperCase())}

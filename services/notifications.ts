@@ -2,7 +2,7 @@ import * as Notifications from 'expo-notifications';
 import * as Device from 'expo-device';
 import Constants from 'expo-constants';
 import { Platform } from 'react-native';
-import { API_ENDPOINTS } from '@/constants/api';
+import { supabase } from '@/constants/supabase';
 
 Notifications.setNotificationHandler({
   handleNotification: async () => ({
@@ -14,7 +14,7 @@ Notifications.setNotificationHandler({
   }),
 });
 
-export async function registerForPushNotifications(userId: string, token: string): Promise<string | null> {
+export async function registerForPushNotifications(userId: string): Promise<string | null> {
   if (Platform.OS === 'web') {
     console.log('[Notifications] Push notifications not supported on web');
     return null;
@@ -44,7 +44,23 @@ export async function registerForPushNotifications(userId: string, token: string
 
     console.log('[Notifications] Push token obtained:', pushToken);
 
-    await registerTokenWithBackend(userId, pushToken, token);
+    // Save token to Supabase
+    const { error } = await supabase
+      .from('push_tokens')
+      .upsert(
+        {
+          user_id: userId,
+          token: pushToken,
+          platform: Platform.OS,
+        },
+        { onConflict: 'user_id,token' }
+      );
+
+    if (error) {
+      console.error('[Notifications] Error saving token to Supabase:', error);
+    } else {
+      console.log('[Notifications] Token registered successfully in Supabase');
+    }
 
     if (Platform.OS === 'android') {
       await Notifications.setNotificationChannelAsync('default', {
@@ -59,31 +75,6 @@ export async function registerForPushNotifications(userId: string, token: string
   } catch (error) {
     console.error('[Notifications] Error registering for push notifications:', error);
     return null;
-  }
-}
-
-async function registerTokenWithBackend(userId: string, pushToken: string, token: string): Promise<void> {
-  try {
-    const response = await fetch(API_ENDPOINTS.notifications.registerToken, {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${token}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        userId,
-        expoPushToken: pushToken,
-        platform: Platform.OS,
-      }),
-    });
-
-    if (!response.ok) {
-      console.error('[Notifications] Error registering token with backend');
-    } else {
-      console.log('[Notifications] Token registered successfully with backend');
-    }
-  } catch (error) {
-    console.error('[Notifications] Error registering token:', error);
   }
 }
 

@@ -11,7 +11,7 @@ import {
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
-import { Clock, MapPin, CheckCircle, ArrowLeft, ShieldCheck, Package } from 'lucide-react-native';
+import { Clock, MapPin, CheckCircle, ArrowLeft, ShieldCheck, Package, CookingPot } from 'lucide-react-native';
 import Colors from '@/constants/colors';
 import { useAuth } from '@/contexts/auth';
 import { getBusinessOrders, acceptOrder, validateDriverCode, updateOrderStatus } from '@/services/orders';
@@ -26,6 +26,8 @@ export default function BusinessOrdersScreen() {
   const [refreshing, setRefreshing] = useState(false);
   const [driverCodeInputs, setDriverCodeInputs] = useState<Record<string, string>>({});
   const [validatingDriver, setValidatingDriver] = useState<string | null>(null);
+  const [showPrepTimeFor, setShowPrepTimeFor] = useState<string | null>(null);
+  const [activeTab, setActiveTab] = useState<'new' | 'active' | 'done'>('new');
 
   const loadOrders = useCallback(async () => {
     if (!user || !token) return;
@@ -61,29 +63,18 @@ export default function BusinessOrdersScreen() {
     return () => clearInterval(interval);
   }, [loadOrders]);
 
-  const handleAcceptOrder = async (orderId: string) => {
+  const handleAcceptOrder = async (orderId: string, prepTime: number) => {
     if (!token) return;
 
-    Alert.alert(
-      'Aceptar Orden',
-      '¿Confirmar aceptación? (Tiempo estimado: 20 min)',
-      [
-        { text: 'Cancelar', style: 'cancel' },
-        {
-          text: 'Aceptar',
-          onPress: async () => {
-            try {
-              await acceptOrder(orderId, 20);
-              Alert.alert('Éxito', 'Orden aceptada');
-              loadOrders();
-            } catch (error) {
-              console.error('Error accepting order:', error);
-              Alert.alert('Error', 'No se pudo aceptar la orden');
-            }
-          },
-        },
-      ]
-    );
+    try {
+      await acceptOrder(orderId, prepTime);
+      setShowPrepTimeFor(null);
+      Alert.alert('Éxito', `Orden aceptada — ${prepTime} min de preparación`);
+      loadOrders();
+    } catch (error) {
+      console.error('Error accepting order:', error);
+      Alert.alert('Error', 'No se pudo aceptar la orden');
+    }
   };
 
   const handleValidateDriver = async (orderId: string) => {
@@ -110,6 +101,15 @@ export default function BusinessOrdersScreen() {
       Alert.alert('Error', 'No se pudo validar el código');
     } finally {
       setValidatingDriver(null);
+    }
+  };
+
+  const handleStartPreparing = async (orderId: string) => {
+    try {
+      await updateOrderStatus(orderId, 'preparing');
+      loadOrders();
+    } catch (error) {
+      Alert.alert('Error', 'No se pudo actualizar el estado');
     }
   };
 
@@ -210,8 +210,19 @@ export default function BusinessOrdersScreen() {
           <Text style={styles.totalText}>Total: ${order.total.toFixed(2)} MXN</Text>
         </View>
 
-        {/* Botón: Marcar como lista (accepted → ready) */}
-        {(order.status === 'accepted' || order.status === 'preparing') && (
+        {/* Botón: Comenzar preparación (accepted → preparing) */}
+        {order.status === 'accepted' && (
+          <TouchableOpacity
+            style={[styles.acceptButton, { backgroundColor: Colors.accent }]}
+            onPress={() => handleStartPreparing(order.id.toString())}
+          >
+            <CookingPot size={20} color="#fff" />
+            <Text style={styles.acceptButtonText}>Comenzar Preparación</Text>
+          </TouchableOpacity>
+        )}
+
+        {/* Botón: Marcar como lista (preparing → ready) */}
+        {order.status === 'preparing' && (
           <TouchableOpacity
             style={[styles.acceptButton, { backgroundColor: Colors.primary }]}
             onPress={() => handleMarkReady(order.id.toString())}
@@ -272,15 +283,48 @@ export default function BusinessOrdersScreen() {
           </View>
         )}
 
-        {/* Botón: Aceptar orden (pending) */}
-        {isPending && (
+        {/* Selector de tiempo y aceptar orden (pending) */}
+        {isPending && showPrepTimeFor !== order.id.toString() && (
           <TouchableOpacity
             style={styles.acceptButton}
-            onPress={() => handleAcceptOrder(order.id.toString())}
+            onPress={() => setShowPrepTimeFor(order.id.toString())}
           >
             <CheckCircle size={20} color="#fff" />
             <Text style={styles.acceptButtonText}>Aceptar Orden</Text>
           </TouchableOpacity>
+        )}
+
+        {isPending && showPrepTimeFor === order.id.toString() && (
+          <View style={styles.prepTimeContainer}>
+            <Text style={styles.prepTimeTitle}>Tiempo de preparación:</Text>
+            <View style={styles.prepTimeRow}>
+              {[10, 15, 20, 30, 45].map((min) => (
+                <TouchableOpacity
+                  key={min}
+                  style={[
+                    styles.prepTimeButton,
+                    min === 20 && styles.prepTimeButtonDefault,
+                  ]}
+                  onPress={() => handleAcceptOrder(order.id.toString(), min)}
+                >
+                  <Text
+                    style={[
+                      styles.prepTimeButtonText,
+                      min === 20 && styles.prepTimeButtonTextDefault,
+                    ]}
+                  >
+                    {min} min
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+            <TouchableOpacity
+              style={styles.prepTimeCancelButton}
+              onPress={() => setShowPrepTimeFor(null)}
+            >
+              <Text style={styles.prepTimeCancelText}>Cancelar</Text>
+            </TouchableOpacity>
+          </View>
         )}
       </TouchableOpacity>
     );
@@ -300,6 +344,32 @@ export default function BusinessOrdersScreen() {
       </View>
 
       <View style={styles.content}>
+        {/* Tabs de filtro */}
+        <View style={styles.tabsRow}>
+          {([
+            { key: 'new' as const, label: 'Nuevas', count: orders.filter(o => o.status === 'pending').length },
+            { key: 'active' as const, label: 'Activas', count: orders.filter(o => ['accepted', 'preparing', 'ready', 'assigned', 'driver_verified'].includes(o.status)).length },
+            { key: 'done' as const, label: 'Completadas', count: orders.filter(o => ['delivered', 'cancelled', 'in_transit'].includes(o.status)).length },
+          ]).map(tab => (
+            <TouchableOpacity
+              key={tab.key}
+              style={[styles.tab, activeTab === tab.key && styles.tabActive]}
+              onPress={() => setActiveTab(tab.key)}
+            >
+              <Text style={[styles.tabText, activeTab === tab.key && styles.tabTextActive]}>
+                {tab.label}
+              </Text>
+              {tab.count > 0 && (
+                <View style={[styles.tabBadge, activeTab === tab.key && styles.tabBadgeActive]}>
+                  <Text style={[styles.tabBadgeText, activeTab === tab.key && styles.tabBadgeTextActive]}>
+                    {tab.count}
+                  </Text>
+                </View>
+              )}
+            </TouchableOpacity>
+          ))}
+        </View>
+
         <ScrollView
           showsVerticalScrollIndicator={false}
           refreshControl={
@@ -308,11 +378,20 @@ export default function BusinessOrdersScreen() {
         >
           {loading ? (
             <Text style={styles.loadingText}>Cargando órdenes...</Text>
-          ) : orders.length === 0 ? (
-            <Text style={styles.emptyText}>No hay órdenes</Text>
-          ) : (
-            orders.map(renderOrder)
-          )}
+          ) : (() => {
+            const filtered = orders.filter(o => {
+              if (activeTab === 'new') return o.status === 'pending';
+              if (activeTab === 'active') return ['accepted', 'preparing', 'ready', 'assigned', 'driver_verified'].includes(o.status);
+              return ['delivered', 'cancelled', 'in_transit'].includes(o.status);
+            });
+            return filtered.length === 0 ? (
+              <Text style={styles.emptyText}>
+                {activeTab === 'new' ? 'No hay órdenes nuevas' : activeTab === 'active' ? 'No hay órdenes activas' : 'No hay órdenes completadas'}
+              </Text>
+            ) : (
+              filtered.map(renderOrder)
+            );
+          })()}
         </ScrollView>
       </View>
     </LinearGradient>
@@ -499,6 +578,101 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     color: Colors.white,
     marginLeft: 8,
+  },
+  tabsRow: {
+    flexDirection: 'row',
+    marginBottom: 16,
+    gap: 8,
+  },
+  tab: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 10,
+    borderRadius: 10,
+    backgroundColor: Colors.white,
+    borderWidth: 1,
+    borderColor: Colors.border.light,
+    gap: 6,
+  },
+  tabActive: {
+    backgroundColor: Colors.secondary,
+    borderColor: Colors.secondary,
+  },
+  tabText: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: Colors.text.secondary,
+  },
+  tabTextActive: {
+    color: Colors.white,
+  },
+  tabBadge: {
+    backgroundColor: Colors.secondary + '20',
+    borderRadius: 10,
+    paddingHorizontal: 7,
+    paddingVertical: 2,
+  },
+  tabBadgeActive: {
+    backgroundColor: 'rgba(255,255,255,0.3)',
+  },
+  tabBadgeText: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: Colors.secondary,
+  },
+  tabBadgeTextActive: {
+    color: Colors.white,
+  },
+  prepTimeContainer: {
+    backgroundColor: Colors.success + '10',
+    borderRadius: 8,
+    padding: 12,
+    marginTop: 12,
+    borderWidth: 1,
+    borderColor: Colors.success + '30',
+  },
+  prepTimeTitle: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: Colors.text.primary,
+    textAlign: 'center',
+    marginBottom: 10,
+  },
+  prepTimeRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginBottom: 8,
+  },
+  prepTimeButton: {
+    flex: 1,
+    backgroundColor: Colors.white,
+    borderWidth: 1,
+    borderColor: Colors.success,
+    borderRadius: 8,
+    paddingVertical: 10,
+    marginHorizontal: 3,
+    alignItems: 'center',
+  },
+  prepTimeButtonDefault: {
+    backgroundColor: Colors.success,
+  },
+  prepTimeButtonText: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: Colors.success,
+  },
+  prepTimeButtonTextDefault: {
+    color: Colors.white,
+  },
+  prepTimeCancelButton: {
+    alignItems: 'center',
+    paddingVertical: 6,
+  },
+  prepTimeCancelText: {
+    fontSize: 13,
+    color: Colors.text.secondary,
   },
   loadingText: {
     fontSize: 16,

@@ -1,15 +1,47 @@
-import { Stack } from "expo-router";
+import { Stack, useRouter } from "expo-router";
 import * as SplashScreen from "expo-splash-screen";
-import React, { useEffect } from "react";
+import React, { useEffect, useRef } from "react";
 import { View } from "react-native";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
-import { AuthProvider } from "@/contexts/auth";
+import { AuthProvider, useAuth } from "@/contexts/auth";
 import { CartProvider } from "@/contexts/cart";
 import { AnalyticsProvider } from "@/contexts/analytics";
 import { QueryProvider } from "@/providers/QueryProvider";
 import ToastContainer from "@/components/ToastContainer";
+import {
+  registerForPushNotifications,
+  addNotificationResponseReceivedListener,
+} from "@/services/notifications";
 
 SplashScreen.preventAutoHideAsync();
+
+function NotificationHandler() {
+  const { user } = useAuth();
+  const router = useRouter();
+  const registered = useRef(false);
+
+  useEffect(() => {
+    if (user && !registered.current) {
+      registered.current = true;
+      registerForPushNotifications(user.id).catch(console.error);
+    }
+    if (!user) {
+      registered.current = false;
+    }
+  }, [user]);
+
+  useEffect(() => {
+    const sub = addNotificationResponseReceivedListener((response) => {
+      const data = response.notification.request.content.data;
+      if (data?.orderId) {
+        router.push(`/orders/${data.orderId}` as any);
+      }
+    });
+    return () => sub.remove();
+  }, [router]);
+
+  return null;
+}
 
 function RootLayoutNav() {
   return (
@@ -55,6 +87,7 @@ export default function RootLayout() {
           <AnalyticsProvider>
             <CartProvider>
               <View style={{ flex: 1 }}>
+                <NotificationHandler />
                 <RootLayoutNav />
                 <ToastContainer />
               </View>

@@ -1,6 +1,6 @@
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, ActivityIndicator } from 'react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
-import { ChevronLeft, MapPin, User as UserIcon, Map, Key } from 'lucide-react-native';
+import { ChevronLeft, MapPin, User as UserIcon, Map, Key, CheckCircle, Circle, Clock } from 'lucide-react-native';
 import { useAuth } from '@/contexts/auth';
 import Colors from '@/constants/colors';
 import { StatusBar } from 'expo-status-bar';
@@ -188,10 +188,34 @@ export default function OrderDetailsScreen() {
 
   const canRate = order.status === 'delivered' && !order.rated;
 
+  const timelineSteps = [
+    { key: 'pending', label: 'Pedido Creado' },
+    { key: 'accepted', label: 'Aceptado' },
+    { key: 'preparing', label: 'Preparando' },
+    { key: 'ready', label: 'Listo' },
+    { key: 'assigned', label: 'Repartidor' },
+    { key: 'in_transit', label: 'En Camino' },
+    { key: 'delivered', label: 'Entregado' },
+  ];
+
+  const statusOrder = ['pending', 'accepted', 'preparing', 'ready', 'assigned', 'driver_verified', 'in_transit', 'delivered'];
+  const currentIndex = statusOrder.indexOf(order.status);
+  const isCancelled = order.status === 'cancelled';
+
+  const getStepState = (stepKey: string) => {
+    if (isCancelled) return 'cancelled';
+    const stepIdx = statusOrder.indexOf(stepKey);
+    // driver_verified counts as same level as assigned
+    const effectiveIdx = stepKey === 'assigned' ? Math.max(statusOrder.indexOf('assigned'), statusOrder.indexOf('driver_verified')) : stepIdx;
+    if (currentIndex > stepIdx) return 'completed';
+    if (currentIndex === stepIdx || (stepKey === 'assigned' && order.status === 'driver_verified')) return 'current';
+    return 'upcoming';
+  };
+
   return (
     <View style={styles.container}>
       <StatusBar style="light" />
-      
+
       <View style={styles.header}>
         <TouchableOpacity
           style={styles.backButton}
@@ -212,6 +236,48 @@ export default function OrderDetailsScreen() {
             </Text>
           </View>
         </View>
+
+        {/* Timeline de progreso */}
+        {!isCancelled && (
+          <View style={styles.section}>
+            <View style={styles.timelineContainer}>
+              {timelineSteps.map((step, index) => {
+                const state = getStepState(step.key);
+                const isLast = index === timelineSteps.length - 1;
+                return (
+                  <View key={step.key} style={styles.timelineStep}>
+                    <View style={styles.timelineIconColumn}>
+                      {state === 'completed' ? (
+                        <CheckCircle size={22} color={Colors.success} />
+                      ) : state === 'current' ? (
+                        <Clock size={22} color={Colors.accent} />
+                      ) : (
+                        <Circle size={22} color={Colors.lightGray} />
+                      )}
+                      {!isLast && (
+                        <View
+                          style={[
+                            styles.timelineLine,
+                            state === 'completed' && styles.timelineLineCompleted,
+                          ]}
+                        />
+                      )}
+                    </View>
+                    <Text
+                      style={[
+                        styles.timelineLabel,
+                        state === 'completed' && styles.timelineLabelCompleted,
+                        state === 'current' && styles.timelineLabelCurrent,
+                      ]}
+                    >
+                      {step.label}
+                    </Text>
+                  </View>
+                );
+              })}
+            </View>
+          </View>
+        )}
 
         {/* Código de entrega - visible cuando el pedido está en camino */}
         {(order.status === 'in_transit' || order.status === 'driver_verified') && order.deliveryCode && (
@@ -697,5 +763,43 @@ const styles = StyleSheet.create({
     textAlign: 'center' as const,
     marginTop: 12,
     lineHeight: 18,
+  },
+  timelineContainer: {
+    backgroundColor: Colors.white,
+    borderRadius: 16,
+    padding: 16,
+    borderWidth: 1,
+    borderColor: Colors.border.light,
+  },
+  timelineStep: {
+    flexDirection: 'row' as const,
+    alignItems: 'flex-start' as const,
+  },
+  timelineIconColumn: {
+    alignItems: 'center' as const,
+    width: 24,
+    marginRight: 12,
+  },
+  timelineLine: {
+    width: 2,
+    height: 20,
+    backgroundColor: Colors.lightGray,
+    marginVertical: 2,
+  },
+  timelineLineCompleted: {
+    backgroundColor: Colors.success,
+  },
+  timelineLabel: {
+    fontSize: 14,
+    color: Colors.text.light,
+    paddingTop: 2,
+    paddingBottom: 16,
+  },
+  timelineLabelCompleted: {
+    color: Colors.text.secondary,
+  },
+  timelineLabelCurrent: {
+    color: Colors.accent,
+    fontWeight: '700' as const,
   },
 });
