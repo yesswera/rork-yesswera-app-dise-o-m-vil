@@ -11,6 +11,7 @@ import {
   Platform,
   Keyboard,
   Linking,
+  Animated,
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -36,6 +37,29 @@ export default function ActiveOrderScreen() {
   const [validating, setValidating] = useState(false);
 
   const deliveryInputRef = useRef<TextInput>(null);
+  const pulseAnim = useRef(new Animated.Value(1)).current;
+
+  // Pulse animation for pickup code
+  useEffect(() => {
+    if (order?.status === 'ready' && order?.driverAtBusiness) {
+      const pulse = Animated.loop(
+        Animated.sequence([
+          Animated.timing(pulseAnim, {
+            toValue: 1.03,
+            duration: 600,
+            useNativeDriver: true,
+          }),
+          Animated.timing(pulseAnim, {
+            toValue: 1,
+            duration: 600,
+            useNativeDriver: true,
+          }),
+        ])
+      );
+      pulse.start();
+      return () => pulse.stop();
+    }
+  }, [order?.status, order?.driverAtBusiness, pulseAnim]);
 
   const loadActiveOrder = useCallback(async () => {
     if (!user || !token) return;
@@ -357,22 +381,25 @@ export default function ActiveOrderScreen() {
 
           {/* === PHASE 3: Order ready + Driver at business = Show pickup code === */}
           {canShowPickupCode && (
-            <View style={styles.card}>
-              <View style={styles.stepHeader}>
-                <Package size={24} color={Colors.success} />
-                <Text style={styles.stepTitle}>Paso 2: Recoger Pedido</Text>
+            <Animated.View style={[styles.card, styles.pickupCodeCard, { transform: [{ scale: pulseAnim }] }]}>
+              <View style={styles.pickupCodeHeader}>
+                <View style={styles.pickupCodeIconContainer}>
+                  <Package size={28} color={Colors.white} />
+                </View>
+                <Text style={styles.pickupCodeTitle}>Pedido Listo!</Text>
               </View>
-              <Text style={styles.stepInstruction}>
-                El pedido esta listo! Muestra este codigo al negocio para que te entreguen la comanda:
+              <Text style={styles.pickupCodeSubtitle}>
+                Muestra este codigo al negocio:
               </Text>
-              <View style={styles.codeDisplayContainer}>
-                <Text style={styles.codeDisplayLabel}>Codigo de recoleccion:</Text>
-                <Text style={styles.codeDisplay}>{order.comandaCode}</Text>
+              <View style={styles.pickupCodeBox}>
+                <Text style={styles.pickupCodeValue}>{order.comandaCode}</Text>
               </View>
-              <Text style={styles.stepInstruction}>
-                El negocio validara tu codigo y te entregara el pedido.
-              </Text>
-            </View>
+              <View style={styles.pickupCodeFooter}>
+                <Text style={styles.pickupCodeHint}>
+                  El negocio validara tu codigo y te entregara el pedido
+                </Text>
+              </View>
+            </Animated.View>
           )}
 
           {/* === PHASE 4: Business handed order, driver confirms === */}
@@ -799,5 +826,70 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: Colors.text.secondary,
     marginTop: 12,
+  },
+  // Pickup code special styles
+  pickupCodeCard: {
+    backgroundColor: Colors.success,
+    borderRadius: 16,
+    padding: 0,
+    overflow: 'hidden',
+    shadowColor: Colors.success,
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.4,
+    shadowRadius: 12,
+    elevation: 8,
+  },
+  pickupCodeHeader: {
+    backgroundColor: 'rgba(0,0,0,0.1)',
+    paddingVertical: 16,
+    paddingHorizontal: 20,
+    alignItems: 'center',
+    flexDirection: 'row',
+    justifyContent: 'center',
+    gap: 12,
+  },
+  pickupCodeIconContainer: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: 'rgba(255,255,255,0.2)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  pickupCodeTitle: {
+    fontSize: 22,
+    fontWeight: '800',
+    color: Colors.white,
+  },
+  pickupCodeSubtitle: {
+    fontSize: 14,
+    color: 'rgba(255,255,255,0.9)',
+    textAlign: 'center',
+    paddingTop: 16,
+    paddingHorizontal: 20,
+  },
+  pickupCodeBox: {
+    backgroundColor: Colors.white,
+    marginHorizontal: 20,
+    marginVertical: 16,
+    borderRadius: 12,
+    paddingVertical: 20,
+    alignItems: 'center',
+  },
+  pickupCodeValue: {
+    fontSize: 44,
+    fontWeight: '900',
+    color: Colors.success,
+    letterSpacing: 12,
+  },
+  pickupCodeFooter: {
+    backgroundColor: 'rgba(0,0,0,0.1)',
+    paddingVertical: 12,
+    paddingHorizontal: 20,
+  },
+  pickupCodeHint: {
+    fontSize: 13,
+    color: 'rgba(255,255,255,0.85)',
+    textAlign: 'center',
   },
 });

@@ -1,12 +1,12 @@
 import { useState, useEffect, useRef } from 'react';
-import { StyleSheet, Text, View, TouchableOpacity, ScrollView, Dimensions, ActivityIndicator, Animated } from 'react-native';
+import { StyleSheet, Text, View, TouchableOpacity, ScrollView, Dimensions, ActivityIndicator, Animated, Alert } from 'react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
-import { Clock, User, Phone, Star, Navigation } from 'lucide-react-native';
+import { Clock, User, Phone, Star, Navigation, X, AlertCircle } from 'lucide-react-native';
 import ChatButton from '@/components/ChatButton';
 import * as Haptics from 'expo-haptics';
 import Colors from '@/constants/colors';
 import MapView, { Marker, Polyline } from 'react-native-maps';
-import { getOrderById } from '@/services/orders';
+import { getOrderById, cancelPendingOrder } from '@/services/orders';
 import { getDriverLocation, DriverLocation } from '@/services/gps';
 import { useAuth } from '@/contexts/auth';
 import { Order, OrderStatus } from '@/constants/types';
@@ -31,6 +31,30 @@ export default function TrackingScreen() {
   const prevStatusRef = useRef<OrderStatus | null>(null);
   const markerRotation = useRef(new Animated.Value(0)).current;
   const prevLocationRef = useRef<DriverLocation | null>(null);
+  const [cancelling, setCancelling] = useState(false);
+  const pulseAnim = useRef(new Animated.Value(1)).current;
+
+  // Pulse animation for delivery code
+  useEffect(() => {
+    if (order?.status === 'arrived' || order?.status === 'in_transit') {
+      const pulse = Animated.loop(
+        Animated.sequence([
+          Animated.timing(pulseAnim, {
+            toValue: 1.05,
+            duration: 800,
+            useNativeDriver: true,
+          }),
+          Animated.timing(pulseAnim, {
+            toValue: 1,
+            duration: 800,
+            useNativeDriver: true,
+          }),
+        ])
+      );
+      pulse.start();
+      return () => pulse.stop();
+    }
+  }, [order?.status, pulseAnim]);
 
   useEffect(() => {
     const loadOrder = async () => {
@@ -168,6 +192,40 @@ export default function TrackingScreen() {
     }
   };
 
+  const handleCancelOrder = () => {
+    if (!order || order.status !== 'pending') return;
+
+    Alert.alert(
+      'Cancelar Pedido',
+      '¿Estás seguro que deseas cancelar este pedido?',
+      [
+        { text: 'No', style: 'cancel' },
+        {
+          text: 'Sí, Cancelar',
+          style: 'destructive',
+          onPress: async () => {
+            setCancelling(true);
+            try {
+              await cancelPendingOrder(order.id.toString(), 'Cancelado por cliente');
+              Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+              Alert.alert('Pedido Cancelado', 'Tu pedido ha sido cancelado exitosamente.', [
+                { text: 'OK', onPress: () => router.push('/' as any) }
+              ]);
+            } catch (err: any) {
+              Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+              Alert.alert('Error', err.message || 'No se pudo cancelar el pedido');
+            } finally {
+              setCancelling(false);
+            }
+          },
+        },
+      ]
+    );
+  };
+
+  const canCancel = order?.status === 'pending';
+  const canRequestCancel = order && ['accepted', 'preparing'].includes(order.status);
+
   if (isLoading) {
     return (
       <View style={[styles.container, styles.centerContent]}>
@@ -285,13 +343,42 @@ export default function TrackingScreen() {
         </View>
 
         {(order.status === 'arrived' || order.status === 'in_transit') && order.deliveryCode && (
-          <View style={styles.deliveryCodeCard}>
+          <Animated.View style={[styles.deliveryCodeCard, { transform: [{ scale: pulseAnim }] }]}>
+            <View style={styles.deliveryCodeIcon}>
+              <AlertCircle size={24} color={Colors.success} />
+            </View>
             <Text style={styles.deliveryCodeLabel}>
-              {order.status === 'arrived' ? 'Dale este código al repartidor:' : 'Tu código de entrega:'}
+              {order.status === 'arrived' ? 'Dale este codigo al repartidor:' : 'Tu codigo de entrega:'}
             </Text>
-            <Text style={styles.deliveryCodeValue}>{order.deliveryCode}</Text>
+            <View style={styles.deliveryCodeBox}>
+              <Text style={styles.deliveryCodeValue}>{order.deliveryCode}</Text>
+            </View>
             <Text style={styles.deliveryCodeHint}>
-              {order.status === 'arrived' ? 'El repartidor te lo pedirá para completar la entrega' : 'Tenlo listo para cuando llegue el repartidor'}
+              {order.status === 'arrived' ? 'El repartidor te lo pedira para completar la entrega' : 'Tenlo listo para cuando llegue el repartidor'}
+            </Text>
+          </Animated.View>
+        )}
+
+        {/* Cancel button for pending orders */}
+        {canCancel && (
+          <TouchableOpacity
+            style={styles.cancelButton}
+            onPress={handleCancelOrder}
+            disabled={cancelling}
+          >
+            <X size={18} color={Colors.error} />
+            <Text style={styles.cancelButtonText}>
+              {cancelling ? 'Cancelando...' : 'Cancelar Pedido'}
+            </Text>
+          </TouchableOpacity>
+        )}
+
+        {/* Info for requesting cancellation after accepted */}
+        {canRequestCancel && (
+          <View style={styles.cancelInfoCard}>
+            <AlertCircle size={18} color={Colors.warning} />
+            <Text style={styles.cancelInfoText}>
+              Para cancelar, contacta al negocio por chat
             </Text>
           </View>
         )}
@@ -459,29 +546,82 @@ const styles = StyleSheet.create({
     color: Colors.text.secondary,
   },
   deliveryCodeCard: {
-    backgroundColor: Colors.success + '15',
+    backgroundColor: Colors.success + '10',
     borderWidth: 2,
     borderColor: Colors.success,
-    borderRadius: 12,
-    padding: 16,
+    borderRadius: 16,
+    padding: 20,
     alignItems: 'center' as const,
+    shadowColor: Colors.success,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 6,
+  },
+  deliveryCodeIcon: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    backgroundColor: Colors.success + '20',
+    justifyContent: 'center' as const,
+    alignItems: 'center' as const,
+    marginBottom: 12,
   },
   deliveryCodeLabel: {
     fontSize: 14,
     color: Colors.text.secondary,
-    marginBottom: 8,
+    marginBottom: 12,
+    textAlign: 'center' as const,
+  },
+  deliveryCodeBox: {
+    backgroundColor: Colors.white,
+    borderRadius: 12,
+    paddingVertical: 16,
+    paddingHorizontal: 24,
+    marginBottom: 12,
+    borderWidth: 2,
+    borderColor: Colors.success,
+    borderStyle: 'dashed' as const,
   },
   deliveryCodeValue: {
-    fontSize: 36,
-    fontWeight: '700' as const,
+    fontSize: 40,
+    fontWeight: '800' as const,
     color: Colors.success,
-    letterSpacing: 8,
-    marginBottom: 8,
+    letterSpacing: 10,
   },
   deliveryCodeHint: {
     fontSize: 12,
     color: Colors.text.light,
     textAlign: 'center' as const,
+  },
+  cancelButton: {
+    flexDirection: 'row' as const,
+    alignItems: 'center' as const,
+    justifyContent: 'center' as const,
+    backgroundColor: Colors.error + '10',
+    borderWidth: 1.5,
+    borderColor: Colors.error,
+    borderRadius: 12,
+    paddingVertical: 14,
+    gap: 8,
+  },
+  cancelButtonText: {
+    fontSize: 15,
+    fontWeight: '600' as const,
+    color: Colors.error,
+  },
+  cancelInfoCard: {
+    flexDirection: 'row' as const,
+    alignItems: 'center' as const,
+    backgroundColor: Colors.warning + '15',
+    borderRadius: 10,
+    padding: 12,
+    gap: 10,
+  },
+  cancelInfoText: {
+    fontSize: 13,
+    color: Colors.warning,
+    flex: 1,
   },
   driverCard: {
     backgroundColor: Colors.white,
