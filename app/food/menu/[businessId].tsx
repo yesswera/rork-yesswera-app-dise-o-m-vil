@@ -1,19 +1,56 @@
-import { StyleSheet, Text, View, TouchableOpacity, ScrollView, Alert } from 'react-native';
+import { StyleSheet, Text, View, TouchableOpacity, ScrollView, Alert, ActivityIndicator, RefreshControl } from 'react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { ShoppingCart, Plus, Minus } from 'lucide-react-native';
 import { Image } from 'expo-image';
+import { useState, useEffect, useCallback } from 'react';
 import Colors from '@/constants/colors';
-import { mockBusinesses } from '@/mocks/businesses';
-import { mockProducts } from '@/mocks/products';
+import { Business, Product } from '@/constants/types';
+import { getBusinessById, getBusinessMenu } from '@/services/products';
 import { useCart } from '@/contexts/cart';
+import EmptyState from '@/components/EmptyState';
 
 export default function MenuScreen() {
   const router = useRouter();
   const { businessId } = useLocalSearchParams<{ businessId: string }>();
   const { items, addItem, updateQuantity, itemCount } = useCart();
+  const [business, setBusiness] = useState<Business | null>(null);
+  const [products, setProducts] = useState<Product[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
 
-  const business = mockBusinesses.find((b) => b.id === businessId);
-  const products = mockProducts[businessId || ''] || [];
+  const loadData = useCallback(async () => {
+    if (!businessId) return;
+    try {
+      const [biz, menu] = await Promise.all([
+        getBusinessById(businessId),
+        getBusinessMenu(businessId),
+      ]);
+      setBusiness(biz);
+      setProducts(menu);
+    } catch (error) {
+      console.error('Error loading menu:', error);
+    } finally {
+      setLoading(false);
+      setRefreshing(false);
+    }
+  }, [businessId]);
+
+  useEffect(() => {
+    loadData();
+  }, [loadData]);
+
+  const onRefresh = () => {
+    setRefreshing(true);
+    loadData();
+  };
+
+  if (loading) {
+    return (
+      <View style={styles.loadingContainer}>
+        <ActivityIndicator size="large" color={Colors.primary} />
+      </View>
+    );
+  }
 
   if (!business) {
     return (
@@ -27,7 +64,7 @@ export default function MenuScreen() {
     return items.find((item) => item.id === productId)?.quantity || 0;
   };
 
-  const handleAddToCart = (product: any) => {
+  const handleAddToCart = (product: Product) => {
     addItem(product);
   };
 
@@ -41,67 +78,87 @@ export default function MenuScreen() {
 
   return (
     <View style={styles.container}>
-      <ScrollView style={styles.scrollView} showsVerticalScrollIndicator={false}>
-        <Image
-          source={{ uri: business.image }}
-          style={styles.headerImage}
-          contentFit="cover"
-        />
+      <ScrollView
+        style={styles.scrollView}
+        showsVerticalScrollIndicator={false}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={[Colors.primary]} />}
+      >
+        {business.image ? (
+          <Image
+            source={{ uri: business.image }}
+            style={styles.headerImage}
+            contentFit="cover"
+          />
+        ) : (
+          <View style={[styles.headerImage, styles.imagePlaceholder]}>
+            <Text style={styles.imagePlaceholderText}>{business.name.charAt(0)}</Text>
+          </View>
+        )}
         <View style={styles.content}>
           <Text style={styles.businessName}>{business.name}</Text>
           <Text style={styles.businessDescription}>{business.description}</Text>
 
           <View style={styles.productsSection}>
             <Text style={styles.sectionTitle}>Menú</Text>
-            <View style={styles.productsGrid}>
-              {products.map((product) => {
-                const quantity = getItemQuantity(product.id);
-                return (
-                  <View key={product.id} style={styles.productCard}>
-                    <Image
-                      source={{ uri: product.image }}
-                      style={styles.productImage}
-                      contentFit="cover"
-                    />
-                    <View style={styles.productInfo}>
-                      <Text style={styles.productName}>{product.name}</Text>
-                      <Text style={styles.productDescription} numberOfLines={2}>
-                        {product.description}
-                      </Text>
-                      <View style={styles.productFooter}>
-                        <Text style={styles.productPrice}>
-                          ${product.price.toFixed(2)}
+            {products.length === 0 ? (
+              <EmptyState title="Sin productos" message="Este negocio aún no tiene productos disponibles" />
+            ) : (
+              <View style={styles.productsGrid}>
+                {products.map((product) => {
+                  const quantity = getItemQuantity(product.id);
+                  return (
+                    <View key={product.id} style={styles.productCard}>
+                      {product.image ? (
+                        <Image
+                          source={{ uri: product.image }}
+                          style={styles.productImage}
+                          contentFit="cover"
+                        />
+                      ) : (
+                        <View style={[styles.productImage, styles.productImagePlaceholder]}>
+                          <Text style={styles.productImagePlaceholderText}>{product.name.charAt(0)}</Text>
+                        </View>
+                      )}
+                      <View style={styles.productInfo}>
+                        <Text style={styles.productName}>{product.name}</Text>
+                        <Text style={styles.productDescription} numberOfLines={2}>
+                          {product.description}
                         </Text>
-                        {quantity > 0 ? (
-                          <View style={styles.quantityControls}>
+                        <View style={styles.productFooter}>
+                          <Text style={styles.productPrice}>
+                            ${product.price.toFixed(2)}
+                          </Text>
+                          {quantity > 0 ? (
+                            <View style={styles.quantityControls}>
+                              <TouchableOpacity
+                                style={styles.quantityButton}
+                                onPress={() => updateQuantity(product.id, quantity - 1)}
+                              >
+                                <Minus size={16} color={Colors.primary} strokeWidth={3} />
+                              </TouchableOpacity>
+                              <Text style={styles.quantityText}>{quantity}</Text>
+                              <TouchableOpacity
+                                style={styles.quantityButton}
+                                onPress={() => updateQuantity(product.id, quantity + 1)}
+                              >
+                                <Plus size={16} color={Colors.primary} strokeWidth={3} />
+                              </TouchableOpacity>
+                            </View>
+                          ) : (
                             <TouchableOpacity
-                              style={styles.quantityButton}
-                              onPress={() => updateQuantity(product.id, quantity - 1)}
+                              style={styles.addButton}
+                              onPress={() => handleAddToCart(product)}
                             >
-                              <Minus size={16} color={Colors.primary} strokeWidth={3} />
+                              <Plus size={18} color={Colors.white} strokeWidth={3} />
                             </TouchableOpacity>
-                            <Text style={styles.quantityText}>{quantity}</Text>
-                            <TouchableOpacity
-                              style={styles.quantityButton}
-                              onPress={() => updateQuantity(product.id, quantity + 1)}
-                            >
-                              <Plus size={16} color={Colors.primary} strokeWidth={3} />
-                            </TouchableOpacity>
-                          </View>
-                        ) : (
-                          <TouchableOpacity
-                            style={styles.addButton}
-                            onPress={() => handleAddToCart(product)}
-                          >
-                            <Plus size={18} color={Colors.white} strokeWidth={3} />
-                          </TouchableOpacity>
-                        )}
+                          )}
+                        </View>
                       </View>
                     </View>
-                  </View>
-                );
-              })}
-            </View>
+                  );
+                })}
+              </View>
+            )}
           </View>
         </View>
       </ScrollView>
@@ -124,6 +181,11 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: Colors.background.primary,
   },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center' as const,
+    alignItems: 'center' as const,
+  },
   errorContainer: {
     flex: 1,
     justifyContent: 'center' as const,
@@ -141,6 +203,15 @@ const styles = StyleSheet.create({
     width: '100%' as const,
     height: 200,
     backgroundColor: Colors.background.tertiary,
+  },
+  imagePlaceholder: {
+    justifyContent: 'center' as const,
+    alignItems: 'center' as const,
+  },
+  imagePlaceholderText: {
+    fontSize: 64,
+    fontWeight: '700' as const,
+    color: Colors.text.light,
   },
   content: {
     padding: 16,
@@ -183,6 +254,15 @@ const styles = StyleSheet.create({
     width: 120,
     height: 120,
     backgroundColor: Colors.background.tertiary,
+  },
+  productImagePlaceholder: {
+    justifyContent: 'center' as const,
+    alignItems: 'center' as const,
+  },
+  productImagePlaceholderText: {
+    fontSize: 32,
+    fontWeight: '700' as const,
+    color: Colors.text.light,
   },
   productInfo: {
     flex: 1,

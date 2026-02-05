@@ -9,6 +9,7 @@ interface AuthState {
   isLoading: boolean;
   login: (email: string, password: string) => Promise<User>;
   register: (name: string, email: string, password: string, phone: string, userType: string) => Promise<void>;
+  updateProfile: (updates: { name?: string; phone?: string; avatar?: string }) => Promise<void>;
   logout: () => Promise<void>;
 }
 
@@ -183,6 +184,29 @@ export const [AuthProvider, useAuth] = createContextHook<AuthState>(() => {
     }
   };
 
+  const updateProfile = async (updates: { name?: string; phone?: string; avatar?: string }) => {
+    if (!user) throw new Error('No autenticado');
+
+    const dbUpdates: any = {};
+    if (updates.name !== undefined) dbUpdates.full_name = updates.name;
+    if (updates.phone !== undefined) dbUpdates.phone = updates.phone;
+    if (updates.avatar !== undefined) dbUpdates.avatar_url = updates.avatar;
+
+    const { error } = await supabase
+      .from('users')
+      .update(dbUpdates)
+      .eq('id', user.id);
+
+    if (error) throw error;
+
+    setUser({
+      ...user,
+      name: updates.name ?? user.name,
+      phone: updates.phone ?? user.phone,
+      avatar: updates.avatar ?? user.avatar,
+    });
+  };
+
   const logout = async () => {
     try {
       await supabase.auth.signOut();
@@ -200,6 +224,7 @@ export const [AuthProvider, useAuth] = createContextHook<AuthState>(() => {
     isLoading,
     login,
     register,
+    updateProfile,
     logout,
   };
 });

@@ -1,5 +1,96 @@
 import { supabase } from '@/constants/supabase';
-import { ProductFull, ProductCategory } from '@/constants/types';
+import { Business, Product, ProductFull, ProductCategory } from '@/constants/types';
+
+function mapBusiness(db: any): Business {
+  const prepTime = db.preparation_time_minutes || 20;
+  return {
+    id: db.id,
+    name: db.business_name,
+    description: db.description || '',
+    category: db.category || 'food',
+    image: db.cover_url || db.logo_url || '',
+    rating: Number(db.rating_average) || 0,
+    deliveryTime: `${prepTime + 10}-${prepTime + 25} min`,
+    tags: [db.category || 'Restaurante'].filter(Boolean),
+  };
+}
+
+function mapProductToSimple(dbProduct: any, businessName: string): Product {
+  return {
+    id: dbProduct.id,
+    name: dbProduct.name,
+    description: dbProduct.description || '',
+    price: Number(dbProduct.price),
+    image: dbProduct.image_url || '',
+    businessId: dbProduct.business_id,
+    businessName,
+    category: '',
+  };
+}
+
+// Fetch businesses by category (food, shopping, etc.)
+export async function getBusinesses(category?: string): Promise<Business[]> {
+  try {
+    let query = supabase
+      .from('businesses')
+      .select('*')
+      .order('rating_average', { ascending: false });
+
+    if (category) {
+      query = query.eq('category', category);
+    }
+
+    const { data, error } = await query;
+    if (error) throw error;
+
+    return (data || []).map(mapBusiness);
+  } catch (error) {
+    console.error('getBusinesses error:', error);
+    throw error;
+  }
+}
+
+// Fetch single business by ID
+export async function getBusinessById(businessId: string): Promise<Business | null> {
+  try {
+    const { data, error } = await supabase
+      .from('businesses')
+      .select('*')
+      .eq('id', businessId)
+      .single();
+
+    if (error) throw error;
+    return data ? mapBusiness(data) : null;
+  } catch (error) {
+    console.error('getBusinessById error:', error);
+    return null;
+  }
+}
+
+// Fetch products for a business as simple Product type (for cart compatibility)
+export async function getBusinessMenu(businessId: string): Promise<Product[]> {
+  try {
+    const { data: business } = await supabase
+      .from('businesses')
+      .select('business_name')
+      .eq('id', businessId)
+      .single();
+
+    const { data, error } = await supabase
+      .from('products')
+      .select('*')
+      .eq('business_id', businessId)
+      .eq('is_available', true)
+      .order('name');
+
+    if (error) throw error;
+
+    return (data || []).map((p: any) => mapProductToSimple(p, business?.business_name || ''));
+  } catch (error) {
+    console.error('getBusinessMenu error:', error);
+    throw error;
+  }
+}
 
 function mapProduct(dbProduct: any): ProductFull {
   return {

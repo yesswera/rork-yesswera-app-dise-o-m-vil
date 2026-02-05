@@ -1,29 +1,42 @@
-import { StyleSheet, Text, View, TouchableOpacity, ScrollView, TextInput } from 'react-native';
+import { StyleSheet, Text, View, TouchableOpacity, ScrollView, TextInput, ActivityIndicator, RefreshControl } from 'react-native';
 import { useRouter } from 'expo-router';
 import { Search, Star, Clock } from 'lucide-react-native';
 import { Image } from 'expo-image';
-import { useState } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import Colors from '@/constants/colors';
-
-// Único negocio real - Tienda Central
-const realBusinesses = [
-  {
-    id: 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa',
-    name: 'La Tiendita de Juan',
-    description: 'Restaurante con variedad de platillos',
-    image: 'https://images.unsplash.com/photo-1517248135467-4c7edcad34c4?w=400',
-    rating: 4.6,
-    deliveryTime: '25-35 min',
-    tags: ['Restaurante', 'Comida', 'Entrega rápida'],
-    category: 'food',
-  },
-];
+import { Business } from '@/constants/types';
+import { getBusinesses } from '@/services/products';
+import EmptyState from '@/components/EmptyState';
 
 export default function RestaurantsScreen() {
   const router = useRouter();
-  const [search, setSearch] = useState<string>('');
+  const [search, setSearch] = useState('');
+  const [businesses, setBusinesses] = useState<Business[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
 
-  const filteredBusinesses = realBusinesses.filter(
+  const loadBusinesses = useCallback(async () => {
+    try {
+      const data = await getBusinesses();
+      setBusinesses(data);
+    } catch (error) {
+      console.error('Error loading businesses:', error);
+    } finally {
+      setLoading(false);
+      setRefreshing(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    loadBusinesses();
+  }, [loadBusinesses]);
+
+  const onRefresh = () => {
+    setRefreshing(true);
+    loadBusinesses();
+  };
+
+  const filteredBusinesses = businesses.filter(
     (business) =>
       business.name.toLowerCase().includes(search.toLowerCase()) ||
       business.category.toLowerCase().includes(search.toLowerCase())
@@ -44,48 +57,71 @@ export default function RestaurantsScreen() {
         </View>
       </View>
 
-      <ScrollView style={styles.scrollView} showsVerticalScrollIndicator={false}>
-        <View style={styles.content}>
-          {filteredBusinesses.map((business) => (
-            <TouchableOpacity
-              key={business.id}
-              style={styles.businessCard}
-              activeOpacity={0.8}
-              onPress={() => router.push(`/food/menu/${business.id}` as any)}
-            >
-              <Image
-                source={{ uri: business.image }}
-                style={styles.businessImage}
-                contentFit="cover"
-              />
-              <View style={styles.businessInfo}>
-                <Text style={styles.businessName}>{business.name}</Text>
-                <Text style={styles.businessDescription} numberOfLines={1}>
-                  {business.description}
-                </Text>
-                <View style={styles.businessMeta}>
-                  <View style={styles.metaItem}>
-                    <Star size={14} color={Colors.warning} fill={Colors.warning} />
-                    <Text style={styles.metaText}>{business.rating}</Text>
-                  </View>
-                  <View style={styles.metaDivider} />
-                  <View style={styles.metaItem}>
-                    <Clock size={14} color={Colors.text.secondary} />
-                    <Text style={styles.metaText}>{business.deliveryTime}</Text>
-                  </View>
-                </View>
-                <View style={styles.tagsContainer}>
-                  {business.tags.slice(0, 3).map((tag) => (
-                    <View key={tag} style={styles.tag}>
-                      <Text style={styles.tagText}>{tag}</Text>
-                    </View>
-                  ))}
-                </View>
-              </View>
-            </TouchableOpacity>
-          ))}
+      {loading ? (
+        <View style={styles.loadingContainer}>
+          <ActivityIndicator size="large" color={Colors.primary} />
         </View>
-      </ScrollView>
+      ) : (
+        <ScrollView
+          style={styles.scrollView}
+          showsVerticalScrollIndicator={false}
+          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={[Colors.primary]} />}
+        >
+          <View style={styles.content}>
+            {filteredBusinesses.length === 0 ? (
+              <EmptyState
+                title="Sin resultados"
+                message={search ? 'No hay negocios que coincidan con tu búsqueda' : 'No hay negocios disponibles aún'}
+              />
+            ) : (
+              filteredBusinesses.map((business) => (
+                <TouchableOpacity
+                  key={business.id}
+                  style={styles.businessCard}
+                  activeOpacity={0.8}
+                  onPress={() => router.push(`/food/menu/${business.id}` as any)}
+                >
+                  {business.image ? (
+                    <Image
+                      source={{ uri: business.image }}
+                      style={styles.businessImage}
+                      contentFit="cover"
+                    />
+                  ) : (
+                    <View style={[styles.businessImage, styles.imagePlaceholder]}>
+                      <Text style={styles.imagePlaceholderText}>{business.name.charAt(0)}</Text>
+                    </View>
+                  )}
+                  <View style={styles.businessInfo}>
+                    <Text style={styles.businessName}>{business.name}</Text>
+                    <Text style={styles.businessDescription} numberOfLines={1}>
+                      {business.description}
+                    </Text>
+                    <View style={styles.businessMeta}>
+                      <View style={styles.metaItem}>
+                        <Star size={14} color={Colors.warning} fill={Colors.warning} />
+                        <Text style={styles.metaText}>{business.rating.toFixed(1)}</Text>
+                      </View>
+                      <View style={styles.metaDivider} />
+                      <View style={styles.metaItem}>
+                        <Clock size={14} color={Colors.text.secondary} />
+                        <Text style={styles.metaText}>{business.deliveryTime}</Text>
+                      </View>
+                    </View>
+                    <View style={styles.tagsContainer}>
+                      {business.tags.slice(0, 3).map((tag) => (
+                        <View key={tag} style={styles.tag}>
+                          <Text style={styles.tagText}>{tag}</Text>
+                        </View>
+                      ))}
+                    </View>
+                  </View>
+                </TouchableOpacity>
+              ))
+            )}
+          </View>
+        </ScrollView>
+      )}
     </View>
   );
 }
@@ -115,6 +151,11 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: Colors.text.primary,
   },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center' as const,
+    alignItems: 'center' as const,
+  },
   scrollView: {
     flex: 1,
   },
@@ -136,6 +177,15 @@ const styles = StyleSheet.create({
     width: '100%' as const,
     height: 180,
     backgroundColor: Colors.background.tertiary,
+  },
+  imagePlaceholder: {
+    justifyContent: 'center' as const,
+    alignItems: 'center' as const,
+  },
+  imagePlaceholderText: {
+    fontSize: 48,
+    fontWeight: '700' as const,
+    color: Colors.text.light,
   },
   businessInfo: {
     padding: 16,

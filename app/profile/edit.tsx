@@ -14,7 +14,7 @@ import { StatusBar } from 'expo-status-bar';
 
 export default function EditProfileScreen() {
   const router = useRouter();
-  const { user } = useAuth();
+  const { user, updateProfile } = useAuth();
   const [name, setName] = useState<string>(user?.name || '');
   const [phone, setPhone] = useState<string>(user?.phone || '');
   const [avatar, setAvatar] = useState<string | undefined>(user?.avatar);
@@ -86,8 +86,8 @@ export default function EditProfileScreen() {
 
     setIsLoading(true);
     try {
-      await new Promise(resolve => setTimeout(resolve, 1500));
-      
+      await updateProfile({ name, phone, avatar });
+
       HapticFeedback.success();
       Toast.success('Perfil actualizado exitosamente');
       router.back();
