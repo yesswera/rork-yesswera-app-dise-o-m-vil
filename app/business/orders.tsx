@@ -158,7 +158,12 @@ export default function BusinessOrdersScreen() {
     const isAccepted = order.status === 'accepted' || order.status === 'preparing' || order.status === 'ready';
 
     return (
-      <View key={order.id} style={styles.orderCard}>
+      <TouchableOpacity
+        key={order.id}
+        style={styles.orderCard}
+        onPress={() => router.push(`/business/comanda/${order.id}` as any)}
+        activeOpacity={0.7}
+      >
         <View style={styles.orderHeader}>
           <Text style={styles.orderNumber}>Orden #{order.id.toString().slice(0, 8)}</Text>
           <View
@@ -277,7 +282,7 @@ export default function BusinessOrdersScreen() {
             <Text style={styles.acceptButtonText}>Aceptar Orden</Text>
           </TouchableOpacity>
         )}
-      </View>
+      </TouchableOpacity>
     );
   };
 

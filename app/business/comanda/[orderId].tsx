@@ -5,8 +5,7 @@ import { ArrowLeft, CheckCircle, AlertTriangle, Package } from 'lucide-react-nat
 import { LinearGradient } from 'expo-linear-gradient';
 import Colors from '@/constants/colors';
 import { Order } from '@/constants/types';
-import { supabase } from '@/constants/supabase';
-import { updateOrderStatus } from '@/services/orders';
+import { getOrderById, updateOrderStatus } from '@/services/orders';
 
 export default function ComandaScreen() {
   const router = useRouter();
@@ -23,41 +22,8 @@ export default function ComandaScreen() {
     if (!orderId) return;
 
     try {
-      const { data, error } = await supabase
-        .from('orders')
-        .select('*')
-        .eq('id', orderId)
-        .single();
-
-      if (error) throw error;
-      if (data) {
-        setOrder({
-          id: data.id,
-          orderNumber: data.order_number,
-          type: data.type,
-          status: data.status,
-          createdAt: new Date(data.created_at),
-          customerId: data.customer_id,
-          customerName: data.customer_name,
-          customerPhone: data.customer_phone,
-          items: data.items || [],
-          deliveryAddress: data.delivery_address,
-          deliveryLocation: data.delivery_location,
-          deliveryFee: data.delivery_fee,
-          total: data.total,
-          notes: data.notes,
-          paymentMethod: data.payment_method,
-          paymentStatus: data.payment_status,
-          driverCode: data.driver_code,
-          comandaCode: data.comanda_code,
-          deliveryCode: data.delivery_code,
-          pickupCode: data.pickup_code,
-          rated: data.rated || false,
-          driverVerification: data.driver_verification || { validated: false },
-          pickupValidation: data.pickup_validation || { validated: false },
-          deliveryValidation: data.delivery_validation || { validated: false },
-        });
-      }
+      const orderData = await getOrderById(orderId.toString());
+      setOrder(orderData);
     } catch (error) {
       console.error('Error loading order:', error);
       Alert.alert('Error', 'No se pudo cargar la orden');
@@ -140,7 +106,12 @@ export default function ComandaScreen() {
       <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
         <View style={styles.orderNumberCard}>
           <Text style={styles.orderNumberLabel}>ORDEN</Text>
-          <Text style={styles.orderNumber}>#{order.id.toString().padStart(4, '0')}</Text>
+          <Text style={styles.orderNumber}>#{order.id.toString().slice(0, 8)}</Text>
+          {order.comandaCode ? (
+            <View style={styles.comandaCodeBadge}>
+              <Text style={styles.comandaCodeText}>{order.comandaCode}</Text>
+            </View>
+          ) : null}
           <Text style={styles.orderTime}>
             {new Date(order.createdAt).toLocaleTimeString('es-MX', {
               hour: '2-digit',
@@ -311,6 +282,20 @@ const styles = StyleSheet.create({
     fontWeight: '700' as const,
     color: Colors.secondary,
     marginBottom: 4,
+  },
+  comandaCodeBadge: {
+    backgroundColor: Colors.secondary,
+    paddingHorizontal: 16,
+    paddingVertical: 6,
+    borderRadius: 8,
+    marginTop: 8,
+    marginBottom: 4,
+  },
+  comandaCodeText: {
+    fontSize: 20,
+    fontWeight: '700' as const,
+    color: Colors.white,
+    letterSpacing: 4,
   },
   orderTime: {
     fontSize: 16,

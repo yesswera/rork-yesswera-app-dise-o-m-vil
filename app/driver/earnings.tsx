@@ -120,7 +120,7 @@ export default function EarningsScreen() {
 
       const { data: settlements } = await supabase
         .from('orders')
-        .select('business_name, total')
+        .select('total, businesses (business_name)')
         .eq('driver_id', driverId)
         .eq('status', 'delivered')
         .eq('payment_method', 'cash')
@@ -128,8 +128,8 @@ export default function EarningsScreen() {
 
       if (settlements) {
         const grouped: Record<string, number> = {};
-        settlements.forEach((s) => {
-          const businessName = s.business_name || 'Negocio';
+        settlements.forEach((s: any) => {
+          const businessName = s.businesses?.business_name || 'Negocio';
           grouped[businessName] = (grouped[businessName] || 0) + (s.total || 0);
         });
 

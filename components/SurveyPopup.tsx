@@ -27,6 +27,8 @@ export default function SurveyPopup({ survey, visible, onClose, onSubmit }: Surv
   const [responses, setResponses] = useState<Record<string, string | number>>({});
   const [textInput, setTextInput] = useState('');
 
+  if (!survey || !survey.questions) return null;
+
   const currentQuestion = survey.questions[currentQuestionIndex];
   const isLastQuestion = currentQuestionIndex === survey.questions.length - 1;
   const progress = ((currentQuestionIndex + 1) / survey.questions.length) * 100;

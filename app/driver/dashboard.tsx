@@ -268,10 +268,10 @@ export default function DriverDashboardScreen() {
 
             <TouchableOpacity
               style={[styles.actionButton, styles.walletButton]}
-              onPress={handleViewWallet}
+              onPress={() => router.push('/driver/earnings' as any)}
             >
-              <Wallet size={24} color={Colors.white} />
-              <Text style={styles.actionButtonText}>Mi Saldo</Text>
+              <DollarSign size={24} color={Colors.white} />
+              <Text style={styles.actionButtonText}>Ganancias</Text>
             </TouchableOpacity>
           </View>
 

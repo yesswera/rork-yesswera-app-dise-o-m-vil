@@ -26,6 +26,8 @@ function RootLayoutNav() {
       <Stack.Screen name="tracking/[orderId]" options={{ title: "Seguimiento" }} />
       <Stack.Screen name="driver/dashboard" options={{ title: "Portal Repartidor" }} />
       <Stack.Screen name="business/dashboard" options={{ title: "Portal Negocio" }} />
+      <Stack.Screen name="business/comanda/[orderId]" options={{ title: "Comanda", headerShown: false }} />
+      <Stack.Screen name="driver/earnings" options={{ title: "Mis Ganancias", headerShown: false }} />
       <Stack.Screen name="profile" options={{ title: "Mi Perfil" }} />
       <Stack.Screen name="profile/edit" options={{ title: "Editar Perfil" }} />
       <Stack.Screen name="orders/history" options={{ title: "Historial de Órdenes" }} />
