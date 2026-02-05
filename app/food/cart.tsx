@@ -10,7 +10,7 @@ import { SavedAddress, PaymentMethod } from '@/constants/types';
 import AddressSelector from '@/components/AddressSelector';
 import PaymentMethodSelector from '@/components/PaymentMethodSelector';
 import TipSelector from '@/components/TipSelector';
-import { API_ENDPOINTS } from '@/constants/api';
+import { createOrder } from '@/services/orders';
 
 export default function CartScreen() {
   const router = useRouter();
@@ -60,47 +60,28 @@ export default function CartScreen() {
     setIsProcessing(true);
 
     try {
-      const orderData = {
-        type: 'food',
+      const order = await createOrder({
+        clientId: user.id,
         businessId: businessId,
-        businessName: items[0]?.businessName || 'Tienda Central',
+        serviceType: 'food',
+        deliveryAddress: selectedAddress.address,
+        deliveryInstructions: selectedAddress.instructions || '',
         items: items.map(item => ({
-          id: item.id,
-          name: item.name,
+          productId: item.id,
+          productName: item.name,
           quantity: item.quantity,
-          price: item.price,
+          unitPrice: item.price,
         })),
-        total: finalTotal,
         subtotal: total,
         deliveryFee: deliveryCost,
         tip: tip,
-        deliveryLocation: selectedAddress.address,
-        deliveryAddress: selectedAddress.address,
-        paymentMethod: paymentMethod,
-        instructions: selectedAddress.instructions || '',
-      };
-
-      console.log('Creando orden:', orderData);
-
-      const response = await fetch(API_ENDPOINTS.orders.create, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token || ''}`,
-        },
-        body: JSON.stringify(orderData),
+        paymentMethod: paymentMethod as 'cash' | 'card' | 'wallet',
       });
 
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}));
-        throw new Error(errorData.error || 'Error al crear la orden');
-      }
+      console.log('Orden creada exitosamente:', order);
 
-      const data = await response.json();
-      console.log('Orden creada exitosamente:', data);
-
-      const orderId = data.orderId || data.id;
-      const deliveryCode = data.deliveryCode || data.codigoEntrega;
+      const orderId = order.id;
+      const deliveryCode = order.deliveryCode;
 
       clearCart();
 

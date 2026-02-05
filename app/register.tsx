@@ -13,7 +13,7 @@ export default function RegisterScreen() {
   const [email, setEmail] = useState<string>('');
   const [password, setPassword] = useState<string>('');
   const [phone, setPhone] = useState<string>('');
-  const [userType, setUserType] = useState<string>('cliente');
+  const [userType, setUserType] = useState<string>('client');
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const [errors, setErrors] = useState({
     name: '',
@@ -108,9 +108,9 @@ export default function RegisterScreen() {
   };
 
   const userTypes = [
-    { id: 'cliente', label: 'Cliente', description: 'Pedir servicios' },
-    { id: 'repartidor', label: 'Repartidor', description: 'Hacer entregas' },
-    { id: 'negocio', label: 'Negocio', description: 'Vender productos' },
+    { id: 'client', label: 'Cliente', description: 'Pedir servicios' },
+    { id: 'driver', label: 'Repartidor', description: 'Hacer entregas' },
+    { id: 'business', label: 'Negocio', description: 'Vender productos' },
   ];
 
   return (

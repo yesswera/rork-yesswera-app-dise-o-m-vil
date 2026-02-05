@@ -17,7 +17,8 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { MapPin, Clock, Package, CheckCircle, ArrowLeft, Navigation, MessageCircle, Phone } from 'lucide-react-native';
 import Colors from '@/constants/colors';
 import { useAuth } from '@/contexts/auth';
-import { getActiveOrders, validatePickupCode, validateDeliveryCode } from '@/services/orders';
+import { getDriverOrders, validatePickupCode, validateDeliveryCode } from '@/services/orders';
+import { supabase } from '@/constants/supabase';
 import { Order } from '@/constants/types';
 
 export default function ActiveOrderScreen() {
@@ -37,7 +38,19 @@ export default function ActiveOrderScreen() {
     if (!user || !token) return;
 
     try {
-      const activeOrders = await getActiveOrders(user.id);
+      // Get driver record for this user
+      const { data: driver } = await supabase
+        .from('drivers')
+        .select('id')
+        .eq('user_id', user.id)
+        .single();
+
+      if (!driver) {
+        Alert.alert('Error', 'No se encontró tu registro de repartidor');
+        return;
+      }
+
+      const activeOrders = await getDriverOrders(driver.id);
       if (activeOrders.length > 0) {
         setOrder(activeOrders[0]);
       } else {
@@ -268,11 +281,11 @@ export default function ActiveOrderScreen() {
               <TextInput
                 ref={pickupInputRef}
                 style={styles.codeInput}
-                placeholder="Codigo (5 caracteres)"
+                placeholder="Codigo (6 caracteres)"
                 placeholderTextColor={Colors.text.light}
                 value={pickupCodeInput}
                 onChangeText={(text) => setPickupCodeInput(text.toUpperCase())}
-                maxLength={5}
+                maxLength={6}
                 autoCapitalize="characters"
                 editable={!validating}
                 keyboardType="default"
@@ -285,10 +298,10 @@ export default function ActiveOrderScreen() {
               <TouchableOpacity
                 style={[
                   styles.validateButton,
-                  (pickupCodeInput.length !== 5 || validating) && styles.validateButtonDisabled,
+                  (pickupCodeInput.length !== 6 || validating) && styles.validateButtonDisabled,
                 ]}
                 onPress={handleValidatePickup}
-                disabled={pickupCodeInput.length !== 5 || validating}
+                disabled={pickupCodeInput.length !== 6 || validating}
               >
                 {validating ? (
                   <ActivityIndicator size="small" color={Colors.white} />
@@ -327,11 +340,11 @@ export default function ActiveOrderScreen() {
               <TextInput
                 ref={deliveryInputRef}
                 style={styles.codeInput}
-                placeholder="Codigo de entrega (5 caracteres)"
+                placeholder="Codigo de entrega (6 caracteres)"
                 placeholderTextColor={Colors.text.light}
                 value={deliveryCodeInput}
                 onChangeText={(text) => setDeliveryCodeInput(text.toUpperCase())}
-                maxLength={5}
+                maxLength={6}
                 autoCapitalize="characters"
                 editable={!validating}
                 keyboardType="default"
@@ -345,10 +358,10 @@ export default function ActiveOrderScreen() {
                 style={[
                   styles.validateButton,
                   styles.deliveryButton,
-                  (deliveryCodeInput.length !== 5 || validating) && styles.validateButtonDisabled,
+                  (deliveryCodeInput.length !== 6 || validating) && styles.validateButtonDisabled,
                 ]}
                 onPress={handleValidateDelivery}
-                disabled={deliveryCodeInput.length !== 5 || validating}
+                disabled={deliveryCodeInput.length !== 6 || validating}
               >
                 {validating ? (
                   <ActivityIndicator size="small" color={Colors.white} />

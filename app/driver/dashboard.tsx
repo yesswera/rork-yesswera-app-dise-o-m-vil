@@ -8,7 +8,9 @@ import { useAuth } from '@/contexts/auth';
 import { useAnalytics } from '@/contexts/analytics';
 import PanicButton from '@/components/PanicButton';
 import SurveyPopup from '@/components/SurveyPopup';
-import { API_BASE } from '@/constants/api';
+import { getAvailableOrdersForDriver, getDriverOrders, assignOrderToDriver } from '@/services/orders';
+import { supabase } from '@/constants/supabase';
+import { Order } from '@/constants/types';
 
 export default function DriverDashboardScreen() {
   const router = useRouter();
@@ -21,77 +23,79 @@ export default function DriverDashboardScreen() {
     rating: 0,
     totalBalance: 0,
   });
-  const [availableOrders, setAvailableOrders] = useState<any[]>([]);
+  const [availableOrders, setAvailableOrders] = useState<Order[]>([]);
+  const [driverId, setDriverId] = useState<string | null>(null);
 
-  // Cargar estadísticas del repartidor
+  // Load driver record ID
+  useEffect(() => {
+    const loadDriverId = async () => {
+      if (!user) return;
+      try {
+        const { data } = await supabase
+          .from('drivers')
+          .select('id')
+          .eq('user_id', user.id)
+          .single();
+        if (data) setDriverId(data.id);
+      } catch {
+        console.log('Driver record not found');
+      }
+    };
+    loadDriverId();
+  }, [user]);
+
+  // Cargar estadísticas del repartidor desde Supabase
   const loadDriverStats = useCallback(async () => {
-    if (!user || !token) return;
+    if (!user || !driverId) return;
 
     try {
-      const response = await fetch(`${API_BASE}/driver/stats/${user.id}`, {
-        headers: { 'Authorization': `Bearer ${token}` }
+      // Get driver rating
+      const { data: driver } = await supabase
+        .from('drivers')
+        .select('rating_average')
+        .eq('id', driverId)
+        .single();
+
+      // Get today's completed deliveries
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+
+      const { data: todayOrders } = await supabase
+        .from('orders')
+        .select('total, delivery_fee')
+        .eq('driver_id', driverId)
+        .eq('status', 'delivered')
+        .gte('delivered_at', today.toISOString());
+
+      const deliveries = todayOrders?.length || 0;
+      const earnings = todayOrders?.reduce((sum, o) => sum + (o.delivery_fee || 0), 0) || 0;
+
+      setStats({
+        todayDeliveries: deliveries,
+        todayEarnings: earnings,
+        rating: driver?.rating_average || 0,
+        totalBalance: earnings,
       });
-      if (response.ok) {
-        const data = await response.json();
-        setStats({
-          todayDeliveries: data.todayDeliveries || 0,
-          todayEarnings: data.todayEarnings || 0,
-          rating: data.rating || 4.5,
-          totalBalance: data.totalBalance || 0,
-        });
-      }
     } catch {
       console.log('Stats not available, using defaults');
     }
-  }, [user, token]);
+  }, [user, driverId]);
 
-  // Cargar órdenes disponibles
+  // Cargar órdenes disponibles desde Supabase
   const loadAvailableOrders = useCallback(async () => {
-    if (!user || !token || !isOnline) {
+    if (!user || !isOnline) {
       setAvailableOrders([]);
       return;
     }
 
     try {
-      const response = await fetch(`${API_BASE}/orders/available`, {
-        headers: { 'Authorization': `Bearer ${token}` }
-      });
-      if (response.ok) {
-        const data = await response.json();
-        setAvailableOrders(data.orders || []);
-      }
+      const orders = await getAvailableOrdersForDriver();
+      setAvailableOrders(orders);
     } catch {
-      // Si no hay endpoint, usar datos de ejemplo cuando está online
-      if (isOnline) {
-        setAvailableOrders([
-          {
-            id: 'ord-001',
-            type: 'food',
-            businessName: 'Pizza Palace',
-            distance: 3.2,
-            estimatedTime: 15,
-            earnings: 12.50,
-            pickupAddress: 'Calle 45 #23-10',
-            deliveryAddress: 'Avenida 68 #15-23',
-            pickupLat: 20.6597,
-            pickupLng: -103.3496,
-          },
-          {
-            id: 'ord-002',
-            type: 'shopping',
-            businessName: 'Supermercado Central',
-            distance: 5.1,
-            estimatedTime: 25,
-            earnings: 18.20,
-            pickupAddress: 'Carrera 30 #50-12',
-            deliveryAddress: 'Calle 85 #12-34',
-            pickupLat: 20.6700,
-            pickupLng: -103.3600,
-          },
-        ]);
-      }
+      console.log('No available orders');
+      setAvailableOrders([]);
     }
-  }, [user, token, isOnline]);
+  }, [user, isOnline]);
 
   useEffect(() => {
     trackPageView('driver_dashboard', { status: isOnline ? 'online' : 'offline' });
@@ -150,16 +154,27 @@ export default function DriverDashboardScreen() {
       'Aceptar Orden',
       '¿Estás seguro de aceptar esta orden?',
       [
-        { 
-          text: 'Cancelar', 
+        {
+          text: 'Cancelar',
           style: 'cancel',
           onPress: () => trackEvent('order_accept_cancelled', { orderId })
         },
         {
           text: 'Aceptar',
-          onPress: () => {
-            trackEvent('order_accepted', { orderId });
-            router.push(`/tracking/${orderId}` as any);
+          onPress: async () => {
+            try {
+              if (!driverId) {
+                Alert.alert('Error', 'No se encontró tu registro de repartidor');
+                return;
+              }
+              await assignOrderToDriver(orderId, driverId);
+              trackEvent('order_accepted', { orderId });
+              loadAvailableOrders();
+              router.push('/driver/active-order' as any);
+            } catch (error) {
+              console.error('Error accepting order:', error);
+              Alert.alert('Error', 'No se pudo aceptar la orden');
+            }
           },
         },
       ]
@@ -318,42 +333,24 @@ export default function DriverDashboardScreen() {
                       {order.type === 'food' ? '🍔 Alimentos' : order.type === 'shopping' ? '🛒 Compras' : '📦 Envío'}
                     </Text>
                   </View>
-                  <Text style={styles.earningsText}>${order.earnings?.toFixed(2)}</Text>
+                  <Text style={styles.earningsText}>${order.deliveryFee?.toFixed(2)}</Text>
                 </View>
 
-                <Text style={styles.businessName}>{order.businessName}</Text>
-
-                <View style={styles.orderDetails}>
-                  <View style={styles.detailRow}>
-                    <MapPin size={16} color={Colors.text.secondary} />
-                    <Text style={styles.detailText}>{order.distance} km</Text>
-                  </View>
-                  <View style={styles.detailRow}>
-                    <Clock size={16} color={Colors.text.secondary} />
-                    <Text style={styles.detailText}>{order.estimatedTime} min</Text>
-                  </View>
-                </View>
+                <Text style={styles.businessName}>{order.businessName || 'Negocio'}</Text>
 
                 <View style={styles.addressSection}>
                   <Text style={styles.addressLabel}>Recogida:</Text>
-                  <Text style={styles.addressText}>{order.pickupAddress}</Text>
+                  <Text style={styles.addressText}>{order.pickupAddress || 'N/A'}</Text>
                   <Text style={styles.addressLabel}>Entrega:</Text>
                   <Text style={styles.addressText}>{order.deliveryAddress}</Text>
                 </View>
 
+                <Text style={styles.totalText}>Total: ${order.total?.toFixed(2)} MXN</Text>
+
                 <View style={styles.orderActions}>
-                  {order.pickupLat && order.pickupLng && (
-                    <TouchableOpacity
-                      style={styles.navButton}
-                      onPress={() => openNavigation(order.pickupLat, order.pickupLng, order.businessName)}
-                    >
-                      <Navigation size={18} color={Colors.white} />
-                      <Text style={styles.navButtonText}>Navegar</Text>
-                    </TouchableOpacity>
-                  )}
                   <TouchableOpacity
-                    style={[styles.acceptButton, !order.pickupLat && styles.acceptButtonFull]}
-                    onPress={() => handleAcceptOrder(order.id)}
+                    style={[styles.acceptButton, styles.acceptButtonFull]}
+                    onPress={() => handleAcceptOrder(order.id.toString())}
                   >
                     <Text style={styles.acceptButtonText}>Aceptar Orden</Text>
                   </TouchableOpacity>
