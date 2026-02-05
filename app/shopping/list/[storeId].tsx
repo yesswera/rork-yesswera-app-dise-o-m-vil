@@ -1,11 +1,12 @@
-import { useState } from 'react';
-import { StyleSheet, Text, View, TouchableOpacity, ScrollView, TextInput, Alert } from 'react-native';
+import { useState, useEffect, useCallback } from 'react';
+import { StyleSheet, Text, View, TouchableOpacity, ScrollView, TextInput, Alert, ActivityIndicator } from 'react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { ShoppingBag } from 'lucide-react-native';
 import Colors from '@/constants/colors';
-import { mockStores } from '@/mocks/stores';
 import { useAuth } from '@/contexts/auth';
-import { SavedAddress, PaymentMethod } from '@/constants/types';
+import { Business, SavedAddress, PaymentMethod } from '@/constants/types';
+import { getBusinessById } from '@/services/products';
+import { createOrder } from '@/services/orders';
 import AddressSelector from '@/components/AddressSelector';
 import PaymentMethodSelector from '@/components/PaymentMethodSelector';
 
@@ -13,12 +14,36 @@ export default function ShoppingListScreen() {
   const router = useRouter();
   const { storeId } = useLocalSearchParams<{ storeId: string }>();
   const { user } = useAuth();
+  const [store, setStore] = useState<Business | null>(null);
+  const [loading, setLoading] = useState(true);
   const [shoppingList, setShoppingList] = useState<string>('');
   const [selectedAddress, setSelectedAddress] = useState<SavedAddress | null>(null);
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>('cash');
   const [isProcessing, setIsProcessing] = useState<boolean>(false);
 
-  const store = mockStores.find((s) => s.id === storeId);
+  const loadStore = useCallback(async () => {
+    if (!storeId) return;
+    try {
+      const data = await getBusinessById(storeId);
+      setStore(data);
+    } catch (error) {
+      console.error('Error loading store:', error);
+    } finally {
+      setLoading(false);
+    }
+  }, [storeId]);
+
+  useEffect(() => {
+    loadStore();
+  }, [loadStore]);
+
+  if (loading) {
+    return (
+      <View style={styles.loadingContainer}>
+        <ActivityIndicator size="large" color={Colors.primary} />
+      </View>
+    );
+  }
 
   if (!store) {
     return (
@@ -50,10 +75,7 @@ export default function ShoppingListScreen() {
         'Necesitas iniciar sesión para crear una orden',
         [
           { text: 'Cancelar', style: 'cancel' },
-          {
-            text: 'Iniciar Sesión',
-            onPress: () => router.push('/login' as any),
-          },
+          { text: 'Iniciar Sesión', onPress: () => router.push('/login' as any) },
         ]
       );
       return;
@@ -61,21 +83,40 @@ export default function ShoppingListScreen() {
 
     setIsProcessing(true);
 
-    setTimeout(() => {
+    try {
+      const order = await createOrder({
+        clientId: user.id,
+        businessId: store.id,
+        serviceType: 'shopping',
+        deliveryAddress: selectedAddress.address,
+        deliveryInstructions: shoppingList,
+        items: [{
+          productId: 'shopping-list',
+          productName: 'Lista de compras',
+          quantity: 1,
+          unitPrice: estimatedCost,
+        }],
+        subtotal: estimatedCost,
+        deliveryFee: deliveryCost,
+        paymentMethod: paymentMethod === 'cash' ? 'cash' : paymentMethod === 'card' ? 'card' : 'wallet',
+      });
+
       Alert.alert(
         '¡Orden Creada!',
         'Un repartidor irá a comprar tus productos y te los llevará.',
         [
           {
             text: 'Ver Tracking',
-            onPress: () => {
-              router.push('/tracking/shopping-456' as any);
-            },
+            onPress: () => router.push(`/tracking/${order.id}` as any),
           },
         ]
       );
+    } catch (error) {
+      console.error('Error creating order:', error);
+      Alert.alert('Error', 'No se pudo crear la orden. Intenta nuevamente.');
+    } finally {
       setIsProcessing(false);
-    }, 1500);
+    }
   };
 
   return (
@@ -85,7 +126,7 @@ export default function ShoppingListScreen() {
           <View style={styles.storeHeader}>
             <ShoppingBag size={24} color={Colors.secondary} />
             <View style={styles.storeInfo}>
-              <Text style={styles.storeType}>{store.type}</Text>
+              <Text style={styles.storeType}>{store.category}</Text>
               <Text style={styles.storeName}>{store.name}</Text>
             </View>
           </View>
@@ -159,6 +200,11 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: Colors.background.primary,
+  },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center' as const,
+    alignItems: 'center' as const,
   },
   errorContainer: {
     flex: 1,

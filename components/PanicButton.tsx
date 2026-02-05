@@ -3,7 +3,7 @@ import { StyleSheet, Text, TouchableOpacity, Alert, Vibration } from 'react-nati
 import { AlertOctagon } from 'lucide-react-native';
 import Colors from '@/constants/colors';
 import { useAuth } from '@/contexts/auth';
-import { API_ENDPOINTS } from '@/constants/api';
+import { supabase } from '@/constants/supabase';
 import * as Location from 'expo-location';
 
 interface PanicButtonProps {
@@ -70,42 +70,40 @@ export default function PanicButton({ orderId }: PanicButtonProps) {
 
   const sendPanicReport = async (type: string, location: any) => {
     try {
-      const response = await fetch(API_ENDPOINTS.security.panic, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token || ''}`,
-        },
-        body: JSON.stringify({
-          driverId: user?.id,
-          orderId: orderId,
-          type: type,
-          location: location,
-          timestamp: new Date().toISOString(),
-        }),
-      });
+      const { error } = await supabase
+        .from('notifications')
+        .insert({
+          user_id: user?.id,
+          title: `EMERGENCIA: ${type}`,
+          body: `Driver ${user?.name || user?.id} reportó emergencia tipo "${type}"`,
+          data_json: {
+            type: 'emergency',
+            emergencyType: type,
+            driverId: user?.id,
+            orderId: orderId,
+            location: location,
+            timestamp: new Date().toISOString(),
+          },
+        });
 
-      if (response.ok) {
-        Alert.alert(
-          '✅ Alerta Enviada',
-          'Tu contacto de emergencia y el equipo de soporte han sido notificados.\n\nUbicación compartida en tiempo real.',
-          [
-            {
-              text: 'Llamar al 911',
-              onPress: () => {
-                // Linking.openURL('tel:911');
-                Alert.alert('911', 'Función de llamada disponible en dispositivo físico');
-              },
+      if (error) throw error;
+
+      Alert.alert(
+        'Alerta Enviada',
+        'Tu contacto de emergencia y el equipo de soporte han sido notificados.\n\nUbicación compartida en tiempo real.',
+        [
+          {
+            text: 'Llamar al 911',
+            onPress: () => {
+              Alert.alert('911', 'Función de llamada disponible en dispositivo físico');
             },
-            {
-              text: 'Entendido',
-              style: 'default',
-            },
-          ]
-        );
-      } else {
-        throw new Error('Error al enviar alerta');
-      }
+          },
+          {
+            text: 'Entendido',
+            style: 'default',
+          },
+        ]
+      );
     } catch (error) {
       console.error('Error sending panic report:', error);
       Alert.alert('Error', 'No se pudo enviar la alerta de emergencia');
