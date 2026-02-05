@@ -17,7 +17,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { MapPin, Clock, Package, CheckCircle, ArrowLeft, Navigation, MessageCircle, Phone } from 'lucide-react-native';
 import Colors from '@/constants/colors';
 import { useAuth } from '@/contexts/auth';
-import { getDriverOrders, validatePickupCode, validateDeliveryCode } from '@/services/orders';
+import { getDriverOrders, confirmPickup, validateDeliveryCode } from '@/services/orders';
 import { supabase } from '@/constants/supabase';
 import { Order } from '@/constants/types';
 
@@ -25,13 +25,11 @@ export default function ActiveOrderScreen() {
   const router = useRouter();
   const { user, token } = useAuth();
   const [order, setOrder] = useState<Order | null>(null);
-  const [pickupCodeInput, setPickupCodeInput] = useState('');
   const [deliveryCodeInput, setDeliveryCodeInput] = useState('');
   const [loading, setLoading] = useState(true);
   const [validating, setValidating] = useState(false);
 
-  // Refs for TextInput focus (Android fix)
-  const pickupInputRef = useRef<TextInput>(null);
+  // Ref for TextInput focus (Android fix)
   const deliveryInputRef = useRef<TextInput>(null);
 
   const loadActiveOrder = useCallback(async () => {
@@ -72,24 +70,20 @@ export default function ActiveOrderScreen() {
     return () => clearInterval(interval);
   }, [loadActiveOrder]);
 
-  const handleValidatePickup = async () => {
-    if (!order || !token || !pickupCodeInput) {
-      Alert.alert('Error', 'Ingresa el código de recogida');
-      return;
-    }
+  const handleConfirmPickup = async () => {
+    if (!order || !token) return;
 
     setValidating(true);
     try {
-      const result = await validatePickupCode(order.id.toString(), pickupCodeInput);
+      const result = await confirmPickup(order.id.toString());
       if (result.success) {
-        Alert.alert('¡Éxito!', 'Orden recogida correctamente');
-        setPickupCodeInput('');
+        Alert.alert('En Camino', 'Orden recogida. Ahora ve al cliente.');
         await loadActiveOrder();
       } else {
-        Alert.alert('Código Incorrecto', result.message);
+        Alert.alert('Error', result.message);
       }
     } catch (error: any) {
-      Alert.alert('Error', error.message || 'No se pudo validar el código');
+      Alert.alert('Error', error.message || 'No se pudo confirmar la recogida');
     } finally {
       setValidating(false);
     }
@@ -134,8 +128,10 @@ export default function ActiveOrderScreen() {
     return null;
   }
 
-  const isPickedUp = order.pickupValidation?.validated;
-  const canPickup = !isPickedUp && (order.status === 'accepted' || order.status === 'ready' || order.status === 'confirmed');
+  const isDriverVerified = order.driverVerification?.validated || order.status === 'driver_verified';
+  const isPickedUp = order.pickupValidation?.validated || order.status === 'in_transit';
+  const canShowDriverCode = !isDriverVerified && (order.status === 'assigned' || order.status === 'accepted' || order.status === 'ready');
+  const canConfirmPickup = isDriverVerified && order.status === 'driver_verified';
   const canDeliver = isPickedUp && order.status === 'in_transit';
 
   const openNavigation = (address: string, location?: { latitude: number; longitude: number }) => {
@@ -262,46 +258,45 @@ export default function ActiveOrderScreen() {
             </View>
           </View>
 
-          {canPickup && !isPickedUp && (
+          {canShowDriverCode && (
             <View style={styles.card}>
               <View style={styles.stepHeader}>
                 <Package size={24} color={Colors.primary} />
-                <Text style={styles.stepTitle}>Paso 1: Recoger Orden</Text>
+                <Text style={styles.stepTitle}>Paso 1: Identificarte</Text>
               </View>
               <Text style={styles.stepInstruction}>
-                Muestra este código al negocio para recoger la orden:
+                Muestra este codigo al negocio para que te identifiquen:
               </Text>
               <View style={styles.codeDisplayContainer}>
-                <Text style={styles.codeDisplayLabel}>Tu código de recogida:</Text>
-                <Text style={styles.codeDisplay}>{order.pickupCode}</Text>
+                <Text style={styles.codeDisplayLabel}>Tu codigo de repartidor:</Text>
+                <Text style={styles.codeDisplay}>{order.driverCode}</Text>
               </View>
               <Text style={styles.stepInstruction}>
-                Cuando el negocio confirme, ingresa el mismo código:
+                Espera a que el negocio valide tu codigo y te entregue el pedido.
               </Text>
-              <TextInput
-                ref={pickupInputRef}
-                style={styles.codeInput}
-                placeholder="Codigo (6 caracteres)"
-                placeholderTextColor={Colors.text.light}
-                value={pickupCodeInput}
-                onChangeText={(text) => setPickupCodeInput(text.toUpperCase())}
-                maxLength={6}
-                autoCapitalize="characters"
-                editable={!validating}
-                keyboardType="default"
-                returnKeyType="done"
-                autoCorrect={false}
-                blurOnSubmit={true}
-                onSubmitEditing={() => Keyboard.dismiss()}
-                selectTextOnFocus={true}
-              />
+            </View>
+          )}
+
+          {isDriverVerified && !isPickedUp && (
+            <View style={[styles.card, styles.successCard]}>
+              <CheckCircle size={32} color={Colors.success} />
+              <Text style={styles.successText}>Negocio te verifico</Text>
+            </View>
+          )}
+
+          {canConfirmPickup && (
+            <View style={styles.card}>
+              <View style={styles.stepHeader}>
+                <Package size={24} color={Colors.primary} />
+                <Text style={styles.stepTitle}>Paso 2: Confirmar Recogida</Text>
+              </View>
+              <Text style={styles.stepInstruction}>
+                Ya tienes el pedido en mano? Confirma para iniciar el viaje al cliente.
+              </Text>
               <TouchableOpacity
-                style={[
-                  styles.validateButton,
-                  (pickupCodeInput.length !== 6 || validating) && styles.validateButtonDisabled,
-                ]}
-                onPress={handleValidatePickup}
-                disabled={pickupCodeInput.length !== 6 || validating}
+                style={[styles.validateButton, validating && styles.validateButtonDisabled]}
+                onPress={handleConfirmPickup}
+                disabled={validating}
               >
                 {validating ? (
                   <ActivityIndicator size="small" color={Colors.white} />
@@ -319,11 +314,7 @@ export default function ActiveOrderScreen() {
             <View style={[styles.card, styles.successCard]}>
               <CheckCircle size={32} color={Colors.success} />
               <Text style={styles.successText}>
-                ✅ Orden recogida a las{' '}
-                {new Date(order.pickupValidation!.validatedAt!).toLocaleTimeString('es-MX', {
-                  hour: '2-digit',
-                  minute: '2-digit',
-                })}
+                Orden recogida - En camino al cliente
               </Text>
             </View>
           )}
@@ -332,19 +323,19 @@ export default function ActiveOrderScreen() {
             <View style={styles.card}>
               <View style={styles.stepHeader}>
                 <MapPin size={24} color={Colors.success} />
-                <Text style={styles.stepTitle}>Paso 2: Entregar Orden</Text>
+                <Text style={styles.stepTitle}>Paso 3: Entregar Orden</Text>
               </View>
               <Text style={styles.stepInstruction}>
-                Solicita el código al cliente al entregar
+                Pide el codigo de entrega al cliente (5 caracteres)
               </Text>
               <TextInput
                 ref={deliveryInputRef}
                 style={styles.codeInput}
-                placeholder="Codigo de entrega (6 caracteres)"
+                placeholder="Codigo (5 chars)"
                 placeholderTextColor={Colors.text.light}
                 value={deliveryCodeInput}
                 onChangeText={(text) => setDeliveryCodeInput(text.toUpperCase())}
-                maxLength={6}
+                maxLength={5}
                 autoCapitalize="characters"
                 editable={!validating}
                 keyboardType="default"
@@ -358,10 +349,10 @@ export default function ActiveOrderScreen() {
                 style={[
                   styles.validateButton,
                   styles.deliveryButton,
-                  (deliveryCodeInput.length !== 6 || validating) && styles.validateButtonDisabled,
+                  (deliveryCodeInput.length !== 5 || validating) && styles.validateButtonDisabled,
                 ]}
                 onPress={handleValidateDelivery}
-                disabled={deliveryCodeInput.length !== 6 || validating}
+                disabled={deliveryCodeInput.length !== 5 || validating}
               >
                 {validating ? (
                   <ActivityIndicator size="small" color={Colors.white} />
@@ -383,10 +374,11 @@ export default function ActiveOrderScreen() {
 function getStatusLabel(status: string): string {
   const labels: Record<string, string> = {
     pending: 'Pendiente',
-    assigned: 'Asignada - Ve a recoger',
+    assigned: 'Asignada - Ve al negocio',
     accepted: 'Aceptada - Lista para recoger',
     preparing: 'En preparación',
     ready: 'Lista para recoger',
+    driver_verified: 'Verificado - Recoge el pedido',
     picked_up: 'Recogida - En camino',
     in_transit: 'En camino al cliente',
     delivered: 'Entregada',

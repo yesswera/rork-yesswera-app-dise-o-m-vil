@@ -1,6 +1,6 @@
 export type UserType = 'client' | 'driver' | 'business' | 'admin';
 
-export type OrderStatus = 'pending' | 'confirmed' | 'preparing' | 'ready' | 'accepted' | 'in_transit' | 'delivered' | 'cancelled';
+export type OrderStatus = 'pending' | 'confirmed' | 'preparing' | 'ready' | 'accepted' | 'assigned' | 'driver_verified' | 'in_transit' | 'delivered' | 'cancelled';
 
 export type PaymentMethod = 'cash' | 'card' | 'transfer';
 
@@ -79,8 +79,14 @@ export interface Order {
   rated: boolean;
   paymentMethod: PaymentMethod;
   paymentStatus: 'pending' | 'paid';
-  pickupCode: string;
+  driverCode: string;
+  comandaCode: string;
   deliveryCode: string;
+  pickupCode: string;
+  driverVerification: {
+    validated: boolean;
+    validatedAt?: string;
+  };
   pickupValidation: {
     validated: boolean;
     validatedAt?: string;

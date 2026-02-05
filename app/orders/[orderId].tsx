@@ -1,6 +1,6 @@
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, ActivityIndicator } from 'react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
-import { ChevronLeft, MapPin, User as UserIcon, Map } from 'lucide-react-native';
+import { ChevronLeft, MapPin, User as UserIcon, Map, Key } from 'lucide-react-native';
 import { useAuth } from '@/contexts/auth';
 import Colors from '@/constants/colors';
 import { StatusBar } from 'expo-status-bar';
@@ -42,7 +42,7 @@ export default function OrderDetailsScreen() {
   useEffect(() => {
     if (!order || !token || !orderId) return;
 
-    const isActive = ['pending', 'confirmed', 'preparing', 'ready', 'accepted', 'in_transit']
+    const isActive = ['pending', 'confirmed', 'preparing', 'ready', 'accepted', 'assigned', 'driver_verified', 'in_transit']
       .includes(order.status);
 
     if (!isActive) return;
@@ -126,6 +126,10 @@ export default function OrderDetailsScreen() {
         return Colors.error;
       case 'in_transit':
         return Colors.accent;
+      case 'driver_verified':
+        return Colors.accent;
+      case 'assigned':
+        return Colors.secondary;
       case 'accepted':
         return Colors.secondary;
       default:
@@ -140,7 +144,11 @@ export default function OrderDetailsScreen() {
       case 'cancelled':
         return 'Cancelada';
       case 'in_transit':
-        return 'En Tránsito';
+        return 'En Camino';
+      case 'driver_verified':
+        return 'Repartidor Verificado';
+      case 'assigned':
+        return 'Repartidor Asignado';
       case 'accepted':
         return 'Aceptada';
       case 'pending':
@@ -204,6 +212,22 @@ export default function OrderDetailsScreen() {
             </Text>
           </View>
         </View>
+
+        {/* Código de entrega - visible cuando el pedido está en camino */}
+        {(order.status === 'in_transit' || order.status === 'driver_verified') && order.deliveryCode && (
+          <View style={styles.section}>
+            <View style={styles.deliveryCodeCard}>
+              <Key size={24} color={Colors.primary} />
+              <Text style={styles.deliveryCodeLabel}>Tu Código de Entrega</Text>
+              <View style={styles.deliveryCodeBadge}>
+                <Text style={styles.deliveryCodeText}>{order.deliveryCode}</Text>
+              </View>
+              <Text style={styles.deliveryCodeHint}>
+                Dale este código al repartidor cuando llegue a tu puerta
+              </Text>
+            </View>
+          </View>
+        )}
 
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Información del Servicio</Text>
@@ -639,5 +663,39 @@ const styles = StyleSheet.create({
     fontWeight: '600' as const,
     color: Colors.white,
     marginLeft: 8,
+  },
+  deliveryCodeCard: {
+    backgroundColor: Colors.primary + '10',
+    borderRadius: 16,
+    padding: 20,
+    alignItems: 'center' as const,
+    borderWidth: 2,
+    borderColor: Colors.primary + '30',
+  },
+  deliveryCodeLabel: {
+    fontSize: 14,
+    fontWeight: '600' as const,
+    color: Colors.text.secondary,
+    marginTop: 8,
+    marginBottom: 12,
+  },
+  deliveryCodeBadge: {
+    backgroundColor: Colors.primary,
+    paddingHorizontal: 28,
+    paddingVertical: 14,
+    borderRadius: 12,
+  },
+  deliveryCodeText: {
+    fontSize: 36,
+    fontWeight: '800' as const,
+    color: Colors.white,
+    letterSpacing: 6,
+  },
+  deliveryCodeHint: {
+    fontSize: 13,
+    color: Colors.text.secondary,
+    textAlign: 'center' as const,
+    marginTop: 12,
+    lineHeight: 18,
   },
 });

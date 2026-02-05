@@ -2,8 +2,8 @@ import { Business } from '@/constants/types';
 
 export const mockBusinesses: Business[] = [
   {
-    id: '3c246c92-17ba-49fb-b0ac-81ac5ba9e2a8',
-    name: 'Tienda Central',
+    id: 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa',
+    name: 'La Tiendita de Juan',
     description: 'Restaurante con variedad de platillos deliciosos',
     category: 'Restaurante',
     image: 'https://images.unsplash.com/photo-1517248135467-4c7edcad34c4?w=400',

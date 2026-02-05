@@ -1,9 +1,32 @@
 import { supabase } from '@/constants/supabase';
 import { Order } from '@/constants/types';
 
-// Helper to generate random 6-character code
-function generateCode(): string {
-  return Math.random().toString(36).substring(2, 8).toUpperCase();
+// Safe characters (no O/0/I/1 to avoid confusion)
+const CODE_CHARS = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+
+function generateCode(length: number): string {
+  let code = '';
+  for (let i = 0; i < length; i++) {
+    code += CODE_CHARS[Math.floor(Math.random() * CODE_CHARS.length)];
+  }
+  return code;
+}
+
+// Generate all 3 verification codes (unique from each other)
+function generateOrderCodes() {
+  let driverCode = generateCode(4);
+  let comandaCode = generateCode(4);
+  let deliveryCode = generateCode(5);
+
+  // Ensure all codes are different
+  while (driverCode === comandaCode) {
+    comandaCode = generateCode(4);
+  }
+  while (deliveryCode.startsWith(driverCode) || deliveryCode.startsWith(comandaCode)) {
+    deliveryCode = generateCode(5);
+  }
+
+  return { driverCode, comandaCode, deliveryCode };
 }
 
 // Map database order to app Order type
@@ -40,8 +63,14 @@ function mapOrder(dbOrder: any): Order {
     rated: false,
     paymentMethod: dbOrder.payment_method || 'cash',
     paymentStatus: dbOrder.payment_status || 'pending',
-    pickupCode: dbOrder.pickup_code || '',
+    driverCode: dbOrder.driver_code || '',
+    comandaCode: dbOrder.comanda_code || '',
     deliveryCode: dbOrder.delivery_code || '',
+    pickupCode: dbOrder.pickup_code || '',
+    driverVerification: {
+      validated: !!dbOrder.driver_verified_at,
+      validatedAt: dbOrder.driver_verified_at,
+    },
     pickupValidation: {
       validated: !!dbOrder.picked_up_at,
       validatedAt: dbOrder.picked_up_at,
@@ -122,8 +151,7 @@ export async function createOrder(orderData: {
 }): Promise<Order> {
   try {
     const total = orderData.subtotal + orderData.deliveryFee + (orderData.tip || 0);
-    const pickupCode = generateCode();
-    const deliveryCode = generateCode();
+    const { driverCode, comandaCode, deliveryCode } = generateOrderCodes();
 
     // Get business address for pickup
     const { data: business } = await supabase
@@ -143,7 +171,8 @@ export async function createOrder(orderData: {
         pickup_address: business?.address || '',
         delivery_address: orderData.deliveryAddress,
         delivery_instructions: orderData.deliveryInstructions,
-        pickup_code: pickupCode,
+        driver_code: driverCode,
+        comanda_code: comandaCode,
         delivery_code: deliveryCode,
         subtotal: orderData.subtotal,
         delivery_fee: orderData.deliveryFee,
@@ -223,40 +252,74 @@ export async function getActiveOrders(userId: string): Promise<Order[]> {
   }
 }
 
-export async function validatePickupCode(
+// Business validates driver identity (Step 4: driver shows driverCode)
+export async function validateDriverCode(
   orderId: string,
-  pickupCode: string
-): Promise<{ success: boolean; message: string }> {
+  driverCode: string
+): Promise<{ success: boolean; message: string; comandaCode?: string }> {
   try {
-    // Get order and verify code
     const { data: order, error: fetchError } = await supabase
       .from('orders')
-      .select('pickup_code, status')
+      .select('driver_code, comanda_code, status')
       .eq('id', orderId)
       .single();
 
     if (fetchError) throw fetchError;
 
-    if (order.pickup_code?.toUpperCase() !== pickupCode.toUpperCase()) {
-      return { success: false, message: 'Codigo incorrecto' };
+    if (order.driver_code?.toUpperCase() !== driverCode.toUpperCase()) {
+      return { success: false, message: 'Codigo de repartidor incorrecto' };
     }
 
-    // Update order status
+    // Update status to driver_verified
     const { error: updateError } = await supabase
       .from('orders')
       .update({
-        status: 'picked_up',
-        picked_up_at: new Date().toISOString(),
+        status: 'driver_verified',
+        driver_verified_at: new Date().toISOString(),
       })
       .eq('id', orderId);
 
     if (updateError) throw updateError;
 
-    return { success: true, message: 'Recoleccion validada exitosamente' };
+    return {
+      success: true,
+      message: 'Repartidor verificado',
+      comandaCode: order.comanda_code,
+    };
   } catch (error) {
-    console.error('validatePickupCode error:', error);
+    console.error('validateDriverCode error:', error);
     return { success: false, message: 'Error al validar codigo' };
   }
+}
+
+// Driver confirms pickup after being verified (Step 6)
+export async function confirmPickup(
+  orderId: string
+): Promise<{ success: boolean; message: string }> {
+  try {
+    const { error } = await supabase
+      .from('orders')
+      .update({
+        status: 'in_transit',
+        picked_up_at: new Date().toISOString(),
+      })
+      .eq('id', orderId);
+
+    if (error) throw error;
+
+    return { success: true, message: 'Recogida confirmada, en camino al cliente' };
+  } catch (error) {
+    console.error('confirmPickup error:', error);
+    return { success: false, message: 'Error al confirmar recogida' };
+  }
+}
+
+// Legacy: kept for backward compatibility
+export async function validatePickupCode(
+  orderId: string,
+  pickupCode: string
+): Promise<{ success: boolean; message: string }> {
+  return validateDriverCode(orderId, pickupCode);
 }
 
 export async function validateDeliveryCode(
@@ -420,7 +483,8 @@ export async function updateOrderStatus(
     // Add timestamp based on status
     if (status === 'accepted') updateData.accepted_at = new Date().toISOString();
     if (status === 'ready') updateData.ready_at = new Date().toISOString();
-    if (status === 'picked_up') updateData.picked_up_at = new Date().toISOString();
+    if (status === 'driver_verified') updateData.driver_verified_at = new Date().toISOString();
+    if (status === 'picked_up' || status === 'in_transit') updateData.picked_up_at = new Date().toISOString();
     if (status === 'delivered') updateData.delivered_at = new Date().toISOString();
     if (status === 'cancelled') updateData.cancelled_at = new Date().toISOString();
 
