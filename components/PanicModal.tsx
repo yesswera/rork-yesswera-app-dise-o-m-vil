@@ -11,6 +11,7 @@ import {
   ActivityIndicator,
   Linking,
   Platform,
+  ScrollView,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
@@ -169,6 +170,7 @@ export default function PanicModal({
     >
       <View style={styles.overlay}>
         <View style={styles.container}>
+          <ScrollView showsVerticalScrollIndicator={false} bounces={false}>
           {/* Header */}
           <View style={styles.header}>
             <View style={styles.headerIcon}>
@@ -291,6 +293,7 @@ export default function PanicModal({
               </View>
             </>
           )}
+          </ScrollView>
         </View>
       </View>
     </Modal>
