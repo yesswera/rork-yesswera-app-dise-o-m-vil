@@ -96,7 +96,7 @@ export function useClientOrderSubscription(onOrderUpdate?: (order: OrderChange) 
           table: 'orders',
           filter: `client_id=eq.${user.id}`,
         },
-        (payload) => {
+        async (payload) => {
           const order = payload.new as OrderChange;
           const previousStatus = previousStatuses.current.get(order.id);
 
@@ -108,13 +108,28 @@ export function useClientOrderSubscription(onOrderUpdate?: (order: OrderChange) 
             let message: string;
             let toastType = getToastType(order.status);
 
-            // Detectar si es una transferencia de repartidor
-            if (order.needs_driver_transfer && order.status === 'ready') {
-              // Orden transferida - mostrar mensaje personalizado segun la razon
-              message = order.transfer_reason
-                ? getClientTransferMessage(order.transfer_reason)
-                : 'Tu repartidor tuvo un inconveniente. Otro repartidor ya esta siendo asignado. Agradecemos tu comprension.';
-              toastType = 'warning';
+            // Si el status es 'ready', verificar si es una transferencia
+            // Supabase Realtime puede no enviar todos los campos, asi que consultamos la BD
+            if (order.status === 'ready') {
+              try {
+                const { data: fullOrder } = await supabase
+                  .from('orders')
+                  .select('needs_driver_transfer, transfer_reason')
+                  .eq('id', order.id)
+                  .single();
+
+                if (fullOrder?.needs_driver_transfer) {
+                  // Es una transferencia - mostrar mensaje personalizado
+                  message = fullOrder.transfer_reason
+                    ? getClientTransferMessage(fullOrder.transfer_reason)
+                    : 'Tu repartidor tuvo un inconveniente. Otro repartidor ya esta siendo asignado. Agradecemos tu comprension.';
+                  toastType = 'warning';
+                } else {
+                  message = CLIENT_MESSAGES[order.status];
+                }
+              } catch {
+                message = CLIENT_MESSAGES[order.status];
+              }
             } else if (order.status === 'cancelled' && order.cancellation_reason?.includes('Rechazado')) {
               message = 'El negocio no puede atender tu pedido';
             } else {
