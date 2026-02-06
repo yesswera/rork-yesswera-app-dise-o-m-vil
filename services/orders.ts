@@ -147,10 +147,11 @@ export async function getOrderById(orderId: string): Promise<Order | null> {
 
 export async function createOrder(orderData: {
   clientId: string;
-  businessId: string | null; // null para lista general de compras
+  businessId: string | null; // null para lista general de compras o delivery
   serviceType: 'food' | 'shopping' | 'delivery';
   deliveryAddress: string;
   deliveryInstructions?: string;
+  pickupAddress?: string; // Para delivery/mensajería
   items: Array<{
     productId: string;
     productName: string;
@@ -168,9 +169,9 @@ export async function createOrder(orderData: {
     const total = orderData.subtotal + orderData.deliveryFee + (orderData.tip || 0);
     const { driverCode, comandaCode, deliveryCode } = generateOrderCodes();
 
-    // Get business address for pickup (si hay negocio específico)
-    let pickupAddress = '';
-    if (orderData.businessId) {
+    // Get pickup address: from param, from business, or empty
+    let pickupAddress = orderData.pickupAddress || '';
+    if (!pickupAddress && orderData.businessId) {
       const { data: business } = await supabase
         .from('businesses')
         .select('address')

@@ -62,15 +62,24 @@ export default function DeliveryCreateScreen() {
     setIsProcessing(true);
 
     try {
+      // Construir instrucciones completas
+      let instructions = `PAQUETE: ${packageDescription}`;
+      if (packageWeight) {
+        instructions += `\nPESO: ${packageWeight}`;
+      }
+      instructions += `\nURGENCIA: ${urgency === 'express' ? 'EXPRESS' : 'Estándar'}`;
+      instructions += `\nRECOGER EN: ${originAddress}`;
+
       const createdOrder = await createOrder({
         clientId: user.id,
-        businessId: '', // No business for delivery type
+        businessId: null, // Sin negocio - servicio de mensajería
         serviceType: 'delivery',
+        pickupAddress: originAddress, // Dirección de recogida
         deliveryAddress: selectedDestination.address,
-        deliveryInstructions: packageWeight ? `Peso: ${packageWeight}` : undefined,
+        deliveryInstructions: instructions,
         items: [{
-          productId: 'package',
-          productName: packageDescription,
+          productId: 'package-delivery',
+          productName: `Paquete: ${packageDescription.substring(0, 50)}`,
           quantity: 1,
           unitPrice: 0,
         }],
