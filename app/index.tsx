@@ -8,6 +8,7 @@ import { useState, useEffect, useRef, useCallback } from 'react';
 import { useAuth } from '@/contexts/auth';
 import { useTheme } from '@/contexts/theme';
 import { getActiveOrders, getUserOrders } from '@/services/orders';
+import { getClientTransferMessage } from '@/services/driver-monitoring';
 import { useClientOrderSubscription } from '@/hooks/useRealtimeOrders';
 import { Order, OrderStatus } from '@/constants/types';
 import Colors from '@/constants/colors';
@@ -165,8 +166,11 @@ export default function HomeScreen() {
   }, [user, token, loadOrderData]);
 
   const getOrderStatusText = (order: Order) => {
-    // Si es una transferencia, mostrar mensaje especial
+    // Si es una transferencia, mostrar mensaje personalizado segun la razon
     if (order.needsDriverTransfer && order.status === 'ready') {
+      if (order.transferReason) {
+        return '🔄 ' + getClientTransferMessage(order.transferReason);
+      }
       return '🔄 Buscando nuevo repartidor...';
     }
 
