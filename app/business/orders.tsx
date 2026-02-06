@@ -15,6 +15,7 @@ import { Clock, MapPin, CheckCircle, ArrowLeft, ShieldCheck, Package, CookingPot
 import Colors from '@/constants/colors';
 import { useAuth } from '@/contexts/auth';
 import { getBusinessOrders, acceptOrder, updateOrderStatus, validatePickupAndHandover, businessRejectOrder, REJECTION_REASONS, RejectionReason } from '@/services/orders';
+import { markOrderReadyAndAssign } from '@/services/driver-assignment';
 import { Order } from '@/constants/types';
 import { supabase } from '@/constants/supabase';
 import { useBusinessOrderSubscription } from '@/hooks/useRealtimeOrders';
@@ -132,8 +133,18 @@ export default function BusinessOrdersScreen() {
 
   const handleMarkReady = async (orderId: string) => {
     try {
-      await updateOrderStatus(orderId, 'ready');
-      Alert.alert('Listo', 'Pedido marcado como listo para recoger');
+      // Mark as ready AND notify nearby drivers
+      const result = await markOrderReadyAndAssign(orderId);
+      if (result.success) {
+        Alert.alert(
+          'Pedido Listo',
+          result.driversNotified && result.driversNotified > 0
+            ? `${result.driversNotified} repartidores fueron notificados`
+            : 'Buscando repartidores disponibles...'
+        );
+      } else {
+        Alert.alert('Listo', 'Pedido marcado como listo para recoger');
+      }
       loadOrders();
     } catch (error) {
       Alert.alert('Error', 'No se pudo actualizar el estado');

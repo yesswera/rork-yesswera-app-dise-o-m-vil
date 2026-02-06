@@ -1,17 +1,20 @@
 import { useState, useEffect, useCallback } from 'react';
 import { StyleSheet, Text, View, TouchableOpacity, ScrollView, Alert, Linking, Platform } from 'react-native';
 import { useRouter } from 'expo-router';
-import { Package, DollarSign, Star, Clock, MapPin, Wallet, Power, Navigation, MessageCircle, History, User, HelpCircle } from 'lucide-react-native';
+import { Package, DollarSign, Star, Clock, MapPin, Wallet, Power, Navigation, MessageCircle, History, User, HelpCircle, AlertTriangle } from 'lucide-react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import Colors from '@/constants/colors';
 import { useAuth } from '@/contexts/auth';
 import { useAnalytics } from '@/contexts/analytics';
 import PanicButton from '@/components/PanicButton';
+import PanicModal from '@/components/PanicModal';
 import SurveyPopup from '@/components/SurveyPopup';
 import { getAvailableOrdersForDriver, getDriverOrders, assignOrderToDriver } from '@/services/orders';
 import { supabase } from '@/constants/supabase';
 import { Order } from '@/constants/types';
 import { useDriverOrderSubscription } from '@/hooks/useRealtimeOrders';
+import { useDriverMonitoring } from '@/hooks/useDriverMonitoring';
+import { showToast } from '@/components/ToastContainer';
 
 export default function DriverDashboardScreen() {
   const router = useRouter();
@@ -26,23 +29,57 @@ export default function DriverDashboardScreen() {
   });
   const [availableOrders, setAvailableOrders] = useState<Order[]>([]);
   const [driverId, setDriverId] = useState<string | null>(null);
+  const [showPanicModal, setShowPanicModal] = useState(false);
+  const [activeOrderId, setActiveOrderId] = useState<string | null>(null);
 
-  // Load driver record ID
+  // GPS Monitoring hook
+  const {
+    isTracking,
+    status: driverStatus,
+    lastError: gpsError,
+    goOnline,
+    goOffline,
+  } = useDriverMonitoring({
+    driverId: driverId || '',
+    orderId: activeOrderId || undefined,
+    enabled: !!driverId,
+    onAlert: (alert) => {
+      console.log('Driver alert:', alert);
+      // Could show a modal or notification here
+    },
+  });
+
+  // Load driver record ID and active order
   useEffect(() => {
-    const loadDriverId = async () => {
+    const loadDriverData = async () => {
       if (!user) return;
       try {
-        const { data } = await supabase
+        const { data: driver } = await supabase
           .from('drivers')
           .select('id')
           .eq('user_id', user.id)
           .single();
-        if (data) setDriverId(data.id);
+
+        if (driver) {
+          setDriverId(driver.id);
+
+          // Check for active order
+          const { data: activeOrder } = await supabase
+            .from('orders')
+            .select('id')
+            .eq('driver_id', driver.id)
+            .in('status', ['assigned', 'driver_verified', 'in_transit', 'arrived'])
+            .single();
+
+          if (activeOrder) {
+            setActiveOrderId(activeOrder.id);
+          }
+        }
       } catch {
         console.log('Driver record not found');
       }
     };
-    loadDriverId();
+    loadDriverData();
   }, [user]);
 
   // Realtime subscription for order updates
@@ -127,15 +164,30 @@ export default function DriverDashboardScreen() {
     }
   }, [loadAvailableOrders, isOnline]);
 
-  const toggleOnlineStatus = () => {
+  const toggleOnlineStatus = async () => {
     const newStatus = !isOnline;
-    setIsOnline(newStatus);
     trackEvent('driver_status_change', { newStatus: newStatus ? 'online' : 'offline' });
+
     if (newStatus) {
-      Alert.alert('En Línea', 'Ahora recibirás órdenes disponibles');
+      // Going online - start GPS tracking
+      try {
+        await goOnline();
+        setIsOnline(true);
+        showToast('Ahora estas EN LINEA - GPS activo', 'success');
+      } catch (error) {
+        showToast('Error al activar GPS', 'error');
+        return;
+      }
     } else {
-      Alert.alert('Desconectado', 'No recibirás nuevas órdenes');
-      setAvailableOrders([]);
+      // Going offline - stop GPS tracking
+      try {
+        await goOffline();
+        setIsOnline(false);
+        setAvailableOrders([]);
+        showToast('Desconectado - GPS detenido', 'info');
+      } catch (error) {
+        console.error('Error going offline:', error);
+      }
     }
   };
 
@@ -183,6 +235,7 @@ export default function DriverDashboardScreen() {
                 return;
               }
               await assignOrderToDriver(orderId, driverId);
+              setActiveOrderId(orderId); // Save for GPS tracking
               trackEvent('order_accepted', { orderId });
               loadAvailableOrders();
               router.push('/driver/active-order' as any);
@@ -216,6 +269,18 @@ export default function DriverDashboardScreen() {
 
   return (
     <View style={styles.container}>
+      {/* Panic Modal for emergencies */}
+      <PanicModal
+        visible={showPanicModal}
+        onClose={() => setShowPanicModal(false)}
+        driverId={driverId || ''}
+        orderId={activeOrderId}
+        onTransferRequested={() => {
+          setActiveOrderId(null);
+          loadAvailableOrders();
+        }}
+      />
+
       <SurveyPopup
         survey={currentSurvey!}
         visible={!!currentSurvey}
@@ -232,7 +297,11 @@ export default function DriverDashboardScreen() {
               <View>
                 <Text style={styles.greeting}>Hola, {user?.name || 'Repartidor'}!</Text>
                 <Text style={styles.subtitle}>
-                  {isOnline ? 'Recibiendo órdenes' : 'Desconectado'}
+                  {isOnline
+                    ? isTracking
+                      ? 'GPS activo - Recibiendo ordenes'
+                      : 'Conectando GPS...'
+                    : 'Desconectado'}
                 </Text>
               </View>
               <TouchableOpacity
@@ -290,7 +359,14 @@ export default function DriverDashboardScreen() {
             </TouchableOpacity>
           </View>
 
-          <PanicButton />
+          {/* Panic Button - opens emergency modal */}
+          <TouchableOpacity
+            style={styles.panicButton}
+            onPress={() => setShowPanicModal(true)}
+          >
+            <AlertTriangle size={20} color="#fff" />
+            <Text style={styles.panicButtonText}>Necesito Ayuda</Text>
+          </TouchableOpacity>
 
           <View style={styles.quickActionsSection}>
             <Text style={styles.sectionTitle}>Acciones Rápidas</Text>
@@ -685,5 +761,26 @@ const styles = StyleSheet.create({
     fontWeight: '700' as const,
     color: Colors.white,
     marginTop: 8,
+  },
+  panicButton: {
+    flexDirection: 'row' as const,
+    alignItems: 'center' as const,
+    justifyContent: 'center' as const,
+    backgroundColor: '#DC2626',
+    paddingVertical: 14,
+    paddingHorizontal: 20,
+    borderRadius: 12,
+    marginBottom: 24,
+    gap: 8,
+    shadowColor: '#DC2626',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 4,
+  },
+  panicButtonText: {
+    fontSize: 15,
+    fontWeight: '700' as const,
+    color: '#fff',
   },
 });
