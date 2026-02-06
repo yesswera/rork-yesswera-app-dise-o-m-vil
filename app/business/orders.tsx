@@ -17,6 +17,7 @@ import { useAuth } from '@/contexts/auth';
 import { getBusinessOrders, acceptOrder, updateOrderStatus, validatePickupAndHandover, businessRejectOrder, REJECTION_REASONS, RejectionReason } from '@/services/orders';
 import { Order } from '@/constants/types';
 import { supabase } from '@/constants/supabase';
+import { useBusinessOrderSubscription } from '@/hooks/useRealtimeOrders';
 
 export default function BusinessOrdersScreen() {
   const router = useRouter();
@@ -30,6 +31,12 @@ export default function BusinessOrdersScreen() {
   const [showRejectFor, setShowRejectFor] = useState<string | null>(null);
   const [rejectingOrder, setRejectingOrder] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<'new' | 'active' | 'done'>('new');
+  const [businessId, setBusinessId] = useState<string | null>(null);
+
+  // Realtime subscription - auto-reload when orders change
+  useBusinessOrderSubscription(businessId, () => {
+    loadOrders();
+  });
 
   const loadOrders = useCallback(async () => {
     if (!user || !token) return;
@@ -46,6 +53,11 @@ export default function BusinessOrdersScreen() {
         console.error('No business found for user');
         setOrders([]);
         return;
+      }
+
+      // Store businessId for realtime subscription
+      if (businessId !== business.id) {
+        setBusinessId(business.id);
       }
 
       const fetchedOrders = await getBusinessOrders(business.id);

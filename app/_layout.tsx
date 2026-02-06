@@ -7,6 +7,7 @@ import { AuthProvider, useAuth } from "@/contexts/auth";
 import { CartProvider } from "@/contexts/cart";
 import { AnalyticsProvider } from "@/contexts/analytics";
 import { ThemeProvider, useTheme } from "@/contexts/theme";
+import { RealtimeProvider } from "@/contexts/realtime";
 import { QueryProvider } from "@/providers/QueryProvider";
 import ToastContainer from "@/components/ToastContainer";
 import ErrorBoundary from "@/components/ErrorBoundary";
@@ -66,6 +67,8 @@ function RootLayoutNav() {
       <Stack.Screen name="profile/edit" options={{ title: "Editar Perfil" }} />
       <Stack.Screen name="orders/history" options={{ title: "Historial de Órdenes" }} />
       <Stack.Screen name="orders/[orderId]" options={{ title: "Detalles de Orden" }} />
+      <Stack.Screen name="orders/cancel/[orderId]" options={{ title: "Cancelar Pedido", headerShown: false }} />
+      <Stack.Screen name="orders/cancel-request/[orderId]" options={{ title: "Solicitar Cancelación", headerShown: false }} />
       <Stack.Screen name="ratings/create/[orderId]" options={{ title: "Calificar Servicio" }} />
       <Stack.Screen name="password-recovery/request" options={{ title: "Recuperar Contraseña", presentation: "modal" }} />
       <Stack.Screen name="password-recovery/verify" options={{ title: "Verificar Código" }} />
@@ -100,11 +103,13 @@ export default function RootLayout() {
         <GestureHandlerRootView style={{ flex: 1 }}>
           <ThemeProvider>
             <AuthProvider>
-              <AnalyticsProvider>
-                <CartProvider>
-                  <ThemedApp />
-                </CartProvider>
-              </AnalyticsProvider>
+              <RealtimeProvider>
+                <AnalyticsProvider>
+                  <CartProvider>
+                    <ThemedApp />
+                  </CartProvider>
+                </AnalyticsProvider>
+              </RealtimeProvider>
             </AuthProvider>
           </ThemeProvider>
         </GestureHandlerRootView>

@@ -11,6 +11,7 @@ import SurveyPopup from '@/components/SurveyPopup';
 import { getAvailableOrdersForDriver, getDriverOrders, assignOrderToDriver } from '@/services/orders';
 import { supabase } from '@/constants/supabase';
 import { Order } from '@/constants/types';
+import { useDriverOrderSubscription } from '@/hooks/useRealtimeOrders';
 
 export default function DriverDashboardScreen() {
   const router = useRouter();
@@ -43,6 +44,20 @@ export default function DriverDashboardScreen() {
     };
     loadDriverId();
   }, [user]);
+
+  // Realtime subscription for order updates
+  useDriverOrderSubscription(
+    isOnline ? driverId : null,
+    () => {
+      // On assigned order update - refresh available orders and stats
+      loadAvailableOrders();
+      loadDriverStats();
+    },
+    () => {
+      // On new available order - refresh the list
+      loadAvailableOrders();
+    }
+  );
 
   // Cargar estadísticas del repartidor desde Supabase
   const loadDriverStats = useCallback(async () => {

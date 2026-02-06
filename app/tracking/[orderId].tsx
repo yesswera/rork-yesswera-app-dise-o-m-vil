@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { StyleSheet, Text, View, TouchableOpacity, ScrollView, Dimensions, ActivityIndicator, Animated, Alert, KeyboardAvoidingView, Platform, SafeAreaView } from 'react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { Clock, User, Phone, Star, Navigation, X, AlertCircle, Store, RefreshCw } from 'lucide-react-native';
@@ -14,6 +14,7 @@ import { Order, OrderStatus, Business } from '@/constants/types';
 import ErrorState from '@/components/ErrorState';
 import { calculateETA, formatETA } from '@/utils/distance';
 import { createRating } from '@/services/ratings';
+import { useOrderTracking } from '@/hooks/useRealtimeOrders';
 
 const { width, height } = Dimensions.get('window');
 
@@ -48,6 +49,22 @@ export default function TrackingScreen() {
   const [rejectionReason, setRejectionReason] = useState<string | null>(null);
   const [alternatives, setAlternatives] = useState<Business[]>([]);
   const [loadingAlternatives, setLoadingAlternatives] = useState(false);
+
+  // Realtime subscription - reload order when status changes
+  const handleRealtimeUpdate = useCallback(async (status: OrderStatus) => {
+    if (orderId) {
+      try {
+        const updatedOrder = await getOrderById(orderId);
+        if (updatedOrder) {
+          setOrder(updatedOrder);
+        }
+      } catch (err) {
+        console.error('Error reloading order:', err);
+      }
+    }
+  }, [orderId]);
+
+  useOrderTracking(orderId || null, handleRealtimeUpdate);
 
   // Timeout tracking for pending orders (business not responding)
   useEffect(() => {
