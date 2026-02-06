@@ -1,7 +1,8 @@
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Alert } from 'react-native';
 import { useRouter } from 'expo-router';
-import { ChevronLeft, Edit2, LogOut, Mail, Phone, User as UserIcon, Star, History } from 'lucide-react-native';
+import { ChevronLeft, Edit2, LogOut, Mail, Phone, User as UserIcon, Star, History, Moon, Sun, Smartphone } from 'lucide-react-native';
 import { useAuth } from '@/contexts/auth';
+import { useTheme } from '@/contexts/theme';
 import Colors from '@/constants/colors';
 import { StatusBar } from 'expo-status-bar';
 import { HapticFeedback } from '@/utils/haptics';
@@ -11,6 +12,28 @@ import Badge from '@/components/Badge';
 export default function ProfileScreen() {
   const router = useRouter();
   const { user, logout } = useAuth();
+  const { mode, isDark, setMode, colors } = useTheme();
+
+  const getThemeModeLabel = () => {
+    switch (mode) {
+      case 'light': return 'Claro';
+      case 'dark': return 'Oscuro';
+      case 'system': return 'Sistema';
+    }
+  };
+
+  const getThemeIcon = () => {
+    if (mode === 'light') return <Sun size={20} color={Colors.warning} />;
+    if (mode === 'dark') return <Moon size={20} color={Colors.accent} />;
+    return <Smartphone size={20} color={Colors.primary} />;
+  };
+
+  const cycleTheme = () => {
+    HapticFeedback.light();
+    if (mode === 'light') setMode('dark');
+    else if (mode === 'dark') setMode('system');
+    else setMode('light');
+  };
 
   if (!user) {
     router.replace('/login' as any);
@@ -54,8 +77,8 @@ export default function ProfileScreen() {
   };
 
   return (
-    <View style={styles.container}>
-      <StatusBar style="light" />
+    <View style={[styles.container, { backgroundColor: colors.background.secondary }]}>
+      <StatusBar style={isDark ? "light" : "dark"} />
       
       <View style={styles.header}>
         <TouchableOpacity
@@ -156,6 +179,20 @@ export default function ProfileScreen() {
               <History size={20} color={Colors.accent} />
             </View>
             <Text style={styles.actionButtonText}>Historial de Órdenes</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={styles.actionButton}
+            onPress={cycleTheme}
+            activeOpacity={0.7}
+          >
+            <View style={styles.actionIconContainer}>
+              {getThemeIcon()}
+            </View>
+            <View style={styles.themeContent}>
+              <Text style={styles.actionButtonText}>Tema</Text>
+              <Text style={styles.themeValue}>{getThemeModeLabel()}</Text>
+            </View>
           </TouchableOpacity>
 
           <TouchableOpacity
@@ -352,5 +389,16 @@ const styles = StyleSheet.create({
   },
   logoutButtonText: {
     color: Colors.error,
+  },
+  themeContent: {
+    flex: 1,
+    flexDirection: 'row' as const,
+    justifyContent: 'space-between' as const,
+    alignItems: 'center' as const,
+  },
+  themeValue: {
+    fontSize: 14,
+    fontWeight: '500' as const,
+    color: Colors.text.secondary,
   },
 });

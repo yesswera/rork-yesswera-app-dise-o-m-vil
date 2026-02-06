@@ -348,3 +348,54 @@ export async function deleteCategory(businessId: string, categoryId: string): Pr
     throw error;
   }
 }
+
+// Get similar businesses for cancellation alternatives
+// Criteria: same category, rating 4.0+, exclude current business, limit 3
+export async function getSimilarBusinesses(currentBusinessId: string): Promise<Business[]> {
+  try {
+    // First, get the current business category
+    const { data: currentBiz, error: currentError } = await supabase
+      .from('businesses')
+      .select('category')
+      .eq('id', currentBusinessId)
+      .single();
+
+    if (currentError || !currentBiz) {
+      console.error('Could not find current business');
+      return [];
+    }
+
+    // Find similar businesses
+    const { data, error } = await supabase
+      .from('businesses')
+      .select('*')
+      .eq('category', currentBiz.category)
+      .neq('id', currentBusinessId)
+      .gte('rating_average', 4.0)
+      .eq('is_open', true)
+      .order('rating_average', { ascending: false })
+      .limit(3);
+
+    if (error) throw error;
+
+    // If no same-category businesses, try any open businesses with good rating
+    if (!data || data.length === 0) {
+      const { data: anyBiz, error: anyError } = await supabase
+        .from('businesses')
+        .select('*')
+        .neq('id', currentBusinessId)
+        .gte('rating_average', 4.0)
+        .eq('is_open', true)
+        .order('rating_average', { ascending: false })
+        .limit(3);
+
+      if (anyError) throw anyError;
+      return (anyBiz || []).map(mapBusiness);
+    }
+
+    return data.map(mapBusiness);
+  } catch (error) {
+    console.error('getSimilarBusinesses error:', error);
+    return [];
+  }
+}

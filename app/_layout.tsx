@@ -6,6 +6,7 @@ import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { AuthProvider, useAuth } from "@/contexts/auth";
 import { CartProvider } from "@/contexts/cart";
 import { AnalyticsProvider } from "@/contexts/analytics";
+import { ThemeProvider, useTheme } from "@/contexts/theme";
 import { QueryProvider } from "@/providers/QueryProvider";
 import ToastContainer from "@/components/ToastContainer";
 import ErrorBoundary from "@/components/ErrorBoundary";
@@ -74,6 +75,18 @@ function RootLayoutNav() {
   );
 }
 
+function ThemedApp() {
+  const { colors } = useTheme();
+
+  return (
+    <View style={{ flex: 1, backgroundColor: colors.background.primary }}>
+      <NotificationHandler />
+      <RootLayoutNav />
+      <ToastContainer />
+    </View>
+  );
+}
+
 export default function RootLayout() {
   useEffect(() => {
     setTimeout(() => {
@@ -85,17 +98,15 @@ export default function RootLayout() {
     <ErrorBoundary>
       <QueryProvider>
         <GestureHandlerRootView style={{ flex: 1 }}>
-          <AuthProvider>
-            <AnalyticsProvider>
-              <CartProvider>
-                <View style={{ flex: 1 }}>
-                  <NotificationHandler />
-                  <RootLayoutNav />
-                  <ToastContainer />
-                </View>
-              </CartProvider>
-            </AnalyticsProvider>
-          </AuthProvider>
+          <ThemeProvider>
+            <AuthProvider>
+              <AnalyticsProvider>
+                <CartProvider>
+                  <ThemedApp />
+                </CartProvider>
+              </AnalyticsProvider>
+            </AuthProvider>
+          </ThemeProvider>
         </GestureHandlerRootView>
       </QueryProvider>
     </ErrorBoundary>

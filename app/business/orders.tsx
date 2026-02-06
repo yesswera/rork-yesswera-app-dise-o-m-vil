@@ -11,10 +11,10 @@ import {
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
-import { Clock, MapPin, CheckCircle, ArrowLeft, ShieldCheck, Package, CookingPot } from 'lucide-react-native';
+import { Clock, MapPin, CheckCircle, ArrowLeft, ShieldCheck, Package, CookingPot, XCircle } from 'lucide-react-native';
 import Colors from '@/constants/colors';
 import { useAuth } from '@/contexts/auth';
-import { getBusinessOrders, acceptOrder, updateOrderStatus, validatePickupAndHandover } from '@/services/orders';
+import { getBusinessOrders, acceptOrder, updateOrderStatus, validatePickupAndHandover, businessRejectOrder, REJECTION_REASONS, RejectionReason } from '@/services/orders';
 import { Order } from '@/constants/types';
 import { supabase } from '@/constants/supabase';
 
@@ -27,6 +27,8 @@ export default function BusinessOrdersScreen() {
   const [pickupCodeInputs, setPickupCodeInputs] = useState<Record<string, string>>({});
   const [validatingPickup, setValidatingPickup] = useState<string | null>(null);
   const [showPrepTimeFor, setShowPrepTimeFor] = useState<string | null>(null);
+  const [showRejectFor, setShowRejectFor] = useState<string | null>(null);
+  const [rejectingOrder, setRejectingOrder] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<'new' | 'active' | 'done'>('new');
 
   const loadOrders = useCallback(async () => {
@@ -121,6 +123,24 @@ export default function BusinessOrdersScreen() {
       loadOrders();
     } catch (error) {
       Alert.alert('Error', 'No se pudo actualizar el estado');
+    }
+  };
+
+  const handleRejectOrder = async (orderId: string, reason: RejectionReason) => {
+    setRejectingOrder(orderId);
+    try {
+      await businessRejectOrder(orderId, reason);
+      Alert.alert(
+        'Orden Rechazada',
+        'El cliente ha sido notificado y podra buscar alternativas.',
+        [{ text: 'OK' }]
+      );
+      setShowRejectFor(null);
+      loadOrders();
+    } catch (error: any) {
+      Alert.alert('Error', error.message || 'No se pudo rechazar la orden');
+    } finally {
+      setRejectingOrder(null);
     }
   };
 
@@ -329,20 +349,30 @@ export default function BusinessOrdersScreen() {
           </View>
         )}
 
-        {/* Selector de tiempo y aceptar orden (pending) */}
-        {isPending && showPrepTimeFor !== order.id.toString() && (
-          <TouchableOpacity
-            style={styles.acceptButton}
-            onPress={() => setShowPrepTimeFor(order.id.toString())}
-          >
-            <CheckCircle size={20} color="#fff" />
-            <Text style={styles.acceptButtonText}>Aceptar Orden</Text>
-          </TouchableOpacity>
+        {/* Botones Aceptar/Rechazar para ordenes pendientes */}
+        {isPending && showPrepTimeFor !== order.id.toString() && showRejectFor !== order.id.toString() && (
+          <View style={styles.pendingActionsRow}>
+            <TouchableOpacity
+              style={styles.acceptButton}
+              onPress={() => setShowPrepTimeFor(order.id.toString())}
+            >
+              <CheckCircle size={20} color="#fff" />
+              <Text style={styles.acceptButtonText}>Aceptar</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={styles.rejectButton}
+              onPress={() => setShowRejectFor(order.id.toString())}
+            >
+              <XCircle size={20} color="#fff" />
+              <Text style={styles.rejectButtonText}>Rechazar</Text>
+            </TouchableOpacity>
+          </View>
         )}
 
+        {/* Selector de tiempo de preparacion */}
         {isPending && showPrepTimeFor === order.id.toString() && (
           <View style={styles.prepTimeContainer}>
-            <Text style={styles.prepTimeTitle}>Tiempo de preparación:</Text>
+            <Text style={styles.prepTimeTitle}>Tiempo de preparacion:</Text>
             <View style={styles.prepTimeRow}>
               {[10, 15, 20, 30, 45].map((min) => (
                 <TouchableOpacity
@@ -368,7 +398,35 @@ export default function BusinessOrdersScreen() {
               style={styles.prepTimeCancelButton}
               onPress={() => setShowPrepTimeFor(null)}
             >
-              <Text style={styles.prepTimeCancelText}>Cancelar</Text>
+              <Text style={styles.prepTimeCancelText}>Volver</Text>
+            </TouchableOpacity>
+          </View>
+        )}
+
+        {/* Selector de motivo de rechazo */}
+        {isPending && showRejectFor === order.id.toString() && (
+          <View style={styles.rejectContainer}>
+            <Text style={styles.rejectTitle}>Motivo del rechazo:</Text>
+            {(Object.keys(REJECTION_REASONS) as RejectionReason[]).map((key) => (
+              <TouchableOpacity
+                key={key}
+                style={[
+                  styles.rejectReasonButton,
+                  rejectingOrder === order.id.toString() && styles.rejectReasonButtonDisabled,
+                ]}
+                onPress={() => handleRejectOrder(order.id.toString(), key)}
+                disabled={rejectingOrder === order.id.toString()}
+              >
+                <Text style={styles.rejectReasonText}>
+                  {REJECTION_REASONS[key]}
+                </Text>
+              </TouchableOpacity>
+            ))}
+            <TouchableOpacity
+              style={styles.prepTimeCancelButton}
+              onPress={() => setShowRejectFor(null)}
+            >
+              <Text style={styles.prepTimeCancelText}>Volver</Text>
             </TouchableOpacity>
           </View>
         )}
@@ -731,5 +789,59 @@ const styles = StyleSheet.create({
     color: Colors.text.secondary,
     textAlign: 'center',
     marginTop: 40,
+  },
+  // Pending actions row (Aceptar/Rechazar)
+  pendingActionsRow: {
+    flexDirection: 'row',
+    gap: 10,
+    marginTop: 12,
+  },
+  rejectButton: {
+    flex: 1,
+    backgroundColor: Colors.error,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 12,
+    borderRadius: 8,
+    gap: 6,
+  },
+  rejectButtonText: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: Colors.white,
+  },
+  rejectContainer: {
+    backgroundColor: Colors.error + '10',
+    borderRadius: 8,
+    padding: 12,
+    marginTop: 12,
+    borderWidth: 1,
+    borderColor: Colors.error + '30',
+  },
+  rejectTitle: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: Colors.text.primary,
+    textAlign: 'center',
+    marginBottom: 10,
+  },
+  rejectReasonButton: {
+    backgroundColor: Colors.white,
+    borderWidth: 1,
+    borderColor: Colors.error,
+    borderRadius: 8,
+    paddingVertical: 12,
+    paddingHorizontal: 12,
+    marginBottom: 8,
+    alignItems: 'center',
+  },
+  rejectReasonButtonDisabled: {
+    opacity: 0.5,
+  },
+  rejectReasonText: {
+    fontSize: 14,
+    fontWeight: '500',
+    color: Colors.error,
   },
 });

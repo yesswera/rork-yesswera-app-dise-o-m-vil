@@ -6,6 +6,7 @@ import { UtensilsCrossed, ShoppingCart, Package, User, ChevronRight, ShoppingBag
 import { StatusBar } from 'expo-status-bar';
 import { useState, useEffect, useRef } from 'react';
 import { useAuth } from '@/contexts/auth';
+import { useTheme } from '@/contexts/theme';
 import { getActiveOrders, getUserOrders } from '@/services/orders';
 import { Order, OrderStatus } from '@/constants/types';
 import Colors from '@/constants/colors';
@@ -14,6 +15,7 @@ import { Toast } from '@/utils/toast';
 export default function HomeScreen() {
   const router = useRouter();
   const { user, token, isLoading } = useAuth();
+  const { isDark, colors } = useTheme();
   const [activeOrder, setActiveOrder] = useState<Order | null>(null);
   const [recentOrders, setRecentOrders] = useState<Order[]>([]);
   const logoScale = useRef(new Animated.Value(0)).current;
@@ -162,11 +164,14 @@ export default function HomeScreen() {
 
 
   return (
-    <View style={styles.container}>
-      <StatusBar style="dark" />
-      
+    <View style={[styles.container, { backgroundColor: colors.background.primary }]}>
+      <StatusBar style={isDark ? "light" : "dark"} />
+
       <LinearGradient
-        colors={[Colors.background.primary, Colors.background.secondary, Colors.background.tertiary]}
+        colors={isDark
+          ? [colors.background.primary, colors.background.secondary, colors.background.tertiary]
+          : [Colors.background.primary, Colors.background.secondary, Colors.background.tertiary]
+        }
         style={styles.gradient}
       />
 

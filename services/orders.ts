@@ -79,6 +79,10 @@ function mapOrder(dbOrder: any): Order {
       validated: !!dbOrder.delivered_at,
       validatedAt: dbOrder.delivered_at,
     },
+    pickupLocation: dbOrder.pickup_latitude && dbOrder.pickup_longitude ? {
+      latitude: dbOrder.pickup_latitude,
+      longitude: dbOrder.pickup_longitude,
+    } : undefined,
     deliveryLocation: {
       latitude: dbOrder.delivery_latitude || 0,
       longitude: dbOrder.delivery_longitude || 0,
@@ -245,6 +249,62 @@ export async function cancelPendingOrder(orderId: string, reason?: string): Prom
     if (error) throw error;
   } catch (error) {
     console.error('cancelPendingOrder error:', error);
+    throw error;
+  }
+}
+
+// Business REJECTS a pending order (before accepting)
+// This notifies the client with the reason so they can find alternatives
+export const REJECTION_REASONS = {
+  too_busy: 'Demasiados pedidos en este momento',
+  out_of_stock: 'Ingredientes agotados',
+  closing_soon: 'Estamos por cerrar',
+  technical_issue: 'Problema tecnico',
+  other: 'Otro motivo',
+} as const;
+
+export type RejectionReason = keyof typeof REJECTION_REASONS;
+
+export async function businessRejectOrder(
+  orderId: string,
+  reason: RejectionReason,
+  customMessage?: string
+): Promise<void> {
+  try {
+    const { data: order, error: fetchError } = await supabase
+      .from('orders')
+      .select('status, client_id')
+      .eq('id', orderId)
+      .single();
+
+    if (fetchError?.code === 'PGRST116' || !order) throw new Error('Orden no encontrada');
+    if (order.status !== 'pending') {
+      throw new Error('Solo se pueden rechazar ordenes pendientes');
+    }
+
+    const reasonText = REJECTION_REASONS[reason];
+    const fullReason = customMessage
+      ? `Rechazado por negocio: ${reasonText} - ${customMessage}`
+      : `Rechazado por negocio: ${reasonText}`;
+
+    const { error } = await supabase
+      .from('orders')
+      .update({
+        status: 'cancelled',
+        cancelled_at: new Date().toISOString(),
+        cancellation_reason: fullReason,
+        rejection_reason: reason, // Store the reason code for UI
+      })
+      .eq('id', orderId)
+      .eq('status', 'pending');
+
+    if (error) throw error;
+
+    // TODO: Send push notification to client about rejection
+    // This would trigger the alternatives flow on the client side
+
+  } catch (error) {
+    console.error('businessRejectOrder error:', error);
     throw error;
   }
 }

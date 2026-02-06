@@ -12,6 +12,7 @@ import {
   Keyboard,
   Linking,
   Animated,
+  KeyboardAvoidingView,
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -256,8 +257,16 @@ export default function ActiveOrderScreen() {
         <View style={styles.placeholder} />
       </View>
 
-      <View style={styles.content}>
-        <ScrollView showsVerticalScrollIndicator={false}>
+      <KeyboardAvoidingView
+        style={styles.content}
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 20}
+      >
+        <ScrollView
+          showsVerticalScrollIndicator={false}
+          keyboardShouldPersistTaps="handled"
+          contentContainerStyle={styles.scrollContent}
+        >
           {/* Status Badge */}
           <View style={styles.statusCard}>
             <View style={styles.statusBadge}>
@@ -516,7 +525,7 @@ export default function ActiveOrderScreen() {
             </>
           )}
         </ScrollView>
-      </View>
+      </KeyboardAvoidingView>
     </LinearGradient>
   );
 }
@@ -577,6 +586,9 @@ const styles = StyleSheet.create({
     borderTopRightRadius: 24,
     paddingTop: 20,
     paddingHorizontal: 20,
+  },
+  scrollContent: {
+    paddingBottom: 40,
   },
   statusCard: {
     alignItems: 'center',
