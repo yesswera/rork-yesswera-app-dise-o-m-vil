@@ -16,6 +16,45 @@ import Colors from '@/constants/colors';
 import { Toast } from '@/utils/toast';
 import { supabase } from '@/constants/supabase';
 
+const services = [
+  {
+    id: 'food',
+    title: 'Alimentos y Bebidas',
+    subtitle: 'Restaurantes y Cafés',
+    icon: UtensilsCrossed,
+    badge: Sparkles,
+    badgeText: 'Popular',
+    color1: Colors.primary,
+    color2: Colors.primaryDark,
+    route: '/food/restaurants',
+    pattern: '🌮',
+  },
+  {
+    id: 'shopping',
+    title: 'Lista de Compras',
+    subtitle: 'Escribe y te lo llevamos',
+    icon: ShoppingCart,
+    badge: Zap,
+    badgeText: 'Rápido',
+    color1: Colors.secondary,
+    color2: Colors.secondaryDark,
+    route: '/shopping',
+    pattern: '🛒',
+  },
+  {
+    id: 'delivery',
+    title: 'Recoger y Entregar',
+    subtitle: 'Mensajería Express',
+    icon: Package,
+    badge: TrendingUp,
+    badgeText: 'Nuevo',
+    color1: Colors.accent,
+    color2: Colors.accentDark,
+    route: '/delivery/create',
+    pattern: '📦',
+  },
+];
+
 export default function HomeScreen() {
   const router = useRouter();
   const { user, token, isLoading } = useAuth();
@@ -315,46 +354,6 @@ export default function HomeScreen() {
       router.push('/food/restaurants' as any);
     }
   };
-
-  const services = [
-    {
-      id: 'food',
-      title: 'Alimentos y Bebidas',
-      subtitle: 'Restaurantes y Cafés',
-      icon: UtensilsCrossed,
-      badge: Sparkles,
-      badgeText: 'Popular',
-      color1: Colors.primary,
-      color2: Colors.primaryDark,
-      route: '/food/restaurants',
-      pattern: '🌮',
-    },
-    {
-      id: 'shopping',
-      title: 'Lista de Compras',
-      subtitle: 'Escribe y te lo llevamos',
-      icon: ShoppingCart,
-      badge: Zap,
-      badgeText: 'Rápido',
-      color1: Colors.secondary,
-      color2: Colors.secondaryDark,
-      route: '/shopping',
-      pattern: '🛒',
-    },
-    {
-      id: 'delivery',
-      title: 'Recoger y Entregar',
-      subtitle: 'Mensajería Express',
-      icon: Package,
-      badge: TrendingUp,
-      badgeText: 'Nuevo',
-      color1: Colors.accent,
-      color2: Colors.accentDark,
-      route: '/delivery/create',
-      pattern: '📦',
-    },
-  ];
-
 
 
   return (
