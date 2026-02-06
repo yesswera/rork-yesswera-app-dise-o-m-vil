@@ -1,5 +1,6 @@
 // Shopping Index - Dos opciones: Lista General o Buscar por Categoría
-import { StyleSheet, Text, View, TouchableOpacity, ScrollView } from 'react-native';
+import { useState, useMemo } from 'react';
+import { StyleSheet, Text, View, TouchableOpacity, ScrollView, TextInput } from 'react-native';
 import { useRouter } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
 import {
@@ -12,35 +13,61 @@ import {
   Smartphone,
   Coffee,
   ShoppingBag,
-  ChevronRight
+  ChevronRight,
+  MapPin,
+  X
 } from 'lucide-react-native';
 import Colors from '@/constants/colors';
 
-// Categorías de negocios para búsqueda
+// Categorías de negocios para búsqueda con palabras clave
 const SHOPPING_CATEGORIES = [
-  { id: 'abarrotes', name: 'Abarrotes', icon: ShoppingBag, color: '#FF6B6B' },
-  { id: 'carniceria', name: 'Carnicería', icon: Store, color: '#E74C3C' },
-  { id: 'farmacia', name: 'Farmacia', icon: Pill, color: '#3498DB' },
-  { id: 'ferreteria', name: 'Ferretería', icon: Wrench, color: '#F39C12' },
-  { id: 'electronica', name: 'Electrónica', icon: Smartphone, color: '#9B59B6' },
-  { id: 'tienda', name: 'Tienda/Oxxo', icon: Coffee, color: '#1ABC9C' },
-  { id: 'supermercado', name: 'Supermercado', icon: ShoppingCart, color: '#2ECC71' },
-  { id: 'otros', name: 'Otros', icon: Store, color: '#95A5A6' },
+  { id: 'abarrotes', name: 'Abarrotes', icon: ShoppingBag, color: '#FF6B6B', keywords: ['abarrotes', 'tiendita', 'miscelanea', 'botanas', 'refrescos', 'dulces'] },
+  { id: 'carniceria', name: 'Carnicería', icon: Store, color: '#E74C3C', keywords: ['carniceria', 'carne', 'res', 'pollo', 'cerdo', 'bistec', 'chorizo'] },
+  { id: 'farmacia', name: 'Farmacia', icon: Pill, color: '#3498DB', keywords: ['farmacia', 'medicina', 'medicamentos', 'pastillas', 'vitaminas', 'salud', 'doctor'] },
+  { id: 'ferreteria', name: 'Ferretería', icon: Wrench, color: '#F39C12', keywords: ['ferreteria', 'herramientas', 'tornillos', 'pintura', 'martillo', 'cables', 'electrico'] },
+  { id: 'electronica', name: 'Electrónica', icon: Smartphone, color: '#9B59B6', keywords: ['electronica', 'celular', 'telefono', 'audifonos', 'cargador', 'cable', 'usb'] },
+  { id: 'tienda', name: 'Tienda/Oxxo', icon: Coffee, color: '#1ABC9C', keywords: ['tienda', 'oxxo', 'seven', 'conveniencia', '24 horas', 'recargas'] },
+  { id: 'supermercado', name: 'Supermercado', icon: ShoppingCart, color: '#2ECC71', keywords: ['supermercado', 'super', 'soriana', 'walmart', 'despensa', 'mandado'] },
+  { id: 'otros', name: 'Otros', icon: Store, color: '#95A5A6', keywords: ['otros', 'negocio', 'tienda'] },
 ];
 
 export default function ShoppingIndexScreen() {
   const router = useRouter();
+  const [searchText, setSearchText] = useState('');
+  const [showSuggestions, setShowSuggestions] = useState(false);
+
+  // Filtrar sugerencias basadas en el texto de búsqueda
+  const suggestions = useMemo(() => {
+    if (!searchText || searchText.length < 2) return [];
+
+    const search = searchText.toLowerCase();
+    return SHOPPING_CATEGORIES.filter(cat =>
+      cat.name.toLowerCase().includes(search) ||
+      cat.keywords.some(kw => kw.includes(search))
+    );
+  }, [searchText]);
 
   const handleGeneralList = () => {
     router.push('/shopping/general-list' as any);
   };
 
   const handleCategorySearch = (categoryId: string) => {
+    setSearchText('');
+    setShowSuggestions(false);
     router.push(`/shopping/stores?category=${categoryId}` as any);
   };
 
-  const handleViewAllStores = () => {
-    router.push('/shopping/stores' as any);
+  const handleNearbyStores = () => {
+    router.push('/shopping/nearby' as any);
+  };
+
+  const handleSearchSubmit = () => {
+    if (suggestions.length > 0) {
+      handleCategorySearch(suggestions[0].id);
+    } else if (searchText.length > 0) {
+      // Búsqueda general - ir a todas las tiendas
+      router.push('/shopping/stores' as any);
+    }
   };
 
   return (
@@ -56,6 +83,52 @@ export default function ShoppingIndexScreen() {
           <Text style={styles.headerSubtitle}>
             Escribe tu lista y un repartidor irá a comprar por ti
           </Text>
+
+          {/* Search Bar */}
+          <View style={styles.searchContainer}>
+            <View style={styles.searchInputContainer}>
+              <Search size={20} color={Colors.text.secondary} />
+              <TextInput
+                style={styles.searchInput}
+                placeholder="Buscar... ej: farmacia, carne"
+                placeholderTextColor={Colors.text.light}
+                value={searchText}
+                onChangeText={(text) => {
+                  setSearchText(text);
+                  setShowSuggestions(text.length >= 2);
+                }}
+                onSubmitEditing={handleSearchSubmit}
+                returnKeyType="search"
+              />
+              {searchText.length > 0 && (
+                <TouchableOpacity onPress={() => { setSearchText(''); setShowSuggestions(false); }}>
+                  <X size={18} color={Colors.text.secondary} />
+                </TouchableOpacity>
+              )}
+            </View>
+
+            {/* Sugerencias de búsqueda */}
+            {showSuggestions && suggestions.length > 0 && (
+              <View style={styles.suggestionsContainer}>
+                {suggestions.map((suggestion) => {
+                  const IconComponent = suggestion.icon;
+                  return (
+                    <TouchableOpacity
+                      key={suggestion.id}
+                      style={styles.suggestionItem}
+                      onPress={() => handleCategorySearch(suggestion.id)}
+                    >
+                      <View style={[styles.suggestionIcon, { backgroundColor: suggestion.color + '20' }]}>
+                        <IconComponent size={18} color={suggestion.color} />
+                      </View>
+                      <Text style={styles.suggestionText}>{suggestion.name}</Text>
+                      <ChevronRight size={16} color={Colors.text.light} />
+                    </TouchableOpacity>
+                  );
+                })}
+              </View>
+            )}
+          </View>
         </LinearGradient>
 
         <View style={styles.content}>
@@ -112,15 +185,18 @@ export default function ShoppingIndexScreen() {
             </View>
           </View>
 
-          {/* Ver todas las tiendas */}
+          {/* Comercios Cercanos - Con Mapa */}
           <TouchableOpacity
-            style={styles.viewAllButton}
+            style={styles.nearbyButton}
             activeOpacity={0.8}
-            onPress={handleViewAllStores}
+            onPress={handleNearbyStores}
           >
-            <Store size={20} color={Colors.secondary} />
-            <Text style={styles.viewAllText}>Ver Todas las Tiendas</Text>
-            <ChevronRight size={20} color={Colors.secondary} />
+            <MapPin size={22} color={Colors.white} />
+            <View style={styles.nearbyContent}>
+              <Text style={styles.nearbyText}>Comercios Cercanos</Text>
+              <Text style={styles.nearbySubtext}>Ver en mapa (5 km)</Text>
+            </View>
+            <ChevronRight size={20} color={Colors.white} />
           </TouchableOpacity>
 
           {/* Info */}
@@ -177,6 +253,60 @@ const styles = StyleSheet.create({
     fontSize: 15,
     color: 'rgba(255, 255, 255, 0.9)',
     textAlign: 'center',
+    marginBottom: 20,
+  },
+  searchContainer: {
+    width: '100%',
+    position: 'relative',
+  },
+  searchInputContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: Colors.white,
+    borderRadius: 12,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    gap: 10,
+  },
+  searchInput: {
+    flex: 1,
+    fontSize: 16,
+    color: Colors.text.primary,
+  },
+  suggestionsContainer: {
+    position: 'absolute',
+    top: 56,
+    left: 0,
+    right: 0,
+    backgroundColor: Colors.white,
+    borderRadius: 12,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.15,
+    shadowRadius: 8,
+    elevation: 5,
+    zIndex: 100,
+  },
+  suggestionItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 14,
+    borderBottomWidth: 1,
+    borderBottomColor: Colors.border.light,
+  },
+  suggestionIcon: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 12,
+  },
+  suggestionText: {
+    flex: 1,
+    fontSize: 15,
+    fontWeight: '500',
+    color: Colors.text.primary,
   },
   content: {
     padding: 16,
@@ -271,22 +401,32 @@ const styles = StyleSheet.create({
     color: Colors.text.primary,
     textAlign: 'center',
   },
-  viewAllButton: {
+  nearbyButton: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: Colors.white,
-    padding: 16,
-    borderRadius: 12,
+    backgroundColor: Colors.accent,
+    padding: 18,
+    borderRadius: 14,
     marginBottom: 24,
-    gap: 8,
-    borderWidth: 1.5,
-    borderColor: Colors.secondary,
+    gap: 12,
+    shadowColor: Colors.accent,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 4,
   },
-  viewAllText: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: Colors.secondary,
+  nearbyContent: {
+    flex: 1,
+  },
+  nearbyText: {
+    fontSize: 17,
+    fontWeight: '700',
+    color: Colors.white,
+  },
+  nearbySubtext: {
+    fontSize: 13,
+    color: 'rgba(255, 255, 255, 0.85)',
+    marginTop: 2,
   },
   infoCard: {
     backgroundColor: Colors.white,
