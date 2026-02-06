@@ -18,6 +18,8 @@ import { getBusinessOrders, acceptOrder, updateOrderStatus, validatePickupAndHan
 import { Order } from '@/constants/types';
 import { supabase } from '@/constants/supabase';
 import { useBusinessOrderSubscription } from '@/hooks/useRealtimeOrders';
+import { useBusinessResponseTimer } from '@/hooks/useOrderTimeout';
+import PriorityClientBadge from '@/components/PriorityClientBadge';
 
 export default function BusinessOrdersScreen() {
   const router = useRouter();
@@ -215,6 +217,16 @@ export default function BusinessOrdersScreen() {
             </Text>
           </View>
         </View>
+
+        {/* Badge Cliente Prioritario */}
+        {(order as any).isPriorityClient && (
+          <View style={styles.priorityBadgeContainer}>
+            <PriorityClientBadge
+              reason={(order as any).priorityReason}
+              compact={true}
+            />
+          </View>
+        )}
 
         <View style={styles.orderDetails}>
           <View style={styles.detailRow}>
@@ -565,6 +577,9 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
+    marginBottom: 12,
+  },
+  priorityBadgeContainer: {
     marginBottom: 12,
   },
   orderNumber: {

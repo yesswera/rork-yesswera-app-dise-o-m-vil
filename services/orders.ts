@@ -84,6 +84,12 @@ function mapOrder(dbOrder: any): Order {
     pickupLocation: parseLocation(dbOrder.pickup_location) || undefined,
     deliveryLocation: parseLocation(dbOrder.delivery_location) || { latitude: 0, longitude: 0 },
     driverAtBusiness: !!dbOrder.driver_at_business,
+    // Priority client system
+    isPriorityClient: dbOrder.is_priority_client || false,
+    priorityReason: dbOrder.priority_reason,
+    // Timeout tracking
+    timeoutAt: dbOrder.timeout_at,
+    cancellationReason: dbOrder.cancellation_reason,
   };
 }
 

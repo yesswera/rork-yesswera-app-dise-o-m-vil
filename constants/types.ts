@@ -98,6 +98,12 @@ export interface Order {
     validatedBy?: string;
   };
   driverAtBusiness?: boolean;
+  // Priority client system
+  isPriorityClient?: boolean;
+  priorityReason?: string;
+  // Timeout tracking
+  timeoutAt?: string;
+  cancellationReason?: string;
 }
 
 export interface PackageDetails {
