@@ -292,12 +292,20 @@ export async function requestOrderTransfer(
   reason: string
 ): Promise<{ success: boolean; message: string }> {
   try {
+    // Get order info first (need client_id for notification)
+    const { data: order } = await supabase
+      .from('orders')
+      .select('client_id, business_id')
+      .eq('id', orderId)
+      .single();
+
     // Update order to make it available again
     const { error } = await supabase
       .from('orders')
       .update({
         status: 'ready', // Back to ready so other drivers can take it
         driver_id: null,
+        driver_at_business: false,
         needs_driver_transfer: true,
         transfer_reason: reason,
         previous_driver_id: fromDriverId,
@@ -313,6 +321,17 @@ export async function requestOrderTransfer(
       to_driver_id: null, // Will be filled when new driver accepts
       reason,
     });
+
+    // Notificar al cliente sobre el cambio de repartidor
+    if (order?.client_id) {
+      await supabase.from('notifications').insert({
+        user_id: order.client_id,
+        type: 'driver_changed',
+        title: 'Cambio de repartidor',
+        body: 'Tu repartidor tuvo un inconveniente. Estamos asignando uno nuevo lo antes posible.',
+        data: { orderId, reason },
+      });
+    }
 
     return {
       success: true,
