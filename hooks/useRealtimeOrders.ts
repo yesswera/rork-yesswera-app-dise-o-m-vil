@@ -101,10 +101,22 @@ export function useClientOrderSubscription(onOrderUpdate?: (order: OrderChange) 
           if (previousStatus !== order.status) {
             previousStatuses.current.set(order.id, order.status);
 
+            // Detectar si es una transferencia de repartidor
+            const isDriverTransfer = (order as any).needs_driver_transfer === true;
+
             // Show toast notification
-            const message = order.status === 'cancelled' && order.cancellation_reason?.includes('Rechazado')
-              ? 'El negocio no puede atender tu pedido'
-              : CLIENT_MESSAGES[order.status];
+            let message: string;
+            let toastType = getToastType(order.status);
+
+            if (isDriverTransfer && order.status === 'ready') {
+              // Orden transferida - mostrar mensaje especial
+              message = 'Tu repartidor tuvo un inconveniente. Buscando uno nuevo...';
+              toastType = 'warning';
+            } else if (order.status === 'cancelled' && order.cancellation_reason?.includes('Rechazado')) {
+              message = 'El negocio no puede atender tu pedido';
+            } else {
+              message = CLIENT_MESSAGES[order.status];
+            }
 
             if (message) {
               Haptics.notificationAsync(
@@ -114,7 +126,7 @@ export function useClientOrderSubscription(onOrderUpdate?: (order: OrderChange) 
                     ? Haptics.NotificationFeedbackType.Success
                     : Haptics.NotificationFeedbackType.Warning
               );
-              showToast(message, getToastType(order.status));
+              showToast(message, toastType);
             }
 
             // Callback for additional handling
