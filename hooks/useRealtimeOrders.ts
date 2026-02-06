@@ -30,11 +30,12 @@ interface OrderChange {
 
 // Status messages for each role
 const CLIENT_MESSAGES: Record<OrderStatus, string> = {
-  pending: 'Orden enviada, esperando confirmacion...',
+  pending: 'Orden enviada, esperando confirmacion del negocio...',
   accepted: 'El negocio acepto tu orden',
   preparing: 'Tu orden esta siendo preparada',
   ready: 'Tu orden esta lista, buscando repartidor...',
   assigned: 'Repartidor asignado, va al negocio',
+  driver_verified: 'El repartidor esta en el negocio',
   handed_to_driver: 'El repartidor tiene tu orden',
   in_transit: 'Tu orden va en camino',
   arrived: 'El repartidor llego - sal a recibir',

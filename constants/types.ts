@@ -104,6 +104,9 @@ export interface Order {
   // Timeout tracking
   timeoutAt?: string;
   cancellationReason?: string;
+  // Driver transfer
+  needsDriverTransfer?: boolean;
+  transferReason?: string;
 }
 
 export interface PackageDetails {

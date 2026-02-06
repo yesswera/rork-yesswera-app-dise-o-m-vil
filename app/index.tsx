@@ -164,14 +164,22 @@ export default function HomeScreen() {
     };
   }, [user, token, loadOrderData]);
 
-  const getOrderStatusText = (status: OrderStatus) => {
-    switch (status) {
-      case 'pending': return '⏳ Buscando repartidor...';
-      case 'confirmed': return '✅ Orden confirmada';
+  const getOrderStatusText = (order: Order) => {
+    // Si es una transferencia, mostrar mensaje especial
+    if (order.needsDriverTransfer && order.status === 'ready') {
+      return '🔄 Buscando nuevo repartidor...';
+    }
+
+    switch (order.status) {
+      case 'pending': return '⏳ Esperando confirmacion del negocio...';
+      case 'accepted': return '✅ Negocio acepto tu orden';
       case 'preparing': return '👨‍🍳 Preparando tu orden';
-      case 'ready': return '📦 Orden lista para recoger';
-      case 'accepted': return '🚴 Repartidor asignado';
-      case 'in_transit': return '🚴 Tu orden está en camino';
+      case 'ready': return '✅ Orden lista, buscando repartidor...';
+      case 'assigned': return '🚴 Repartidor va al negocio';
+      case 'driver_verified': return '🚴 Repartidor en el negocio';
+      case 'handed_to_driver': return '📦 Repartidor tiene tu orden';
+      case 'in_transit': return '🚴 Tu orden va en camino';
+      case 'arrived': return '🏠 Repartidor llego, sal a recibir';
       default: return 'Orden activa';
     }
   };
@@ -391,7 +399,7 @@ export default function HomeScreen() {
                 </View>
                 <View style={styles.bannerText}>
                   <Text style={styles.bannerTitle}>
-                    {getOrderStatusText(activeOrder.status)}
+                    {getOrderStatusText(activeOrder)}
                   </Text>
                   <Text style={styles.bannerSubtitle}>
                     {activeOrder.orderNumber} • Tap para ver detalles

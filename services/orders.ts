@@ -90,6 +90,9 @@ function mapOrder(dbOrder: any): Order {
     // Timeout tracking
     timeoutAt: dbOrder.timeout_at,
     cancellationReason: dbOrder.cancellation_reason,
+    // Driver transfer
+    needsDriverTransfer: dbOrder.needs_driver_transfer || false,
+    transferReason: dbOrder.transfer_reason,
   };
 }
 
