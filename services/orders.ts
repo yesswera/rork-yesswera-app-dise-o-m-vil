@@ -271,6 +271,11 @@ export async function businessRejectOrder(
   customMessage?: string
 ): Promise<void> {
   try {
+    // Validate reason exists
+    if (!reason || !REJECTION_REASONS[reason]) {
+      throw new Error(`Motivo de rechazo invalido: ${reason}`);
+    }
+
     const { data: order, error: fetchError } = await supabase
       .from('orders')
       .select('status, client_id')
@@ -293,7 +298,6 @@ export async function businessRejectOrder(
         status: 'cancelled',
         cancelled_at: new Date().toISOString(),
         cancellation_reason: fullReason,
-        rejection_reason: reason, // Store the reason code for UI
       })
       .eq('id', orderId)
       .eq('status', 'pending');
