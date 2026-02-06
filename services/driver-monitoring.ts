@@ -52,6 +52,29 @@ export const PANIC_REASONS: Record<PanicReason, string> = {
   feeling_unsafe: 'Me siento en peligro',
 };
 
+// Mensajes amigables para el cliente segun la razon de transferencia
+// Algunos son discretos para proteger la privacidad del repartidor
+export const CLIENT_TRANSFER_MESSAGES: Record<PanicReason, string> = {
+  accident: 'Tu repartidor tuvo un accidente. Esperamos que se encuentre bien. Otro repartidor ya esta siendo asignado para continuar con tu pedido. Agradecemos mucho tu comprension.',
+  robbery_attempt: 'Tu repartidor tuvo un inconveniente de seguridad y no puede continuar. Otro repartidor ya esta siendo asignado. Agradecemos tu comprension.',
+  client_harassment: 'Tu repartidor no pudo continuar con la entrega. Otro repartidor ya esta siendo asignado. Agradecemos tu paciencia.',
+  medical_emergency: 'Tu repartidor tuvo una emergencia medica. Esperamos que se recupere pronto. Otro repartidor ya esta siendo asignado. Agradecemos tu comprension.',
+  vehicle_breakdown: 'Tu repartidor tuvo una falla mecanica en su vehiculo. Otro repartidor ya esta siendo asignado para continuar con tu pedido. Agradecemos tu comprension.',
+  feeling_unsafe: 'Tu repartidor no pudo continuar con la entrega por motivos personales. Otro repartidor ya esta siendo asignado. Agradecemos tu paciencia.',
+};
+
+// Obtener mensaje amigable para el cliente
+export function getClientTransferMessage(reason: string): string {
+  // Buscar si la razon coincide con alguna clave de PANIC_REASONS
+  for (const [key, value] of Object.entries(PANIC_REASONS)) {
+    if (reason === value || reason === key) {
+      return CLIENT_TRANSFER_MESSAGES[key as PanicReason];
+    }
+  }
+  // Mensaje generico si no se reconoce la razon
+  return 'Tu repartidor tuvo un inconveniente y no puede continuar. Otro repartidor ya esta siendo asignado. Agradecemos tu comprension.';
+}
+
 // Calculate expected travel time
 export function calculateExpectedTime(
   distanceKm: number,
@@ -322,13 +345,14 @@ export async function requestOrderTransfer(
       reason,
     });
 
-    // Notificar al cliente sobre el cambio de repartidor
+    // Notificar al cliente sobre el cambio de repartidor con mensaje personalizado
     if (order?.client_id) {
+      const friendlyMessage = getClientTransferMessage(reason);
       await supabase.from('notifications').insert({
         user_id: order.client_id,
         type: 'driver_changed',
         title: 'Cambio de repartidor',
-        body: 'Tu repartidor tuvo un inconveniente. Estamos asignando uno nuevo lo antes posible.',
+        body: friendlyMessage,
         data: { orderId, reason },
       });
     }

@@ -3,6 +3,7 @@ import { supabase } from '@/constants/supabase';
 import { useAuth } from '@/contexts/auth';
 import { showToast } from '@/utils/toast';
 import * as Haptics from 'expo-haptics';
+import { getClientTransferMessage } from '@/services/driver-monitoring';
 
 type OrderStatus =
   | 'pending'
@@ -23,6 +24,8 @@ interface OrderChange {
   driver_id?: string;
   client_id?: string;
   cancellation_reason?: string;
+  needs_driver_transfer?: boolean;
+  transfer_reason?: string;
 }
 
 // Status messages for each role
@@ -101,16 +104,16 @@ export function useClientOrderSubscription(onOrderUpdate?: (order: OrderChange) 
           if (previousStatus !== order.status) {
             previousStatuses.current.set(order.id, order.status);
 
-            // Detectar si es una transferencia de repartidor
-            const isDriverTransfer = (order as any).needs_driver_transfer === true;
-
             // Show toast notification
             let message: string;
             let toastType = getToastType(order.status);
 
-            if (isDriverTransfer && order.status === 'ready') {
-              // Orden transferida - mostrar mensaje especial
-              message = 'Tu repartidor tuvo un inconveniente. Buscando uno nuevo...';
+            // Detectar si es una transferencia de repartidor
+            if (order.needs_driver_transfer && order.status === 'ready') {
+              // Orden transferida - mostrar mensaje personalizado segun la razon
+              message = order.transfer_reason
+                ? getClientTransferMessage(order.transfer_reason)
+                : 'Tu repartidor tuvo un inconveniente. Otro repartidor ya esta siendo asignado. Agradecemos tu comprension.';
               toastType = 'warning';
             } else if (order.status === 'cancelled' && order.cancellation_reason?.includes('Rechazado')) {
               message = 'El negocio no puede atender tu pedido';
