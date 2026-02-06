@@ -1,10 +1,11 @@
-import { StyleSheet, Text, View, TouchableOpacity, ScrollView, Animated } from 'react-native';
+import { StyleSheet, Text, View, TouchableOpacity, ScrollView, Animated, Dimensions, Platform } from 'react-native';
 import { Image } from 'expo-image';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
-import { UtensilsCrossed, ShoppingCart, Package, User, ChevronRight, ShoppingBag, RefreshCw, Clock, XCircle, AlertTriangle } from 'lucide-react-native';
+import { UtensilsCrossed, ShoppingCart, Package, User, ChevronRight, ShoppingBag, RefreshCw, Clock, XCircle, AlertTriangle, Sparkles, TrendingUp, Zap } from 'lucide-react-native';
 import { StatusBar } from 'expo-status-bar';
 import { useState, useEffect, useRef, useCallback } from 'react';
+import { BlurView } from 'expo-blur';
 import { useAuth } from '@/contexts/auth';
 import { useTheme } from '@/contexts/theme';
 import { getActiveOrders, getUserOrders } from '@/services/orders';
@@ -24,6 +25,15 @@ export default function HomeScreen() {
   const [recentOrders, setRecentOrders] = useState<Order[]>([]);
   const logoScale = useRef(new Animated.Value(0)).current;
   const logoOpacity = useRef(new Animated.Value(0)).current;
+  const [serviceAnimations] = useState(() => 
+    services.map(() => ({
+      scale: new Animated.Value(0),
+      opacity: new Animated.Value(0),
+    }))
+  );
+  const pulseAnim = useRef(new Animated.Value(1)).current;
+  const floatingAnim = useRef(new Animated.Value(0)).current;
+  const shimmerAnim = useRef(new Animated.Value(0)).current;
 
   // Redirigir por rol: negocio y driver no deben ver el home de cliente
   useEffect(() => {
@@ -50,7 +60,63 @@ export default function HomeScreen() {
         duration: 800,
         useNativeDriver: true,
       }),
-    ]).start();
+    ]).start(() => {
+      serviceAnimations.forEach((anim, index) => {
+        Animated.parallel([
+          Animated.spring(anim.scale, {
+            toValue: 1,
+            tension: 40,
+            friction: 7,
+            delay: index * 100,
+            useNativeDriver: true,
+          }),
+          Animated.timing(anim.opacity, {
+            toValue: 1,
+            duration: 600,
+            delay: index * 100,
+            useNativeDriver: true,
+          }),
+        ]).start();
+      });
+    });
+
+    Animated.loop(
+      Animated.sequence([
+        Animated.timing(pulseAnim, {
+          toValue: 1.05,
+          duration: 2000,
+          useNativeDriver: true,
+        }),
+        Animated.timing(pulseAnim, {
+          toValue: 1,
+          duration: 2000,
+          useNativeDriver: true,
+        }),
+      ])
+    ).start();
+
+    Animated.loop(
+      Animated.sequence([
+        Animated.timing(floatingAnim, {
+          toValue: -10,
+          duration: 3000,
+          useNativeDriver: true,
+        }),
+        Animated.timing(floatingAnim, {
+          toValue: 0,
+          duration: 3000,
+          useNativeDriver: true,
+        }),
+      ])
+    ).start();
+
+    Animated.loop(
+      Animated.timing(shimmerAnim, {
+        toValue: 1,
+        duration: 2000,
+        useNativeDriver: true,
+      })
+    ).start();
   }, []);
 
   // Function to load all order data
@@ -256,27 +322,36 @@ export default function HomeScreen() {
       title: 'Alimentos y Bebidas',
       subtitle: 'Restaurantes y Cafés',
       icon: UtensilsCrossed,
+      badge: Sparkles,
+      badgeText: 'Popular',
       color1: Colors.primary,
       color2: Colors.primaryDark,
       route: '/food/restaurants',
+      pattern: '🌮',
     },
     {
       id: 'shopping',
       title: 'Lista de Compras',
       subtitle: 'Escribe y te lo llevamos',
       icon: ShoppingCart,
+      badge: Zap,
+      badgeText: 'Rápido',
       color1: Colors.secondary,
       color2: Colors.secondaryDark,
       route: '/shopping',
+      pattern: '🛒',
     },
     {
       id: 'delivery',
       title: 'Recoger y Entregar',
       subtitle: 'Mensajería Express',
       icon: Package,
+      badge: TrendingUp,
+      badgeText: 'Nuevo',
       color1: Colors.accent,
       color2: Colors.accentDark,
       route: '/delivery/create',
+      pattern: '📦',
     },
   ];
 
@@ -289,10 +364,37 @@ export default function HomeScreen() {
       <LinearGradient
         colors={isDark
           ? [colors.background.primary, colors.background.secondary, colors.background.tertiary]
-          : [Colors.background.primary, Colors.background.secondary, Colors.background.tertiary]
+          : ['#FFFFFF', '#F0FDF9', '#ECFDF5', '#F8FAFC']
         }
         style={styles.gradient}
       />
+
+      <View style={styles.decorativePatterns}>
+        {[...Array(8)].map((_, i) => (
+          <Animated.View
+            key={i}
+            style={[
+              styles.patternCircle,
+              {
+                left: `${(i % 4) * 30}%`,
+                top: `${Math.floor(i / 4) * 50}%`,
+                opacity: shimmerAnim.interpolate({
+                  inputRange: [0, 0.5, 1],
+                  outputRange: [0.03, 0.06, 0.03],
+                }),
+                transform: [
+                  {
+                    scale: shimmerAnim.interpolate({
+                      inputRange: [0, 0.5, 1],
+                      outputRange: [1, 1.2, 1],
+                    }),
+                  },
+                ],
+              },
+            ]}
+          />
+        ))}
+      </View>
 
       <ScrollView 
         style={styles.scrollView}
@@ -313,18 +415,39 @@ export default function HomeScreen() {
             styles.heroSection,
             {
               opacity: logoOpacity,
-              transform: [{ scale: logoScale }],
+              transform: [
+                { scale: logoScale },
+                { translateY: floatingAnim },
+              ],
             },
           ]}
         >
-          <View style={styles.logoGlow} />
+          <Animated.View 
+            style={[
+              styles.logoGlow,
+              {
+                transform: [{ scale: pulseAnim }],
+              },
+            ]}
+          />
           <Image 
             source={{ uri: 'https://pub-e001eb4506b145aa938b5d3badbff6a5.r2.dev/attachments/1vcwmxc8pzt7x8m13osxp' }}
             style={styles.logoImage}
             contentFit="contain"
           />
-          <Text style={styles.tagline}>Lo que quieras, cuando quieras</Text>
-          <View style={styles.divider} />
+          <View style={styles.taglineContainer}>
+            <Text style={styles.tagline}>Lo que quieras, cuando quieras</Text>
+            <View style={styles.mexicanAccent}>
+              <Text style={styles.mexicanEmoji}>🇲🇽</Text>
+              <Text style={styles.localText}>Hecho en Jalisco</Text>
+            </View>
+          </View>
+          <LinearGradient
+            colors={[Colors.primary, Colors.accent]}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 0 }}
+            style={styles.divider}
+          />
         </Animated.View>
 
         {/* Banner de orden cancelada - prioridad alta */}
@@ -469,32 +592,63 @@ export default function HomeScreen() {
 
         <View style={styles.servicesContainer}>
           {services.map((service, index) => (
-            <TouchableOpacity
+            <Animated.View
               key={service.id}
-              activeOpacity={0.8}
-              onPress={() => router.push(service.route as any)}
-              style={[
-                styles.serviceCard,
-                { marginBottom: index === services.length - 1 ? 0 : 16 }
-              ]}
+              style={{
+                opacity: serviceAnimations[index].opacity,
+                transform: [{ scale: serviceAnimations[index].scale }],
+                marginBottom: index === services.length - 1 ? 0 : 20,
+              }}
             >
-              <LinearGradient
-                colors={[service.color1, service.color2]}
-                style={styles.serviceGradient}
-                start={{ x: 0, y: 0 }}
-                end={{ x: 1, y: 1 }}
+              <TouchableOpacity
+                activeOpacity={0.8}
+                onPress={() => router.push(service.route as any)}
+                style={styles.serviceCard}
               >
-                <View style={styles.serviceContent}>
-                  <View style={styles.serviceIconContainer}>
-                    <service.icon size={40} color={Colors.white} strokeWidth={2} />
+                <LinearGradient
+                  colors={[service.color1, service.color2]}
+                  style={styles.serviceGradient}
+                  start={{ x: 0, y: 0 }}
+                  end={{ x: 1, y: 1 }}
+                >
+                  <View style={styles.patternOverlay}>
+                    <Text style={styles.patternEmoji}>{service.pattern}</Text>
+                    <Text style={styles.patternEmoji}>{service.pattern}</Text>
+                    <Text style={styles.patternEmoji}>{service.pattern}</Text>
                   </View>
-                  <View style={styles.serviceText}>
-                    <Text style={styles.serviceTitle}>{service.title}</Text>
-                    <Text style={styles.serviceSubtitle}>{service.subtitle}</Text>
+                  
+                  <View style={styles.serviceContent}>
+                    <View style={styles.serviceIconContainer}>
+                      <View style={styles.iconGlow} />
+                      <service.icon size={40} color={Colors.white} strokeWidth={2.5} />
+                    </View>
+                    <View style={styles.serviceText}>
+                      <View style={styles.serviceTitleRow}>
+                        <Text style={styles.serviceTitle}>{service.title}</Text>
+                      </View>
+                      <Text style={styles.serviceSubtitle}>{service.subtitle}</Text>
+                    </View>
+                    {Platform.OS === 'web' ? (
+                      <View style={styles.serviceBadge}>
+                        <service.badge size={12} color={Colors.white} />
+                        <Text style={styles.badgeText}>{service.badgeText}</Text>
+                      </View>
+                    ) : (
+                      <BlurView intensity={20} style={styles.serviceBadge}>
+                        <service.badge size={12} color={Colors.white} />
+                        <Text style={styles.badgeText}>{service.badgeText}</Text>
+                      </BlurView>
+                    )}
                   </View>
-                </View>
-              </LinearGradient>
-            </TouchableOpacity>
+                  
+                  <View style={styles.sparkleContainer}>
+                    <View style={[styles.sparkle, styles.sparkle1]} />
+                    <View style={[styles.sparkle, styles.sparkle2]} />
+                    <View style={[styles.sparkle, styles.sparkle3]} />
+                  </View>
+                </LinearGradient>
+              </TouchableOpacity>
+            </Animated.View>
           ))}
         </View>
 
@@ -555,8 +709,44 @@ const styles = StyleSheet.create({
     height: 180,
     borderRadius: 160,
     backgroundColor: Colors.primary,
-    opacity: 0.15,
+    opacity: 0.2,
     top: 10,
+  },
+  taglineContainer: {
+    alignItems: 'center' as const,
+  },
+  mexicanAccent: {
+    flexDirection: 'row' as const,
+    alignItems: 'center' as const,
+    gap: 6,
+    marginTop: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 4,
+    backgroundColor: 'rgba(0, 200, 150, 0.08)',
+    borderRadius: 12,
+  },
+  mexicanEmoji: {
+    fontSize: 14,
+  },
+  localText: {
+    fontSize: 12,
+    fontWeight: '600' as const,
+    color: Colors.primary,
+  },
+  decorativePatterns: {
+    position: 'absolute' as const,
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    overflow: 'hidden' as const,
+  },
+  patternCircle: {
+    position: 'absolute' as const,
+    width: 200,
+    height: 200,
+    borderRadius: 100,
+    backgroundColor: Colors.primary,
   },
   logoImage: {
     width: 320,
@@ -572,11 +762,10 @@ const styles = StyleSheet.create({
     textAlign: 'center' as const,
   },
   divider: {
-    width: 60,
+    width: 80,
     height: 4,
-    backgroundColor: Colors.primary,
     borderRadius: 2,
-    marginTop: 16,
+    marginTop: 20,
   },
   userButton: {
     position: 'absolute' as const,
@@ -610,49 +799,133 @@ const styles = StyleSheet.create({
     marginBottom: 32,
   },
   serviceCard: {
-    borderRadius: 24,
+    borderRadius: 28,
     overflow: 'hidden' as const,
     shadowColor: Colors.shadow.dark,
-    shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.2,
-    shadowRadius: 16,
-    elevation: 8,
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.25,
+    shadowRadius: 20,
+    elevation: 10,
   },
   serviceGradient: {
     padding: 28,
-    minHeight: 140,
+    minHeight: 160,
+    position: 'relative' as const,
+  },
+  patternOverlay: {
+    position: 'absolute' as const,
+    top: 0,
+    right: 0,
+    bottom: 0,
+    width: '40%',
+    flexDirection: 'row' as const,
+    justifyContent: 'space-around' as const,
+    alignItems: 'center' as const,
+    opacity: 0.1,
+  },
+  patternEmoji: {
+    fontSize: 60,
+    transform: [{ rotate: '15deg' }],
   },
   serviceContent: {
     flexDirection: 'row' as const,
     alignItems: 'center' as const,
   },
   serviceIconContainer: {
-    width: 72,
-    height: 72,
-    borderRadius: 36,
+    width: 80,
+    height: 80,
+    borderRadius: 40,
     backgroundColor: 'rgba(255, 255, 255, 0.25)',
     justifyContent: 'center' as const,
     alignItems: 'center' as const,
     marginRight: 20,
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.2,
-    shadowRadius: 4,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    borderWidth: 3,
+    borderColor: 'rgba(255, 255, 255, 0.3)',
+    position: 'relative' as const,
+  },
+  iconGlow: {
+    position: 'absolute' as const,
+    width: 60,
+    height: 60,
+    borderRadius: 30,
+    backgroundColor: Colors.white,
+    opacity: 0.3,
   },
   serviceText: {
     flex: 1,
   },
+  serviceTitleRow: {
+    flexDirection: 'row' as const,
+    alignItems: 'center' as const,
+    gap: 6,
+  },
   serviceTitle: {
-    fontSize: 22,
-    fontWeight: '800' as const,
+    fontSize: 24,
+    fontWeight: '900' as const,
     color: Colors.white,
-    marginBottom: 6,
-    letterSpacing: 0.3,
+    marginBottom: 8,
+    letterSpacing: 0.5,
+    textShadowColor: 'rgba(0, 0, 0, 0.3)',
+    textShadowOffset: { width: 0, height: 2 },
+    textShadowRadius: 4,
   },
   serviceSubtitle: {
-    fontSize: 15,
+    fontSize: 16,
     color: 'rgba(255, 255, 255, 0.95)',
-    fontWeight: '500' as const,
+    fontWeight: '600' as const,
+    letterSpacing: 0.3,
+  },
+  serviceBadge: {
+    position: 'absolute' as const,
+    top: 16,
+    right: 16,
+    flexDirection: 'row' as const,
+    alignItems: 'center' as const,
+    gap: 4,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 12,
+    backgroundColor: 'rgba(255, 255, 255, 0.25)',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.3)',
+    overflow: 'hidden' as const,
+  },
+  badgeText: {
+    fontSize: 11,
+    fontWeight: '700' as const,
+    color: Colors.white,
+    letterSpacing: 0.5,
+    textTransform: 'uppercase' as const,
+  },
+  sparkleContainer: {
+    position: 'absolute' as const,
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+  },
+  sparkle: {
+    position: 'absolute' as const,
+    width: 4,
+    height: 4,
+    backgroundColor: 'rgba(255, 255, 255, 0.6)',
+    borderRadius: 2,
+  },
+  sparkle1: {
+    top: 40,
+    left: 100,
+  },
+  sparkle2: {
+    top: 80,
+    right: 60,
+  },
+  sparkle3: {
+    bottom: 50,
+    left: 50,
   },
 
   authPrompt: {
