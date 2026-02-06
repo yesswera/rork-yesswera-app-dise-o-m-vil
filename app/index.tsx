@@ -186,14 +186,29 @@ export default function HomeScreen() {
     setCancelledOrder(null);
   };
 
-  const handleFindAlternative = () => {
+  // Reorder at the same business
+  const handleReorderSameBusiness = () => {
+    const businessId = cancelledOrder?.businessId;
     setCancelledOrder(null);
-    if (cancelledOrder?.type === 'food') {
+
+    if (businessId) {
+      router.push(`/food/menu/${businessId}` as any);
+    } else {
       router.push('/food/restaurants' as any);
-    } else if (cancelledOrder?.type === 'shopping') {
+    }
+  };
+
+  // Find alternative businesses
+  const handleFindAlternative = () => {
+    const orderType = cancelledOrder?.type;
+    setCancelledOrder(null);
+
+    if (orderType === 'food') {
+      router.push('/food/restaurants' as any);
+    } else if (orderType === 'shopping') {
       router.push('/shopping/stores' as any);
     } else {
-      router.push('/delivery/create' as any);
+      router.push('/food/restaurants' as any);
     }
   };
 
@@ -294,13 +309,32 @@ export default function HomeScreen() {
               </View>
             </View>
             <View style={styles.cancelledActions}>
-              <TouchableOpacity
-                style={styles.findAlternativeButton}
-                onPress={handleFindAlternative}
-              >
-                <RefreshCw size={16} color={Colors.white} />
-                <Text style={styles.findAlternativeText}>Buscar Alternativa</Text>
-              </TouchableOpacity>
+              {/* If food order with businessId, offer to reorder at same place */}
+              {cancelledOrder.type === 'food' && cancelledOrder.businessId ? (
+                <>
+                  <TouchableOpacity
+                    style={styles.reorderSameButton}
+                    onPress={handleReorderSameBusiness}
+                  >
+                    <RefreshCw size={16} color={Colors.white} />
+                    <Text style={styles.findAlternativeText}>Reintentar</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    style={styles.findOtherButton}
+                    onPress={handleFindAlternative}
+                  >
+                    <Text style={styles.findOtherText}>Ver Otros</Text>
+                  </TouchableOpacity>
+                </>
+              ) : (
+                <TouchableOpacity
+                  style={styles.findAlternativeButton}
+                  onPress={handleFindAlternative}
+                >
+                  <RefreshCw size={16} color={Colors.white} />
+                  <Text style={styles.findAlternativeText}>Buscar Alternativa</Text>
+                </TouchableOpacity>
+              )}
               <TouchableOpacity
                 style={styles.dismissButton}
                 onPress={handleDismissCancelled}
@@ -688,6 +722,29 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.primary,
     paddingVertical: 12,
     borderRadius: 10,
+  },
+  reorderSameButton: {
+    flex: 1,
+    flexDirection: 'row' as const,
+    alignItems: 'center' as const,
+    justifyContent: 'center' as const,
+    gap: 6,
+    backgroundColor: Colors.primary,
+    paddingVertical: 12,
+    borderRadius: 10,
+  },
+  findOtherButton: {
+    flex: 1,
+    alignItems: 'center' as const,
+    justifyContent: 'center' as const,
+    backgroundColor: Colors.secondary,
+    paddingVertical: 12,
+    borderRadius: 10,
+  },
+  findOtherText: {
+    fontSize: 14,
+    fontWeight: '600' as const,
+    color: Colors.white,
   },
   findAlternativeText: {
     fontSize: 14,
