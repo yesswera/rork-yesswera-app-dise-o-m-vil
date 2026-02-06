@@ -14,7 +14,7 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
-import { Colors } from '@/constants/Colors';
+import Colors from '@/constants/colors';
 import {
   PanicReason,
   PANIC_REASONS,
@@ -133,7 +133,7 @@ export default function PanicModal({
               {showActions ? 'Ayuda en Camino' : 'Necesito Ayuda'}
             </Text>
             <TouchableOpacity onPress={handleClose} style={styles.closeButton}>
-              <Ionicons name="close" size={24} color={Colors.light.textSecondary} />
+              <Ionicons name="close" size={24} color={Colors.text.secondary} />
             </TouchableOpacity>
           </View>
 
@@ -202,13 +202,13 @@ export default function PanicModal({
                     disabled={isSubmitting}
                   >
                     {isSubmitting ? (
-                      <ActivityIndicator color={Colors.light.primary} />
+                      <ActivityIndicator color={Colors.primary} />
                     ) : (
                       <>
                         <Ionicons
                           name="swap-horizontal"
                           size={24}
-                          color={Colors.light.primary}
+                          color={Colors.primary}
                         />
                         <Text style={styles.actionButtonTextTransfer}>
                           Transferir Orden
@@ -230,7 +230,7 @@ export default function PanicModal({
 
               {/* Help coming message */}
               <View style={styles.helpMessage}>
-                <Ionicons name="information-circle" size={20} color={Colors.light.primary} />
+                <Ionicons name="information-circle" size={20} color={Colors.primary} />
                 <Text style={styles.helpMessageText}>
                   El equipo de Yesswera ha sido notificado y esta monitoreando la situacion.
                 </Text>
@@ -274,7 +274,7 @@ const styles = StyleSheet.create({
   headerTitle: {
     fontSize: 20,
     fontWeight: '700',
-    color: Colors.light.text,
+    color: Colors.text.primary,
     flex: 1,
   },
   closeButton: {
@@ -282,7 +282,7 @@ const styles = StyleSheet.create({
   },
   subtitle: {
     fontSize: 15,
-    color: Colors.light.textSecondary,
+    color: Colors.text.secondary,
     marginBottom: 16,
   },
   optionsGrid: {
@@ -295,12 +295,12 @@ const styles = StyleSheet.create({
     padding: 16,
     borderRadius: 12,
     borderWidth: 1,
-    borderColor: Colors.light.border,
+    borderColor: Colors.border.light,
     alignItems: 'center',
   },
   optionButtonSelected: {
-    borderColor: Colors.light.primary,
-    backgroundColor: `${Colors.light.primary}10`,
+    borderColor: Colors.primary,
+    backgroundColor: `${Colors.primary}10`,
   },
   optionIconContainer: {
     width: 48,
@@ -313,7 +313,7 @@ const styles = StyleSheet.create({
   optionText: {
     fontSize: 13,
     fontWeight: '500',
-    color: Colors.light.text,
+    color: Colors.text.primary,
     textAlign: 'center',
   },
   selectedReasonBadge: {
@@ -332,7 +332,7 @@ const styles = StyleSheet.create({
   },
   actionsSubtitle: {
     fontSize: 14,
-    color: Colors.light.textSecondary,
+    color: Colors.text.secondary,
     marginBottom: 16,
     lineHeight: 20,
   },
@@ -356,14 +356,14 @@ const styles = StyleSheet.create({
     color: '#fff',
   },
   actionButtonTransfer: {
-    backgroundColor: `${Colors.light.primary}15`,
+    backgroundColor: `${Colors.primary}15`,
     borderWidth: 1,
-    borderColor: Colors.light.primary,
+    borderColor: Colors.primary,
   },
   actionButtonTextTransfer: {
     fontSize: 16,
     fontWeight: '600',
-    color: Colors.light.primary,
+    color: Colors.primary,
   },
   actionButtonOk: {
     backgroundColor: '#F0FDF4',
@@ -378,7 +378,7 @@ const styles = StyleSheet.create({
   helpMessage: {
     flexDirection: 'row',
     alignItems: 'flex-start',
-    backgroundColor: `${Colors.light.primary}10`,
+    backgroundColor: `${Colors.primary}10`,
     padding: 12,
     borderRadius: 8,
     marginTop: 20,
@@ -386,7 +386,7 @@ const styles = StyleSheet.create({
   },
   helpMessageText: {
     fontSize: 13,
-    color: Colors.light.primary,
+    color: Colors.primary,
     flex: 1,
     lineHeight: 18,
   },
