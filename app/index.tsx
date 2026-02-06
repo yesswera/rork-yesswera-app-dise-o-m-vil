@@ -82,18 +82,35 @@ export default function HomeScreen() {
 
       if (cancelledData && cancelledData.length > 0) {
         const cancelled = cancelledData[0];
-        setCancelledOrder({
-          id: cancelled.id,
-          status: 'cancelled' as OrderStatus,
-          businessId: cancelled.business_id,
-          businessName: cancelled.businesses?.business_name || 'Negocio',
-          type: cancelled.type,
-          total: cancelled.total,
-          cancellationReason: cancelled.cancellation_reason,
-          createdAt: new Date(cancelled.created_at),
-        } as Order);
+
+        // Check if user already dismissed this notification
+        let wasDismissed = false;
+        try {
+          const AsyncStorage = require('@react-native-async-storage/async-storage').default;
+          const dismissedKey = `dismissed_cancelled_${cancelled.id}`;
+          const dismissed = await AsyncStorage.getItem(dismissedKey);
+          wasDismissed = dismissed === 'true';
+        } catch (e) {
+          // Storage not available, show the notification
+        }
+
+        if (!wasDismissed) {
+          setCancelledOrder({
+            id: cancelled.id,
+            status: 'cancelled' as OrderStatus,
+            businessId: cancelled.business_id,
+            businessName: cancelled.businesses?.business_name || 'Negocio',
+            type: cancelled.type,
+            total: cancelled.total,
+            cancellationReason: cancelled.cancellation_reason,
+            createdAt: new Date(cancelled.created_at),
+          } as Order);
+        }
       } else {
-        setCancelledOrder(null);
+        // No recent cancelled orders, clear state
+        if (!cancelledOrder) {
+          setCancelledOrder(null);
+        }
       }
     } catch (error) {
       console.error('Error loading order data:', error);
@@ -182,15 +199,25 @@ export default function HomeScreen() {
     }
   };
 
-  const handleDismissCancelled = () => {
+  // Only dismiss when user explicitly closes - NOT when navigating
+  const handleDismissCancelled = async () => {
+    // Mark as dismissed in storage so it doesn't reappear
+    if (cancelledOrder?.id) {
+      try {
+        const AsyncStorage = require('@react-native-async-storage/async-storage').default;
+        const dismissedKey = `dismissed_cancelled_${cancelledOrder.id}`;
+        await AsyncStorage.setItem(dismissedKey, 'true');
+      } catch (e) {
+        console.log('Could not save dismissed state');
+      }
+    }
     setCancelledOrder(null);
   };
 
-  // Reorder at the same business
+  // Reorder at the same business - keep banner visible
   const handleReorderSameBusiness = () => {
     const businessId = cancelledOrder?.businessId;
-    setCancelledOrder(null);
-
+    // DON'T clear the cancelled order - user might come back
     if (businessId) {
       router.push(`/food/menu/${businessId}` as any);
     } else {
@@ -198,11 +225,10 @@ export default function HomeScreen() {
     }
   };
 
-  // Find alternative businesses
+  // Find alternative businesses - keep banner visible
   const handleFindAlternative = () => {
     const orderType = cancelledOrder?.type;
-    setCancelledOrder(null);
-
+    // DON'T clear the cancelled order - user might come back
     if (orderType === 'food') {
       router.push('/food/restaurants' as any);
     } else if (orderType === 'shopping') {
