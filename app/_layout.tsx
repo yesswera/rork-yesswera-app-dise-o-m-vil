@@ -62,6 +62,7 @@ function RootLayoutNav() {
       <Stack.Screen name="driver/dashboard" options={{ title: "Portal Repartidor", headerShown: false, gestureEnabled: false }} />
       <Stack.Screen name="business/dashboard" options={{ title: "Portal Negocio", headerShown: false, gestureEnabled: false }} />
       <Stack.Screen name="business/comanda/[orderId]" options={{ title: "Comanda", headerShown: false }} />
+      <Stack.Screen name="business/comanda-mode" options={{ title: "Modo Comanda", headerShown: false, gestureEnabled: false }} />
       <Stack.Screen name="driver/earnings" options={{ title: "Mis Ganancias", headerShown: false }} />
       <Stack.Screen name="profile" options={{ title: "Mi Perfil" }} />
       <Stack.Screen name="profile/edit" options={{ title: "Editar Perfil" }} />

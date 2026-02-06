@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
-import { StyleSheet, Text, View, TouchableOpacity, ScrollView, Alert, Linking, Platform } from 'react-native';
-import { useRouter } from 'expo-router';
+import { StyleSheet, Text, View, TouchableOpacity, ScrollView, Alert, Linking, Platform, BackHandler } from 'react-native';
+import { useRouter, useFocusEffect } from 'expo-router';
 import { Package, DollarSign, Star, Clock, MapPin, Wallet, Power, Navigation, MessageCircle, History, User, HelpCircle, AlertTriangle } from 'lucide-react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import Colors from '@/constants/colors';
@@ -81,6 +81,26 @@ export default function DriverDashboardScreen() {
     };
     loadDriverData();
   }, [user]);
+
+  // Prevenir que el botón de atrás lleve al home
+  useFocusEffect(
+    useCallback(() => {
+      const onBackPress = () => {
+        Alert.alert(
+          'Cerrar Sesión',
+          '¿Quieres cerrar sesión?',
+          [
+            { text: 'Cancelar', style: 'cancel' },
+            { text: 'Cerrar Sesión', style: 'destructive', onPress: () => handleLogout() },
+          ]
+        );
+        return true;
+      };
+
+      BackHandler.addEventListener('hardwareBackPress', onBackPress);
+      return () => BackHandler.removeEventListener('hardwareBackPress', onBackPress);
+    }, [])
+  );
 
   // Realtime subscription for order updates
   useDriverOrderSubscription(
@@ -260,7 +280,7 @@ export default function DriverDashboardScreen() {
           style: 'destructive',
           onPress: async () => {
             await logout();
-            router.push('/' as any);
+            router.replace('/login' as any);
           },
         },
       ]

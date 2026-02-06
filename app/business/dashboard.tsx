@@ -1,7 +1,7 @@
-import { useState, useEffect } from 'react';
-import { StyleSheet, Text, View, TouchableOpacity, ScrollView, Alert } from 'react-native';
-import { useRouter } from 'expo-router';
-import { DollarSign, Package, TrendingUp, LogOut, ShoppingBag } from 'lucide-react-native';
+import { useState, useEffect, useCallback } from 'react';
+import { StyleSheet, Text, View, TouchableOpacity, ScrollView, Alert, BackHandler } from 'react-native';
+import { useRouter, useFocusEffect } from 'expo-router';
+import { DollarSign, Package, TrendingUp, LogOut, ShoppingBag, Monitor } from 'lucide-react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import Colors from '@/constants/colors';
 import { useAuth } from '@/contexts/auth';
@@ -21,6 +21,27 @@ export default function BusinessDashboardScreen() {
   useEffect(() => {
     loadStats();
   }, []);
+
+  // Prevenir que el botón de atrás lleve al home
+  useFocusEffect(
+    useCallback(() => {
+      const onBackPress = () => {
+        // Mostrar confirmación en lugar de salir
+        Alert.alert(
+          'Cerrar Sesión',
+          '¿Quieres cerrar sesión?',
+          [
+            { text: 'Cancelar', style: 'cancel' },
+            { text: 'Cerrar Sesión', style: 'destructive', onPress: () => handleLogout() },
+          ]
+        );
+        return true; // Prevenir comportamiento por defecto
+      };
+
+      BackHandler.addEventListener('hardwareBackPress', onBackPress);
+      return () => BackHandler.removeEventListener('hardwareBackPress', onBackPress);
+    }, [])
+  );
 
   const loadStats = async () => {
     if (!user) return;
@@ -84,11 +105,16 @@ export default function BusinessDashboardScreen() {
           style: 'destructive',
           onPress: async () => {
             await logout();
-            router.push('/' as any);
+            router.replace('/login' as any);
           },
         },
       ]
     );
+  };
+
+  // Abrir modo comanda (para tablet/segunda pantalla)
+  const handleComandaMode = () => {
+    router.push('/business/comanda-mode' as any);
   };
 
   return (
@@ -143,6 +169,11 @@ export default function BusinessDashboardScreen() {
                 <TouchableOpacity style={styles.secondaryButton} onPress={handleManageProducts}>
                   <ShoppingBag size={22} color={Colors.secondary} />
                   <Text style={styles.secondaryButtonText}>Gestionar Productos</Text>
+                </TouchableOpacity>
+
+                <TouchableOpacity style={styles.comandaModeButton} onPress={handleComandaMode}>
+                  <Monitor size={22} color={Colors.accent} />
+                  <Text style={styles.comandaModeButtonText}>Modo Comanda (Tablet)</Text>
                 </TouchableOpacity>
 
                 <TouchableOpacity style={styles.logoutButton} onPress={handleLogout}>
@@ -265,6 +296,22 @@ const styles = StyleSheet.create({
     fontSize: 17,
     fontWeight: '700' as const,
     color: Colors.secondary,
+  },
+  comandaModeButton: {
+    height: 56,
+    backgroundColor: Colors.white,
+    borderRadius: 12,
+    flexDirection: 'row' as const,
+    justifyContent: 'center' as const,
+    alignItems: 'center' as const,
+    gap: 10,
+    borderWidth: 2,
+    borderColor: Colors.accent,
+  },
+  comandaModeButtonText: {
+    fontSize: 17,
+    fontWeight: '700' as const,
+    color: Colors.accent,
   },
   logoutButton: {
     height: 52,

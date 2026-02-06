@@ -98,7 +98,16 @@ export default function RegisterScreen() {
     setIsLoading(true);
     try {
       await register(name, email, password, phone, userType);
-      router.back();
+
+      // Redirigir según el tipo de usuario registrado
+      if (userType === 'driver') {
+        router.replace('/driver/dashboard' as any);
+      } else if (userType === 'business') {
+        router.replace('/business/dashboard' as any);
+      } else {
+        // Cliente
+        router.replace('/' as any);
+      }
     } catch (error: unknown) {
       console.error('Register error:', error);
       Alert.alert('Error', 'No se pudo crear la cuenta. Intenta nuevamente.');
