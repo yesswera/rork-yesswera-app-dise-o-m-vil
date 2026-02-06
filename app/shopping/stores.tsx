@@ -1,7 +1,7 @@
 // Stores - Lista de tiendas con filtro por categoría
 import { StyleSheet, Text, View, TouchableOpacity, ScrollView, ActivityIndicator, RefreshControl } from 'react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
-import { Store, Star, ArrowLeft, Filter } from 'lucide-react-native';
+import { Store, Star, ArrowLeft, Filter, ShoppingBag } from 'lucide-react-native';
 import { Image } from 'expo-image';
 import { useState, useEffect, useCallback } from 'react';
 import Colors from '@/constants/colors';
@@ -96,6 +96,7 @@ export default function StoresScreen() {
           <View style={styles.content}>
             {stores.length === 0 ? (
               <EmptyState
+                icon={ShoppingBag}
                 title={category ? `Sin ${categoryTitle.toLowerCase()}` : 'Sin tiendas'}
                 message={category
                   ? `No hay negocios de ${categoryTitle.toLowerCase()} disponibles aún. Intenta con otra categoría.`
