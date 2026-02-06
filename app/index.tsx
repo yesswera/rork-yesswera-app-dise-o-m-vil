@@ -2,21 +2,24 @@ import { StyleSheet, Text, View, TouchableOpacity, ScrollView, Animated } from '
 import { Image } from 'expo-image';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
-import { UtensilsCrossed, ShoppingCart, Package, User, ChevronRight, ShoppingBag, RefreshCw, Clock } from 'lucide-react-native';
+import { UtensilsCrossed, ShoppingCart, Package, User, ChevronRight, ShoppingBag, RefreshCw, Clock, XCircle, AlertTriangle } from 'lucide-react-native';
 import { StatusBar } from 'expo-status-bar';
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { useAuth } from '@/contexts/auth';
 import { useTheme } from '@/contexts/theme';
 import { getActiveOrders, getUserOrders } from '@/services/orders';
+import { useClientOrderSubscription } from '@/hooks/useRealtimeOrders';
 import { Order, OrderStatus } from '@/constants/types';
 import Colors from '@/constants/colors';
 import { Toast } from '@/utils/toast';
+import { supabase } from '@/constants/supabase';
 
 export default function HomeScreen() {
   const router = useRouter();
   const { user, token, isLoading } = useAuth();
   const { isDark, colors } = useTheme();
   const [activeOrder, setActiveOrder] = useState<Order | null>(null);
+  const [cancelledOrder, setCancelledOrder] = useState<Order | null>(null);
   const [recentOrders, setRecentOrders] = useState<Order[]>([]);
   const logoScale = useRef(new Animated.Value(0)).current;
   const logoOpacity = useRef(new Animated.Value(0)).current;
@@ -49,27 +52,74 @@ export default function HomeScreen() {
     ]).start();
   }, []);
 
+  // Function to load all order data
+  const loadOrderData = useCallback(async () => {
+    if (!user || !token) {
+      setActiveOrder(null);
+      setCancelledOrder(null);
+      return;
+    }
+
+    try {
+      // Load active orders
+      const orders = await getActiveOrders(user.id);
+      if (orders.length > 0) {
+        setActiveOrder(orders[0]);
+      } else {
+        setActiveOrder(null);
+      }
+
+      // Load recently cancelled orders (last 30 minutes)
+      const thirtyMinutesAgo = new Date(Date.now() - 30 * 60 * 1000).toISOString();
+      const { data: cancelledData } = await supabase
+        .from('orders')
+        .select('*, businesses (id, business_name)')
+        .eq('client_id', user.id)
+        .eq('status', 'cancelled')
+        .gte('updated_at', thirtyMinutesAgo)
+        .order('updated_at', { ascending: false })
+        .limit(1);
+
+      if (cancelledData && cancelledData.length > 0) {
+        const cancelled = cancelledData[0];
+        setCancelledOrder({
+          id: cancelled.id,
+          status: 'cancelled' as OrderStatus,
+          businessId: cancelled.business_id,
+          businessName: cancelled.businesses?.business_name || 'Negocio',
+          type: cancelled.type,
+          total: cancelled.total,
+          cancellationReason: cancelled.cancellation_reason,
+          createdAt: new Date(cancelled.created_at),
+        } as Order);
+      } else {
+        setCancelledOrder(null);
+      }
+    } catch (error) {
+      console.error('Error loading order data:', error);
+    }
+  }, [user, token]);
+
+  // Realtime subscription for order updates
+  useClientOrderSubscription(
+    useCallback(() => {
+      // Refresh order data when we get realtime updates
+      loadOrderData();
+    }, [loadOrderData])
+  );
+
   useEffect(() => {
     if (!user || !token) {
       setActiveOrder(null);
+      setCancelledOrder(null);
       return;
     }
 
     let isMounted = true;
 
     const checkActiveOrder = async () => {
-      try {
-        const orders = await getActiveOrders(user.id);
-        if (!isMounted) return;
-        if (orders.length > 0) {
-          setActiveOrder(orders[0]);
-        } else {
-          setActiveOrder(null);
-        }
-      } catch (error) {
-        console.error('Error obteniendo orden activa:', error);
-        if (isMounted) setActiveOrder(null);
-      }
+      if (!isMounted) return;
+      await loadOrderData();
     };
 
     const loadRecentOrders = async () => {
@@ -89,12 +139,13 @@ export default function HomeScreen() {
     checkActiveOrder();
     loadRecentOrders();
 
-    const interval = setInterval(checkActiveOrder, 10000);
+    // Reduced polling since we have realtime now
+    const interval = setInterval(checkActiveOrder, 30000);
     return () => {
       isMounted = false;
       clearInterval(interval);
     };
-  }, [user, token]);
+  }, [user, token, loadOrderData]);
 
   const getOrderStatusText = (status: OrderStatus) => {
     switch (status) {
@@ -125,6 +176,21 @@ export default function HomeScreen() {
     if (order.type === 'food' && order.businessId) {
       router.push(`/food/menu/${order.businessId}` as any);
     } else if (order.type === 'shopping') {
+      router.push('/shopping/stores' as any);
+    } else {
+      router.push('/delivery/create' as any);
+    }
+  };
+
+  const handleDismissCancelled = () => {
+    setCancelledOrder(null);
+  };
+
+  const handleFindAlternative = () => {
+    setCancelledOrder(null);
+    if (cancelledOrder?.type === 'food') {
+      router.push('/food/restaurants' as any);
+    } else if (cancelledOrder?.type === 'shopping') {
       router.push('/shopping/stores' as any);
     } else {
       router.push('/delivery/create' as any);
@@ -207,6 +273,43 @@ export default function HomeScreen() {
           <Text style={styles.tagline}>Lo que quieras, cuando quieras</Text>
           <View style={styles.divider} />
         </Animated.View>
+
+        {/* Banner de orden cancelada - prioridad alta */}
+        {cancelledOrder && user && (
+          <View style={styles.cancelledOrderBanner}>
+            <View style={styles.cancelledBannerHeader}>
+              <View style={styles.cancelledIconContainer}>
+                <XCircle size={28} color={Colors.error} />
+              </View>
+              <View style={styles.cancelledTextContainer}>
+                <Text style={styles.cancelledTitle}>Orden Cancelada</Text>
+                <Text style={styles.cancelledSubtitle}>
+                  {cancelledOrder.businessName || 'Tu pedido'} no pudo completarse
+                </Text>
+                {cancelledOrder.cancellationReason && (
+                  <Text style={styles.cancelledReason}>
+                    {cancelledOrder.cancellationReason}
+                  </Text>
+                )}
+              </View>
+            </View>
+            <View style={styles.cancelledActions}>
+              <TouchableOpacity
+                style={styles.findAlternativeButton}
+                onPress={handleFindAlternative}
+              >
+                <RefreshCw size={16} color={Colors.white} />
+                <Text style={styles.findAlternativeText}>Buscar Alternativa</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={styles.dismissButton}
+                onPress={handleDismissCancelled}
+              >
+                <Text style={styles.dismissButtonText}>Cerrar</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        )}
 
         {activeOrder && user && (
           <TouchableOpacity
@@ -525,6 +628,82 @@ const styles = StyleSheet.create({
     fontWeight: '600' as const,
     color: Colors.primary,
     textAlign: 'center' as const,
+  },
+  cancelledOrderBanner: {
+    marginBottom: 24,
+    borderRadius: 16,
+    backgroundColor: Colors.white,
+    padding: 16,
+    borderWidth: 2,
+    borderColor: Colors.error,
+    shadowColor: Colors.error,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.2,
+    shadowRadius: 12,
+    elevation: 6,
+  },
+  cancelledBannerHeader: {
+    flexDirection: 'row' as const,
+    alignItems: 'flex-start' as const,
+    marginBottom: 16,
+  },
+  cancelledIconContainer: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    backgroundColor: 'rgba(239, 68, 68, 0.1)',
+    justifyContent: 'center' as const,
+    alignItems: 'center' as const,
+    marginRight: 12,
+  },
+  cancelledTextContainer: {
+    flex: 1,
+  },
+  cancelledTitle: {
+    fontSize: 18,
+    fontWeight: '700' as const,
+    color: Colors.error,
+    marginBottom: 4,
+  },
+  cancelledSubtitle: {
+    fontSize: 14,
+    color: Colors.text.primary,
+    marginBottom: 4,
+  },
+  cancelledReason: {
+    fontSize: 13,
+    color: Colors.text.secondary,
+    fontStyle: 'italic' as const,
+  },
+  cancelledActions: {
+    flexDirection: 'row' as const,
+    gap: 12,
+  },
+  findAlternativeButton: {
+    flex: 1,
+    flexDirection: 'row' as const,
+    alignItems: 'center' as const,
+    justifyContent: 'center' as const,
+    gap: 8,
+    backgroundColor: Colors.primary,
+    paddingVertical: 12,
+    borderRadius: 10,
+  },
+  findAlternativeText: {
+    fontSize: 14,
+    fontWeight: '600' as const,
+    color: Colors.white,
+  },
+  dismissButton: {
+    paddingVertical: 12,
+    paddingHorizontal: 20,
+    borderRadius: 10,
+    backgroundColor: Colors.background.secondary,
+  },
+  dismissButtonText: {
+    fontSize: 14,
+    fontWeight: '600' as const,
+    color: Colors.text.secondary,
   },
   activeOrderBanner: {
     marginBottom: 24,
