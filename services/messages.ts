@@ -7,7 +7,7 @@ import { supabase } from '@/constants/supabase';
 export async function getMessages(orderId: string, _token?: string): Promise<Message[]> {
   const { data, error } = await supabase
     .from('chat_messages')
-    .select('*, sender:users!sender_id(name, user_type)')
+    .select('*, sender:users!sender_id(full_name, user_type)')
     .eq('order_id', orderId)
     .order('created_at', { ascending: true });
 
@@ -17,7 +17,7 @@ export async function getMessages(orderId: string, _token?: string): Promise<Mes
     id: msg.id,
     conversationId: msg.order_id,
     senderId: msg.sender_id,
-    senderName: msg.sender?.name || 'Usuario',
+    senderName: msg.sender?.full_name || 'Usuario',
     senderType: msg.sender?.user_type || 'client',
     content: msg.message,
     createdAt: msg.created_at,
@@ -54,7 +54,7 @@ export async function sendMessage(orderId: string, content: string, _token?: str
       receiver_id: receiverId,
       message: content,
     })
-    .select('*, sender:users!sender_id(name, user_type)')
+    .select('*, sender:users!sender_id(full_name, user_type)')
     .single();
 
   if (error) throw new Error('Error al enviar mensaje');
@@ -63,7 +63,7 @@ export async function sendMessage(orderId: string, content: string, _token?: str
     id: msg.id,
     conversationId: msg.order_id,
     senderId: msg.sender_id,
-    senderName: msg.sender?.name || 'Usuario',
+    senderName: msg.sender?.full_name || 'Usuario',
     senderType: msg.sender?.user_type || 'client',
     content: msg.message,
     createdAt: msg.created_at,
@@ -104,7 +104,7 @@ export async function getUnreadCount(orderId: string, _token?: string): Promise<
 export async function getConversation(orderId: string, _type?: string, _token?: string) {
   const { data: order } = await supabase
     .from('orders')
-    .select('id, client_id, driver_id, business_id, client:users!client_id(name), driver:users!driver_id(name)')
+    .select('id, client_id, driver_id, business_id, client:users!client_id(full_name), driver:users!driver_id(full_name)')
     .eq('id', orderId)
     .single();
 
@@ -123,9 +123,9 @@ export async function getConversation(orderId: string, _type?: string, _token?: 
     type: isClient ? 'client_driver' : 'client_driver',
     participants: {
       clientId: order.client_id,
-      clientName: (order.client as any)?.name || 'Cliente',
+      clientName: (order.client as any)?.full_name || 'Cliente',
       otherPartyId: isClient ? (order.driver_id || '') : order.client_id,
-      otherPartyName: isClient ? ((order.driver as any)?.name || 'Repartidor') : ((order.client as any)?.name || 'Cliente'),
+      otherPartyName: isClient ? ((order.driver as any)?.full_name || 'Repartidor') : ((order.client as any)?.full_name || 'Cliente'),
     },
     lastMessage,
     unreadCount: unread,

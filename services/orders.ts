@@ -1,5 +1,6 @@
 import { supabase } from '@/constants/supabase';
 import { Order } from '@/constants/types';
+import { parseLocation } from '@/utils/geo';
 
 // Safe characters (no O/0/I/1 to avoid confusion)
 const CODE_CHARS = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
@@ -39,10 +40,10 @@ function mapOrder(dbOrder: any): Order {
     createdAt: new Date(dbOrder.created_at),
     deliveredAt: dbOrder.delivered_at ? new Date(dbOrder.delivered_at) : undefined,
     customerId: dbOrder.client_id,
-    customerName: dbOrder.users?.name || 'Cliente',
+    customerName: dbOrder.users?.full_name || 'Cliente',
     customerPhone: dbOrder.users?.phone || '',
     driverId: dbOrder.driver_id,
-    driverName: dbOrder.drivers?.users?.name,
+    driverName: dbOrder.drivers?.users?.full_name,
     driverPhone: dbOrder.drivers?.users?.phone,
     driverRating: dbOrder.drivers?.rating_average,
     businessId: dbOrder.business_id,
@@ -79,14 +80,9 @@ function mapOrder(dbOrder: any): Order {
       validated: !!dbOrder.delivered_at,
       validatedAt: dbOrder.delivered_at,
     },
-    pickupLocation: dbOrder.pickup_latitude && dbOrder.pickup_longitude ? {
-      latitude: dbOrder.pickup_latitude,
-      longitude: dbOrder.pickup_longitude,
-    } : undefined,
-    deliveryLocation: {
-      latitude: dbOrder.delivery_latitude || 0,
-      longitude: dbOrder.delivery_longitude || 0,
-    },
+    // Parse PostGIS locations using geo utility
+    pickupLocation: parseLocation(dbOrder.pickup_location) || undefined,
+    deliveryLocation: parseLocation(dbOrder.delivery_location) || { latitude: 0, longitude: 0 },
     driverAtBusiness: !!dbOrder.driver_at_business,
   };
 }
@@ -97,8 +93,9 @@ export async function getUserOrders(userId: string): Promise<Order[]> {
       .from('orders')
       .select(`
         *,
+        users:client_id (full_name, phone),
         businesses (id, business_name, address, logo_url),
-        drivers (id, user_id, vehicle_type),
+        drivers (id, user_id, vehicle_type, rating_average, users:user_id (full_name, phone)),
         order_items (*)
       `)
       .eq('client_id', userId)
@@ -119,8 +116,9 @@ export async function getOrderById(orderId: string): Promise<Order | null> {
       .from('orders')
       .select(`
         *,
+        users:client_id (full_name, phone),
         businesses (id, business_name, address, logo_url, phone),
-        drivers (id, user_id, vehicle_type, rating_average),
+        drivers (id, user_id, vehicle_type, rating_average, users:user_id (full_name, phone)),
         order_items (*)
       `)
       .eq('id', orderId)
@@ -449,8 +447,9 @@ export async function getActiveOrders(userId: string): Promise<Order[]> {
       .from('orders')
       .select(`
         *,
+        users:client_id (full_name, phone),
         businesses (id, business_name, address, logo_url),
-        drivers (id, user_id, vehicle_type),
+        drivers (id, user_id, vehicle_type, rating_average, users:user_id (full_name, phone)),
         order_items (*)
       `)
       .eq('client_id', userId)
@@ -734,6 +733,8 @@ export async function getBusinessOrders(businessId: string): Promise<Order[]> {
       .from('orders')
       .select(`
         *,
+        users:client_id (full_name, phone),
+        drivers (id, user_id, vehicle_type, rating_average, users:user_id (full_name, phone)),
         order_items (*)
       `)
       .eq('business_id', businessId)
@@ -755,6 +756,7 @@ export async function getAvailableOrdersForDriver(): Promise<Order[]> {
       .from('orders')
       .select(`
         *,
+        users:client_id (full_name, phone),
         businesses (id, business_name, address, logo_url)
       `)
       .in('status', ['preparing', 'ready'])
@@ -799,6 +801,7 @@ export async function getDriverOrders(driverId: string): Promise<Order[]> {
       .from('orders')
       .select(`
         *,
+        users:client_id (full_name, phone),
         businesses (id, business_name, address, logo_url, phone)
       `)
       .eq('driver_id', driverId)
