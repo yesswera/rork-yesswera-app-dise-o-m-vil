@@ -97,8 +97,8 @@ export default function DriverDashboardScreen() {
         return true;
       };
 
-      BackHandler.addEventListener('hardwareBackPress', onBackPress);
-      return () => BackHandler.removeEventListener('hardwareBackPress', onBackPress);
+      const subscription = BackHandler.addEventListener('hardwareBackPress', onBackPress);
+      return () => subscription.remove();
     }, [])
   );
 
@@ -199,7 +199,20 @@ export default function DriverDashboardScreen() {
         return;
       }
     } else {
-      // Going offline - stop GPS tracking
+      // Going offline - verificar si tiene orden activa
+      if (activeOrderId) {
+        Alert.alert(
+          'Tienes una orden activa',
+          'No puedes desconectarte mientras tienes una orden en curso. Debes:\n\n• Completar la entrega\n• Cancelar la orden\n• Transferir a otro repartidor',
+          [
+            { text: 'Ver Orden Activa', onPress: () => router.push('/driver/active-order' as any) },
+            { text: 'Entendido', style: 'cancel' },
+          ]
+        );
+        return;
+      }
+
+      // Sin orden activa - puede desconectarse
       try {
         await goOffline();
         setIsOnline(false);
@@ -270,6 +283,19 @@ export default function DriverDashboardScreen() {
   };
 
   const handleLogout = async () => {
+    // No puede cerrar sesión con orden activa
+    if (activeOrderId) {
+      Alert.alert(
+        'Tienes una orden activa',
+        'No puedes cerrar sesión mientras tienes una orden en curso. Debes completarla, cancelarla o transferirla primero.',
+        [
+          { text: 'Ver Orden Activa', onPress: () => router.push('/driver/active-order' as any) },
+          { text: 'Entendido', style: 'cancel' },
+        ]
+      );
+      return;
+    }
+
     Alert.alert(
       'Cerrar Sesión',
       '¿Estás seguro?',
@@ -279,6 +305,9 @@ export default function DriverDashboardScreen() {
           text: 'Salir',
           style: 'destructive',
           onPress: async () => {
+            if (isOnline) {
+              await goOffline();
+            }
             await logout();
             router.replace('/login' as any);
           },
