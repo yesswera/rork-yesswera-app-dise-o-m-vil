@@ -14,7 +14,7 @@ import { supabase } from '@/constants/supabase';
 import { Order } from '@/constants/types';
 import { useDriverOrderSubscription } from '@/hooks/useRealtimeOrders';
 import { useDriverMonitoring } from '@/hooks/useDriverMonitoring';
-import { showToast } from '@/components/ToastContainer';
+import { Toast } from '@/utils/toast';
 
 export default function DriverDashboardScreen() {
   const router = useRouter();
@@ -173,9 +173,9 @@ export default function DriverDashboardScreen() {
       try {
         await goOnline();
         setIsOnline(true);
-        showToast('Ahora estas EN LINEA - GPS activo', 'success');
+        Toast.success('Ahora estas EN LINEA - GPS activo');
       } catch (error) {
-        showToast('Error al activar GPS', 'error');
+        Toast.error('Error al activar GPS');
         return;
       }
     } else {
@@ -184,7 +184,7 @@ export default function DriverDashboardScreen() {
         await goOffline();
         setIsOnline(false);
         setAvailableOrders([]);
-        showToast('Desconectado - GPS detenido', 'info');
+        Toast.info('Desconectado - GPS detenido');
       } catch (error) {
         console.error('Error going offline:', error);
       }

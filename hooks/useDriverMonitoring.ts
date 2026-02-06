@@ -15,7 +15,7 @@ import {
 import {
   calculateDriverETA,
 } from '@/services/driver-assignment';
-import { showToast } from '@/components/ToastContainer';
+import { Toast } from '@/utils/toast';
 
 interface UseDriverMonitoringOptions {
   driverId: string;
@@ -62,7 +62,7 @@ export function useDriverMonitoring({
       (alert) => {
         // Show toast for alerts
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
-        showToast(alert.message, alert.severity === 'critical' ? 'error' : 'warning');
+        Toast.show(alert.message, alert.severity === 'critical' ? 'error' : 'warning');
         onAlert?.(alert);
       }
     );
@@ -80,7 +80,7 @@ export function useDriverMonitoring({
       const alert = await checkDriverForIssues(driverId);
       if (alert) {
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
-        showToast(alert.message, 'warning');
+        Toast.warning(alert.message);
         onAlert?.(alert);
       }
     }, 30000); // Check every 30 seconds
@@ -147,11 +147,11 @@ export function useDriverMonitoring({
       await setDriverOnlineStatus(driverId, true);
       const success = await startTracking();
       if (success) {
-        showToast('Ahora estas EN LINEA', 'success');
+        Toast.success('Ahora estas EN LINEA');
       }
     } catch (error: any) {
       setLastError(error.message);
-      showToast('Error al conectar', 'error');
+      Toast.error('Error al conectar');
     }
   }, [driverId, startTracking]);
 
@@ -160,7 +160,7 @@ export function useDriverMonitoring({
       stopTracking();
       await clearDriverLocation(driverId);
       await setDriverOnlineStatus(driverId, false);
-      showToast('Ahora estas DESCONECTADO', 'info');
+      Toast.info('Ahora estas DESCONECTADO');
     } catch (error: any) {
       setLastError(error.message);
     }

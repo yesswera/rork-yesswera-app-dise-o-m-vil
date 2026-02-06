@@ -44,9 +44,15 @@ export async function updateDriverLocation(
         driverId,
       });
     }
-  } catch (error) {
-    console.error('Error updating driver location:', error);
-    throw error;
+  } catch (error: any) {
+    // No lanzar error para evitar crash - solo logear
+    // El error común es PERMISSION_DENIED si las reglas de Firebase no están configuradas
+    if (error?.message?.includes('PERMISSION_DENIED')) {
+      console.warn('[GPS] Firebase permission denied - verifica las reglas de Firebase Realtime Database');
+    } else {
+      console.error('[GPS] Error updating driver location:', error);
+    }
+    // No throw - permitir que la app continúe
   }
 }
 

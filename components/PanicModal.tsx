@@ -22,7 +22,7 @@ import {
   requestOrderTransfer,
 } from '@/services/driver-monitoring';
 import { getCurrentLocation } from '@/services/gps';
-import { showToast } from '@/components/ToastContainer';
+import { Toast } from '@/utils/toast';
 
 interface PanicModalProps {
   visible: boolean;
@@ -51,28 +51,71 @@ export default function PanicModal({
   const [selectedReason, setSelectedReason] = useState<PanicReason | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [showActions, setShowActions] = useState(false);
+  const [gettingLocation, setGettingLocation] = useState(false);
+  const [locationStatus, setLocationStatus] = useState<'obtained' | 'last_known' | 'unavailable' | null>(null);
 
   const handleSelectReason = async (reason: PanicReason) => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     setSelectedReason(reason);
+    setGettingLocation(true);
+
+    let finalLocation: { latitude: number; longitude: number } | undefined;
+
+    // 1. Intentar obtener ubicación actual (pide permiso si no lo tiene)
+    try {
+      const location = await getCurrentLocation();
+      if (location) {
+        finalLocation = {
+          latitude: location.coords.latitude,
+          longitude: location.coords.longitude,
+        };
+        setLocationStatus('obtained');
+      }
+    } catch (error) {
+      console.log('[Panic] No se pudo obtener ubicación actual');
+    }
+
+    // 2. Si no hay ubicación actual, buscar última conocida en Firebase
+    if (!finalLocation && driverId) {
+      try {
+        const { ref, get } = require('firebase/database');
+        const { realtimeDb } = require('@/constants/firebase');
+        const driverRef = ref(realtimeDb, `drivers_location/${driverId}`);
+        const snapshot = await get(driverRef);
+        const data = snapshot.val();
+        if (data?.latitude && data?.longitude) {
+          finalLocation = {
+            latitude: data.latitude,
+            longitude: data.longitude,
+          };
+          setLocationStatus('last_known');
+          Toast.warning('Usando última ubicación conocida');
+        }
+      } catch (error) {
+        console.log('[Panic] No hay ubicación previa en Firebase');
+      }
+    }
+
+    // 3. Si no hay ninguna ubicación
+    if (!finalLocation) {
+      setLocationStatus('unavailable');
+      Toast.warning('No se pudo obtener tu ubicación');
+    }
+
+    setGettingLocation(false);
     setShowActions(true);
 
-    // Get current location
-    const location = await getCurrentLocation();
-
-    // Register panic event
+    // Registrar evento de pánico
     const result = await registerPanicEvent(
       driverId,
       orderId,
       reason,
       undefined,
-      location
-        ? { latitude: location.coords.latitude, longitude: location.coords.longitude }
-        : undefined
+      finalLocation
     );
 
     if (!result.success) {
-      showToast(result.message, 'error');
+      Toast.error(result.message);
     }
   };
 
@@ -94,14 +137,14 @@ export default function PanicModal({
       );
 
       if (result.success) {
-        showToast(result.message, 'success');
+        Toast.success(result.message);
         onTransferRequested?.();
         onClose();
       } else {
-        showToast(result.message, 'error');
+        Toast.error(result.message);
       }
     } catch (error) {
-      showToast('Error al transferir orden', 'error');
+      Toast.error('Error al transferir orden');
     } finally {
       setIsSubmitting(false);
     }
@@ -110,6 +153,8 @@ export default function PanicModal({
   const handleClose = () => {
     setSelectedReason(null);
     setShowActions(false);
+    setLocationStatus(null);
+    setGettingLocation(false);
     onClose();
   };
 
@@ -137,7 +182,12 @@ export default function PanicModal({
             </TouchableOpacity>
           </View>
 
-          {!showActions ? (
+          {gettingLocation ? (
+            <View style={styles.loadingContainer}>
+              <ActivityIndicator size="large" color={Colors.primary} />
+              <Text style={styles.loadingText}>Obteniendo tu ubicación...</Text>
+            </View>
+          ) : !showActions ? (
             <>
               {/* Panic Options */}
               <Text style={styles.subtitle}>Selecciona que esta pasando:</Text>
@@ -181,7 +231,11 @@ export default function PanicModal({
               </View>
 
               <Text style={styles.actionsSubtitle}>
-                Tu ubicacion ha sido registrada. Selecciona una accion:
+                {locationStatus === 'obtained'
+                  ? 'Tu ubicación actual ha sido registrada. Selecciona una acción:'
+                  : locationStatus === 'last_known'
+                  ? 'Se registró tu última ubicación conocida. Selecciona una acción:'
+                  : 'No pudimos obtener tu ubicación. Selecciona una acción:'}
               </Text>
 
               <View style={styles.actionsContainer}>
@@ -256,6 +310,16 @@ const styles = StyleSheet.create({
     padding: 20,
     paddingBottom: 40,
     maxHeight: '90%',
+  },
+  loadingContainer: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 40,
+  },
+  loadingText: {
+    marginTop: 16,
+    fontSize: 15,
+    color: Colors.text.secondary,
   },
   header: {
     flexDirection: 'row',

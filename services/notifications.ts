@@ -1,32 +1,56 @@
 import { Platform } from 'react-native';
+import Constants from 'expo-constants';
 import { supabase } from '@/constants/supabase';
 
-// expo-notifications no funciona en Expo Go desde SDK 53
-// Lo cargamos dinámicamente para evitar crash
+// Detectar si estamos en Expo Go
+const isExpoGo = Constants.appOwnership === 'expo';
+
+// expo-notifications NO funciona en Expo Go desde SDK 53
+// Solo lo cargamos en builds de desarrollo/producción
 let Notifications: typeof import('expo-notifications') | null = null;
 let Device: typeof import('expo-device') | null = null;
-let Constants: typeof import('expo-constants').default | null = null;
+let notificationsInitialized = false;
 
-try {
-  Notifications = require('expo-notifications');
-  Device = require('expo-device');
-  Constants = require('expo-constants').default;
+function initNotifications() {
+  if (notificationsInitialized) return;
+  notificationsInitialized = true;
 
-  Notifications.setNotificationHandler({
-    handleNotification: async () => ({
-      shouldShowAlert: true,
-      shouldPlaySound: true,
-      shouldSetBadge: true,
-      shouldShowBanner: true,
-      shouldShowList: true,
-    }),
-  });
-} catch (error) {
-  console.warn('[Notifications] expo-notifications no disponible (Expo Go). Push deshabilitado.');
+  // NO cargar expo-notifications en Expo Go
+  if (isExpoGo) {
+    console.log('[Notifications] Expo Go detectado - Push notifications deshabilitadas');
+    console.log('[Notifications] Para push reales, usar development build');
+    return;
+  }
+
+  try {
+    Notifications = require('expo-notifications');
+    Device = require('expo-device');
+
+    Notifications.setNotificationHandler({
+      handleNotification: async () => ({
+        shouldShowAlert: true,
+        shouldPlaySound: true,
+        shouldSetBadge: true,
+        shouldShowBanner: true,
+        shouldShowList: true,
+      }),
+    });
+    console.log('[Notifications] expo-notifications inicializado correctamente');
+  } catch (error) {
+    console.warn('[Notifications] No se pudo cargar expo-notifications:', error);
+  }
 }
 
 export async function registerForPushNotifications(userId: string): Promise<string | null> {
-  if (!Notifications || !Device || !Constants) {
+  // En Expo Go, no intentar registrar push
+  if (isExpoGo) {
+    console.log('[Notifications] Push no disponible en Expo Go');
+    return null;
+  }
+
+  initNotifications();
+
+  if (!Notifications || !Device) {
     console.log('[Notifications] Push no disponible en este entorno');
     return null;
   }
@@ -56,6 +80,11 @@ export async function registerForPushNotifications(userId: string): Promise<stri
     }
 
     const projectId = Constants.expoConfig?.extra?.eas?.projectId;
+    if (!projectId) {
+      console.log('[Notifications] No projectId found - skipping token registration');
+      return null;
+    }
+
     const pushToken = (await Notifications.getExpoPushTokenAsync({ projectId })).data;
 
     console.log('[Notifications] Push token obtained:', pushToken);
@@ -95,6 +124,14 @@ export async function registerForPushNotifications(userId: string): Promise<stri
 }
 
 export async function sendLocalNotification(title: string, body: string, data?: any): Promise<void> {
+  // En Expo Go, usar console.log como fallback visual
+  if (isExpoGo) {
+    console.log(`[Notification] ${title}: ${body}`);
+    return;
+  }
+
+  initNotifications();
+
   if (!Notifications) {
     console.log('[Notifications] Local notifications no disponibles');
     return;
@@ -121,17 +158,21 @@ type DummySubscription = { remove: () => void };
 export function addNotificationReceivedListener(
   handler: (notification: any) => void
 ): DummySubscription {
-  if (!Notifications) {
+  if (isExpoGo || !Notifications) {
     return { remove: () => {} };
   }
+  initNotifications();
+  if (!Notifications) return { remove: () => {} };
   return Notifications.addNotificationReceivedListener(handler);
 }
 
 export function addNotificationResponseReceivedListener(
   handler: (response: any) => void
 ): DummySubscription {
-  if (!Notifications) {
+  if (isExpoGo || !Notifications) {
     return { remove: () => {} };
   }
+  initNotifications();
+  if (!Notifications) return { remove: () => {} };
   return Notifications.addNotificationResponseReceivedListener(handler);
 }

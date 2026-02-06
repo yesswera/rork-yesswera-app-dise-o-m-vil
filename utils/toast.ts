@@ -42,3 +42,8 @@ class ToastManager {
 }
 
 export const Toast = new ToastManager();
+
+// Función de conveniencia para compatibilidad
+export function showToast(message: string, type: ToastType = 'info', duration?: number) {
+  Toast.show(message, type, duration ? { duration } : undefined);
+}
