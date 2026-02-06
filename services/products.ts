@@ -349,6 +349,63 @@ export async function deleteCategory(businessId: string, categoryId: string): Pr
   }
 }
 
+// Fetch businesses by category for shopping (searches in category field with ILIKE)
+export async function getBusinessesByCategory(categorySearch: string): Promise<Business[]> {
+  try {
+    // Mapeo de categorías de búsqueda a posibles valores en BD
+    const categoryMappings: Record<string, string[]> = {
+      abarrotes: ['abarrotes', 'tienda', 'minisuper', 'miscelanea'],
+      carniceria: ['carniceria', 'carnicería', 'carnitas', 'carne'],
+      farmacia: ['farmacia', 'drogueria', 'salud'],
+      ferreteria: ['ferreteria', 'ferretería', 'herramientas', 'construccion'],
+      electronica: ['electronica', 'electrónica', 'tecnologia', 'celulares', 'computadoras'],
+      tienda: ['tienda', 'oxxo', 'seven', 'conveniencia', 'minisuper'],
+      supermercado: ['supermercado', 'super', 'autoservicio', 'soriana', 'walmart'],
+      otros: [],
+    };
+
+    const searchTerms = categoryMappings[categorySearch] || [categorySearch];
+
+    // Si es "otros", buscar todo lo que no esté en las categorías principales
+    if (categorySearch === 'otros') {
+      const mainCategories = Object.values(categoryMappings).flat();
+      const { data, error } = await supabase
+        .from('businesses')
+        .select('*')
+        .order('rating_average', { ascending: false });
+
+      if (error) throw error;
+
+      // Filtrar los que no están en categorías principales
+      const filtered = (data || []).filter(b => {
+        const cat = (b.category || '').toLowerCase();
+        return !mainCategories.some(mc => cat.includes(mc));
+      });
+
+      return filtered.map(mapBusiness);
+    }
+
+    // Buscar con ILIKE para cada término
+    const { data, error } = await supabase
+      .from('businesses')
+      .select('*')
+      .order('rating_average', { ascending: false });
+
+    if (error) throw error;
+
+    // Filtrar por categoría (case insensitive)
+    const filtered = (data || []).filter(b => {
+      const cat = (b.category || '').toLowerCase();
+      return searchTerms.some(term => cat.includes(term.toLowerCase()));
+    });
+
+    return filtered.map(mapBusiness);
+  } catch (error) {
+    console.error('getBusinessesByCategory error:', error);
+    throw error;
+  }
+}
+
 // Get similar businesses for cancellation alternatives
 // Criteria: same category, rating 4.0+, exclude current business, limit 3
 export async function getSimilarBusinesses(currentBusinessId: string): Promise<Business[]> {

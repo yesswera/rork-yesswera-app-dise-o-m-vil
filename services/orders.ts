@@ -147,7 +147,7 @@ export async function getOrderById(orderId: string): Promise<Order | null> {
 
 export async function createOrder(orderData: {
   clientId: string;
-  businessId: string;
+  businessId: string | null; // null para lista general de compras
   serviceType: 'food' | 'shopping' | 'delivery';
   deliveryAddress: string;
   deliveryInstructions?: string;
@@ -168,22 +168,26 @@ export async function createOrder(orderData: {
     const total = orderData.subtotal + orderData.deliveryFee + (orderData.tip || 0);
     const { driverCode, comandaCode, deliveryCode } = generateOrderCodes();
 
-    // Get business address for pickup
-    const { data: business } = await supabase
-      .from('businesses')
-      .select('address')
-      .eq('id', orderData.businessId)
-      .single();
+    // Get business address for pickup (si hay negocio específico)
+    let pickupAddress = '';
+    if (orderData.businessId) {
+      const { data: business } = await supabase
+        .from('businesses')
+        .select('address')
+        .eq('id', orderData.businessId)
+        .single();
+      pickupAddress = business?.address || '';
+    }
 
     // Create order
     const { data: order, error: orderError } = await supabase
       .from('orders')
       .insert({
         client_id: orderData.clientId,
-        business_id: orderData.businessId,
+        business_id: orderData.businessId, // puede ser null para lista general
         service_type: orderData.serviceType,
-        status: 'pending',
-        pickup_address: business?.address || '',
+        status: orderData.businessId ? 'pending' : 'ready', // Lista general va directo a drivers
+        pickup_address: pickupAddress,
         delivery_address: orderData.deliveryAddress,
         delivery_instructions: orderData.deliveryInstructions,
         driver_code: driverCode,

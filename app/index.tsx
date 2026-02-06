@@ -263,11 +263,11 @@ export default function HomeScreen() {
     {
       id: 'shopping',
       title: 'Lista de Compras',
-      subtitle: 'Supermercados y Tiendas',
+      subtitle: 'Escribe y te lo llevamos',
       icon: ShoppingCart,
       color1: Colors.secondary,
       color2: Colors.secondaryDark,
-      route: '/shopping/stores',
+      route: '/shopping',
     },
     {
       id: 'delivery',

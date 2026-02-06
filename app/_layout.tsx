@@ -55,6 +55,8 @@ function RootLayoutNav() {
       <Stack.Screen name="food/restaurants" options={{ title: "Restaurantes" }} />
       <Stack.Screen name="food/menu/[businessId]" options={{ title: "Menú" }} />
       <Stack.Screen name="food/cart" options={{ title: "Carrito" }} />
+      <Stack.Screen name="shopping/index" options={{ title: "Lista de Compras", headerShown: false }} />
+      <Stack.Screen name="shopping/general-list" options={{ title: "Lista General" }} />
       <Stack.Screen name="shopping/stores" options={{ title: "Tiendas" }} />
       <Stack.Screen name="shopping/list/[storeId]" options={{ title: "Lista de Compras" }} />
       <Stack.Screen name="delivery/create" options={{ title: "Coger y Entregar" }} />
