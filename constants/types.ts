@@ -67,6 +67,7 @@ export interface Order {
   shoppingList?: string;
   packageDescription?: string;
   packageWeight?: number;
+  packageDetails?: PackageDetails;
   subtotal?: number;
   deliveryFee: number;
   total: number;
@@ -110,10 +111,23 @@ export interface Order {
 }
 
 export interface PackageDetails {
+  type: string; // sobre, bolsa, caja, paquete, regalo
+  size: string; // small, medium, large
+  weight: string; // light, medium, heavy, very_heavy
+  isFragile: boolean;
   description: string;
-  weight: string;
-  size: string;
-  urgency: 'standard' | 'express';
+  urgency?: 'standard' | 'express';
+  // Recipient info (when sending to someone else)
+  recipientName?: string;
+  recipientPhone?: string;
+  // Minor protection
+  isMinorRecipient?: boolean;
+  minorDetails?: {
+    name: string;
+    age: string;
+    relationship: string;
+    authorizedBy: string;
+  };
 }
 
 export interface Location {

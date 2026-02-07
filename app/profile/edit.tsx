@@ -1,20 +1,48 @@
+// ============================================================================
+// YESSWERA: PANTALLA DE EDITAR PERFIL
+// Usa ScreenContainer para diseño unificado
+// ============================================================================
+
 import { useState } from 'react';
-import { StyleSheet, Text, View, TouchableOpacity, KeyboardAvoidingView, Platform, ScrollView, Image, Alert } from 'react-native';
+import { StyleSheet, Text, View, TouchableOpacity, Image, Alert } from 'react-native';
 import { useRouter } from 'expo-router';
-import { ChevronLeft, Camera } from 'lucide-react-native';
+import { Camera, Edit2 } from 'lucide-react-native';
 import * as ImagePicker from 'expo-image-picker';
 import { useAuth } from '@/contexts/auth';
-import Colors from '@/constants/colors';
+import { useTheme } from '@/contexts/theme';
 import FormInput from '@/components/FormInput';
 import LoadingButton from '@/components/LoadingButton';
+import ScreenContainer from '@/components/ScreenContainer';
 import { Toast } from '@/utils/toast';
 import { Validator } from '@/utils/validation';
 import { HapticFeedback } from '@/utils/haptics';
-import { StatusBar } from 'expo-status-bar';
+
+// Colores explícitos para modo oscuro
+const COLORS = {
+  light: {
+    card: '#FFFFFF',
+    cardAlt: '#F5F5F4',
+    border: '#E7E5E4',
+    text: '#1C1917',
+    textSecondary: '#57534E',
+    textMuted: '#A8A29E',
+  },
+  dark: {
+    card: '#292524',
+    cardAlt: '#44403C',
+    border: '#44403C',
+    text: '#FAFAFA',
+    textSecondary: '#D6D3D1',
+    textMuted: '#78716C',
+  },
+};
 
 export default function EditProfileScreen() {
   const router = useRouter();
   const { user, updateProfile } = useAuth();
+  const { isDark, colors } = useTheme();
+  const theme = isDark ? COLORS.dark : COLORS.light;
+
   const [name, setName] = useState<string>(user?.name || '');
   const [phone, setPhone] = useState<string>(user?.phone || '');
   const [avatar, setAvatar] = useState<string | undefined>(user?.avatar);
@@ -42,9 +70,9 @@ export default function EditProfileScreen() {
   const handlePickImage = async () => {
     try {
       HapticFeedback.light();
-      
+
       const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
-      
+
       if (status !== 'granted') {
         Alert.alert(
           'Permiso requerido',
@@ -105,148 +133,108 @@ export default function EditProfileScreen() {
     router.back();
   };
 
+  const getUserTypeLabel = () => {
+    switch (user.userType) {
+      case 'client': return 'Cliente';
+      case 'driver': return 'Repartidor';
+      case 'business': return 'Negocio';
+      default: return user.userType;
+    }
+  };
+
   return (
-    <KeyboardAvoidingView 
-      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-      style={styles.container}
+    <ScreenContainer
+      headerGradient="primary"
+      headerIcon={Edit2}
+      headerTitle="Editar Perfil"
+      headerSubtitle="Actualiza tu información personal"
     >
-      <StatusBar style="light" />
-      
-      <View style={styles.header}>
+      {/* Avatar Section */}
+      <View style={styles.avatarSection}>
         <TouchableOpacity
-          style={styles.backButton}
-          onPress={handleCancel}
-          activeOpacity={0.7}
+          onPress={handlePickImage}
+          activeOpacity={0.8}
+          style={styles.avatarContainer}
         >
-          <ChevronLeft size={24} color={Colors.white} />
+          {avatar ? (
+            <Image source={{ uri: avatar }} style={[styles.avatar, { borderColor: theme.card }]} />
+          ) : (
+            <View style={[styles.avatarPlaceholder, { backgroundColor: colors.primary, borderColor: theme.card }]}>
+              <Text style={styles.avatarPlaceholderText}>
+                {name.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2)}
+              </Text>
+            </View>
+          )}
+          <View style={[styles.cameraButton, { backgroundColor: colors.primary, borderColor: theme.card }]}>
+            <Camera size={18} color="#FFFFFF" />
+          </View>
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>Editar Perfil</Text>
-        <View style={styles.headerSpacer} />
+        <Text style={[styles.avatarHint, { color: theme.textSecondary }]}>Toca para cambiar foto</Text>
       </View>
 
-      <ScrollView 
-        contentContainerStyle={styles.scrollContent}
-        keyboardShouldPersistTaps="handled"
-        showsVerticalScrollIndicator={false}
-      >
-        <View style={styles.avatarSection}>
+      {/* Form */}
+      <View style={styles.form}>
+        <FormInput
+          label="Nombre Completo"
+          value={name}
+          onChangeText={handleNameChange}
+          error={errors.name}
+          placeholder="Tu nombre completo"
+          autoCapitalize="words"
+          editable={!isLoading}
+        />
+
+        <FormInput
+          label="Teléfono"
+          value={phone}
+          onChangeText={handlePhoneChange}
+          error={errors.phone}
+          placeholder="+52 333 123 4567"
+          keyboardType="phone-pad"
+          editable={!isLoading}
+        />
+
+        <View style={[styles.infoCard, { backgroundColor: theme.card, borderColor: theme.border }]}>
+          <Text style={[styles.infoLabel, { color: theme.textSecondary }]}>Email</Text>
+          <Text style={[styles.infoValue, { color: theme.text }]}>{user.email}</Text>
+          <Text style={[styles.infoHint, { color: theme.textMuted }]}>El email no se puede cambiar</Text>
+        </View>
+
+        <View style={[styles.infoCard, { backgroundColor: theme.card, borderColor: theme.border }]}>
+          <Text style={[styles.infoLabel, { color: theme.textSecondary }]}>Tipo de Usuario</Text>
+          <Text style={[styles.infoValue, { color: theme.text }]}>{getUserTypeLabel()}</Text>
+        </View>
+
+        <View style={styles.buttonContainer}>
+          <LoadingButton
+            title="Guardar Cambios"
+            onPress={handleSave}
+            loading={isLoading}
+            variant="primary"
+          />
+
           <TouchableOpacity
-            onPress={handlePickImage}
+            style={[styles.cancelButton, { backgroundColor: theme.cardAlt }]}
+            onPress={handleCancel}
+            disabled={isLoading}
             activeOpacity={0.8}
-            style={styles.avatarContainer}
           >
-            {avatar ? (
-              <Image source={{ uri: avatar }} style={styles.avatar} />
-            ) : (
-              <View style={styles.avatarPlaceholder}>
-                <Text style={styles.avatarPlaceholderText}>
-                  {name.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2)}
-                </Text>
-              </View>
-            )}
-            <View style={styles.cameraButton}>
-              <Camera size={18} color={Colors.white} />
-            </View>
+            <Text style={[styles.cancelButtonText, { color: theme.text }]}>Cancelar</Text>
           </TouchableOpacity>
-          <Text style={styles.avatarHint}>Toca para cambiar foto</Text>
         </View>
-
-        <View style={styles.form}>
-          <FormInput
-            label="Nombre Completo"
-            value={name}
-            onChangeText={handleNameChange}
-            error={errors.name}
-            placeholder="Tu nombre completo"
-            autoCapitalize="words"
-            editable={!isLoading}
-          />
-
-          <FormInput
-            label="Teléfono"
-            value={phone}
-            onChangeText={handlePhoneChange}
-            error={errors.phone}
-            placeholder="+52 333 123 4567"
-            keyboardType="phone-pad"
-            editable={!isLoading}
-          />
-
-          <View style={styles.infoCard}>
-            <Text style={styles.infoLabel}>Email</Text>
-            <Text style={styles.infoValue}>{user.email}</Text>
-            <Text style={styles.infoHint}>El email no se puede cambiar</Text>
-          </View>
-
-          <View style={styles.infoCard}>
-            <Text style={styles.infoLabel}>Tipo de Usuario</Text>
-            <Text style={styles.infoValue}>
-              {user.userType === 'client' ? 'Cliente' :
-               user.userType === 'driver' ? 'Repartidor' : 'Negocio'}
-            </Text>
-          </View>
-
-          <View style={styles.buttonContainer}>
-            <LoadingButton
-              title="Guardar Cambios"
-              onPress={handleSave}
-              loading={isLoading}
-              variant="primary"
-            />
-
-            <TouchableOpacity
-              style={styles.cancelButton}
-              onPress={handleCancel}
-              disabled={isLoading}
-              activeOpacity={0.8}
-            >
-              <Text style={styles.cancelButtonText}>Cancelar</Text>
-            </TouchableOpacity>
-          </View>
-        </View>
-      </ScrollView>
-    </KeyboardAvoidingView>
+      </View>
+    </ScreenContainer>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: Colors.background.secondary,
-  },
-  header: {
-    backgroundColor: Colors.black,
-    flexDirection: 'row' as const,
-    alignItems: 'center' as const,
-    justifyContent: 'space-between' as const,
-    paddingTop: 60,
-    paddingBottom: 16,
-    paddingHorizontal: 20,
-  },
-  backButton: {
-    width: 40,
-    height: 40,
-    justifyContent: 'center' as const,
-    alignItems: 'center' as const,
-  },
-  headerTitle: {
-    fontSize: 18,
-    fontWeight: '700' as const,
-    color: Colors.white,
-  },
-  headerSpacer: {
-    width: 40,
-  },
-  scrollContent: {
-    paddingVertical: 24,
-    paddingHorizontal: 20,
-  },
   avatarSection: {
-    alignItems: 'center' as const,
+    alignItems: 'center',
     marginBottom: 32,
+    marginTop: 8,
   },
   avatarContainer: {
-    position: 'relative' as const,
+    position: 'relative',
     marginBottom: 8,
   },
   avatar: {
@@ -254,69 +242,58 @@ const styles = StyleSheet.create({
     height: 120,
     borderRadius: 60,
     borderWidth: 4,
-    borderColor: Colors.white,
   },
   avatarPlaceholder: {
     width: 120,
     height: 120,
     borderRadius: 60,
-    backgroundColor: Colors.primary,
-    justifyContent: 'center' as const,
-    alignItems: 'center' as const,
+    justifyContent: 'center',
+    alignItems: 'center',
     borderWidth: 4,
-    borderColor: Colors.white,
   },
   avatarPlaceholderText: {
     fontSize: 40,
-    fontWeight: '700' as const,
-    color: Colors.white,
+    fontWeight: '700',
+    color: '#FFFFFF',
   },
   cameraButton: {
-    position: 'absolute' as const,
+    position: 'absolute',
     bottom: 0,
     right: 0,
     width: 40,
     height: 40,
     borderRadius: 20,
-    backgroundColor: Colors.primary,
-    justifyContent: 'center' as const,
-    alignItems: 'center' as const,
+    justifyContent: 'center',
+    alignItems: 'center',
     borderWidth: 3,
-    borderColor: Colors.white,
-    shadowColor: Colors.shadow.medium,
+    shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 1,
+    shadowOpacity: 0.2,
     shadowRadius: 8,
     elevation: 4,
   },
   avatarHint: {
     fontSize: 13,
-    color: Colors.text.secondary,
   },
   form: {
     gap: 16,
   },
   infoCard: {
-    backgroundColor: Colors.white,
     borderRadius: 12,
     padding: 16,
     borderWidth: 1,
-    borderColor: Colors.border.light,
   },
   infoLabel: {
     fontSize: 12,
-    fontWeight: '600' as const,
-    color: Colors.text.secondary,
+    fontWeight: '600',
     marginBottom: 4,
   },
   infoValue: {
     fontSize: 16,
-    fontWeight: '500' as const,
-    color: Colors.text.primary,
+    fontWeight: '500',
   },
   infoHint: {
     fontSize: 11,
-    color: Colors.text.muted,
     marginTop: 4,
   },
   buttonContainer: {
@@ -324,14 +301,12 @@ const styles = StyleSheet.create({
     marginTop: 8,
   },
   cancelButton: {
-    backgroundColor: Colors.background.tertiary,
     borderRadius: 12,
     paddingVertical: 16,
-    alignItems: 'center' as const,
+    alignItems: 'center',
   },
   cancelButtonText: {
     fontSize: 16,
-    fontWeight: '600' as const,
-    color: Colors.text.primary,
+    fontWeight: '600',
   },
 });

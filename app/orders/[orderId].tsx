@@ -1,24 +1,79 @@
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, ActivityIndicator } from 'react-native';
+// ============================================================================
+// YESSWERA: DETALLES DE ORDEN
+// Pantalla para ver los detalles completos de una orden
+// Actualizado para usar ScreenContainer
+// ============================================================================
+
+import { View, Text, StyleSheet, TouchableOpacity, ActivityIndicator } from 'react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
-import { ChevronLeft, MapPin, User as UserIcon, Map, Key, CheckCircle, Circle, Clock } from 'lucide-react-native';
+import {
+  MapPin,
+  User as UserIcon,
+  Map,
+  Key,
+  CheckCircle,
+  Circle,
+  Clock,
+  ClipboardList,
+} from 'lucide-react-native';
 import { useAuth } from '@/contexts/auth';
-import Colors from '@/constants/colors';
-import { StatusBar } from 'expo-status-bar';
+import { useState, useEffect } from 'react';
+import { Order } from '@/constants/types';
+import { getOrderById } from '@/services/orders';
 import RatingStars from '@/components/RatingStars';
 import ChatButton from '@/components/ChatButton';
+import SupportButton from '@/components/SupportButton';
 import LoadingButton from '@/components/LoadingButton';
-import { getOrderById } from '@/services/orders';
-import { Order } from '@/constants/types';
 import ErrorState from '@/components/ErrorState';
-import { useState, useEffect } from 'react';
+import ScreenContainer from '@/components/ScreenContainer';
+import { useTheme } from '@/contexts/theme';
+import { OrderSounds, SoundFeedback } from '@/services/sounds';
+
+// ============================================================================
+// COLORES EXPLICITOS PARA MODO OSCURO
+// ============================================================================
+
+const COLORS = {
+  light: {
+    card: '#FFFFFF',
+    cardAlt: '#F5F5F4',
+    border: '#E7E5E4',
+    text: '#1C1917',
+    textSecondary: '#57534E',
+    textMuted: '#A8A29E',
+  },
+  dark: {
+    card: '#292524',
+    cardAlt: '#44403C',
+    border: '#44403C',
+    text: '#FAFAFA',
+    textSecondary: '#D6D3D1',
+    textMuted: '#78716C',
+  },
+};
+
+// Colores de estado
+const STATUS_COLORS = {
+  success: '#22C55E',
+  error: '#EF4444',
+  warning: '#F59E0B',
+  accent: '#3B82F6',
+  secondary: '#F97316',
+  muted: '#9CA3AF',
+  lightGray: '#D1D5DB',
+};
 
 export default function OrderDetailsScreen() {
   const router = useRouter();
   const { orderId } = useLocalSearchParams<{ orderId: string }>();
   const { user, token } = useAuth();
+  const { isDark, colors } = useTheme();
+  const theme = isDark ? COLORS.dark : COLORS.light;
+
   const [order, setOrder] = useState<Order | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [previousStatus, setPreviousStatus] = useState<string | null>(null);
 
   useEffect(() => {
     const loadOrder = async () => {
@@ -39,6 +94,35 @@ export default function OrderDetailsScreen() {
     loadOrder();
   }, [orderId, token]);
 
+  // Play sound when order status changes
+  const playStatusChangeSound = (status: string) => {
+    switch (status) {
+      case 'accepted':
+      case 'confirmed':
+        OrderSounds.accepted();
+        break;
+      case 'preparing':
+        OrderSounds.ready();
+        break;
+      case 'ready':
+        OrderSounds.ready();
+        break;
+      case 'assigned':
+      case 'driver_verified':
+        OrderSounds.pickedUp();
+        break;
+      case 'in_transit':
+        OrderSounds.pickedUp();
+        break;
+      case 'delivered':
+        OrderSounds.delivered();
+        break;
+      case 'cancelled':
+        OrderSounds.cancelled();
+        break;
+    }
+  };
+
   useEffect(() => {
     if (!order || !token || !orderId) return;
 
@@ -50,6 +134,10 @@ export default function OrderDetailsScreen() {
     const interval = setInterval(async () => {
       try {
         const updatedOrder = await getOrderById(orderId as string);
+        // Check if status changed and play sound
+        if (updatedOrder.status !== order.status) {
+          playStatusChangeSound(updatedOrder.status);
+        }
         setOrder(updatedOrder);
       } catch (err) {
         console.error('Error actualizando orden:', err);
@@ -75,65 +163,53 @@ export default function OrderDetailsScreen() {
     }
   };
 
+  // Loading state
   if (isLoading) {
     return (
-      <View style={styles.container}>
-        <StatusBar style="light" />
-        <View style={styles.header}>
-          <TouchableOpacity
-            style={styles.backButton}
-            onPress={() => router.back()}
-            activeOpacity={0.7}
-          >
-            <ChevronLeft size={24} color={Colors.white} />
-          </TouchableOpacity>
-          <Text style={styles.headerTitle}>Detalles de Orden</Text>
-          <View style={styles.headerSpacer} />
+      <ScreenContainer
+        headerGradient="accent"
+        headerIcon={ClipboardList}
+        headerTitle="Detalles de Orden"
+        headerSubtitle="Cargando informacion..."
+      >
+        <View style={styles.loadingContainer}>
+          <ActivityIndicator size="large" color={colors.primary} />
+          <Text style={[styles.loadingText, { color: theme.textSecondary }]}>
+            Cargando orden...
+          </Text>
         </View>
-        <View style={styles.errorContainer}>
-          <ActivityIndicator size="large" color={Colors.primary} />
-          <Text style={[styles.errorText, { marginTop: 16 }]}>Cargando orden...</Text>
-        </View>
-      </View>
+      </ScreenContainer>
     );
   }
 
+  // Error state
   if (error || !order) {
     return (
-      <View style={styles.container}>
-        <StatusBar style="light" />
-        <View style={styles.header}>
-          <TouchableOpacity
-            style={styles.backButton}
-            onPress={() => router.back()}
-            activeOpacity={0.7}
-          >
-            <ChevronLeft size={24} color={Colors.white} />
-          </TouchableOpacity>
-          <Text style={styles.headerTitle}>Detalles de Orden</Text>
-          <View style={styles.headerSpacer} />
-        </View>
+      <ScreenContainer
+        headerGradient="accent"
+        headerIcon={ClipboardList}
+        headerTitle="Detalles de Orden"
+        headerSubtitle="Ocurrio un problema"
+      >
         <ErrorState message={error || 'Orden no encontrada'} onRetry={handleRetry} />
-      </View>
+      </ScreenContainer>
     );
   }
 
   const getStatusColor = () => {
     switch (order.status) {
       case 'delivered':
-        return Colors.success;
+        return STATUS_COLORS.success;
       case 'cancelled':
-        return Colors.error;
+        return STATUS_COLORS.error;
       case 'in_transit':
-        return Colors.accent;
       case 'driver_verified':
-        return Colors.accent;
+        return STATUS_COLORS.accent;
       case 'assigned':
-        return Colors.secondary;
       case 'accepted':
-        return Colors.secondary;
+        return STATUS_COLORS.secondary;
       default:
-        return Colors.mediumGray;
+        return STATUS_COLORS.muted;
     }
   };
 
@@ -182,7 +258,7 @@ export default function OrderDetailsScreen() {
       case 'shopping':
         return 'Compras';
       case 'delivery':
-        return 'Envío';
+        return 'Envio';
       default:
         return 'Pedido';
     }
@@ -207,328 +283,306 @@ export default function OrderDetailsScreen() {
   const getStepState = (stepKey: string) => {
     if (isCancelled) return 'cancelled';
     const stepIdx = statusOrder.indexOf(stepKey);
-    // driver_verified counts as same level as assigned
-    const effectiveIdx = stepKey === 'assigned' ? Math.max(statusOrder.indexOf('assigned'), statusOrder.indexOf('driver_verified')) : stepIdx;
     if (currentIndex > stepIdx) return 'completed';
     if (currentIndex === stepIdx || (stepKey === 'assigned' && order.status === 'driver_verified')) return 'current';
     return 'upcoming';
   };
 
-  return (
-    <View style={styles.container}>
-      <StatusBar style="light" />
+  // Footer con boton de mapa
+  const renderFooter = () => (
+    <TouchableOpacity
+      style={[styles.mapButton, { backgroundColor: STATUS_COLORS.accent }]}
+      onPress={() => router.push(`/tracking/${order.id}` as any)}
+      activeOpacity={0.8}
+    >
+      <Map size={20} color="#FFFFFF" />
+      <Text style={styles.mapButtonText}>Ver en Mapa</Text>
+    </TouchableOpacity>
+  );
 
-      <View style={styles.header}>
-        <TouchableOpacity
-          style={styles.backButton}
-          onPress={() => router.back()}
-          activeOpacity={0.7}
-        >
-          <ChevronLeft size={24} color={Colors.white} />
-        </TouchableOpacity>
-        <Text style={styles.headerTitle}>{order.orderNumber}</Text>
-        <View style={styles.headerSpacer} />
+  return (
+    <ScreenContainer
+      headerGradient="accent"
+      headerIcon={ClipboardList}
+      headerTitle={order.orderNumber || `Orden #${order.id}`}
+      headerSubtitle={getStatusLabel()}
+      footer={renderFooter()}
+      footerPadding={80}
+    >
+      {/* Status Badge */}
+      <View style={[styles.statusCard, { backgroundColor: theme.card }]}>
+        <View style={[styles.statusBadge, { backgroundColor: `${getStatusColor()}15` }]}>
+          <Text style={[styles.statusText, { color: getStatusColor() }]}>
+            {getStatusLabel()}
+          </Text>
+        </View>
       </View>
 
-      <ScrollView style={styles.scrollView} showsVerticalScrollIndicator={false}>
-        <View style={styles.statusCard}>
-          <View style={[styles.statusBadge, { backgroundColor: `${getStatusColor()}15` }]}>
-            <Text style={[styles.statusText, { color: getStatusColor() }]}>
-              {getStatusLabel()}
-            </Text>
-          </View>
-        </View>
-
-        {/* Timeline de progreso */}
-        {!isCancelled && (
-          <View style={styles.section}>
-            <View style={styles.timelineContainer}>
-              {timelineSteps.map((step, index) => {
-                const state = getStepState(step.key);
-                const isLast = index === timelineSteps.length - 1;
-                return (
-                  <View key={step.key} style={styles.timelineStep}>
-                    <View style={styles.timelineIconColumn}>
-                      {state === 'completed' ? (
-                        <CheckCircle size={22} color={Colors.success} />
-                      ) : state === 'current' ? (
-                        <Clock size={22} color={Colors.accent} />
-                      ) : (
-                        <Circle size={22} color={Colors.lightGray} />
-                      )}
-                      {!isLast && (
-                        <View
-                          style={[
-                            styles.timelineLine,
-                            state === 'completed' && styles.timelineLineCompleted,
-                          ]}
-                        />
-                      )}
-                    </View>
-                    <Text
+      {/* Timeline de progreso */}
+      {!isCancelled && (
+        <View style={[styles.timelineContainer, { backgroundColor: theme.card, borderColor: theme.border }]}>
+          {timelineSteps.map((step, index) => {
+            const state = getStepState(step.key);
+            const isLast = index === timelineSteps.length - 1;
+            return (
+              <View key={step.key} style={styles.timelineStep}>
+                <View style={styles.timelineIconColumn}>
+                  {state === 'completed' ? (
+                    <CheckCircle size={22} color={STATUS_COLORS.success} />
+                  ) : state === 'current' ? (
+                    <Clock size={22} color={STATUS_COLORS.accent} />
+                  ) : (
+                    <Circle size={22} color={STATUS_COLORS.lightGray} />
+                  )}
+                  {!isLast && (
+                    <View
                       style={[
-                        styles.timelineLabel,
-                        state === 'completed' && styles.timelineLabelCompleted,
-                        state === 'current' && styles.timelineLabelCurrent,
+                        styles.timelineLine,
+                        { backgroundColor: STATUS_COLORS.lightGray },
+                        state === 'completed' && { backgroundColor: STATUS_COLORS.success },
                       ]}
-                    >
-                      {step.label}
-                    </Text>
-                  </View>
-                );
-              })}
-            </View>
-          </View>
-        )}
-
-        {/* Código de entrega - visible cuando el pedido está en camino */}
-        {(order.status === 'in_transit' || order.status === 'driver_verified') && order.deliveryCode && (
-          <View style={styles.section}>
-            <View style={styles.deliveryCodeCard}>
-              <Key size={24} color={Colors.primary} />
-              <Text style={styles.deliveryCodeLabel}>Tu Código de Entrega</Text>
-              <View style={styles.deliveryCodeBadge}>
-                <Text style={styles.deliveryCodeText}>{order.deliveryCode}</Text>
-              </View>
-              <Text style={styles.deliveryCodeHint}>
-                Dale este código al repartidor cuando llegue a tu puerta
-              </Text>
-            </View>
-          </View>
-        )}
-
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Información del Servicio</Text>
-          <View style={styles.card}>
-            <View style={styles.infoRow}>
-              <Text style={styles.infoLabel}>Tipo de Servicio</Text>
-              <Text style={styles.infoValue}>{getOrderTypeName()}</Text>
-            </View>
-            <View style={styles.divider} />
-            <View style={styles.infoRow}>
-              <Text style={styles.infoLabel}>Fecha de Creación</Text>
-              <Text style={styles.infoValue}>{formatDate(order.createdAt)}</Text>
-            </View>
-            {order.deliveredAt && (
-              <>
-                <View style={styles.divider} />
-                <View style={styles.infoRow}>
-                  <Text style={styles.infoLabel}>Fecha de Entrega</Text>
-                  <Text style={styles.infoValue}>{formatDate(order.deliveredAt)}</Text>
-                </View>
-              </>
-            )}
-          </View>
-        </View>
-
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Detalles del Pedido</Text>
-          <View style={styles.card}>
-            {order.type === 'food' && order.items && (
-              <View>
-                {order.items.map((item, index) => (
-                  <View key={item.id}>
-                    {index > 0 && <View style={styles.divider} />}
-                    <View style={styles.itemRow}>
-                      <View style={styles.itemDetails}>
-                        <Text style={styles.itemName}>{item.name}</Text>
-                        <Text style={styles.itemPrice}>
-                          ${item.price.toFixed(2)} x {item.quantity}
-                        </Text>
-                      </View>
-                      <Text style={styles.itemTotal}>
-                        ${(item.price * item.quantity).toFixed(2)}
-                      </Text>
-                    </View>
-                  </View>
-                ))}
-              </View>
-            )}
-            
-            {order.type === 'shopping' && order.shoppingList && (
-              <View>
-                <Text style={styles.listTitle}>Lista de Compras:</Text>
-                <Text style={styles.listContent}>{order.shoppingList}</Text>
-              </View>
-            )}
-            
-            {order.type === 'delivery' && order.packageDescription && (
-              <View>
-                <View style={styles.infoRow}>
-                  <Text style={styles.infoLabel}>Descripción</Text>
-                  <Text style={styles.infoValue}>{order.packageDescription}</Text>
-                </View>
-                {order.packageWeight && (
-                  <>
-                    <View style={styles.divider} />
-                    <View style={styles.infoRow}>
-                      <Text style={styles.infoLabel}>Peso</Text>
-                      <Text style={styles.infoValue}>{order.packageWeight}kg</Text>
-                    </View>
-                  </>
-                )}
-              </View>
-            )}
-          </View>
-        </View>
-
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Ubicaciones</Text>
-          <View style={styles.card}>
-            {order.pickupAddress && (
-              <>
-                <View style={styles.locationRow}>
-                  <MapPin size={20} color={Colors.accent} />
-                  <View style={styles.locationContent}>
-                    <Text style={styles.locationLabel}>Origen</Text>
-                    <Text style={styles.locationAddress}>{order.pickupAddress}</Text>
-                  </View>
-                </View>
-                <View style={styles.divider} />
-              </>
-            )}
-            <View style={styles.locationRow}>
-              <MapPin size={20} color={Colors.primary} />
-              <View style={styles.locationContent}>
-                <Text style={styles.locationLabel}>Destino</Text>
-                <Text style={styles.locationAddress}>{order.deliveryAddress}</Text>
-              </View>
-            </View>
-          </View>
-        </View>
-
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Costos</Text>
-          <View style={styles.card}>
-            {order.subtotal && (
-              <>
-                <View style={styles.costRow}>
-                  <Text style={styles.costLabel}>Subtotal de productos</Text>
-                  <Text style={styles.costValue}>
-                    ${order.subtotal.toFixed(2)}
-                  </Text>
-                </View>
-                <View style={styles.divider} />
-              </>
-            )}
-            <View style={styles.costRow}>
-              <Text style={styles.costLabel}>Costo de entrega</Text>
-              <Text style={styles.costValue}>${order.deliveryFee.toFixed(2)}</Text>
-            </View>
-            <View style={styles.divider} />
-            <View style={styles.costRow}>
-              <Text style={styles.totalLabel}>Total</Text>
-              <Text style={styles.totalValue}>${order.total.toFixed(2)}</Text>
-            </View>
-          </View>
-        </View>
-
-        {order.driverName && (
-          <View style={styles.section}>
-            <Text style={styles.sectionTitle}>Repartidor</Text>
-            <View style={styles.card}>
-              <View style={styles.driverRow}>
-                <View style={styles.driverAvatar}>
-                  <UserIcon size={24} color={Colors.white} />
-                </View>
-                <View style={styles.driverInfo}>
-                  <Text style={styles.driverName}>
-                    {order.driverName}
-                  </Text>
-                  {order.driverRating && (
-                    <View style={styles.ratingRow}>
-                      <RatingStars rating={order.driverRating} size="small" readonly />
-                    </View>
+                    />
                   )}
                 </View>
+                <Text
+                  style={[
+                    styles.timelineLabel,
+                    { color: theme.textMuted },
+                    state === 'completed' && { color: theme.textSecondary },
+                    state === 'current' && { color: STATUS_COLORS.accent, fontWeight: '700' },
+                  ]}
+                >
+                  {step.label}
+                </Text>
               </View>
-              {canRate && (
-                <View style={styles.rateButtonContainer}>
-                  <LoadingButton
-                    title="Calificar Repartidor"
-                    onPress={() => router.push(`/ratings/create/${order.id}` as any)}
-                    variant="primary"
-                  />
+            );
+          })}
+        </View>
+      )}
+
+      {/* Codigo de entrega */}
+      {(order.status === 'in_transit' || order.status === 'driver_verified') && order.deliveryCode && (
+        <View style={[styles.deliveryCodeCard, { borderColor: colors.primary }]}>
+          <Key size={24} color={colors.primary} />
+          <Text style={[styles.deliveryCodeLabel, { color: theme.textSecondary }]}>
+            Tu Codigo de Entrega
+          </Text>
+          <View style={[styles.deliveryCodeBadge, { backgroundColor: colors.primary }]}>
+            <Text style={styles.deliveryCodeText}>{order.deliveryCode}</Text>
+          </View>
+          <Text style={[styles.deliveryCodeHint, { color: theme.textSecondary }]}>
+            Dale este codigo al repartidor cuando llegue a tu puerta
+          </Text>
+        </View>
+      )}
+
+      {/* Informacion del Servicio */}
+      <View style={styles.section}>
+        <Text style={[styles.sectionTitle, { color: theme.text }]}>Informacion del Servicio</Text>
+        <View style={[styles.card, { backgroundColor: theme.card, borderColor: theme.border }]}>
+          <View style={styles.infoRow}>
+            <Text style={[styles.infoLabel, { color: theme.textSecondary }]}>Tipo de Servicio</Text>
+            <Text style={[styles.infoValue, { color: theme.text }]}>{getOrderTypeName()}</Text>
+          </View>
+          <View style={[styles.divider, { backgroundColor: theme.border }]} />
+          <View style={styles.infoRow}>
+            <Text style={[styles.infoLabel, { color: theme.textSecondary }]}>Fecha de Creacion</Text>
+            <Text style={[styles.infoValue, { color: theme.text }]}>{formatDate(order.createdAt)}</Text>
+          </View>
+          {order.deliveredAt && (
+            <>
+              <View style={[styles.divider, { backgroundColor: theme.border }]} />
+              <View style={styles.infoRow}>
+                <Text style={[styles.infoLabel, { color: theme.textSecondary }]}>Fecha de Entrega</Text>
+                <Text style={[styles.infoValue, { color: theme.text }]}>{formatDate(order.deliveredAt)}</Text>
+              </View>
+            </>
+          )}
+        </View>
+      </View>
+
+      {/* Detalles del Pedido */}
+      <View style={styles.section}>
+        <Text style={[styles.sectionTitle, { color: theme.text }]}>Detalles del Pedido</Text>
+        <View style={[styles.card, { backgroundColor: theme.card, borderColor: theme.border }]}>
+          {order.type === 'food' && order.items && (
+            <View>
+              {order.items.map((item, index) => (
+                <View key={item.id}>
+                  {index > 0 && <View style={[styles.divider, { backgroundColor: theme.border }]} />}
+                  <View style={styles.itemRow}>
+                    <View style={styles.itemDetails}>
+                      <Text style={[styles.itemName, { color: theme.text }]}>{item.name}</Text>
+                      <Text style={[styles.itemPrice, { color: theme.textSecondary }]}>
+                        ${item.price.toFixed(2)} x {item.quantity}
+                      </Text>
+                    </View>
+                    <Text style={[styles.itemTotal, { color: colors.primary }]}>
+                      ${(item.price * item.quantity).toFixed(2)}
+                    </Text>
+                  </View>
                 </View>
+              ))}
+            </View>
+          )}
+
+          {order.type === 'shopping' && order.shoppingList && (
+            <View>
+              <Text style={[styles.listTitle, { color: theme.text }]}>Lista de Compras:</Text>
+              <Text style={[styles.listContent, { color: theme.textSecondary }]}>{order.shoppingList}</Text>
+            </View>
+          )}
+
+          {order.type === 'delivery' && order.packageDescription && (
+            <View>
+              <View style={styles.infoRow}>
+                <Text style={[styles.infoLabel, { color: theme.textSecondary }]}>Descripcion</Text>
+                <Text style={[styles.infoValue, { color: theme.text }]}>{order.packageDescription}</Text>
+              </View>
+              {order.packageWeight && (
+                <>
+                  <View style={[styles.divider, { backgroundColor: theme.border }]} />
+                  <View style={styles.infoRow}>
+                    <Text style={[styles.infoLabel, { color: theme.textSecondary }]}>Peso</Text>
+                    <Text style={[styles.infoValue, { color: theme.text }]}>{order.packageWeight}kg</Text>
+                  </View>
+                </>
               )}
             </View>
-          </View>
-        )}
+          )}
+        </View>
+      </View>
 
-        {order.businessName && order.businessId && (
-          <View style={styles.section}>
-            <Text style={styles.sectionTitle}>Contacto</Text>
-            <View style={styles.card}>
-              <ChatButton
-                orderId={order.id.toString()}
-                type="client_business"
-                otherPartyName={order.businessName}
-              />
+      {/* Ubicaciones */}
+      <View style={styles.section}>
+        <Text style={[styles.sectionTitle, { color: theme.text }]}>Ubicaciones</Text>
+        <View style={[styles.card, { backgroundColor: theme.card, borderColor: theme.border }]}>
+          {order.pickupAddress && (
+            <>
+              <View style={styles.locationRow}>
+                <MapPin size={20} color={STATUS_COLORS.accent} />
+                <View style={styles.locationContent}>
+                  <Text style={[styles.locationLabel, { color: theme.text }]}>Origen</Text>
+                  <Text style={[styles.locationAddress, { color: theme.textSecondary }]}>{order.pickupAddress}</Text>
+                </View>
+              </View>
+              <View style={[styles.divider, { backgroundColor: theme.border }]} />
+            </>
+          )}
+          <View style={styles.locationRow}>
+            <MapPin size={20} color={colors.primary} />
+            <View style={styles.locationContent}>
+              <Text style={[styles.locationLabel, { color: theme.text }]}>Destino</Text>
+              <Text style={[styles.locationAddress, { color: theme.textSecondary }]}>{order.deliveryAddress}</Text>
             </View>
           </View>
-        )}
-
-        <View style={styles.mapButtonContainer}>
-          <TouchableOpacity
-            style={styles.mapButton}
-            onPress={() => router.push(`/tracking/${order.id}` as any)}
-            activeOpacity={0.8}
-          >
-            <Map size={20} color={Colors.white} />
-            <Text style={styles.mapButtonText}>Ver en Mapa</Text>
-          </TouchableOpacity>
         </View>
-      </ScrollView>
-    </View>
+      </View>
+
+      {/* Costos */}
+      <View style={styles.section}>
+        <Text style={[styles.sectionTitle, { color: theme.text }]}>Costos</Text>
+        <View style={[styles.card, { backgroundColor: theme.card, borderColor: theme.border }]}>
+          {order.subtotal && (
+            <>
+              <View style={styles.costRow}>
+                <Text style={[styles.costLabel, { color: theme.textSecondary }]}>Subtotal de productos</Text>
+                <Text style={[styles.costValue, { color: theme.text }]}>
+                  ${order.subtotal.toFixed(2)}
+                </Text>
+              </View>
+              <View style={[styles.divider, { backgroundColor: theme.border }]} />
+            </>
+          )}
+          <View style={styles.costRow}>
+            <Text style={[styles.costLabel, { color: theme.textSecondary }]}>Costo de entrega</Text>
+            <Text style={[styles.costValue, { color: theme.text }]}>${order.deliveryFee.toFixed(2)}</Text>
+          </View>
+          <View style={[styles.divider, { backgroundColor: theme.border }]} />
+          <View style={styles.costRow}>
+            <Text style={[styles.totalLabel, { color: theme.text }]}>Total</Text>
+            <Text style={[styles.totalValue, { color: colors.primary }]}>${order.total.toFixed(2)}</Text>
+          </View>
+        </View>
+      </View>
+
+      {/* Repartidor */}
+      {order.driverName && (
+        <View style={styles.section}>
+          <Text style={[styles.sectionTitle, { color: theme.text }]}>Repartidor</Text>
+          <View style={[styles.card, { backgroundColor: theme.card, borderColor: theme.border }]}>
+            <View style={styles.driverRow}>
+              <View style={[styles.driverAvatar, { backgroundColor: colors.primary }]}>
+                <UserIcon size={24} color="#FFFFFF" />
+              </View>
+              <View style={styles.driverInfo}>
+                <Text style={[styles.driverName, { color: theme.text }]}>
+                  {order.driverName}
+                </Text>
+                {order.driverRating && (
+                  <View style={styles.ratingRow}>
+                    <RatingStars rating={order.driverRating} size="small" readonly />
+                  </View>
+                )}
+              </View>
+            </View>
+            {canRate && (
+              <View style={styles.rateButtonContainer}>
+                <LoadingButton
+                  title="Calificar Repartidor"
+                  onPress={() => router.push(`/ratings/create/${order.id}` as any)}
+                  variant="primary"
+                />
+              </View>
+            )}
+          </View>
+        </View>
+      )}
+
+      {/* Contacto */}
+      {order.businessName && order.businessId && (
+        <View style={styles.section}>
+          <Text style={[styles.sectionTitle, { color: theme.text }]}>Contacto</Text>
+          <View style={[styles.card, { backgroundColor: theme.card, borderColor: theme.border }]}>
+            <ChatButton
+              orderId={order.id.toString()}
+              type="client_business"
+              otherPartyName={order.businessName}
+            />
+          </View>
+        </View>
+      )}
+
+      {/* Soporte */}
+      {!['delivered', 'cancelled'].includes(order.status) && (
+        <View style={styles.section}>
+          <SupportButton orderId={order.id} variant="banner" label="Necesitas ayuda con esta orden?" />
+        </View>
+      )}
+    </ScreenContainer>
   );
 }
 
+// ============================================================================
+// ESTILOS
+// ============================================================================
+
 const styles = StyleSheet.create({
-  container: {
+  loadingContainer: {
     flex: 1,
-    backgroundColor: Colors.background.secondary,
-  },
-  header: {
-    backgroundColor: Colors.black,
-    flexDirection: 'row' as const,
-    alignItems: 'center' as const,
-    justifyContent: 'space-between' as const,
-    paddingTop: 60,
-    paddingBottom: 16,
-    paddingHorizontal: 20,
-  },
-  backButton: {
-    width: 40,
-    height: 40,
-    justifyContent: 'center' as const,
-    alignItems: 'center' as const,
-  },
-  headerTitle: {
-    fontSize: 18,
-    fontWeight: '700' as const,
-    color: Colors.white,
-  },
-  headerSpacer: {
-    width: 40,
-  },
-  scrollView: {
-    flex: 1,
-  },
-  errorContainer: {
-    flex: 1,
-    justifyContent: 'center' as const,
-    alignItems: 'center' as const,
+    justifyContent: 'center',
+    alignItems: 'center',
     padding: 40,
   },
-  errorText: {
+  loadingText: {
     fontSize: 16,
-    color: Colors.text.secondary,
+    marginTop: 16,
   },
   statusCard: {
-    backgroundColor: Colors.white,
     padding: 20,
-    alignItems: 'center' as const,
+    alignItems: 'center',
     marginBottom: 16,
+    borderRadius: 12,
   },
   statusBadge: {
     paddingHorizontal: 20,
@@ -537,27 +591,23 @@ const styles = StyleSheet.create({
   },
   statusText: {
     fontSize: 16,
-    fontWeight: '700' as const,
+    fontWeight: '700',
   },
   section: {
-    paddingHorizontal: 20,
     marginBottom: 16,
   },
   sectionTitle: {
     fontSize: 16,
-    fontWeight: '700' as const,
-    color: Colors.text.primary,
+    fontWeight: '700',
     marginBottom: 12,
   },
   card: {
-    backgroundColor: Colors.white,
     borderRadius: 16,
     padding: 16,
     borderWidth: 1,
-    borderColor: Colors.border.light,
-    shadowColor: Colors.shadow.light,
+    shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 1,
+    shadowOpacity: 0.08,
     shadowRadius: 8,
     elevation: 2,
   },
@@ -566,65 +616,46 @@ const styles = StyleSheet.create({
   },
   infoLabel: {
     fontSize: 13,
-    color: Colors.text.secondary,
     marginBottom: 4,
   },
   infoValue: {
     fontSize: 15,
-    fontWeight: '500' as const,
-    color: Colors.text.primary,
+    fontWeight: '500',
   },
   divider: {
     height: 1,
-    backgroundColor: Colors.border.light,
     marginVertical: 12,
   },
   itemRow: {
-    flexDirection: 'row' as const,
+    flexDirection: 'row',
     paddingVertical: 8,
-  },
-  itemImage: {
-    width: 60,
-    height: 60,
-    borderRadius: 8,
-    marginRight: 12,
   },
   itemDetails: {
     flex: 1,
   },
   itemName: {
     fontSize: 15,
-    fontWeight: '600' as const,
-    color: Colors.text.primary,
+    fontWeight: '600',
     marginBottom: 2,
-  },
-  itemDescription: {
-    fontSize: 12,
-    color: Colors.text.secondary,
-    marginBottom: 4,
   },
   itemPrice: {
     fontSize: 13,
-    color: Colors.text.secondary,
   },
   itemTotal: {
     fontSize: 16,
-    fontWeight: '700' as const,
-    color: Colors.primary,
+    fontWeight: '700',
   },
   listTitle: {
     fontSize: 14,
-    fontWeight: '600' as const,
-    color: Colors.text.primary,
+    fontWeight: '600',
     marginBottom: 8,
   },
   listContent: {
     fontSize: 15,
-    color: Colors.text.secondary,
     lineHeight: 22,
   },
   locationRow: {
-    flexDirection: 'row' as const,
+    flexDirection: 'row',
     paddingVertical: 8,
   },
   locationContent: {
@@ -633,52 +664,45 @@ const styles = StyleSheet.create({
   },
   locationLabel: {
     fontSize: 13,
-    fontWeight: '600' as const,
-    color: Colors.text.primary,
+    fontWeight: '600',
     marginBottom: 4,
   },
   locationAddress: {
     fontSize: 14,
-    color: Colors.text.secondary,
     lineHeight: 20,
   },
   costRow: {
-    flexDirection: 'row' as const,
-    justifyContent: 'space-between' as const,
-    alignItems: 'center' as const,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
     paddingVertical: 8,
   },
   costLabel: {
     fontSize: 15,
-    color: Colors.text.secondary,
   },
   costValue: {
     fontSize: 15,
-    fontWeight: '500' as const,
-    color: Colors.text.primary,
+    fontWeight: '500',
   },
   totalLabel: {
     fontSize: 17,
-    fontWeight: '700' as const,
-    color: Colors.text.primary,
+    fontWeight: '700',
   },
   totalValue: {
     fontSize: 20,
-    fontWeight: '700' as const,
-    color: Colors.primary,
+    fontWeight: '700',
   },
   driverRow: {
-    flexDirection: 'row' as const,
-    alignItems: 'center' as const,
+    flexDirection: 'row',
+    alignItems: 'center',
     paddingVertical: 8,
   },
   driverAvatar: {
     width: 50,
     height: 50,
     borderRadius: 25,
-    backgroundColor: Colors.primary,
-    justifyContent: 'center' as const,
-    alignItems: 'center' as const,
+    justifyContent: 'center',
+    alignItems: 'center',
     marginRight: 12,
   },
   driverInfo: {
@@ -686,122 +710,89 @@ const styles = StyleSheet.create({
   },
   driverName: {
     fontSize: 16,
-    fontWeight: '600' as const,
-    color: Colors.text.primary,
+    fontWeight: '600',
     marginBottom: 4,
   },
   ratingRow: {
-    flexDirection: 'row' as const,
-    alignItems: 'center' as const,
-  },
-  commentLabel: {
-    fontSize: 13,
-    fontWeight: '600' as const,
-    color: Colors.text.primary,
-    marginBottom: 6,
-  },
-  commentText: {
-    fontSize: 14,
-    color: Colors.text.secondary,
-    lineHeight: 20,
+    flexDirection: 'row',
+    alignItems: 'center',
   },
   rateButtonContainer: {
     marginTop: 12,
   },
-  mapButtonContainer: {
-    paddingHorizontal: 20,
-    paddingBottom: 40,
-  },
   mapButton: {
-    backgroundColor: Colors.accent,
     borderRadius: 12,
     paddingVertical: 16,
     paddingHorizontal: 24,
-    flexDirection: 'row' as const,
-    alignItems: 'center' as const,
-    justifyContent: 'center' as const,
-    shadowColor: Colors.shadow.medium,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 1,
+    shadowOpacity: 0.15,
     shadowRadius: 8,
     elevation: 3,
   },
   mapButtonText: {
     fontSize: 16,
-    fontWeight: '600' as const,
-    color: Colors.white,
+    fontWeight: '600',
+    color: '#FFFFFF',
     marginLeft: 8,
   },
   deliveryCodeCard: {
-    backgroundColor: Colors.primary + '10',
+    backgroundColor: 'rgba(34, 197, 94, 0.1)',
     borderRadius: 16,
     padding: 20,
-    alignItems: 'center' as const,
+    alignItems: 'center',
     borderWidth: 2,
-    borderColor: Colors.primary + '30',
+    marginBottom: 16,
   },
   deliveryCodeLabel: {
     fontSize: 14,
-    fontWeight: '600' as const,
-    color: Colors.text.secondary,
+    fontWeight: '600',
     marginTop: 8,
     marginBottom: 12,
   },
   deliveryCodeBadge: {
-    backgroundColor: Colors.primary,
     paddingHorizontal: 28,
     paddingVertical: 14,
     borderRadius: 12,
   },
   deliveryCodeText: {
     fontSize: 36,
-    fontWeight: '800' as const,
-    color: Colors.white,
+    fontWeight: '800',
+    color: '#FFFFFF',
     letterSpacing: 6,
   },
   deliveryCodeHint: {
     fontSize: 13,
-    color: Colors.text.secondary,
-    textAlign: 'center' as const,
+    textAlign: 'center',
     marginTop: 12,
     lineHeight: 18,
   },
   timelineContainer: {
-    backgroundColor: Colors.white,
     borderRadius: 16,
     padding: 16,
     borderWidth: 1,
-    borderColor: Colors.border.light,
+    marginBottom: 16,
   },
   timelineStep: {
-    flexDirection: 'row' as const,
-    alignItems: 'flex-start' as const,
+    flexDirection: 'row',
+    alignItems: 'flex-start',
   },
   timelineIconColumn: {
-    alignItems: 'center' as const,
+    alignItems: 'center',
     width: 24,
     marginRight: 12,
   },
   timelineLine: {
     width: 2,
     height: 20,
-    backgroundColor: Colors.lightGray,
     marginVertical: 2,
-  },
-  timelineLineCompleted: {
-    backgroundColor: Colors.success,
   },
   timelineLabel: {
     fontSize: 14,
-    color: Colors.text.light,
     paddingTop: 2,
     paddingBottom: 16,
-  },
-  timelineLabelCompleted: {
-    color: Colors.text.secondary,
-  },
-  timelineLabelCurrent: {
-    color: Colors.accent,
-    fontWeight: '700' as const,
   },
 });

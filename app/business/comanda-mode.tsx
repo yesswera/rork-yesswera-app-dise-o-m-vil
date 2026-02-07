@@ -1,5 +1,8 @@
-// Modo Comanda - Pantalla simplificada para tablet/segunda sesion
-// Solo muestra ordenes entrantes en formato de comanda
+// ============================================================================
+// YESSWERA: MODO COMANDA
+// Pantalla simplificada para tablet/segunda sesion
+// Usa ScreenContainer para diseno unificado
+// ============================================================================
 
 import { useState, useEffect, useCallback } from 'react';
 import {
@@ -13,14 +16,38 @@ import {
   Dimensions,
 } from 'react-native';
 import { useRouter, useFocusEffect } from 'expo-router';
-import { X, Clock, CheckCircle, Package, Bell, Volume2, VolumeX } from 'lucide-react-native';
-import Colors from '@/constants/colors';
+import { X, Clock, CheckCircle, Package, Bell, Volume2, VolumeX, Receipt } from 'lucide-react-native';
 import { useAuth } from '@/contexts/auth';
+import { useTheme } from '@/contexts/theme';
+import ScreenContainer from '@/components/ScreenContainer';
 import { getBusinessOrders, acceptOrder, updateOrderStatus } from '@/services/orders';
 import { markOrderReadyAndAssign } from '@/services/driver-assignment';
 import { Order } from '@/constants/types';
 import { supabase } from '@/constants/supabase';
 import { useBusinessOrderSubscription } from '@/hooks/useRealtimeOrders';
+
+// ============================================================================
+// COLORES EXPLICITOS PARA MODO OSCURO
+// ============================================================================
+
+const COLORS = {
+  light: {
+    card: '#FFFFFF',
+    cardAlt: '#F5F5F4',
+    border: '#E7E5E4',
+    text: '#1C1917',
+    textSecondary: '#57534E',
+    textMuted: '#A8A29E',
+  },
+  dark: {
+    card: '#292524',
+    cardAlt: '#44403C',
+    border: '#44403C',
+    text: '#FAFAFA',
+    textSecondary: '#D6D3D1',
+    textMuted: '#78716C',
+  },
+};
 
 const { width } = Dimensions.get('window');
 const isTablet = width >= 768;
@@ -28,6 +55,9 @@ const isTablet = width >= 768;
 export default function ComandaModeScreen() {
   const router = useRouter();
   const { user } = useAuth();
+  const { isDark, colors } = useTheme();
+  const theme = isDark ? COLORS.dark : COLORS.light;
+
   const [orders, setOrders] = useState<Order[]>([]);
   const [businessId, setBusinessId] = useState<string | null>(null);
   const [soundEnabled, setSoundEnabled] = useState(true);
@@ -45,7 +75,7 @@ export default function ComandaModeScreen() {
       const onBackPress = () => {
         Alert.alert(
           'Salir del Modo Comanda',
-          '¿Volver al dashboard?',
+          'Volver al dashboard?',
           [
             { text: 'Cancelar', style: 'cancel' },
             { text: 'Salir', onPress: () => router.back() },
@@ -128,11 +158,11 @@ export default function ComandaModeScreen() {
   };
 
   const getStatusColor = (status: string) => {
-    if (status === 'pending') return Colors.warning;
-    if (status === 'accepted') return Colors.accent;
-    if (status === 'preparing') return Colors.primary;
-    if (status === 'ready') return Colors.success;
-    return Colors.mediumGray;
+    if (status === 'pending') return colors.warning;
+    if (status === 'accepted') return colors.accent;
+    if (status === 'preparing') return colors.primary;
+    if (status === 'ready') return colors.success;
+    return theme.textMuted;
   };
 
   const getStatusLabel = (status: string) => {
@@ -152,20 +182,20 @@ export default function ComandaModeScreen() {
       key={order.id}
       style={[
         styles.comandaCard,
-        { borderLeftColor: getStatusColor(order.status) },
+        { backgroundColor: theme.card, borderLeftColor: getStatusColor(order.status) },
       ]}
     >
       {/* Header */}
-      <View style={styles.comandaHeader}>
+      <View style={[styles.comandaHeader, { borderBottomColor: theme.border }]}>
         <View style={styles.comandaOrderInfo}>
-          <Text style={styles.comandaNumber}>#{order.id.toString().slice(0, 6)}</Text>
+          <Text style={[styles.comandaNumber, { color: theme.text }]}>#{order.id.toString().slice(0, 6)}</Text>
           <View style={[styles.statusBadge, { backgroundColor: getStatusColor(order.status) }]}>
             <Text style={styles.statusText}>{getStatusLabel(order.status)}</Text>
           </View>
         </View>
         <View style={styles.comandaTime}>
-          <Clock size={16} color={Colors.text.secondary} />
-          <Text style={styles.timeText}>
+          <Clock size={16} color={theme.textSecondary} />
+          <Text style={[styles.timeText, { color: theme.textSecondary }]}>
             {new Date(order.createdAt).toLocaleTimeString('es-MX', {
               hour: '2-digit',
               minute: '2-digit',
@@ -178,17 +208,17 @@ export default function ComandaModeScreen() {
       <View style={styles.comandaItems}>
         {order.items && order.items.map((item, index) => (
           <View key={index} style={styles.comandaItem}>
-            <Text style={styles.itemQuantity}>{item.quantity}x</Text>
-            <Text style={styles.itemName}>{item.name}</Text>
+            <Text style={[styles.itemQuantity, { color: colors.primary }]}>{item.quantity}x</Text>
+            <Text style={[styles.itemName, { color: theme.text }]}>{item.name}</Text>
           </View>
         ))}
       </View>
 
       {/* Notas especiales */}
       {order.notes && (
-        <View style={styles.notesContainer}>
-          <Text style={styles.notesLabel}>NOTAS:</Text>
-          <Text style={styles.notesText}>{order.notes}</Text>
+        <View style={[styles.notesContainer, { backgroundColor: colors.warning + '20', borderColor: colors.warning }]}>
+          <Text style={[styles.notesLabel, { color: colors.warning }]}>NOTAS:</Text>
+          <Text style={[styles.notesText, { color: theme.text }]}>{order.notes}</Text>
         </View>
       )}
 
@@ -199,7 +229,7 @@ export default function ComandaModeScreen() {
             {[10, 15, 20, 30].map((min) => (
               <TouchableOpacity
                 key={min}
-                style={styles.prepTimeButton}
+                style={[styles.prepTimeButton, { backgroundColor: colors.success }]}
                 onPress={() => handleAccept(order.id.toString(), min)}
               >
                 <Text style={styles.prepTimeText}>{min} min</Text>
@@ -210,7 +240,7 @@ export default function ComandaModeScreen() {
 
         {order.status === 'accepted' && (
           <TouchableOpacity
-            style={[styles.actionButton, { backgroundColor: Colors.primary }]}
+            style={[styles.actionButton, { backgroundColor: colors.primary }]}
             onPress={() => handleStartPreparing(order.id.toString())}
           >
             <Text style={styles.actionButtonText}>COMENZAR A PREPARAR</Text>
@@ -219,50 +249,53 @@ export default function ComandaModeScreen() {
 
         {order.status === 'preparing' && (
           <TouchableOpacity
-            style={[styles.actionButton, { backgroundColor: Colors.success }]}
+            style={[styles.actionButton, { backgroundColor: colors.success }]}
             onPress={() => handleMarkReady(order.id.toString())}
           >
-            <CheckCircle size={20} color={Colors.white} />
+            <CheckCircle size={20} color="#FFFFFF" />
             <Text style={styles.actionButtonText}>MARCAR LISTA</Text>
           </TouchableOpacity>
         )}
 
         {(order.status === 'ready' || order.status === 'assigned') && (
-          <View style={styles.waitingBadge}>
-            <Package size={20} color={Colors.success} />
-            <Text style={styles.waitingText}>Esperando repartidor</Text>
+          <View style={[styles.waitingBadge, { backgroundColor: colors.success + '20' }]}>
+            <Package size={20} color={colors.success} />
+            <Text style={[styles.waitingText, { color: colors.success }]}>Esperando repartidor</Text>
           </View>
         )}
       </View>
     </View>
   );
 
-  return (
-    <View style={styles.container}>
-      {/* Header fijo */}
-      <View style={styles.header}>
-        <TouchableOpacity style={styles.closeButton} onPress={() => router.back()}>
-          <X size={24} color={Colors.white} />
-        </TouchableOpacity>
-        <View style={styles.headerCenter}>
-          <Text style={styles.headerTitle}>MODO COMANDA</Text>
-          <Text style={styles.headerSubtitle}>
-            {orders.length} orden{orders.length !== 1 ? 'es' : ''} activa{orders.length !== 1 ? 's' : ''}
-          </Text>
-        </View>
-        <TouchableOpacity
-          style={styles.soundButton}
-          onPress={() => setSoundEnabled(!soundEnabled)}
-        >
-          {soundEnabled ? (
-            <Volume2 size={24} color={Colors.white} />
-          ) : (
-            <VolumeX size={24} color={Colors.white} />
-          )}
-        </TouchableOpacity>
-      </View>
+  // Header content con controles
+  const headerContent = (
+    <View style={styles.headerControls}>
+      <TouchableOpacity style={[styles.closeButton, { backgroundColor: 'rgba(255,255,255,0.2)' }]} onPress={() => router.back()}>
+        <X size={20} color="#FFFFFF" />
+      </TouchableOpacity>
+      <TouchableOpacity
+        style={[styles.soundButton, { backgroundColor: 'rgba(255,255,255,0.2)' }]}
+        onPress={() => setSoundEnabled(!soundEnabled)}
+      >
+        {soundEnabled ? (
+          <Volume2 size={20} color="#FFFFFF" />
+        ) : (
+          <VolumeX size={20} color="#FFFFFF" />
+        )}
+      </TouchableOpacity>
+    </View>
+  );
 
-      {/* Grid de comandas */}
+  return (
+    <ScreenContainer
+      headerGradient="accent"
+      headerIcon={Receipt}
+      headerTitle="Modo Comanda"
+      headerSubtitle={`${orders.length} orden${orders.length !== 1 ? 'es' : ''} activa${orders.length !== 1 ? 's' : ''}`}
+      headerContent={headerContent}
+      scrollEnabled={false}
+      keyboardAvoiding={false}
+    >
       <ScrollView
         style={styles.scrollView}
         contentContainerStyle={styles.scrollContent}
@@ -270,13 +303,13 @@ export default function ComandaModeScreen() {
       >
         {loading ? (
           <View style={styles.emptyState}>
-            <Text style={styles.emptyText}>Cargando...</Text>
+            <Text style={[styles.emptyText, { color: theme.textSecondary }]}>Cargando...</Text>
           </View>
         ) : orders.length === 0 ? (
           <View style={styles.emptyState}>
-            <Bell size={48} color={Colors.text.light} />
-            <Text style={styles.emptyText}>Sin ordenes activas</Text>
-            <Text style={styles.emptySubtext}>Las nuevas ordenes apareceran aqui</Text>
+            <Bell size={48} color={theme.textMuted} />
+            <Text style={[styles.emptyText, { color: theme.text }]}>Sin ordenes activas</Text>
+            <Text style={[styles.emptySubtext, { color: theme.textSecondary }]}>Las nuevas ordenes apareceran aqui</Text>
           </View>
         ) : (
           <View style={styles.comandasGrid}>
@@ -284,51 +317,27 @@ export default function ComandaModeScreen() {
           </View>
         )}
       </ScrollView>
-    </View>
+    </ScreenContainer>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#1a1a2e',
-  },
-  header: {
+  headerControls: {
     flexDirection: 'row',
-    alignItems: 'center',
     justifyContent: 'space-between',
-    backgroundColor: '#16213e',
-    paddingTop: 50,
-    paddingBottom: 16,
-    paddingHorizontal: 20,
+    alignItems: 'center',
   },
   closeButton: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    backgroundColor: 'rgba(255,255,255,0.1)',
+    width: 40,
+    height: 40,
+    borderRadius: 20,
     justifyContent: 'center',
     alignItems: 'center',
   },
-  headerCenter: {
-    alignItems: 'center',
-  },
-  headerTitle: {
-    fontSize: 20,
-    fontWeight: '800',
-    color: Colors.white,
-    letterSpacing: 2,
-  },
-  headerSubtitle: {
-    fontSize: 14,
-    color: 'rgba(255,255,255,0.7)',
-    marginTop: 4,
-  },
   soundButton: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    backgroundColor: 'rgba(255,255,255,0.1)',
+    width: 40,
+    height: 40,
+    borderRadius: 20,
     justifyContent: 'center',
     alignItems: 'center',
   },
@@ -336,7 +345,6 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   scrollContent: {
-    padding: 16,
     paddingBottom: 40,
   },
   comandasGrid: {
@@ -345,11 +353,10 @@ const styles = StyleSheet.create({
     gap: 16,
   },
   comandaCard: {
-    backgroundColor: Colors.white,
     borderRadius: 12,
     padding: 16,
     borderLeftWidth: 6,
-    width: isTablet ? (width - 48) / 2 : '100%',
+    width: isTablet ? (width - 64) / 2 : '100%',
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.15,
@@ -363,7 +370,6 @@ const styles = StyleSheet.create({
     marginBottom: 16,
     paddingBottom: 12,
     borderBottomWidth: 1,
-    borderBottomColor: Colors.border.light,
   },
   comandaOrderInfo: {
     flexDirection: 'row',
@@ -373,7 +379,6 @@ const styles = StyleSheet.create({
   comandaNumber: {
     fontSize: 22,
     fontWeight: '800',
-    color: Colors.text.primary,
   },
   statusBadge: {
     paddingHorizontal: 10,
@@ -383,7 +388,7 @@ const styles = StyleSheet.create({
   statusText: {
     fontSize: 12,
     fontWeight: '700',
-    color: Colors.white,
+    color: '#FFFFFF',
   },
   comandaTime: {
     flexDirection: 'row',
@@ -392,7 +397,6 @@ const styles = StyleSheet.create({
   },
   timeText: {
     fontSize: 14,
-    color: Colors.text.secondary,
     fontWeight: '600',
   },
   comandaItems: {
@@ -406,32 +410,26 @@ const styles = StyleSheet.create({
   itemQuantity: {
     fontSize: 20,
     fontWeight: '800',
-    color: Colors.primary,
     width: 50,
   },
   itemName: {
     fontSize: 18,
     fontWeight: '600',
-    color: Colors.text.primary,
     flex: 1,
   },
   notesContainer: {
-    backgroundColor: Colors.warning + '20',
     borderRadius: 8,
     padding: 10,
     marginBottom: 12,
     borderWidth: 1,
-    borderColor: Colors.warning,
   },
   notesLabel: {
     fontSize: 12,
     fontWeight: '700',
-    color: Colors.warning,
     marginBottom: 4,
   },
   notesText: {
     fontSize: 14,
-    color: Colors.text.primary,
     fontWeight: '500',
   },
   comandaActions: {
@@ -443,7 +441,6 @@ const styles = StyleSheet.create({
   },
   prepTimeButton: {
     flex: 1,
-    backgroundColor: Colors.success,
     paddingVertical: 14,
     borderRadius: 8,
     alignItems: 'center',
@@ -451,7 +448,7 @@ const styles = StyleSheet.create({
   prepTimeText: {
     fontSize: 16,
     fontWeight: '700',
-    color: Colors.white,
+    color: '#FFFFFF',
   },
   actionButton: {
     flexDirection: 'row',
@@ -464,13 +461,12 @@ const styles = StyleSheet.create({
   actionButtonText: {
     fontSize: 16,
     fontWeight: '700',
-    color: Colors.white,
+    color: '#FFFFFF',
   },
   waitingBadge: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: Colors.success + '20',
     paddingVertical: 14,
     borderRadius: 8,
     gap: 8,
@@ -478,7 +474,6 @@ const styles = StyleSheet.create({
   waitingText: {
     fontSize: 16,
     fontWeight: '600',
-    color: Colors.success,
   },
   emptyState: {
     flex: 1,
@@ -489,12 +484,10 @@ const styles = StyleSheet.create({
   emptyText: {
     fontSize: 20,
     fontWeight: '600',
-    color: Colors.white,
     marginTop: 16,
   },
   emptySubtext: {
     fontSize: 14,
-    color: 'rgba(255,255,255,0.6)',
     marginTop: 8,
   },
 });

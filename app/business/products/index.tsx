@@ -1,18 +1,50 @@
-import { View, Text, StyleSheet, FlatList, TouchableOpacity, Switch, RefreshControl, Alert } from 'react-native';
+// ============================================================================
+// YESSWERA: PRODUCTOS DEL NEGOCIO
+// Usa ScreenContainer para diseno unificado
+// ============================================================================
+
+import { View, Text, StyleSheet, FlatList, TouchableOpacity, Switch, Alert } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useState, useEffect, useCallback } from 'react';
 import { Plus, Edit, Trash2, Package } from 'lucide-react-native';
 import { useAuth } from '@/contexts/auth';
+import { useTheme } from '@/contexts/theme';
 import { getBusinessProducts, toggleProductAvailability, deleteProduct } from '@/services/products';
 import { ProductFull } from '@/constants/types';
-import Colors from '@/constants/colors';
 import { Toast } from '@/utils/toast';
 import EmptyState from '@/components/EmptyState';
+import ScreenContainer from '@/components/ScreenContainer';
 import { supabase } from '@/constants/supabase';
+
+// ============================================================================
+// COLORES EXPLICITOS PARA MODO OSCURO
+// ============================================================================
+
+const COLORS = {
+  light: {
+    card: '#FFFFFF',
+    cardAlt: '#F5F5F4',
+    border: '#E7E5E4',
+    text: '#1C1917',
+    textSecondary: '#57534E',
+    textMuted: '#A8A29E',
+  },
+  dark: {
+    card: '#292524',
+    cardAlt: '#44403C',
+    border: '#44403C',
+    text: '#FAFAFA',
+    textSecondary: '#D6D3D1',
+    textMuted: '#78716C',
+  },
+};
 
 export default function BusinessProductsScreen() {
   const router = useRouter();
-  const { user, token } = useAuth();
+  const { user } = useAuth();
+  const { isDark, colors } = useTheme();
+  const theme = isDark ? COLORS.dark : COLORS.light;
+
   const [products, setProducts] = useState<ProductFull[]>([]);
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [refreshing, setRefreshing] = useState<boolean>(false);
@@ -60,11 +92,11 @@ export default function BusinessProductsScreen() {
 
     try {
       await toggleProductAvailability(businessId, productId, !currentAvailability);
-      
+
       setProducts(prev =>
         prev.map(p => p.id === productId ? { ...p, available: !currentAvailability } : p)
       );
-      
+
       Toast.success(
         !currentAvailability ? 'Producto disponible' : 'Producto marcado como agotado'
       );
@@ -77,7 +109,7 @@ export default function BusinessProductsScreen() {
   const handleDeleteProduct = (productId: string, productName: string) => {
     Alert.alert(
       'Eliminar Producto',
-      `¿Estás seguro de eliminar "${productName}"?`,
+      `Estas seguro de eliminar "${productName}"?`,
       [
         { text: 'Cancelar', style: 'cancel' },
         {
@@ -101,78 +133,81 @@ export default function BusinessProductsScreen() {
   };
 
   const renderProduct = ({ item }: { item: ProductFull }) => (
-    <View style={styles.productCard}>
+    <View style={[styles.productCard, { backgroundColor: theme.card, borderColor: theme.border }]}>
       <View style={styles.productHeader}>
         <View style={styles.productInfo}>
-          <Text style={styles.productName}>{item.name}</Text>
-          <Text style={styles.productDescription} numberOfLines={2}>
+          <Text style={[styles.productName, { color: theme.text }]}>{item.name}</Text>
+          <Text style={[styles.productDescription, { color: theme.textSecondary }]} numberOfLines={2}>
             {item.description}
           </Text>
-          <Text style={styles.productPrice}>${item.price.toFixed(2)} MXN</Text>
+          <Text style={[styles.productPrice, { color: colors.primary }]}>${item.price.toFixed(2)} MXN</Text>
         </View>
 
         <Switch
           value={item.available}
           onValueChange={() => handleToggleAvailability(item.id, item.available)}
-          trackColor={{ false: Colors.border.medium, true: Colors.success }}
-          thumbColor={Colors.white}
+          trackColor={{ false: theme.border, true: colors.success }}
+          thumbColor={'#FFFFFF'}
         />
       </View>
 
       <View style={styles.productActions}>
         <TouchableOpacity
-          style={[styles.actionButton, styles.editButton]}
+          style={[styles.actionButton, styles.editButton, { backgroundColor: `${colors.primary}15` }]}
           onPress={() => router.push(`/business/products/edit/${item.id}` as any)}
           activeOpacity={0.7}
         >
-          <Edit size={16} color={Colors.primary} />
-          <Text style={styles.editButtonText}>Editar</Text>
+          <Edit size={16} color={colors.primary} />
+          <Text style={[styles.editButtonText, { color: colors.primary }]}>Editar</Text>
         </TouchableOpacity>
 
         <TouchableOpacity
-          style={[styles.actionButton, styles.deleteButton]}
+          style={[styles.actionButton, styles.deleteButton, { backgroundColor: `${colors.error}15` }]}
           onPress={() => handleDeleteProduct(item.id, item.name)}
           activeOpacity={0.7}
         >
-          <Trash2 size={16} color={Colors.error} />
-          <Text style={styles.deleteButtonText}>Eliminar</Text>
+          <Trash2 size={16} color={colors.error} />
+          <Text style={[styles.deleteButtonText, { color: colors.error }]}>Eliminar</Text>
         </TouchableOpacity>
       </View>
 
       {!item.available && (
-        <View style={styles.unavailableBadge}>
+        <View style={[styles.unavailableBadge, { backgroundColor: colors.error }]}>
           <Text style={styles.unavailableBadgeText}>Agotado</Text>
         </View>
       )}
     </View>
   );
 
-  return (
-    <View style={styles.container}>
-      <View style={styles.header}>
-        <Text style={styles.title}>Productos</Text>
-        <TouchableOpacity
-          style={styles.addButton}
-          onPress={() => router.push('/business/products/add' as any)}
-          activeOpacity={0.7}
-        >
-          <Plus size={20} color={Colors.white} />
-          <Text style={styles.addButtonText}>Agregar</Text>
-        </TouchableOpacity>
-      </View>
+  // Header content con boton de agregar
+  const headerContent = (
+    <TouchableOpacity
+      style={[styles.addButton, { backgroundColor: '#FFFFFF' }]}
+      onPress={() => router.push('/business/products/add' as any)}
+      activeOpacity={0.7}
+    >
+      <Plus size={20} color={colors.primary} />
+      <Text style={[styles.addButtonText, { color: colors.primary }]}>Agregar Producto</Text>
+    </TouchableOpacity>
+  );
 
+  return (
+    <ScreenContainer
+      headerGradient="primary"
+      headerIcon={Package}
+      headerTitle="Productos"
+      headerSubtitle="Gestiona tu catalogo de productos"
+      headerContent={headerContent}
+      refreshing={refreshing}
+      onRefresh={handleRefresh}
+      scrollEnabled={false}
+    >
       <FlatList
         data={products}
         renderItem={renderProduct}
         keyExtractor={item => item.id}
         contentContainerStyle={styles.list}
-        refreshControl={
-          <RefreshControl
-            refreshing={refreshing}
-            onRefresh={handleRefresh}
-            tintColor={Colors.primary}
-          />
-        }
+        showsVerticalScrollIndicator={false}
         ListEmptyComponent={
           !isLoading ? (
             <EmptyState
@@ -185,58 +220,37 @@ export default function BusinessProductsScreen() {
           ) : null
         }
       />
-    </View>
+    </ScreenContainer>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: Colors.background.secondary,
-  },
-  header: {
-    flexDirection: 'row' as const,
-    justifyContent: 'space-between' as const,
-    alignItems: 'center' as const,
-    padding: 20,
-    backgroundColor: Colors.white,
-    borderBottomWidth: 1,
-    borderBottomColor: Colors.border.light,
-  },
-  title: {
-    fontSize: 24,
-    fontWeight: '700' as const,
-    color: Colors.text.primary,
-  },
   addButton: {
-    flexDirection: 'row' as const,
-    alignItems: 'center' as const,
-    backgroundColor: Colors.primary,
+    flexDirection: 'row',
+    alignItems: 'center',
     paddingHorizontal: 16,
-    paddingVertical: 10,
-    borderRadius: 8,
-    gap: 6,
+    paddingVertical: 12,
+    borderRadius: 10,
+    gap: 8,
+    alignSelf: 'flex-start',
   },
   addButtonText: {
-    fontSize: 14,
-    fontWeight: '600' as const,
-    color: Colors.white,
+    fontSize: 15,
+    fontWeight: '600',
   },
   list: {
-    padding: 16,
+    paddingBottom: 20,
   },
   productCard: {
-    backgroundColor: Colors.white,
     borderRadius: 12,
     padding: 16,
     marginBottom: 12,
     borderWidth: 1,
-    borderColor: Colors.border.light,
-    position: 'relative' as const,
+    position: 'relative',
   },
   productHeader: {
-    flexDirection: 'row' as const,
-    justifyContent: 'space-between' as const,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
     marginBottom: 12,
   },
   productInfo: {
@@ -245,62 +259,52 @@ const styles = StyleSheet.create({
   },
   productName: {
     fontSize: 16,
-    fontWeight: '600' as const,
-    color: Colors.text.primary,
+    fontWeight: '600',
     marginBottom: 4,
   },
   productDescription: {
     fontSize: 14,
-    color: Colors.text.secondary,
     marginBottom: 8,
     lineHeight: 20,
   },
   productPrice: {
     fontSize: 16,
-    fontWeight: '700' as const,
-    color: Colors.primary,
+    fontWeight: '700',
   },
   productActions: {
-    flexDirection: 'row' as const,
+    flexDirection: 'row',
     gap: 8,
   },
   actionButton: {
     flex: 1,
-    flexDirection: 'row' as const,
-    alignItems: 'center' as const,
-    justifyContent: 'center' as const,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
     padding: 10,
     borderRadius: 8,
     gap: 6,
   },
-  editButton: {
-    backgroundColor: `${Colors.primary}15`,
-  },
+  editButton: {},
   editButtonText: {
     fontSize: 14,
-    fontWeight: '600' as const,
-    color: Colors.primary,
+    fontWeight: '600',
   },
-  deleteButton: {
-    backgroundColor: `${Colors.error}15`,
-  },
+  deleteButton: {},
   deleteButtonText: {
     fontSize: 14,
-    fontWeight: '600' as const,
-    color: Colors.error,
+    fontWeight: '600',
   },
   unavailableBadge: {
-    position: 'absolute' as const,
+    position: 'absolute',
     top: 16,
     right: 16,
-    backgroundColor: Colors.error,
     paddingHorizontal: 10,
     paddingVertical: 4,
     borderRadius: 12,
   },
   unavailableBadgeText: {
     fontSize: 12,
-    fontWeight: '600' as const,
-    color: Colors.white,
+    fontWeight: '600',
+    color: '#FFFFFF',
   },
 });

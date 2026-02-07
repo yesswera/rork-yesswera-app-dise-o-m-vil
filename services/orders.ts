@@ -93,6 +93,8 @@ function mapOrder(dbOrder: any): Order {
     // Driver transfer
     needsDriverTransfer: dbOrder.needs_driver_transfer || false,
     transferReason: dbOrder.transfer_reason,
+    // Package details (for delivery orders)
+    packageDetails: dbOrder.package_details,
   };
 }
 
@@ -152,6 +154,8 @@ export async function createOrder(orderData: {
   deliveryAddress: string;
   deliveryInstructions?: string;
   pickupAddress?: string; // Para delivery/mensajería
+  pickupLocation?: { latitude: number; longitude: number }; // Coordenadas de recogida
+  deliveryLocation?: { latitude: number; longitude: number }; // Coordenadas de entrega
   items: Array<{
     productId: string;
     productName: string;
@@ -164,6 +168,23 @@ export async function createOrder(orderData: {
   deliveryFee: number;
   tip?: number;
   paymentMethod: 'cash' | 'card' | 'transfer';
+  // Package delivery specific fields
+  packageDetails?: {
+    type: string;
+    size: string;
+    weight: string;
+    isFragile: boolean;
+    description: string;
+    recipientName?: string;
+    recipientPhone?: string;
+    isMinorRecipient?: boolean;
+    minorDetails?: {
+      name: string;
+      age: string;
+      relationship: string;
+      authorizedBy: string;
+    };
+  };
 }): Promise<Order> {
   try {
     const total = orderData.subtotal + orderData.deliveryFee + (orderData.tip || 0);
@@ -180,49 +201,71 @@ export async function createOrder(orderData: {
       pickupAddress = business?.address || '';
     }
 
+    // Build PostGIS point strings if coordinates provided
+    const pickupPoint = orderData.pickupLocation
+      ? `POINT(${orderData.pickupLocation.longitude} ${orderData.pickupLocation.latitude})`
+      : null;
+    const deliveryPoint = orderData.deliveryLocation
+      ? `POINT(${orderData.deliveryLocation.longitude} ${orderData.deliveryLocation.latitude})`
+      : null;
+
     // Create order
+    const insertData: Record<string, any> = {
+      client_id: orderData.clientId,
+      business_id: orderData.businessId, // puede ser null para lista general
+      service_type: orderData.serviceType,
+      status: orderData.businessId ? 'pending' : 'ready', // Lista general va directo a drivers
+      pickup_address: pickupAddress,
+      delivery_address: orderData.deliveryAddress,
+      delivery_instructions: orderData.deliveryInstructions,
+      driver_code: driverCode,
+      comanda_code: comandaCode,
+      delivery_code: deliveryCode,
+      subtotal: orderData.subtotal,
+      delivery_fee: orderData.deliveryFee,
+      tip: orderData.tip || 0,
+      total: total,
+      payment_method: orderData.paymentMethod,
+      payment_status: 'pending',
+    };
+
+    // Add location points if available
+    if (pickupPoint) insertData.pickup_location = pickupPoint;
+    if (deliveryPoint) insertData.delivery_location = deliveryPoint;
+
+    // Add package details as JSON if it's a delivery order
+    if (orderData.packageDetails) {
+      insertData.package_details = orderData.packageDetails;
+    }
+
     const { data: order, error: orderError } = await supabase
       .from('orders')
-      .insert({
-        client_id: orderData.clientId,
-        business_id: orderData.businessId, // puede ser null para lista general
-        service_type: orderData.serviceType,
-        status: orderData.businessId ? 'pending' : 'ready', // Lista general va directo a drivers
-        pickup_address: pickupAddress,
-        delivery_address: orderData.deliveryAddress,
-        delivery_instructions: orderData.deliveryInstructions,
-        driver_code: driverCode,
-        comanda_code: comandaCode,
-        delivery_code: deliveryCode,
-        subtotal: orderData.subtotal,
-        delivery_fee: orderData.deliveryFee,
-        tip: orderData.tip || 0,
-        total: total,
-        payment_method: orderData.paymentMethod,
-        payment_status: 'pending',
-      })
+      .insert(insertData)
       .select()
       .single();
 
     if (orderError) throw orderError;
 
-    // Create order items
-    const orderItems = orderData.items.map(item => ({
-      order_id: order.id,
-      product_id: item.productId,
-      product_name: item.productName,
-      quantity: item.quantity,
-      unit_price: item.unitPrice,
-      variants_json: item.variants,
-      special_instructions: item.specialInstructions,
-      subtotal: item.quantity * item.unitPrice,
-    }));
+    // Create order items ONLY if not a delivery/package order
+    // Delivery orders don't have real products - package info is in package_details JSON
+    if (orderData.serviceType !== 'delivery' && orderData.items.length > 0) {
+      const orderItems = orderData.items.map(item => ({
+        order_id: order.id,
+        product_id: item.productId,
+        product_name: item.productName,
+        quantity: item.quantity,
+        unit_price: item.unitPrice,
+        variants_json: item.variants,
+        special_instructions: item.specialInstructions,
+        subtotal: item.quantity * item.unitPrice,
+      }));
 
-    const { error: itemsError } = await supabase
-      .from('order_items')
-      .insert(orderItems);
+      const { error: itemsError } = await supabase
+        .from('order_items')
+        .insert(orderItems);
 
-    if (itemsError) throw itemsError;
+      if (itemsError) throw itemsError;
+    }
 
     return mapOrder(order);
   } catch (error) {
@@ -233,19 +276,27 @@ export async function createOrder(orderData: {
 
 // === CANCELLATION SYSTEM ===
 
-// Client cancels a pending order (before business accepts) — free, no penalty
+// Client cancels a pending/ready order (before driver accepts) — free, no penalty
 export async function cancelPendingOrder(orderId: string, reason?: string): Promise<void> {
   try {
-    // Verify order is still pending
+    // Verify order can be cancelled
     const { data: order, error: fetchError } = await supabase
       .from('orders')
-      .select('status')
+      .select('status, driver_id')
       .eq('id', orderId)
       .single();
 
     if (fetchError?.code === 'PGRST116' || !order) throw new Error('Orden no encontrada');
-    if (order.status !== 'pending') {
-      throw new Error('Esta orden ya fue aceptada. Contacta al negocio para cancelar.');
+
+    // Can cancel: pending OR ready without driver assigned
+    const canCancel = order.status === 'pending' ||
+      (order.status === 'ready' && !order.driver_id);
+
+    if (!canCancel) {
+      if (order.driver_id) {
+        throw new Error('Ya hay un repartidor asignado. Contacta soporte para cancelar.');
+      }
+      throw new Error('Esta orden ya no puede cancelarse directamente.');
     }
 
     const { error } = await supabase
@@ -253,10 +304,10 @@ export async function cancelPendingOrder(orderId: string, reason?: string): Prom
       .update({
         status: 'cancelled',
         cancelled_at: new Date().toISOString(),
-        cancellation_reason: reason || 'Cancelado por cliente (pendiente)',
+        cancellation_reason: reason || 'Cancelado por cliente',
       })
       .eq('id', orderId)
-      .eq('status', 'pending'); // double-check to prevent race condition
+      .in('status', ['pending', 'ready']); // Allow both statuses
 
     if (error) throw error;
   } catch (error) {

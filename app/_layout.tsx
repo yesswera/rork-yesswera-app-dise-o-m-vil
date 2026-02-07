@@ -1,7 +1,7 @@
 import { Stack, useRouter } from "expo-router";
 import * as SplashScreen from "expo-splash-screen";
 import React, { useEffect, useRef } from "react";
-import { View } from "react-native";
+import { View, AppState, AppStateStatus } from "react-native";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { AuthProvider, useAuth } from "@/contexts/auth";
 import { CartProvider } from "@/contexts/cart";
@@ -15,6 +15,7 @@ import {
   registerForPushNotifications,
   addNotificationResponseReceivedListener,
 } from "@/services/notifications";
+import { initializeSounds, cleanupSounds } from "@/services/sounds";
 
 SplashScreen.preventAutoHideAsync();
 
@@ -62,6 +63,7 @@ function RootLayoutNav() {
       <Stack.Screen name="shopping/list/[storeId]" options={{ title: "Lista de Compras" }} />
       <Stack.Screen name="delivery/create" options={{ title: "Coger y Entregar" }} />
       <Stack.Screen name="tracking/[orderId]" options={{ title: "Seguimiento" }} />
+      <Stack.Screen name="admin" options={{ headerShown: false, gestureEnabled: false }} />
       <Stack.Screen name="driver/dashboard" options={{ title: "Portal Repartidor", headerShown: false, gestureEnabled: false }} />
       <Stack.Screen name="business/dashboard" options={{ title: "Portal Negocio", headerShown: false, gestureEnabled: false }} />
       <Stack.Screen name="business/comanda/[orderId]" options={{ title: "Comanda", headerShown: false }} />
@@ -74,6 +76,8 @@ function RootLayoutNav() {
       <Stack.Screen name="orders/cancel/[orderId]" options={{ title: "Cancelar Pedido", headerShown: false }} />
       <Stack.Screen name="orders/cancel-request/[orderId]" options={{ title: "Solicitar Cancelación", headerShown: false }} />
       <Stack.Screen name="ratings/create/[orderId]" options={{ title: "Calificar Servicio" }} />
+      <Stack.Screen name="support/index" options={{ title: "Centro de Ayuda" }} />
+      <Stack.Screen name="chat/order/[orderId]" options={{ title: "Chat", headerShown: false }} />
       <Stack.Screen name="password-recovery/request" options={{ title: "Recuperar Contraseña", presentation: "modal" }} />
       <Stack.Screen name="password-recovery/verify" options={{ title: "Verificar Código" }} />
       <Stack.Screen name="password-recovery/reset" options={{ title: "Nueva Contraseña" }} />
@@ -83,10 +87,13 @@ function RootLayoutNav() {
 }
 
 function ThemedApp() {
-  const { colors } = useTheme();
+  const { colors, isDark } = useTheme();
+
+  // Colores explícitos para el fondo de la app
+  const backgroundColor = isDark ? '#1C1917' : '#FFFFFF';
 
   return (
-    <View style={{ flex: 1, backgroundColor: colors.background.primary }}>
+    <View style={{ flex: 1, backgroundColor }}>
       <NotificationHandler />
       <RootLayoutNav />
       <ToastContainer />
@@ -96,9 +103,25 @@ function ThemedApp() {
 
 export default function RootLayout() {
   useEffect(() => {
+    // Inicializar sistema de sonidos
+    initializeSounds().catch(console.error);
+
+    // Escuchar cambios de estado de la app
+    const subscription = AppState.addEventListener('change', (state: AppStateStatus) => {
+      if (state === 'background' || state === 'inactive') {
+        // Limpiar sonidos cuando la app va al background
+        // cleanupSounds(); // Comentado: mantener cache para mejor performance
+      }
+    });
+
     setTimeout(() => {
       SplashScreen.hideAsync();
     }, 100);
+
+    return () => {
+      subscription.remove();
+      cleanupSounds();
+    };
   }, []);
 
   return (

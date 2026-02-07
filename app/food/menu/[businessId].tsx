@@ -1,17 +1,35 @@
-import { StyleSheet, Text, View, TouchableOpacity, ScrollView, Alert, ActivityIndicator, RefreshControl } from 'react-native';
+// ============================================================================
+// YESSWERA: MENU DE NEGOCIO
+// Usa ScreenContainer para diseño unificado con gradiente verde
+// ============================================================================
+
+import { StyleSheet, View, TouchableOpacity, Alert, ActivityIndicator } from 'react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
-import { ShoppingCart, Plus, Minus } from 'lucide-react-native';
+import { ShoppingCart, Plus, Minus, Store } from 'lucide-react-native';
 import { Image } from 'expo-image';
 import { useState, useEffect, useCallback } from 'react';
-import Colors from '@/constants/colors';
+import { useTheme } from '@/contexts/theme';
+import { ThemedText } from '@/components/themed';
 import { Business, Product } from '@/constants/types';
 import { getBusinessById, getBusinessMenu } from '@/services/products';
 import { useCart } from '@/contexts/cart';
 import EmptyState from '@/components/EmptyState';
+import ScreenContainer from '@/components/ScreenContainer';
+
+// ============================================================================
+// COLORES EXPLÍCITOS PARA MODO OSCURO
+// ============================================================================
+const COLORS = {
+  light: { card: '#FFFFFF', cardAlt: '#F5F5F4', border: '#E7E5E4', text: '#1C1917', textSecondary: '#57534E' },
+  dark: { card: '#292524', cardAlt: '#44403C', border: '#44403C', text: '#FAFAFA', textSecondary: '#D6D3D1' },
+};
 
 export default function MenuScreen() {
   const router = useRouter();
   const { businessId } = useLocalSearchParams<{ businessId: string }>();
+  const { isDark, colors, space, radius } = useTheme();
+  const theme = isDark ? COLORS.dark : COLORS.light;
+
   const { items, addItem, updateQuantity, itemCount } = useCart();
   const [business, setBusiness] = useState<Business | null>(null);
   const [products, setProducts] = useState<Product[]>([]);
@@ -50,22 +68,6 @@ export default function MenuScreen() {
     loadData();
   };
 
-  if (loading) {
-    return (
-      <View style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color={Colors.primary} />
-      </View>
-    );
-  }
-
-  if (!business) {
-    return (
-      <View style={styles.errorContainer}>
-        <Text style={styles.errorText}>Negocio no encontrado</Text>
-      </View>
-    );
-  }
-
   const getItemQuantity = (productId: string) => {
     return items.find((item) => item.id === productId)?.quantity || 0;
   };
@@ -76,181 +78,197 @@ export default function MenuScreen() {
 
   const handleGoToCart = () => {
     if (itemCount === 0) {
-      Alert.alert('Carrito vacío', 'Agrega productos al carrito primero');
+      Alert.alert('Carrito vacio', 'Agrega productos al carrito primero');
       return;
     }
     router.push('/food/cart' as any);
   };
 
-  return (
-    <View style={styles.container}>
-      <ScrollView
-        style={styles.scrollView}
-        showsVerticalScrollIndicator={false}
-        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={[Colors.primary]} />}
+  // Loading state
+  if (loading) {
+    return (
+      <ScreenContainer
+        headerGradient="primary"
+        headerIcon={Store}
+        headerTitle="Cargando..."
+        headerSubtitle="Obteniendo menu"
       >
-        {business.image ? (
-          <Image
-            source={{ uri: business.image }}
-            style={styles.headerImage}
-            contentFit="cover"
-          />
+        <View style={styles.loadingContainer}>
+          <ActivityIndicator size="large" color={colors.primary} />
+        </View>
+      </ScreenContainer>
+    );
+  }
+
+  // Error state
+  if (!business) {
+    return (
+      <ScreenContainer
+        headerGradient="primary"
+        headerIcon={Store}
+        headerTitle="Error"
+        headerSubtitle="Negocio no encontrado"
+      >
+        <View style={styles.errorContainer}>
+          <ThemedText variant="body" color="secondary">
+            No se pudo cargar la informacion del negocio
+          </ThemedText>
+        </View>
+      </ScreenContainer>
+    );
+  }
+
+  // Floating cart button
+  const cartButton = itemCount > 0 ? (
+    <TouchableOpacity
+      style={[styles.cartButton, { backgroundColor: colors.primary }]}
+      onPress={handleGoToCart}
+    >
+      <View style={styles.cartBadge}>
+        <ThemedText variant="caption" style={styles.cartBadgeText}>{itemCount}</ThemedText>
+      </View>
+      <ThemedText variant="body" style={styles.cartButtonText}>Ver Carrito</ThemedText>
+      <ShoppingCart size={20} color="#FFFFFF" />
+    </TouchableOpacity>
+  ) : null;
+
+  return (
+    <ScreenContainer
+      headerGradient="primary"
+      headerIcon={Store}
+      headerTitle={business.name}
+      headerSubtitle={business.description}
+      refreshing={refreshing}
+      onRefresh={onRefresh}
+      footer={cartButton}
+      footerPadding={itemCount > 0 ? 100 : 0}
+    >
+      {/* Business image banner */}
+      {business.image ? (
+        <Image
+          source={{ uri: business.image }}
+          style={[styles.headerImage, { borderRadius: radius.lg, marginBottom: space.md }]}
+          contentFit="cover"
+        />
+      ) : (
+        <View style={[styles.headerImage, styles.imagePlaceholder, {
+          backgroundColor: theme.cardAlt,
+          borderRadius: radius.lg,
+          marginBottom: space.md,
+        }]}>
+          <ThemedText variant="h1" color="secondary">{business.name.charAt(0)}</ThemedText>
+        </View>
+      )}
+
+      {/* Menu section */}
+      <View style={styles.productsSection}>
+        <ThemedText variant="h2" style={{ marginBottom: space.md }}>Menu</ThemedText>
+
+        {products.length === 0 ? (
+          <EmptyState title="Sin productos" message="Este negocio aun no tiene productos disponibles" />
         ) : (
-          <View style={[styles.headerImage, styles.imagePlaceholder]}>
-            <Text style={styles.imagePlaceholderText}>{business.name.charAt(0)}</Text>
+          <View style={[styles.productsGrid, { gap: space.md }]}>
+            {products.map((product) => {
+              const quantity = getItemQuantity(product.id);
+              return (
+                <View
+                  key={product.id}
+                  style={[styles.productCard, {
+                    backgroundColor: theme.card,
+                    borderRadius: radius.lg,
+                  }]}
+                >
+                  {product.image ? (
+                    <Image
+                      source={{ uri: product.image }}
+                      style={[styles.productImage, { borderRadius: radius.md }]}
+                      contentFit="cover"
+                    />
+                  ) : (
+                    <View style={[styles.productImage, styles.productImagePlaceholder, {
+                      backgroundColor: theme.cardAlt,
+                      borderRadius: radius.md,
+                    }]}>
+                      <ThemedText variant="h2" color="secondary">{product.name.charAt(0)}</ThemedText>
+                    </View>
+                  )}
+
+                  <View style={[styles.productInfo, { padding: space.sm }]}>
+                    <ThemedText variant="subtitle" bold>{product.name}</ThemedText>
+                    <ThemedText variant="caption" color="secondary" numberOfLines={2}>
+                      {product.description}
+                    </ThemedText>
+
+                    <View style={styles.productFooter}>
+                      <ThemedText variant="subtitle" bold style={{ color: colors.primary }}>
+                        ${product.price.toFixed(2)}
+                      </ThemedText>
+
+                      {quantity > 0 ? (
+                        <View style={[styles.quantityControls, { gap: space.xs }]}>
+                          <TouchableOpacity
+                            style={[styles.quantityButton, { backgroundColor: colors.primary + '15' }]}
+                            onPress={() => updateQuantity(product.id, quantity - 1)}
+                          >
+                            <Minus size={16} color={colors.primary} strokeWidth={3} />
+                          </TouchableOpacity>
+                          <ThemedText variant="body" bold style={styles.quantityText}>{quantity}</ThemedText>
+                          <TouchableOpacity
+                            style={[styles.quantityButton, { backgroundColor: colors.primary + '15' }]}
+                            onPress={() => updateQuantity(product.id, quantity + 1)}
+                          >
+                            <Plus size={16} color={colors.primary} strokeWidth={3} />
+                          </TouchableOpacity>
+                        </View>
+                      ) : (
+                        <TouchableOpacity
+                          style={[styles.addButton, { backgroundColor: colors.primary }]}
+                          onPress={() => handleAddToCart(product)}
+                        >
+                          <Plus size={18} color="#FFFFFF" strokeWidth={3} />
+                        </TouchableOpacity>
+                      )}
+                    </View>
+                  </View>
+                </View>
+              );
+            })}
           </View>
         )}
-        <View style={styles.content}>
-          <Text style={styles.businessName}>{business.name}</Text>
-          <Text style={styles.businessDescription}>{business.description}</Text>
-
-          <View style={styles.productsSection}>
-            <Text style={styles.sectionTitle}>Menú</Text>
-            {products.length === 0 ? (
-              <EmptyState title="Sin productos" message="Este negocio aún no tiene productos disponibles" />
-            ) : (
-              <View style={styles.productsGrid}>
-                {products.map((product) => {
-                  const quantity = getItemQuantity(product.id);
-                  return (
-                    <View key={product.id} style={styles.productCard}>
-                      {product.image ? (
-                        <Image
-                          source={{ uri: product.image }}
-                          style={styles.productImage}
-                          contentFit="cover"
-                        />
-                      ) : (
-                        <View style={[styles.productImage, styles.productImagePlaceholder]}>
-                          <Text style={styles.productImagePlaceholderText}>{product.name.charAt(0)}</Text>
-                        </View>
-                      )}
-                      <View style={styles.productInfo}>
-                        <Text style={styles.productName}>{product.name}</Text>
-                        <Text style={styles.productDescription} numberOfLines={2}>
-                          {product.description}
-                        </Text>
-                        <View style={styles.productFooter}>
-                          <Text style={styles.productPrice}>
-                            ${product.price.toFixed(2)}
-                          </Text>
-                          {quantity > 0 ? (
-                            <View style={styles.quantityControls}>
-                              <TouchableOpacity
-                                style={styles.quantityButton}
-                                onPress={() => updateQuantity(product.id, quantity - 1)}
-                              >
-                                <Minus size={16} color={Colors.primary} strokeWidth={3} />
-                              </TouchableOpacity>
-                              <Text style={styles.quantityText}>{quantity}</Text>
-                              <TouchableOpacity
-                                style={styles.quantityButton}
-                                onPress={() => updateQuantity(product.id, quantity + 1)}
-                              >
-                                <Plus size={16} color={Colors.primary} strokeWidth={3} />
-                              </TouchableOpacity>
-                            </View>
-                          ) : (
-                            <TouchableOpacity
-                              style={styles.addButton}
-                              onPress={() => handleAddToCart(product)}
-                            >
-                              <Plus size={18} color={Colors.white} strokeWidth={3} />
-                            </TouchableOpacity>
-                          )}
-                        </View>
-                      </View>
-                    </View>
-                  );
-                })}
-              </View>
-            )}
-          </View>
-        </View>
-      </ScrollView>
-
-      {itemCount > 0 && (
-        <TouchableOpacity style={styles.cartButton} onPress={handleGoToCart}>
-          <View style={styles.cartBadge}>
-            <Text style={styles.cartBadgeText}>{itemCount}</Text>
-          </View>
-          <Text style={styles.cartButtonText}>Ver Carrito</Text>
-          <ShoppingCart size={20} color={Colors.white} />
-        </TouchableOpacity>
-      )}
-    </View>
+      </View>
+    </ScreenContainer>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: Colors.background.primary,
-  },
   loadingContainer: {
     flex: 1,
-    justifyContent: 'center' as const,
-    alignItems: 'center' as const,
+    justifyContent: 'center',
+    alignItems: 'center',
+    minHeight: 200,
   },
   errorContainer: {
     flex: 1,
-    justifyContent: 'center' as const,
-    alignItems: 'center' as const,
+    justifyContent: 'center',
+    alignItems: 'center',
     padding: 20,
   },
-  errorText: {
-    fontSize: 16,
-    color: Colors.text.secondary,
-  },
-  scrollView: {
-    flex: 1,
-  },
   headerImage: {
-    width: '100%' as const,
-    height: 200,
-    backgroundColor: Colors.background.tertiary,
+    width: '100%',
+    height: 180,
   },
   imagePlaceholder: {
-    justifyContent: 'center' as const,
-    alignItems: 'center' as const,
-  },
-  imagePlaceholderText: {
-    fontSize: 64,
-    fontWeight: '700' as const,
-    color: Colors.text.light,
-  },
-  content: {
-    padding: 16,
-  },
-  businessName: {
-    fontSize: 26,
-    fontWeight: '700' as const,
-    color: Colors.text.primary,
-    marginBottom: 8,
-  },
-  businessDescription: {
-    fontSize: 15,
-    color: Colors.text.secondary,
-    marginBottom: 24,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   productsSection: {
-    marginBottom: 80,
+    marginBottom: 20,
   },
-  sectionTitle: {
-    fontSize: 20,
-    fontWeight: '700' as const,
-    color: Colors.text.primary,
-    marginBottom: 16,
-  },
-  productsGrid: {
-    gap: 16,
-  },
+  productsGrid: {},
   productCard: {
-    backgroundColor: Colors.white,
-    borderRadius: 16,
-    overflow: 'hidden' as const,
-    flexDirection: 'row' as const,
-    shadowColor: Colors.shadow.medium,
+    flexDirection: 'row',
+    overflow: 'hidden',
+    shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.08,
     shadowRadius: 8,
@@ -259,84 +277,51 @@ const styles = StyleSheet.create({
   productImage: {
     width: 120,
     height: 120,
-    backgroundColor: Colors.background.tertiary,
   },
   productImagePlaceholder: {
-    justifyContent: 'center' as const,
-    alignItems: 'center' as const,
-  },
-  productImagePlaceholderText: {
-    fontSize: 32,
-    fontWeight: '700' as const,
-    color: Colors.text.light,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   productInfo: {
     flex: 1,
-    padding: 12,
-    justifyContent: 'space-between' as const,
-  },
-  productName: {
-    fontSize: 16,
-    fontWeight: '600' as const,
-    color: Colors.text.primary,
-    marginBottom: 4,
-  },
-  productDescription: {
-    fontSize: 13,
-    color: Colors.text.secondary,
-    marginBottom: 8,
+    justifyContent: 'space-between',
   },
   productFooter: {
-    flexDirection: 'row' as const,
-    justifyContent: 'space-between' as const,
-    alignItems: 'center' as const,
-  },
-  productPrice: {
-    fontSize: 18,
-    fontWeight: '700' as const,
-    color: Colors.primary,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginTop: 8,
   },
   addButton: {
     width: 36,
     height: 36,
     borderRadius: 18,
-    backgroundColor: Colors.primary,
-    justifyContent: 'center' as const,
-    alignItems: 'center' as const,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   quantityControls: {
-    flexDirection: 'row' as const,
-    alignItems: 'center' as const,
-    gap: 8,
+    flexDirection: 'row',
+    alignItems: 'center',
   },
   quantityButton: {
     width: 32,
     height: 32,
     borderRadius: 16,
-    backgroundColor: `${Colors.primary}15`,
-    justifyContent: 'center' as const,
-    alignItems: 'center' as const,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   quantityText: {
-    fontSize: 16,
-    fontWeight: '600' as const,
-    color: Colors.text.primary,
     minWidth: 24,
-    textAlign: 'center' as const,
+    textAlign: 'center',
   },
   cartButton: {
-    position: 'absolute' as const,
-    bottom: 20,
-    left: 20,
-    right: 20,
     height: 56,
-    backgroundColor: Colors.primary,
     borderRadius: 16,
-    flexDirection: 'row' as const,
-    alignItems: 'center' as const,
-    justifyContent: 'center' as const,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
     gap: 12,
-    shadowColor: Colors.primary,
+    shadowColor: '#22C55E',
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.4,
     shadowRadius: 12,
@@ -346,18 +331,18 @@ const styles = StyleSheet.create({
     width: 24,
     height: 24,
     borderRadius: 12,
-    backgroundColor: Colors.white,
-    justifyContent: 'center' as const,
-    alignItems: 'center' as const,
+    backgroundColor: '#FFFFFF',
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   cartBadgeText: {
     fontSize: 12,
-    fontWeight: '700' as const,
-    color: Colors.primary,
+    fontWeight: '700',
+    color: '#22C55E',
   },
   cartButtonText: {
     fontSize: 16,
-    fontWeight: '600' as const,
-    color: Colors.white,
+    fontWeight: '600',
+    color: '#FFFFFF',
   },
 });

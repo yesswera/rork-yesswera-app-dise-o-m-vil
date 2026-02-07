@@ -3,6 +3,7 @@ import { StyleSheet, Text, View, TouchableOpacity, ScrollView, TextInput, Alert,
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { ShoppingBag } from 'lucide-react-native';
 import Colors from '@/constants/colors';
+import { useTheme } from '@/contexts/theme';
 import { useAuth } from '@/contexts/auth';
 import { Business, SavedAddress, PaymentMethod } from '@/constants/types';
 import { getBusinessById, getBusinessLocation } from '@/services/products';
@@ -11,8 +12,15 @@ import AddressSelector from '@/components/AddressSelector';
 import PaymentMethodSelector from '@/components/PaymentMethodSelector';
 import { calculateDistance, calculateDeliveryFee, formatDistance } from '@/utils/distance';
 
+const COLORS = {
+  light: { background: '#FFFFFF', card: '#FFFFFF', cardAlt: '#F5F5F4', border: '#E7E5E4', text: '#1C1917', textSecondary: '#57534E', textMuted: '#A8A29E' },
+  dark: { background: '#1C1917', card: '#292524', cardAlt: '#44403C', border: '#44403C', text: '#FAFAFA', textSecondary: '#D6D3D1', textMuted: '#78716C' },
+};
+
 export default function ShoppingListScreen() {
   const router = useRouter();
+  const { isDark } = useTheme();
+  const theme = isDark ? COLORS.dark : COLORS.light;
   const { storeId } = useLocalSearchParams<{ storeId: string }>();
   const { user } = useAuth();
   const [store, setStore] = useState<Business | null>(null);
@@ -43,24 +51,7 @@ export default function ShoppingListScreen() {
     loadStore();
   }, [loadStore]);
 
-  if (loading) {
-    return (
-      <View style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color={Colors.primary} />
-      </View>
-    );
-  }
-
-  if (!store) {
-    return (
-      <View style={styles.errorContainer}>
-        <Text style={styles.errorText}>Tienda no encontrada</Text>
-      </View>
-    );
-  }
-
-  const estimatedCost = 25.0;
-
+  // IMPORTANT: All hooks must be called before any early returns
   // Calculate real distance from store to delivery address
   const distance = useMemo(() => {
     if (!businessLocation || !selectedAddress) return null;
@@ -71,8 +62,26 @@ export default function ShoppingListScreen() {
     );
   }, [businessLocation, selectedAddress]);
 
+  const estimatedCost = 25.0;
   const deliveryCost = distance !== null ? calculateDeliveryFee(distance) : 0;
   const totalEstimated = estimatedCost + deliveryCost;
+
+  // Early returns AFTER all hooks have been called
+  if (loading) {
+    return (
+      <View style={[styles.loadingContainer, { backgroundColor: theme.background }]}>
+        <ActivityIndicator size="large" color={Colors.primary} />
+      </View>
+    );
+  }
+
+  if (!store) {
+    return (
+      <View style={[styles.errorContainer, { backgroundColor: theme.background }]}>
+        <Text style={[styles.errorText, { color: theme.textSecondary }]}>Tienda no encontrada</Text>
+      </View>
+    );
+  }
 
   const handleSubmit = async () => {
     if (!shoppingList.trim()) {
@@ -136,26 +145,26 @@ export default function ShoppingListScreen() {
   };
 
   return (
-    <View style={styles.container}>
+    <View style={[styles.container, { backgroundColor: theme.background }]}>
       <ScrollView style={styles.scrollView} showsVerticalScrollIndicator={false}>
         <View style={styles.content}>
-          <View style={styles.storeHeader}>
+          <View style={[styles.storeHeader, { backgroundColor: theme.card }]}>
             <ShoppingBag size={24} color={Colors.secondary} />
             <View style={styles.storeInfo}>
               <Text style={styles.storeType}>{store.category}</Text>
-              <Text style={styles.storeName}>{store.name}</Text>
+              <Text style={[styles.storeName, { color: theme.text }]}>{store.name}</Text>
             </View>
           </View>
 
           <View style={styles.section}>
-            <Text style={styles.sectionTitle}>Tu Lista de Compras</Text>
-            <Text style={styles.sectionDescription}>
-              Escribe los productos que necesitas, uno por línea
+            <Text style={[styles.sectionTitle, { color: theme.text }]}>Tu Lista de Compras</Text>
+            <Text style={[styles.sectionDescription, { color: theme.textSecondary }]}>
+              Escribe los productos que necesitas, uno por linea
             </Text>
             <TextInput
-              style={styles.listInput}
+              style={[styles.listInput, { backgroundColor: theme.card, borderColor: theme.border, color: theme.text }]}
               placeholder={'Ejemplo:\n- 1 kg de arroz\n- 2 litros de leche\n- Pan integral\n- Frutas variadas'}
-              placeholderTextColor={Colors.text.light}
+              placeholderTextColor={theme.textMuted}
               value={shoppingList}
               onChangeText={setShoppingList}
               multiline
@@ -174,30 +183,30 @@ export default function ShoppingListScreen() {
           />
 
           <View style={styles.estimateSection}>
-            <Text style={styles.sectionTitle}>Costo Estimado</Text>
-            <View style={styles.estimateCard}>
+            <Text style={[styles.sectionTitle, { color: theme.text }]}>Costo Estimado</Text>
+            <View style={[styles.estimateCard, { backgroundColor: theme.card }]}>
               <View style={styles.estimateRow}>
-                <Text style={styles.estimateLabel}>Productos (estimado)</Text>
-                <Text style={styles.estimateValue}>~${estimatedCost.toFixed(2)}</Text>
+                <Text style={[styles.estimateLabel, { color: theme.textSecondary }]}>Productos (estimado)</Text>
+                <Text style={[styles.estimateValue, { color: theme.text }]}>~${estimatedCost.toFixed(2)}</Text>
               </View>
               <View style={styles.estimateRow}>
-                <Text style={styles.estimateLabel}>Entrega {distance !== null ? `(${formatDistance(distance)})` : ''}</Text>
-                <Text style={styles.estimateValue}>${deliveryCost.toFixed(2)}</Text>
+                <Text style={[styles.estimateLabel, { color: theme.textSecondary }]}>Entrega {distance !== null ? `(${formatDistance(distance)})` : ''}</Text>
+                <Text style={[styles.estimateValue, { color: theme.text }]}>${deliveryCost.toFixed(2)}</Text>
               </View>
-              <View style={styles.divider} />
+              <View style={[styles.divider, { backgroundColor: theme.border }]} />
               <View style={styles.estimateRow}>
-                <Text style={styles.totalLabel}>Total Estimado</Text>
+                <Text style={[styles.totalLabel, { color: theme.text }]}>Total Estimado</Text>
                 <Text style={styles.totalValue}>~${totalEstimated.toFixed(2)}</Text>
               </View>
-              <Text style={styles.estimateNote}>
-                *El costo final dependerá del precio real de los productos
+              <Text style={[styles.estimateNote, { color: theme.textMuted }]}>
+                *El costo final dependera del precio real de los productos
               </Text>
             </View>
           </View>
         </View>
       </ScrollView>
 
-      <View style={styles.footer}>
+      <View style={[styles.footer, { backgroundColor: theme.card, borderTopColor: theme.border }]}>
         <TouchableOpacity
           style={[styles.submitButton, isProcessing && styles.submitButtonDisabled]}
           onPress={handleSubmit}

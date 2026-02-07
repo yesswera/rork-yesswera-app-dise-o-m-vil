@@ -18,6 +18,12 @@ import {
   X
 } from 'lucide-react-native';
 import Colors from '@/constants/colors';
+import { useTheme } from '@/contexts/theme';
+
+const COLORS = {
+  light: { background: '#FFFFFF', card: '#FFFFFF', cardAlt: '#F5F5F4', border: '#E7E5E4', text: '#1C1917', textSecondary: '#57534E', textMuted: '#A8A29E' },
+  dark: { background: '#1C1917', card: '#292524', cardAlt: '#44403C', border: '#44403C', text: '#FAFAFA', textSecondary: '#D6D3D1', textMuted: '#78716C' },
+};
 
 // Categorías de negocios para búsqueda con palabras clave
 const SHOPPING_CATEGORIES = [
@@ -33,6 +39,8 @@ const SHOPPING_CATEGORIES = [
 
 export default function ShoppingIndexScreen() {
   const router = useRouter();
+  const { isDark } = useTheme();
+  const theme = isDark ? COLORS.dark : COLORS.light;
   const [searchText, setSearchText] = useState('');
   const [showSuggestions, setShowSuggestions] = useState(false);
 
@@ -71,7 +79,7 @@ export default function ShoppingIndexScreen() {
   };
 
   return (
-    <View style={styles.container}>
+    <View style={[styles.container, { backgroundColor: theme.background }]}>
       <ScrollView style={styles.scrollView} showsVerticalScrollIndicator={false}>
         {/* Header */}
         <LinearGradient
@@ -86,12 +94,12 @@ export default function ShoppingIndexScreen() {
 
           {/* Search Bar */}
           <View style={styles.searchContainer}>
-            <View style={styles.searchInputContainer}>
-              <Search size={20} color={Colors.text.secondary} />
+            <View style={[styles.searchInputContainer, { backgroundColor: theme.card }]}>
+              <Search size={20} color={theme.textSecondary} />
               <TextInput
-                style={styles.searchInput}
+                style={[styles.searchInput, { color: theme.text }]}
                 placeholder="Buscar... ej: farmacia, carne"
-                placeholderTextColor={Colors.text.light}
+                placeholderTextColor={theme.textMuted}
                 value={searchText}
                 onChangeText={(text) => {
                   setSearchText(text);
@@ -102,27 +110,27 @@ export default function ShoppingIndexScreen() {
               />
               {searchText.length > 0 && (
                 <TouchableOpacity onPress={() => { setSearchText(''); setShowSuggestions(false); }}>
-                  <X size={18} color={Colors.text.secondary} />
+                  <X size={18} color={theme.textSecondary} />
                 </TouchableOpacity>
               )}
             </View>
 
             {/* Sugerencias de búsqueda */}
             {showSuggestions && suggestions.length > 0 && (
-              <View style={styles.suggestionsContainer}>
+              <View style={[styles.suggestionsContainer, { backgroundColor: theme.card }]}>
                 {suggestions.map((suggestion) => {
                   const IconComponent = suggestion.icon;
                   return (
                     <TouchableOpacity
                       key={suggestion.id}
-                      style={styles.suggestionItem}
+                      style={[styles.suggestionItem, { borderBottomColor: theme.border }]}
                       onPress={() => handleCategorySearch(suggestion.id)}
                     >
                       <View style={[styles.suggestionIcon, { backgroundColor: suggestion.color + '20' }]}>
                         <IconComponent size={18} color={suggestion.color} />
                       </View>
-                      <Text style={styles.suggestionText}>{suggestion.name}</Text>
-                      <ChevronRight size={16} color={Colors.text.light} />
+                      <Text style={[styles.suggestionText, { color: theme.text }]}>{suggestion.name}</Text>
+                      <ChevronRight size={16} color={theme.textMuted} />
                     </TouchableOpacity>
                   );
                 })}
@@ -158,10 +166,10 @@ export default function ShoppingIndexScreen() {
           {/* Opción 2: Buscar por Categoría */}
           <View style={styles.section}>
             <View style={styles.sectionHeader}>
-              <Search size={20} color={Colors.text.primary} />
-              <Text style={styles.sectionTitle}>Buscar por Categoría</Text>
+              <Search size={20} color={theme.text} />
+              <Text style={[styles.sectionTitle, { color: theme.text }]}>Buscar por Categoría</Text>
             </View>
-            <Text style={styles.sectionDescription}>
+            <Text style={[styles.sectionDescription, { color: theme.textSecondary }]}>
               Selecciona un tipo de negocio para ver opciones cercanas
             </Text>
 
@@ -171,14 +179,14 @@ export default function ShoppingIndexScreen() {
                 return (
                   <TouchableOpacity
                     key={category.id}
-                    style={styles.categoryCard}
+                    style={[styles.categoryCard, { backgroundColor: theme.card }]}
                     activeOpacity={0.8}
                     onPress={() => handleCategorySearch(category.id)}
                   >
                     <View style={[styles.categoryIcon, { backgroundColor: category.color + '20' }]}>
                       <IconComponent size={24} color={category.color} />
                     </View>
-                    <Text style={styles.categoryName}>{category.name}</Text>
+                    <Text style={[styles.categoryName, { color: theme.text }]}>{category.name}</Text>
                   </TouchableOpacity>
                 );
               })}
@@ -200,25 +208,25 @@ export default function ShoppingIndexScreen() {
           </TouchableOpacity>
 
           {/* Info */}
-          <View style={styles.infoCard}>
-            <Text style={styles.infoTitle}>¿Cómo funciona?</Text>
+          <View style={[styles.infoCard, { backgroundColor: theme.card }]}>
+            <Text style={[styles.infoTitle, { color: theme.text }]}>¿Cómo funciona?</Text>
             <View style={styles.infoStep}>
               <View style={styles.stepNumber}><Text style={styles.stepNumberText}>1</Text></View>
-              <Text style={styles.stepText}>Escribe tu lista de compras</Text>
+              <Text style={[styles.stepText, { color: theme.textSecondary }]}>Escribe tu lista de compras</Text>
             </View>
             <View style={styles.infoStep}>
               <View style={styles.stepNumber}><Text style={styles.stepNumberText}>2</Text></View>
-              <Text style={styles.stepText}>Selecciona tu dirección de entrega</Text>
+              <Text style={[styles.stepText, { color: theme.textSecondary }]}>Selecciona tu dirección de entrega</Text>
             </View>
             <View style={styles.infoStep}>
               <View style={styles.stepNumber}><Text style={styles.stepNumberText}>3</Text></View>
-              <Text style={styles.stepText}>Un repartidor irá a comprar por ti</Text>
+              <Text style={[styles.stepText, { color: theme.textSecondary }]}>Un repartidor irá a comprar por ti</Text>
             </View>
             <View style={styles.infoStep}>
               <View style={styles.stepNumber}><Text style={styles.stepNumberText}>4</Text></View>
-              <Text style={styles.stepText}>Recibe tus productos en casa</Text>
+              <Text style={[styles.stepText, { color: theme.textSecondary }]}>Recibe tus productos en casa</Text>
             </View>
-            <Text style={styles.infoNote}>
+            <Text style={[styles.infoNote, { color: theme.textMuted }]}>
               *Pagas el costo de los productos + envío al recibir
             </Text>
           </View>

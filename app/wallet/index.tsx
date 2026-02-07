@@ -1,11 +1,36 @@
-import { useState, useEffect } from 'react';
-import { StyleSheet, Text, View, ScrollView, TouchableOpacity, ActivityIndicator } from 'react-native';
+// ============================================================================
+// YESSWERA: PANTALLA DE BILLETERA
+// Usa ScreenContainer para diseño unificado
+// ============================================================================
+
+import { useState, useEffect, useCallback } from 'react';
+import { StyleSheet, Text, View, ActivityIndicator } from 'react-native';
 import { useRouter } from 'expo-router';
-import { DollarSign, TrendingUp, TrendingDown, Clock, ArrowLeft } from 'lucide-react-native';
-import { LinearGradient } from 'expo-linear-gradient';
-import Colors from '@/constants/colors';
+import { DollarSign, TrendingUp, TrendingDown, Clock, Wallet } from 'lucide-react-native';
 import { useAuth } from '@/contexts/auth';
+import { useTheme } from '@/contexts/theme';
 import { supabase } from '@/constants/supabase';
+import ScreenContainer from '@/components/ScreenContainer';
+
+// Colores explícitos para modo oscuro
+const COLORS = {
+  light: {
+    card: '#FFFFFF',
+    cardAlt: '#F5F5F4',
+    border: '#E7E5E4',
+    text: '#1C1917',
+    textSecondary: '#57534E',
+    textMuted: '#A8A29E',
+  },
+  dark: {
+    card: '#292524',
+    cardAlt: '#44403C',
+    border: '#44403C',
+    text: '#FAFAFA',
+    textSecondary: '#D6D3D1',
+    textMuted: '#78716C',
+  },
+};
 
 interface Transaction {
   id: string;
@@ -26,8 +51,12 @@ interface WalletData {
 export default function WalletScreen() {
   const router = useRouter();
   const { user, token } = useAuth();
+  const { isDark, colors } = useTheme();
+  const theme = isDark ? COLORS.dark : COLORS.light;
+
   const [walletData, setWalletData] = useState<WalletData | null>(null);
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
 
   useEffect(() => {
     loadWalletData();
@@ -99,8 +128,14 @@ export default function WalletScreen() {
       });
     } finally {
       setLoading(false);
+      setRefreshing(false);
     }
   };
+
+  const onRefresh = useCallback(() => {
+    setRefreshing(true);
+    loadWalletData();
+  }, []);
 
   const getTransactionIcon = (type: string) => {
     switch (type) {
@@ -108,12 +143,12 @@ export default function WalletScreen() {
       case 'bonus':
       case 'cashback':
       case 'refund':
-        return <TrendingUp size={20} color={Colors.success} />;
+        return <TrendingUp size={20} color={colors.success || '#22C55E'} />;
       case 'withdrawal':
       case 'payment':
-        return <TrendingDown size={20} color={Colors.error} />;
+        return <TrendingDown size={20} color={colors.error || '#EF4444'} />;
       default:
-        return <DollarSign size={20} color={Colors.text.secondary} />;
+        return <DollarSign size={20} color={theme.textSecondary} />;
     }
   };
 
@@ -123,12 +158,12 @@ export default function WalletScreen() {
       case 'bonus':
       case 'cashback':
       case 'refund':
-        return Colors.success;
+        return colors.success || '#22C55E';
       case 'withdrawal':
       case 'payment':
-        return Colors.error;
+        return colors.error || '#EF4444';
       default:
-        return Colors.text.secondary;
+        return theme.textSecondary;
     }
   };
 
@@ -137,123 +172,112 @@ export default function WalletScreen() {
     const now = new Date();
     const diffMs = now.getTime() - date.getTime();
     const diffHours = Math.floor(diffMs / (1000 * 60 * 60));
-    
+
     if (diffHours < 1) return 'Hace unos minutos';
     if (diffHours < 24) return `Hace ${diffHours} hora${diffHours > 1 ? 's' : ''}`;
-    
+
     const diffDays = Math.floor(diffHours / 24);
     if (diffDays < 7) return `Hace ${diffDays} día${diffDays > 1 ? 's' : ''}`;
-    
+
     return date.toLocaleDateString('es-MX', { day: '2-digit', month: 'short' });
   };
 
   if (loading) {
     return (
-      <View style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color={Colors.primary} />
-        <Text style={styles.loadingText}>Cargando saldo...</Text>
+      <View style={[styles.loadingContainer, { backgroundColor: isDark ? '#1C1917' : '#FFFFFF' }]}>
+        <ActivityIndicator size="large" color={colors.primary} />
+        <Text style={[styles.loadingText, { color: theme.textSecondary }]}>Cargando saldo...</Text>
       </View>
     );
   }
 
-  return (
-    <View style={styles.container}>
-      <LinearGradient
-        colors={[Colors.success, '#059669']}
-        style={styles.header}
-      >
-        <TouchableOpacity style={styles.backButton} onPress={() => router.back()}>
-          <ArrowLeft size={24} color={Colors.white} />
-        </TouchableOpacity>
+  // Header content for inside gradient
+  const headerContent = (
+    <View style={styles.headerContentContainer}>
+      {/* Balance Info */}
+      <View style={styles.balanceContainer}>
+        <Text style={styles.balanceLabel}>Saldo Disponible</Text>
+        <Text style={styles.balanceAmount}>${walletData?.balance.toFixed(2)} MXN</Text>
 
-        <View style={styles.balanceContainer}>
-          <Text style={styles.balanceLabel}>Saldo Disponible</Text>
-          <Text style={styles.balanceAmount}>${walletData?.balance.toFixed(2)} MXN</Text>
-          
-          <View style={styles.pendingBalanceRow}>
-            <Clock size={16} color="rgba(255, 255, 255, 0.8)" />
-            <Text style={styles.pendingBalanceText}>
-              ${walletData?.pendingBalance.toFixed(2)} pendiente
+        <View style={styles.pendingBalanceRow}>
+          <Clock size={16} color="rgba(255, 255, 255, 0.8)" />
+          <Text style={styles.pendingBalanceText}>
+            ${walletData?.pendingBalance.toFixed(2)} pendiente
+          </Text>
+        </View>
+      </View>
+
+      {/* Stats Row */}
+      <View style={styles.statsRow}>
+        <View style={styles.statItem}>
+          <Text style={styles.statLabel}>Ganancias Totales</Text>
+          <Text style={styles.statValue}>${walletData?.totalEarnings.toFixed(2)}</Text>
+        </View>
+      </View>
+    </View>
+  );
+
+  return (
+    <ScreenContainer
+      headerGradient="primary"
+      headerIcon={Wallet}
+      headerTitle="Mi Billetera"
+      headerSubtitle="Gestiona tus ganancias y retiros"
+      headerContent={headerContent}
+      refreshing={refreshing}
+      onRefresh={onRefresh}
+    >
+      {/* Transactions Section */}
+      <View style={styles.sectionHeader}>
+        <Text style={[styles.sectionTitle, { color: theme.text }]}>Transacciones Recientes</Text>
+      </View>
+
+      {walletData?.transactions && walletData.transactions.length > 0 ? (
+        walletData.transactions.map((transaction) => (
+          <View key={transaction.id} style={[styles.transactionCard, { backgroundColor: theme.card }]}>
+            <View style={[styles.transactionIcon, { backgroundColor: theme.cardAlt }]}>
+              {getTransactionIcon(transaction.type)}
+            </View>
+
+            <View style={styles.transactionInfo}>
+              <Text style={[styles.transactionDescription, { color: theme.text }]}>
+                {transaction.description}
+              </Text>
+              <Text style={[styles.transactionDate, { color: theme.textSecondary }]}>
+                {formatDate(transaction.createdAt)}
+              </Text>
+            </View>
+
+            <Text style={[styles.transactionAmount, { color: getTransactionColor(transaction.type) }]}>
+              {['earning', 'bonus', 'cashback', 'refund'].includes(transaction.type) ? '+' : '-'}
+              ${transaction.amount.toFixed(2)}
             </Text>
           </View>
+        ))
+      ) : (
+        <View style={styles.emptyState}>
+          <DollarSign size={48} color={theme.textMuted} />
+          <Text style={[styles.emptyStateText, { color: theme.textSecondary }]}>
+            No hay transacciones recientes
+          </Text>
         </View>
-
-        <View style={styles.statsRow}>
-          <View style={styles.statItem}>
-            <Text style={styles.statLabel}>Ganancias Totales</Text>
-            <Text style={styles.statValue}>${walletData?.totalEarnings.toFixed(2)}</Text>
-          </View>
-        </View>
-      </LinearGradient>
-
-      <ScrollView style={styles.scrollView} showsVerticalScrollIndicator={false}>
-        <View style={styles.content}>
-          <View style={styles.sectionHeader}>
-            <Text style={styles.sectionTitle}>Transacciones Recientes</Text>
-          </View>
-
-          {walletData?.transactions && walletData.transactions.length > 0 ? (
-            walletData.transactions.map((transaction) => (
-              <View key={transaction.id} style={styles.transactionCard}>
-                <View style={styles.transactionIcon}>
-                  {getTransactionIcon(transaction.type)}
-                </View>
-                
-                <View style={styles.transactionInfo}>
-                  <Text style={styles.transactionDescription}>{transaction.description}</Text>
-                  <Text style={styles.transactionDate}>{formatDate(transaction.createdAt)}</Text>
-                </View>
-
-                <Text style={[
-                  styles.transactionAmount,
-                  { color: getTransactionColor(transaction.type) }
-                ]}>
-                  {['earning', 'bonus', 'cashback', 'refund'].includes(transaction.type) ? '+' : '-'}
-                  ${transaction.amount.toFixed(2)}
-                </Text>
-              </View>
-            ))
-          ) : (
-            <View style={styles.emptyState}>
-              <DollarSign size={48} color={Colors.text.disabled} />
-              <Text style={styles.emptyStateText}>No hay transacciones recientes</Text>
-            </View>
-          )}
-        </View>
-      </ScrollView>
-    </View>
+      )}
+    </ScreenContainer>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: Colors.background.primary,
-  },
   loadingContainer: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: Colors.background.primary,
   },
   loadingText: {
     marginTop: 16,
     fontSize: 16,
-    color: Colors.text.secondary,
   },
-  header: {
-    padding: 24,
-    paddingTop: 60,
-    paddingBottom: 32,
-  },
-  backButton: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: 'rgba(255, 255, 255, 0.2)',
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginBottom: 20,
+  headerContentContainer: {
+    marginTop: 16,
   },
   balanceContainer: {
     alignItems: 'center',
@@ -267,7 +291,7 @@ const styles = StyleSheet.create({
   balanceAmount: {
     fontSize: 42,
     fontWeight: '700',
-    color: Colors.white,
+    color: '#FFFFFF',
     marginBottom: 8,
   },
   pendingBalanceRow: {
@@ -297,30 +321,23 @@ const styles = StyleSheet.create({
   statValue: {
     fontSize: 18,
     fontWeight: '700',
-    color: Colors.white,
-  },
-  scrollView: {
-    flex: 1,
-  },
-  content: {
-    padding: 16,
+    color: '#FFFFFF',
   },
   sectionHeader: {
     marginBottom: 16,
+    marginTop: 8,
   },
   sectionTitle: {
     fontSize: 20,
     fontWeight: '700',
-    color: Colors.text.primary,
   },
   transactionCard: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: Colors.white,
     borderRadius: 12,
     padding: 16,
     marginBottom: 12,
-    shadowColor: Colors.shadow.medium,
+    shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.08,
     shadowRadius: 8,
@@ -330,7 +347,6 @@ const styles = StyleSheet.create({
     width: 40,
     height: 40,
     borderRadius: 20,
-    backgroundColor: Colors.background.secondary,
     justifyContent: 'center',
     alignItems: 'center',
     marginRight: 12,
@@ -341,12 +357,10 @@ const styles = StyleSheet.create({
   transactionDescription: {
     fontSize: 15,
     fontWeight: '600',
-    color: Colors.text.primary,
     marginBottom: 4,
   },
   transactionDate: {
     fontSize: 13,
-    color: Colors.text.secondary,
   },
   transactionAmount: {
     fontSize: 16,
@@ -358,7 +372,6 @@ const styles = StyleSheet.create({
   },
   emptyStateText: {
     fontSize: 16,
-    color: Colors.text.secondary,
     marginTop: 16,
   },
 });

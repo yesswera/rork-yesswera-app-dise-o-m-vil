@@ -1,21 +1,56 @@
+// ============================================================================
+// YESSWERA: CANCELAR PEDIDO PENDIENTE
+// Pantalla para cancelar pedidos que aun no han sido aceptados
+// Actualizado para usar ScreenContainer
+// ============================================================================
+
 import { useState, useEffect } from 'react';
 import {
   StyleSheet,
   Text,
   View,
-  ScrollView,
   TouchableOpacity,
   TextInput,
   Alert,
   ActivityIndicator,
 } from 'react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
-import { LinearGradient } from 'expo-linear-gradient';
-import { ArrowLeft, AlertTriangle, Store, MapPin, CheckCircle } from 'lucide-react-native';
-import Colors from '@/constants/colors';
+import { AlertTriangle, Store } from 'lucide-react-native';
 import { cancelPendingOrder, getOrderById } from '@/services/orders';
+import { Toast } from '@/utils/toast';
 import { getSimilarBusinesses } from '@/services/products';
 import { Order, Business } from '@/constants/types';
+import ScreenContainer from '@/components/ScreenContainer';
+import { useTheme } from '@/contexts/theme';
+
+// ============================================================================
+// COLORES EXPLICITOS PARA MODO OSCURO
+// ============================================================================
+
+const COLORS = {
+  light: {
+    card: '#FFFFFF',
+    cardAlt: '#F5F5F4',
+    border: '#E7E5E4',
+    text: '#1C1917',
+    textSecondary: '#57534E',
+    textMuted: '#A8A29E',
+  },
+  dark: {
+    card: '#292524',
+    cardAlt: '#44403C',
+    border: '#44403C',
+    text: '#FAFAFA',
+    textSecondary: '#D6D3D1',
+    textMuted: '#78716C',
+  },
+};
+
+const STATUS_COLORS = {
+  warning: '#F59E0B',
+  error: '#EF4444',
+  primary: '#22C55E',
+};
 
 const CANCEL_REASONS = [
   { id: 'changed_mind', label: 'Cambie de opinion' },
@@ -27,6 +62,8 @@ const CANCEL_REASONS = [
 export default function CancelPendingOrderScreen() {
   const router = useRouter();
   const { orderId } = useLocalSearchParams<{ orderId: string }>();
+  const { isDark, colors } = useTheme();
+  const theme = isDark ? COLORS.dark : COLORS.light;
 
   const [order, setOrder] = useState<Order | null>(null);
   const [loading, setLoading] = useState(true);
@@ -46,12 +83,16 @@ export default function CancelPendingOrderScreen() {
     try {
       const fetchedOrder = await getOrderById(orderId);
       if (fetchedOrder) {
-        // Redirect if not pending
-        if (fetchedOrder.status !== 'pending') {
+        const canCancel = fetchedOrder.status === 'pending' ||
+          (fetchedOrder.status === 'ready' && !fetchedOrder.driverId);
+
+        if (!canCancel) {
           Alert.alert(
-            'Orden ya aceptada',
-            'Esta orden ya fue aceptada por el negocio. Debes contactarlos para solicitar cancelacion.',
-            [{ text: 'OK', onPress: () => router.replace(`/orders/cancel-request/${orderId}` as any) }]
+            'No se puede cancelar',
+            fetchedOrder.driverId
+              ? 'Ya hay un repartidor asignado. Contacta soporte para cancelar.'
+              : 'Esta orden ya no puede cancelarse directamente.',
+            [{ text: 'OK', onPress: () => router.back() }]
           );
           return;
         }
@@ -85,16 +126,14 @@ export default function CancelPendingOrderScreen() {
       return;
     }
 
-    // First, show alternatives
-    if (!showAlternatives) {
+    if (!showAlternatives && order?.businessId) {
       loadAlternatives();
       return;
     }
 
-    // User already saw alternatives, confirm cancellation
     Alert.alert(
       'Confirmar cancelacion',
-      '¿Estas seguro? Perderas tu lugar en la fila.',
+      'Estas seguro? Perderas tu lugar en la fila.',
       [
         { text: 'Ver alternativas', onPress: () => setShowAlternatives(true) },
         {
@@ -106,15 +145,11 @@ export default function CancelPendingOrderScreen() {
               const reason = CANCEL_REASONS.find(r => r.id === selectedReason)?.label || selectedReason;
               const fullReason = comment ? `${reason}: ${comment}` : reason;
               await cancelPendingOrder(orderId, fullReason);
-              Alert.alert(
-                'Pedido cancelado',
-                'Tu pedido ha sido cancelado sin cargo.',
-                [{ text: 'OK', onPress: () => router.replace('/orders/history') }]
-              );
+              Toast.success('Orden cancelada');
+              router.replace('/');
             } catch (error: any) {
-              Alert.alert('Error', error.message || 'No se pudo cancelar la orden');
-            } finally {
               setCancelling(false);
+              Toast.error(error.message || 'No se pudo cancelar');
             }
           },
         },
@@ -123,17 +158,14 @@ export default function CancelPendingOrderScreen() {
   };
 
   const handleSelectAlternative = (business: Business) => {
-    // Navigate to the alternative business menu
-    // The user can create a new order there
     Alert.alert(
       'Cambiar de negocio',
-      `¿Quieres ordenar en ${business.name} en su lugar?`,
+      `Quieres ordenar en ${business.name} en su lugar?`,
       [
         { text: 'No', style: 'cancel' },
         {
           text: 'Si, ir al menu',
           onPress: async () => {
-            // Cancel the current order first
             if (orderId) {
               try {
                 await cancelPendingOrder(orderId, 'Cliente eligio otro negocio');
@@ -148,234 +180,259 @@ export default function CancelPendingOrderScreen() {
     );
   };
 
+  // Loading state
   if (loading) {
     return (
-      <View style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color={Colors.primary} />
-        <Text style={styles.loadingText}>Cargando orden...</Text>
-      </View>
-    );
-  }
-
-  if (!order) {
-    return (
-      <View style={styles.loadingContainer}>
-        <Text style={styles.errorText}>Orden no encontrada</Text>
-        <TouchableOpacity onPress={() => router.back()}>
-          <Text style={styles.backLink}>Volver</Text>
-        </TouchableOpacity>
-      </View>
-    );
-  }
-
-  return (
-    <View style={styles.container}>
-      {/* Header */}
-      <View style={styles.header}>
-        <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
-          <ArrowLeft size={24} color={Colors.white} />
-        </TouchableOpacity>
-        <Text style={styles.headerTitle}>Cancelar Pedido</Text>
-        <View style={styles.placeholder} />
-      </View>
-
-      <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
-        {/* Warning Icon */}
-        <View style={styles.warningContainer}>
-          <View style={styles.warningIconBg}>
-            <AlertTriangle size={48} color={Colors.warning} />
-          </View>
-          <Text style={styles.warningTitle}>¿Seguro que quieres cancelar?</Text>
-          <Text style={styles.warningSubtitle}>
-            Antes de cancelar, considera estas alternativas
+      <ScreenContainer
+        headerGradient="secondary"
+        headerIcon={AlertTriangle}
+        headerTitle="Cancelar Pedido"
+        headerSubtitle="Cargando informacion..."
+      >
+        <View style={styles.loadingContainer}>
+          <ActivityIndicator size="large" color={colors.primary} />
+          <Text style={[styles.loadingText, { color: theme.textSecondary }]}>
+            Cargando orden...
           </Text>
         </View>
+      </ScreenContainer>
+    );
+  }
 
-        {/* Order Summary */}
-        <View style={styles.orderCard}>
-          <View style={styles.orderHeader}>
-            <Store size={20} color={Colors.primary} />
-            <Text style={styles.businessName}>{order.businessName}</Text>
-          </View>
-          {order.items && order.items.length > 0 && (
-            <View style={styles.itemsList}>
-              {order.items.map((item, index) => (
-                <Text key={index} style={styles.itemText}>
-                  {item.quantity}x {item.name}
-                </Text>
-              ))}
-            </View>
-          )}
-          <Text style={styles.totalText}>Total: ${order.total.toFixed(2)} MXN</Text>
+  // Error state
+  if (!order) {
+    return (
+      <ScreenContainer
+        headerGradient="secondary"
+        headerIcon={AlertTriangle}
+        headerTitle="Cancelar Pedido"
+        headerSubtitle="Orden no encontrada"
+      >
+        <View style={styles.loadingContainer}>
+          <Text style={[styles.errorText, { color: STATUS_COLORS.error }]}>
+            Orden no encontrada
+          </Text>
+          <TouchableOpacity onPress={() => router.back()}>
+            <Text style={[styles.backLink, { color: colors.primary }]}>Volver</Text>
+          </TouchableOpacity>
         </View>
+      </ScreenContainer>
+    );
+  }
 
-        {/* Alternatives Section */}
-        {showAlternatives && alternatives.length > 0 && (
-          <View style={styles.alternativesSection}>
-            <Text style={styles.sectionTitle}>Negocios similares disponibles</Text>
-            <Text style={styles.sectionSubtitle}>
-              Puedes cambiar tu pedido a uno de estos negocios:
-            </Text>
-            {alternatives.map((biz) => (
-              <TouchableOpacity
-                key={biz.id}
-                style={styles.alternativeCard}
-                onPress={() => handleSelectAlternative(biz)}
-              >
-                <View style={styles.alternativeInfo}>
-                  <Text style={styles.alternativeName}>{biz.name}</Text>
-                  <View style={styles.alternativeDetails}>
-                    <Text style={styles.alternativeRating}>
-                      {biz.rating.toFixed(1)} estrellas
-                    </Text>
-                    <Text style={styles.alternativeTime}>{biz.deliveryTime}</Text>
-                  </View>
-                </View>
-                <View style={styles.changeButton}>
-                  <Text style={styles.changeButtonText}>Cambiar</Text>
-                </View>
-              </TouchableOpacity>
+  // Footer con botones
+  const renderFooter = () => (
+    <View style={styles.footerButtons}>
+      <TouchableOpacity
+        style={[
+          styles.cancelButton,
+          { backgroundColor: STATUS_COLORS.error },
+          (!selectedReason || cancelling) && styles.buttonDisabled,
+        ]}
+        onPress={handleCancelOrder}
+        disabled={!selectedReason || cancelling}
+      >
+        {cancelling ? (
+          <ActivityIndicator size="small" color="#FFFFFF" />
+        ) : (
+          <Text style={styles.cancelButtonText}>
+            {showAlternatives ? 'Cancelar Pedido' : 'Continuar'}
+          </Text>
+        )}
+      </TouchableOpacity>
+
+      <TouchableOpacity
+        style={styles.backToOrderButton}
+        onPress={() => router.back()}
+      >
+        <Text style={[styles.backToOrderText, { color: theme.textSecondary }]}>
+          Volver al Pedido
+        </Text>
+      </TouchableOpacity>
+    </View>
+  );
+
+  return (
+    <ScreenContainer
+      headerGradient="secondary"
+      headerIcon={AlertTriangle}
+      headerTitle="Cancelar Pedido"
+      headerSubtitle="Considera las alternativas antes de cancelar"
+      footer={renderFooter()}
+      footerPadding={140}
+    >
+      {/* Warning Icon */}
+      <View style={styles.warningContainer}>
+        <View style={[styles.warningIconBg, { backgroundColor: `${STATUS_COLORS.warning}20` }]}>
+          <AlertTriangle size={48} color={STATUS_COLORS.warning} />
+        </View>
+        <Text style={[styles.warningTitle, { color: theme.text }]}>
+          Seguro que quieres cancelar?
+        </Text>
+        <Text style={[styles.warningSubtitle, { color: theme.textSecondary }]}>
+          Antes de cancelar, considera estas alternativas
+        </Text>
+      </View>
+
+      {/* Order Summary */}
+      <View style={[styles.orderCard, { backgroundColor: theme.card }]}>
+        <View style={styles.orderHeader}>
+          <Store size={20} color={colors.primary} />
+          <Text style={[styles.businessName, { color: theme.text }]}>
+            {order.type === 'delivery'
+              ? 'Envio de Paquete'
+              : order.businessName || 'Orden'}
+          </Text>
+        </View>
+        {order.items && order.items.length > 0 && (
+          <View style={[styles.itemsList, { borderTopColor: theme.border }]}>
+            {order.items.map((item, index) => (
+              <Text key={index} style={[styles.itemText, { color: theme.textSecondary }]}>
+                {item.quantity}x {item.name}
+              </Text>
             ))}
           </View>
         )}
-
-        {loadingAlternatives && (
-          <View style={styles.loadingAlternatives}>
-            <ActivityIndicator size="small" color={Colors.primary} />
-            <Text style={styles.loadingAltText}>Buscando alternativas...</Text>
+        {order.type === 'delivery' && order.notes && (
+          <View style={[styles.itemsList, { borderTopColor: theme.border }]}>
+            <Text style={[styles.itemText, { color: theme.textSecondary }]}>
+              {order.notes.substring(0, 100)}...
+            </Text>
           </View>
         )}
+        <Text style={[styles.totalText, { color: STATUS_COLORS.primary }]}>
+          Total: ${order.total.toFixed(2)} MXN
+        </Text>
+      </View>
 
-        {/* Reason Selector */}
-        <View style={styles.reasonSection}>
-          <Text style={styles.sectionTitle}>¿Por que cancelas?</Text>
-          {CANCEL_REASONS.map((reason) => (
+      {/* Alternatives Section */}
+      {showAlternatives && alternatives.length > 0 && (
+        <View style={styles.alternativesSection}>
+          <Text style={[styles.sectionTitle, { color: theme.text }]}>
+            Negocios similares disponibles
+          </Text>
+          <Text style={[styles.sectionSubtitle, { color: theme.textSecondary }]}>
+            Puedes cambiar tu pedido a uno de estos negocios:
+          </Text>
+          {alternatives.map((biz) => (
             <TouchableOpacity
-              key={reason.id}
-              style={[
-                styles.reasonOption,
-                selectedReason === reason.id && styles.reasonOptionSelected,
-              ]}
-              onPress={() => setSelectedReason(reason.id)}
+              key={biz.id}
+              style={[styles.alternativeCard, { backgroundColor: theme.card, borderColor: theme.border }]}
+              onPress={() => handleSelectAlternative(biz)}
             >
-              <View style={[
-                styles.radioOuter,
-                selectedReason === reason.id && styles.radioOuterSelected,
-              ]}>
-                {selectedReason === reason.id && <View style={styles.radioInner} />}
+              <View style={styles.alternativeInfo}>
+                <Text style={[styles.alternativeName, { color: theme.text }]}>{biz.name}</Text>
+                <View style={styles.alternativeDetails}>
+                  <Text style={[styles.alternativeRating, { color: STATUS_COLORS.warning }]}>
+                    {biz.rating.toFixed(1)} estrellas
+                  </Text>
+                  <Text style={[styles.alternativeTime, { color: theme.textSecondary }]}>
+                    {biz.deliveryTime}
+                  </Text>
+                </View>
               </View>
-              <Text style={[
-                styles.reasonText,
-                selectedReason === reason.id && styles.reasonTextSelected,
-              ]}>
-                {reason.label}
-              </Text>
+              <View style={[styles.changeButton, { backgroundColor: colors.primary }]}>
+                <Text style={styles.changeButtonText}>Cambiar</Text>
+              </View>
             </TouchableOpacity>
           ))}
         </View>
+      )}
 
-        {/* Comment Input */}
-        <View style={styles.commentSection}>
-          <Text style={styles.commentLabel}>Cuentanos mas (opcional)</Text>
-          <TextInput
-            style={styles.commentInput}
-            placeholder="Escribe aqui..."
-            placeholderTextColor={Colors.text.secondary}
-            value={comment}
-            onChangeText={setComment}
-            multiline
-            numberOfLines={3}
-          />
+      {loadingAlternatives && (
+        <View style={styles.loadingAlternatives}>
+          <ActivityIndicator size="small" color={colors.primary} />
+          <Text style={[styles.loadingAltText, { color: theme.textSecondary }]}>
+            Buscando alternativas...
+          </Text>
         </View>
+      )}
 
-        {/* Cancel Button */}
-        <TouchableOpacity
-          style={[
-            styles.cancelButton,
-            (!selectedReason || cancelling) && styles.cancelButtonDisabled,
-          ]}
-          onPress={handleCancelOrder}
-          disabled={!selectedReason || cancelling}
-        >
-          {cancelling ? (
-            <ActivityIndicator size="small" color={Colors.white} />
-          ) : (
-            <Text style={styles.cancelButtonText}>
-              {showAlternatives ? 'Cancelar Pedido' : 'Continuar'}
+      {/* Reason Selector */}
+      <View style={styles.reasonSection}>
+        <Text style={[styles.sectionTitle, { color: theme.text }]}>Por que cancelas?</Text>
+        {CANCEL_REASONS.map((reason) => (
+          <TouchableOpacity
+            key={reason.id}
+            style={[
+              styles.reasonOption,
+              { backgroundColor: theme.card, borderColor: theme.border },
+              selectedReason === reason.id && { borderColor: colors.primary, backgroundColor: `${colors.primary}08` },
+            ]}
+            onPress={() => setSelectedReason(reason.id)}
+          >
+            <View style={[
+              styles.radioOuter,
+              { borderColor: theme.border },
+              selectedReason === reason.id && { borderColor: colors.primary },
+            ]}>
+              {selectedReason === reason.id && (
+                <View style={[styles.radioInner, { backgroundColor: colors.primary }]} />
+              )}
+            </View>
+            <Text style={[
+              styles.reasonText,
+              { color: theme.textSecondary },
+              selectedReason === reason.id && { color: theme.text, fontWeight: '500' },
+            ]}>
+              {reason.label}
             </Text>
-          )}
-        </TouchableOpacity>
+          </TouchableOpacity>
+        ))}
+      </View>
 
-        {/* Back to Order Button */}
-        <TouchableOpacity
-          style={styles.backToOrderButton}
-          onPress={() => router.back()}
-        >
-          <Text style={styles.backToOrderText}>Volver al Pedido</Text>
-        </TouchableOpacity>
-
-        {/* Note */}
-        <Text style={styles.noteText}>
-          Tu pedido se cancelara inmediatamente sin cargo
+      {/* Comment Input */}
+      <View style={styles.commentSection}>
+        <Text style={[styles.commentLabel, { color: theme.text }]}>
+          Cuentanos mas (opcional)
         </Text>
-      </ScrollView>
-    </View>
+        <TextInput
+          style={[
+            styles.commentInput,
+            {
+              backgroundColor: theme.card,
+              color: theme.text,
+              borderColor: theme.border,
+            },
+          ]}
+          placeholder="Escribe aqui..."
+          placeholderTextColor={theme.textMuted}
+          value={comment}
+          onChangeText={setComment}
+          multiline
+          numberOfLines={3}
+        />
+      </View>
+
+      {/* Note */}
+      <Text style={[styles.noteText, { color: theme.textSecondary }]}>
+        Tu pedido se cancelara inmediatamente sin cargo
+      </Text>
+    </ScreenContainer>
   );
 }
 
+// ============================================================================
+// ESTILOS
+// ============================================================================
+
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: Colors.background.primary,
-  },
-  header: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingHorizontal: 20,
-    paddingTop: 60,
-    paddingBottom: 20,
-    backgroundColor: Colors.text.primary,
-  },
-  backButton: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: 'rgba(255, 255, 255, 0.2)',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  headerTitle: {
-    fontSize: 18,
-    fontWeight: '700',
-    color: Colors.white,
-  },
-  placeholder: {
-    width: 40,
-  },
-  content: {
-    flex: 1,
-    padding: 20,
-  },
   loadingContainer: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: Colors.background.primary,
+    padding: 40,
   },
   loadingText: {
     marginTop: 12,
     fontSize: 16,
-    color: Colors.text.secondary,
   },
   errorText: {
     fontSize: 18,
-    color: Colors.error,
     marginBottom: 16,
   },
   backLink: {
     fontSize: 16,
-    color: Colors.primary,
     textDecorationLine: 'underline',
   },
   warningContainer: {
@@ -386,7 +443,6 @@ const styles = StyleSheet.create({
     width: 80,
     height: 80,
     borderRadius: 40,
-    backgroundColor: Colors.warning + '20',
     justifyContent: 'center',
     alignItems: 'center',
     marginBottom: 16,
@@ -394,21 +450,18 @@ const styles = StyleSheet.create({
   warningTitle: {
     fontSize: 20,
     fontWeight: '700',
-    color: Colors.text.primary,
     textAlign: 'center',
     marginBottom: 8,
   },
   warningSubtitle: {
     fontSize: 14,
-    color: Colors.text.secondary,
     textAlign: 'center',
   },
   orderCard: {
-    backgroundColor: Colors.white,
     borderRadius: 12,
     padding: 16,
     marginBottom: 20,
-    shadowColor: Colors.shadow.medium,
+    shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
     shadowRadius: 4,
@@ -422,24 +475,20 @@ const styles = StyleSheet.create({
   businessName: {
     fontSize: 16,
     fontWeight: '600',
-    color: Colors.text.primary,
     marginLeft: 8,
   },
   itemsList: {
     marginBottom: 12,
     paddingTop: 12,
     borderTopWidth: 1,
-    borderTopColor: Colors.border.light,
   },
   itemText: {
     fontSize: 14,
-    color: Colors.text.secondary,
     marginBottom: 4,
   },
   totalText: {
     fontSize: 16,
     fontWeight: '700',
-    color: Colors.secondary,
   },
   alternativesSection: {
     marginBottom: 20,
@@ -447,16 +496,13 @@ const styles = StyleSheet.create({
   sectionTitle: {
     fontSize: 16,
     fontWeight: '700',
-    color: Colors.text.primary,
     marginBottom: 8,
   },
   sectionSubtitle: {
     fontSize: 14,
-    color: Colors.text.secondary,
     marginBottom: 12,
   },
   alternativeCard: {
-    backgroundColor: Colors.white,
     borderRadius: 12,
     padding: 14,
     marginBottom: 10,
@@ -464,7 +510,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
     borderWidth: 1,
-    borderColor: Colors.border.light,
   },
   alternativeInfo: {
     flex: 1,
@@ -472,7 +517,6 @@ const styles = StyleSheet.create({
   alternativeName: {
     fontSize: 15,
     fontWeight: '600',
-    color: Colors.text.primary,
     marginBottom: 4,
   },
   alternativeDetails: {
@@ -481,14 +525,11 @@ const styles = StyleSheet.create({
   },
   alternativeRating: {
     fontSize: 13,
-    color: Colors.warning,
   },
   alternativeTime: {
     fontSize: 13,
-    color: Colors.text.secondary,
   },
   changeButton: {
-    backgroundColor: Colors.primary,
     paddingHorizontal: 16,
     paddingVertical: 8,
     borderRadius: 8,
@@ -496,7 +537,7 @@ const styles = StyleSheet.create({
   changeButtonText: {
     fontSize: 14,
     fontWeight: '600',
-    color: Colors.white,
+    color: '#FFFFFF',
   },
   loadingAlternatives: {
     flexDirection: 'row',
@@ -507,7 +548,6 @@ const styles = StyleSheet.create({
   },
   loadingAltText: {
     fontSize: 14,
-    color: Colors.text.secondary,
   },
   reasonSection: {
     marginBottom: 20,
@@ -515,43 +555,27 @@ const styles = StyleSheet.create({
   reasonOption: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: Colors.white,
     borderRadius: 10,
     padding: 14,
     marginBottom: 8,
     borderWidth: 1,
-    borderColor: Colors.border.light,
-  },
-  reasonOptionSelected: {
-    borderColor: Colors.primary,
-    backgroundColor: Colors.primary + '08',
   },
   radioOuter: {
     width: 22,
     height: 22,
     borderRadius: 11,
     borderWidth: 2,
-    borderColor: Colors.border.medium,
     justifyContent: 'center',
     alignItems: 'center',
     marginRight: 12,
-  },
-  radioOuterSelected: {
-    borderColor: Colors.primary,
   },
   radioInner: {
     width: 12,
     height: 12,
     borderRadius: 6,
-    backgroundColor: Colors.primary,
   },
   reasonText: {
     fontSize: 15,
-    color: Colors.text.secondary,
-  },
-  reasonTextSelected: {
-    color: Colors.text.primary,
-    fontWeight: '500',
   },
   commentSection: {
     marginBottom: 24,
@@ -559,48 +583,42 @@ const styles = StyleSheet.create({
   commentLabel: {
     fontSize: 14,
     fontWeight: '600',
-    color: Colors.text.primary,
     marginBottom: 8,
   },
   commentInput: {
-    backgroundColor: Colors.white,
     borderRadius: 10,
     padding: 14,
     fontSize: 15,
-    color: Colors.text.primary,
     borderWidth: 1,
-    borderColor: Colors.border.light,
     minHeight: 80,
     textAlignVertical: 'top',
   },
+  footerButtons: {
+    gap: 12,
+  },
   cancelButton: {
-    backgroundColor: Colors.error,
     borderRadius: 12,
     padding: 16,
     alignItems: 'center',
-    marginBottom: 12,
   },
-  cancelButtonDisabled: {
+  buttonDisabled: {
     opacity: 0.5,
   },
   cancelButtonText: {
     fontSize: 16,
     fontWeight: '700',
-    color: Colors.white,
+    color: '#FFFFFF',
   },
   backToOrderButton: {
     alignItems: 'center',
     padding: 12,
-    marginBottom: 8,
   },
   backToOrderText: {
     fontSize: 15,
-    color: Colors.text.secondary,
   },
   noteText: {
     fontSize: 13,
-    color: Colors.text.secondary,
     textAlign: 'center',
-    marginBottom: 40,
+    marginBottom: 20,
   },
 });

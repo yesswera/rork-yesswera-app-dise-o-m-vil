@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { StyleSheet, Text, View, TouchableOpacity, ScrollView, Alert, ActivityIndicator } from 'react-native';
+import { StyleSheet, Text, View, TouchableOpacity, Alert, ActivityIndicator } from 'react-native';
 import { useRouter } from 'expo-router';
 import { MapPin, Plus, Home, Briefcase, MapPinned, Star, Trash2 } from 'lucide-react-native';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -7,12 +7,22 @@ import Colors from '@/constants/colors';
 import { SavedAddress } from '@/constants/types';
 import { getUserAddresses, deleteAddress, setDefaultAddress } from '@/services/addresses';
 import { useAuth } from '@/contexts/auth';
+import { useTheme } from '@/contexts/theme';
 import { Toast } from '@/utils/toast';
 import * as Haptics from 'expo-haptics';
+import ScreenContainer from '@/components/ScreenContainer';
+
+// Explicit colors for dark mode
+const COLORS = {
+  light: { card: '#FFFFFF', cardAlt: '#F5F5F4', border: '#E7E5E4', text: '#1C1917', textSecondary: '#57534E', textMuted: '#A8A29E' },
+  dark: { card: '#292524', cardAlt: '#44403C', border: '#44403C', text: '#FAFAFA', textSecondary: '#D6D3D1', textMuted: '#78716C' },
+};
 
 export default function AddressListScreen() {
   const router = useRouter();
   const { user, token } = useAuth();
+  const { isDark } = useTheme();
+  const theme = isDark ? COLORS.dark : COLORS.light;
   const [addresses, setAddresses] = useState<SavedAddress[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [deletingId, setDeletingId] = useState<string | null>(null);
@@ -45,8 +55,8 @@ export default function AddressListScreen() {
     if (!token) return;
 
     Alert.alert(
-      'Eliminar Dirección',
-      '¿Estás seguro de que quieres eliminar esta dirección?',
+      'Eliminar Direccion',
+      'Estas seguro de que quieres eliminar esta direccion?',
       [
         { text: 'Cancelar', style: 'cancel' },
         {
@@ -57,11 +67,11 @@ export default function AddressListScreen() {
             try {
               await deleteAddress(addressId);
               await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-              Toast.success('Dirección eliminada');
+              Toast.success('Direccion eliminada');
               await loadAddresses();
             } catch (error) {
-              console.error('Error eliminando dirección:', error);
-              Toast.error('No se pudo eliminar la dirección');
+              console.error('Error eliminando direccion:', error);
+              Toast.error('No se pudo eliminar la direccion');
             } finally {
               setDeletingId(null);
             }
@@ -77,11 +87,11 @@ export default function AddressListScreen() {
     try {
       await setDefaultAddress(addressId, user?.id || '');
       await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-      Toast.success('Dirección predeterminada actualizada');
+      Toast.success('Direccion predeterminada actualizada');
       await loadAddresses();
     } catch (error) {
-      console.error('Error estableciendo dirección predeterminada:', error);
-      Toast.error('No se pudo actualizar la dirección predeterminada');
+      console.error('Error estableciendo direccion predeterminada:', error);
+      Toast.error('No se pudo actualizar la direccion predeterminada');
     }
   };
 
@@ -107,159 +117,149 @@ export default function AddressListScreen() {
     }
   };
 
+  // Footer component
+  const FooterComponent = (
+    <TouchableOpacity
+      style={styles.addButton}
+      onPress={() => router.push('/addresses/add' as any)}
+      activeOpacity={0.8}
+    >
+      <LinearGradient
+        colors={[Colors.primary, Colors.primaryDark]}
+        style={styles.addButtonGradient}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 1, y: 0 }}
+      >
+        <Plus size={24} color={Colors.white} strokeWidth={3} />
+        <Text style={styles.addButtonText}>Agregar Nueva Direccion</Text>
+      </LinearGradient>
+    </TouchableOpacity>
+  );
+
   if (isLoading) {
     return (
-      <View style={[styles.container, styles.centerContent]}>
-        <ActivityIndicator size="large" color={Colors.primary} />
-        <Text style={styles.loadingText}>Cargando direcciones...</Text>
-      </View>
+      <ScreenContainer
+        headerGradient="primary"
+        headerIcon={MapPin}
+        headerTitle="Mis Direcciones"
+        headerSubtitle="Cargando tus direcciones guardadas..."
+        scrollEnabled={false}
+      >
+        <View style={styles.centerContent}>
+          <ActivityIndicator size="large" color={Colors.primary} />
+          <Text style={[styles.loadingText, { color: theme.textSecondary }]}>Cargando direcciones...</Text>
+        </View>
+      </ScreenContainer>
     );
   }
 
   return (
-    <View style={styles.container}>
-      <LinearGradient
-        colors={[Colors.background.primary, Colors.background.secondary]}
-        style={styles.gradient}
-      />
-
-      <ScrollView 
-        style={styles.scrollView}
-        contentContainerStyle={styles.scrollContent}
-        showsVerticalScrollIndicator={false}
-      >
-        {addresses.length === 0 ? (
-          <View style={styles.emptyContainer}>
-            <View style={styles.emptyIconContainer}>
-              <MapPin size={64} color={Colors.text.disabled} strokeWidth={1.5} />
-            </View>
-            <Text style={styles.emptyTitle}>No tienes direcciones guardadas</Text>
-            <Text style={styles.emptyText}>
-              Agrega tu primera dirección para hacer tus pedidos más rápido
-            </Text>
+    <ScreenContainer
+      headerGradient="primary"
+      headerIcon={MapPin}
+      headerTitle="Mis Direcciones"
+      headerSubtitle="Gestiona tus direcciones de entrega"
+      scrollEnabled={true}
+      footer={FooterComponent}
+      footerPadding={100}
+      onRefresh={loadAddresses}
+      refreshing={isLoading}
+    >
+      {addresses.length === 0 ? (
+        <View style={styles.emptyContainer}>
+          <View style={[styles.emptyIconContainer, { backgroundColor: theme.cardAlt }]}>
+            <MapPin size={64} color={theme.textMuted} strokeWidth={1.5} />
           </View>
-        ) : (
-          <View style={styles.addressesList}>
-            {addresses.map((address) => {
-              const Icon = getIconForLabel(address.label);
-              const iconColor = getColorForLabel(address.label);
-              const isDeleting = deletingId === address.id;
+          <Text style={[styles.emptyTitle, { color: theme.text }]}>No tienes direcciones guardadas</Text>
+          <Text style={[styles.emptyText, { color: theme.textSecondary }]}>
+            Agrega tu primera direccion para hacer tus pedidos mas rapido
+          </Text>
+        </View>
+      ) : (
+        <View style={styles.addressesList}>
+          {addresses.map((address) => {
+            const Icon = getIconForLabel(address.label);
+            const iconColor = getColorForLabel(address.label);
+            const isDeleting = deletingId === address.id;
 
-              return (
-                <View key={address.id} style={styles.addressCard}>
-                  <LinearGradient
-                    colors={[Colors.white, `${iconColor}05`]}
-                    style={styles.cardGradient}
-                    start={{ x: 0, y: 0 }}
-                    end={{ x: 1, y: 1 }}
-                  >
-                    <View style={styles.addressHeader}>
-                      <View style={[styles.iconContainer, { backgroundColor: `${iconColor}15` }]}>
-                        <Icon size={24} color={iconColor} />
+            return (
+              <View key={address.id} style={[styles.addressCard, { shadowColor: isDark ? '#000' : Colors.shadow?.medium || '#000' }]}>
+                <LinearGradient
+                  colors={isDark ? [theme.card, theme.cardAlt] : [Colors.white, `${iconColor}05`]}
+                  style={styles.cardGradient}
+                  start={{ x: 0, y: 0 }}
+                  end={{ x: 1, y: 1 }}
+                >
+                  <View style={styles.addressHeader}>
+                    <View style={[styles.iconContainer, { backgroundColor: `${iconColor}15` }]}>
+                      <Icon size={24} color={iconColor} />
+                    </View>
+                    <View style={styles.addressInfo}>
+                      <View style={styles.labelRow}>
+                        <Text style={[styles.addressLabel, { color: theme.text }]}>{address.label}</Text>
+                        {address.isDefault && (
+                          <View style={styles.defaultBadge}>
+                            <Star size={12} color={Colors.gold} fill={Colors.gold} />
+                            <Text style={styles.defaultText}>Predeterminada</Text>
+                          </View>
+                        )}
                       </View>
-                      <View style={styles.addressInfo}>
-                        <View style={styles.labelRow}>
-                          <Text style={styles.addressLabel}>{address.label}</Text>
-                          {address.isDefault && (
-                            <View style={styles.defaultBadge}>
-                              <Star size={12} color={Colors.gold} fill={Colors.gold} />
-                              <Text style={styles.defaultText}>Predeterminada</Text>
-                            </View>
-                          )}
-                        </View>
-                        <Text style={styles.addressText} numberOfLines={2}>
-                          {address.address}
+                      <Text style={[styles.addressText, { color: theme.textSecondary }]} numberOfLines={2}>
+                        {address.address}
+                      </Text>
+                      {address.instructions && (
+                        <Text style={[styles.instructionsText, { color: theme.textMuted }]} numberOfLines={1}>
+                          {address.instructions}
                         </Text>
-                        {address.instructions && (
-                          <Text style={styles.instructionsText} numberOfLines={1}>
-                            💬 {address.instructions}
-                          </Text>
-                        )}
-                      </View>
-                    </View>
-
-                    <View style={styles.actionsRow}>
-                      {!address.isDefault && (
-                        <TouchableOpacity
-                          style={styles.actionButton}
-                          onPress={() => handleSetDefault(address.id)}
-                        >
-                          <Star size={18} color={Colors.gold} />
-                          <Text style={styles.actionText}>Predeterminada</Text>
-                        </TouchableOpacity>
                       )}
-
-                      <TouchableOpacity
-                        style={[styles.actionButton, styles.deleteButton]}
-                        onPress={() => handleDelete(address.id)}
-                        disabled={isDeleting}
-                      >
-                        {isDeleting ? (
-                          <ActivityIndicator size="small" color={Colors.error} />
-                        ) : (
-                          <>
-                            <Trash2 size={18} color={Colors.error} />
-                            <Text style={[styles.actionText, styles.deleteText]}>Eliminar</Text>
-                          </>
-                        )}
-                      </TouchableOpacity>
                     </View>
-                  </LinearGradient>
-                </View>
-              );
-            })}
-          </View>
-        )}
-      </ScrollView>
+                  </View>
 
-      <View style={styles.footer}>
-        <TouchableOpacity
-          style={styles.addButton}
-          onPress={() => router.push('/addresses/add' as any)}
-          activeOpacity={0.8}
-        >
-          <LinearGradient
-            colors={[Colors.primary, Colors.primaryDark]}
-            style={styles.addButtonGradient}
-            start={{ x: 0, y: 0 }}
-            end={{ x: 1, y: 0 }}
-          >
-            <Plus size={24} color={Colors.white} strokeWidth={3} />
-            <Text style={styles.addButtonText}>Agregar Nueva Dirección</Text>
-          </LinearGradient>
-        </TouchableOpacity>
-      </View>
-    </View>
+                  <View style={styles.actionsRow}>
+                    {!address.isDefault && (
+                      <TouchableOpacity
+                        style={[styles.actionButton, { backgroundColor: theme.card, borderColor: theme.border }]}
+                        onPress={() => handleSetDefault(address.id)}
+                      >
+                        <Star size={18} color={Colors.gold} />
+                        <Text style={[styles.actionText, { color: theme.text }]}>Predeterminada</Text>
+                      </TouchableOpacity>
+                    )}
+
+                    <TouchableOpacity
+                      style={[styles.actionButton, styles.deleteButton, { backgroundColor: theme.card }]}
+                      onPress={() => handleDelete(address.id)}
+                      disabled={isDeleting}
+                    >
+                      {isDeleting ? (
+                        <ActivityIndicator size="small" color={Colors.error} />
+                      ) : (
+                        <>
+                          <Trash2 size={18} color={Colors.error} />
+                          <Text style={[styles.actionText, styles.deleteText]}>Eliminar</Text>
+                        </>
+                      )}
+                    </TouchableOpacity>
+                  </View>
+                </LinearGradient>
+              </View>
+            );
+          })}
+        </View>
+      )}
+    </ScreenContainer>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: Colors.background.primary,
-  },
-  gradient: {
-    position: 'absolute' as const,
-    left: 0,
-    right: 0,
-    top: 0,
-    bottom: 0,
-  },
   centerContent: {
+    flex: 1,
     justifyContent: 'center' as const,
     alignItems: 'center' as const,
   },
   loadingText: {
     fontSize: 16,
-    color: Colors.text.secondary,
     marginTop: 12,
-  },
-  scrollView: {
-    flex: 1,
-  },
-  scrollContent: {
-    padding: 20,
-    paddingBottom: 100,
   },
   emptyContainer: {
     alignItems: 'center' as const,
@@ -270,7 +270,6 @@ const styles = StyleSheet.create({
     width: 120,
     height: 120,
     borderRadius: 60,
-    backgroundColor: Colors.background.secondary,
     justifyContent: 'center' as const,
     alignItems: 'center' as const,
     marginBottom: 24,
@@ -278,13 +277,11 @@ const styles = StyleSheet.create({
   emptyTitle: {
     fontSize: 20,
     fontWeight: '700' as const,
-    color: Colors.text.primary,
     marginBottom: 8,
     textAlign: 'center' as const,
   },
   emptyText: {
     fontSize: 15,
-    color: Colors.text.secondary,
     textAlign: 'center' as const,
     lineHeight: 22,
   },
@@ -294,7 +291,6 @@ const styles = StyleSheet.create({
   addressCard: {
     borderRadius: 16,
     overflow: 'hidden' as const,
-    shadowColor: Colors.shadow.medium,
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
     shadowRadius: 8,
@@ -328,7 +324,6 @@ const styles = StyleSheet.create({
   addressLabel: {
     fontSize: 18,
     fontWeight: '700' as const,
-    color: Colors.text.primary,
   },
   defaultBadge: {
     flexDirection: 'row' as const,
@@ -346,13 +341,11 @@ const styles = StyleSheet.create({
   },
   addressText: {
     fontSize: 15,
-    color: Colors.text.secondary,
     lineHeight: 20,
     marginBottom: 6,
   },
   instructionsText: {
     fontSize: 13,
-    color: Colors.text.muted,
     fontStyle: 'italic' as const,
   },
   actionsRow: {
@@ -366,30 +359,17 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     paddingVertical: 8,
     borderRadius: 8,
-    backgroundColor: Colors.white,
     borderWidth: 1.5,
-    borderColor: Colors.border.light,
   },
   actionText: {
     fontSize: 13,
     fontWeight: '600' as const,
-    color: Colors.text.primary,
   },
   deleteButton: {
     borderColor: `${Colors.error}30`,
   },
   deleteText: {
     color: Colors.error,
-  },
-  footer: {
-    position: 'absolute' as const,
-    bottom: 0,
-    left: 0,
-    right: 0,
-    padding: 16,
-    backgroundColor: Colors.white,
-    borderTopWidth: 1,
-    borderTopColor: Colors.border.light,
   },
   addButton: {
     borderRadius: 12,

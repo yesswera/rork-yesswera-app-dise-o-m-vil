@@ -1,21 +1,30 @@
-import { useState } from 'react';
-import { StyleSheet, Text, View, TouchableOpacity, ScrollView, TextInput, Alert, Switch, Platform } from 'react-native';
+import { useState, useRef } from 'react';
+import { StyleSheet, Text, View, TouchableOpacity, TextInput, Alert, Switch } from 'react-native';
 import { useRouter } from 'expo-router';
-import { Home, Briefcase, MapPinned, Navigation } from 'lucide-react-native';
-
+import { Home, Briefcase, MapPinned, Navigation, Search, ChevronRight, Loader, MapPin } from 'lucide-react-native';
 import MapView, { Marker } from 'react-native-maps';
 import * as Location from 'expo-location';
 import Colors from '@/constants/colors';
-import { SavedAddress } from '@/constants/types';
 import { createAddress } from '@/services/addresses';
 import { useAuth } from '@/contexts/auth';
+import { useTheme } from '@/contexts/theme';
 import { Toast } from '@/utils/toast';
 import * as Haptics from 'expo-haptics';
 import LoadingButton from '@/components/LoadingButton';
+import ScreenContainer from '@/components/ScreenContainer';
+
+// Explicit colors for dark mode
+const COLORS = {
+  light: { card: '#FFFFFF', cardAlt: '#F5F5F4', border: '#E7E5E4', text: '#1C1917', textSecondary: '#57534E', textLight: '#A8A29E' },
+  dark: { card: '#292524', cardAlt: '#44403C', border: '#44403C', text: '#FAFAFA', textSecondary: '#D6D3D1', textLight: '#78716C' },
+};
 
 export default function AddAddressScreen() {
   const router = useRouter();
   const { user, token } = useAuth();
+  const { isDark } = useTheme();
+  const theme = isDark ? COLORS.dark : COLORS.light;
+  const mapRef = useRef<MapView>(null);
   const [selectedLabel, setSelectedLabel] = useState<'Casa' | 'Trabajo' | 'Otro'>('Casa');
   const [address, setAddress] = useState<string>('');
   const [instructions, setInstructions] = useState<string>('');
@@ -27,23 +36,71 @@ export default function AddAddressScreen() {
   });
   const [isLoadingLocation, setIsLoadingLocation] = useState<boolean>(false);
 
+  // Search states
+  const [searchQuery, setSearchQuery] = useState('');
+  const [isSearching, setIsSearching] = useState(false);
+
   const labels: { id: 'Casa' | 'Trabajo' | 'Otro'; icon: any; color: string }[] = [
     { id: 'Casa', icon: Home, color: Colors.primary },
     { id: 'Trabajo', icon: Briefcase, color: Colors.secondary },
     { id: 'Otro', icon: MapPinned, color: Colors.accent },
   ];
 
-  const handleUseCurrentLocation = async () => {
-    if (Platform.OS === 'web') {
-      Alert.alert('No disponible', 'La ubicación GPS no está disponible en web');
-      return;
-    }
+  // Search address and move map to result
+  const searchAddress = async () => {
+    if (!searchQuery.trim()) return;
 
+    setIsSearching(true);
+    try {
+      // Add "Mexico" to improve results for Mexican addresses
+      const query = searchQuery.includes('Mexico') ? searchQuery : `${searchQuery}, Jalisco, Mexico`;
+      const results = await Location.geocodeAsync(query);
+
+      if (results.length > 0) {
+        const { latitude, longitude } = results[0];
+        const newLocation = { latitude, longitude };
+        setLocation(newLocation);
+
+        // Animate map to the new location
+        mapRef.current?.animateToRegion({
+          latitude,
+          longitude,
+          latitudeDelta: 0.005,
+          longitudeDelta: 0.005,
+        }, 500);
+
+        // Try to get the full address
+        const reverseGeocode = await Location.reverseGeocodeAsync({ latitude, longitude });
+        if (reverseGeocode.length > 0) {
+          const geo = reverseGeocode[0];
+          const fullAddress = [
+            geo.streetNumber,
+            geo.street,
+            geo.city,
+            geo.region,
+          ].filter(Boolean).join(', ');
+          setAddress(fullAddress);
+        }
+
+        setSearchQuery('');
+        await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      } else {
+        Alert.alert('No encontrado', 'No se encontro la direccion. Intenta con otra busqueda.');
+      }
+    } catch (error) {
+      console.error('Geocoding error:', error);
+      Alert.alert('Error', 'No se pudo buscar la direccion. Intenta de nuevo.');
+    } finally {
+      setIsSearching(false);
+    }
+  };
+
+  const handleUseCurrentLocation = async () => {
     setIsLoadingLocation(true);
     try {
       const { status } = await Location.requestForegroundPermissionsAsync();
       if (status !== 'granted') {
-        Alert.alert('Permiso denegado', 'Necesitamos acceso a tu ubicación');
+        Alert.alert('Permiso denegado', 'Necesitamos acceso a tu ubicacion');
         setIsLoadingLocation(false);
         return;
       }
@@ -70,10 +127,10 @@ export default function AddAddressScreen() {
       }
 
       await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-      Toast.success('Ubicación obtenida');
+      Toast.success('Ubicacion obtenida');
     } catch (error) {
-      console.error('Error obteniendo ubicación:', error);
-      Alert.alert('Error', 'No se pudo obtener tu ubicación');
+      console.error('Error obteniendo ubicacion:', error);
+      Alert.alert('Error', 'No se pudo obtener tu ubicacion');
     } finally {
       setIsLoadingLocation(false);
     }
@@ -81,12 +138,12 @@ export default function AddAddressScreen() {
 
   const handleSubmit = async () => {
     if (!address.trim()) {
-      Alert.alert('Error', 'Por favor ingresa una dirección');
+      Alert.alert('Error', 'Por favor ingresa una direccion');
       return;
     }
 
     if (!user || !token) {
-      Alert.alert('Error', 'Debes iniciar sesión');
+      Alert.alert('Error', 'Debes iniciar sesion');
       router.replace('/login' as any);
       return;
     }
@@ -103,196 +160,216 @@ export default function AddAddressScreen() {
         isDefault,
       });
       await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-      Toast.success('Dirección guardada exitosamente');
+      Toast.success('Direccion guardada exitosamente');
       router.back();
     } catch (error) {
-      console.error('Error guardando dirección:', error);
-      Alert.alert('Error', 'No se pudo guardar la dirección. Intenta de nuevo.');
+      console.error('Error guardando direccion:', error);
+      Alert.alert('Error', 'No se pudo guardar la direccion. Intenta de nuevo.');
     } finally {
       setIsSubmitting(false);
     }
   };
 
-  return (
-    <View style={styles.container}>
-      <ScrollView 
-        style={styles.scrollView}
-        contentContainerStyle={styles.scrollContent}
-        showsVerticalScrollIndicator={false}
+  // Footer component
+  const FooterComponent = (
+    <View style={styles.footerContent}>
+      <TouchableOpacity
+        style={[styles.cancelButton, { borderColor: theme.border }]}
+        onPress={() => router.back()}
+        disabled={isSubmitting}
       >
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Tipo de Dirección</Text>
-          <View style={styles.labelsContainer}>
-            {labels.map((label) => {
-              const Icon = label.icon;
-              const isSelected = selectedLabel === label.id;
+        <Text style={[styles.cancelButtonText, { color: theme.text }]}>Cancelar</Text>
+      </TouchableOpacity>
 
-              return (
-                <TouchableOpacity
-                  key={label.id}
-                  style={[
-                    styles.labelChip,
-                    isSelected && { 
-                      borderColor: label.color,
-                      backgroundColor: `${label.color}10`
-                    },
-                  ]}
-                  onPress={() => setSelectedLabel(label.id)}
-                  activeOpacity={0.7}
-                >
-                  <View style={[
-                    styles.labelIcon,
-                    { backgroundColor: isSelected ? label.color : `${label.color}20` }
-                  ]}>
-                    <Icon 
-                      size={20} 
-                      color={isSelected ? Colors.white : label.color} 
-                    />
-                  </View>
-                  <Text style={[
-                    styles.labelText,
-                    isSelected && { color: label.color, fontWeight: '700' as const }
-                  ]}>
-                    {label.id}
-                  </Text>
-                </TouchableOpacity>
-              );
-            })}
-          </View>
+      <View style={styles.submitButtonContainer}>
+        <LoadingButton
+          title="Guardar Direccion"
+          onPress={handleSubmit}
+          loading={isSubmitting}
+          style={styles.submitButton}
+        />
+      </View>
+    </View>
+  );
+
+  return (
+    <ScreenContainer
+      headerGradient="primary"
+      headerIcon={MapPin}
+      headerTitle="Nueva Direccion"
+      headerSubtitle="Agrega una nueva direccion de entrega"
+      scrollEnabled={true}
+      footer={FooterComponent}
+      footerPadding={100}
+    >
+      <View style={styles.section}>
+        <Text style={[styles.sectionTitle, { color: theme.text }]}>Tipo de Direccion</Text>
+        <View style={styles.labelsContainer}>
+          {labels.map((label) => {
+            const Icon = label.icon;
+            const isSelected = selectedLabel === label.id;
+
+            return (
+              <TouchableOpacity
+                key={label.id}
+                style={[
+                  styles.labelChip,
+                  { backgroundColor: theme.card, borderColor: theme.border },
+                  isSelected && {
+                    borderColor: label.color,
+                    backgroundColor: `${label.color}10`
+                  },
+                ]}
+                onPress={() => setSelectedLabel(label.id)}
+                activeOpacity={0.7}
+              >
+                <View style={[
+                  styles.labelIcon,
+                  { backgroundColor: isSelected ? label.color : `${label.color}20` }
+                ]}>
+                  <Icon
+                    size={20}
+                    color={isSelected ? Colors.white : label.color}
+                  />
+                </View>
+                <Text style={[
+                  styles.labelText,
+                  { color: theme.text },
+                  isSelected && { color: label.color, fontWeight: '700' as const }
+                ]}>
+                  {label.id}
+                </Text>
+              </TouchableOpacity>
+            );
+          })}
         </View>
+      </View>
 
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Dirección</Text>
-          <TextInput
-            style={styles.textArea}
-            placeholder="Ej: Calle Morelos 456, Col. Centro, Tomatlán"
-            placeholderTextColor={Colors.text.light}
-            value={address}
-            onChangeText={setAddress}
-            multiline
-            textAlignVertical="top"
-          />
-          
-          <TouchableOpacity
-            style={styles.locationButton}
-            onPress={handleUseCurrentLocation}
-            disabled={isLoadingLocation}
-            activeOpacity={0.7}
-          >
-            <Navigation size={20} color={Colors.primary} />
-            <Text style={styles.locationButtonText}>
-              {isLoadingLocation ? 'Obteniendo ubicación...' : 'Usar mi ubicación actual'}
-            </Text>
-          </TouchableOpacity>
-        </View>
+      <View style={styles.section}>
+        <Text style={[styles.sectionTitle, { color: theme.text }]}>Direccion</Text>
+        <TextInput
+          style={[styles.textArea, { backgroundColor: theme.card, borderColor: theme.border, color: theme.text }]}
+          placeholder="Ej: Calle Morelos 456, Col. Centro, Tomatlan"
+          placeholderTextColor={theme.textLight}
+          value={address}
+          onChangeText={setAddress}
+          multiline
+          textAlignVertical="top"
+        />
 
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Ubicación en el Mapa</Text>
-          <View style={styles.mapContainer}>
-            <MapView
-              style={styles.map}
-              region={{
-                latitude: location.latitude,
-                longitude: location.longitude,
-                latitudeDelta: 0.01,
-                longitudeDelta: 0.01,
-              }}
-              onRegionChangeComplete={(region) => {
-                setLocation({
-                  latitude: region.latitude,
-                  longitude: region.longitude,
-                });
-              }}
-            >
-              <Marker
-                coordinate={location}
-                pinColor={Colors.primary}
-                draggable
-                onDragEnd={(e) => {
-                  setLocation(e.nativeEvent.coordinate);
-                }}
-              />
-            </MapView>
-            <View style={styles.mapOverlay}>
-              <Text style={styles.mapOverlayText}>
-                Arrastra el marcador para ajustar la ubicación
-              </Text>
-            </View>
-          </View>
-        </View>
-
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Instrucciones Adicionales (Opcional)</Text>
-          <TextInput
-            style={styles.textArea}
-            placeholder="Ej: Edificio azul, tercer piso, apartamento al fondo"
-            placeholderTextColor={Colors.text.light}
-            value={instructions}
-            onChangeText={setInstructions}
-            multiline
-            textAlignVertical="top"
-          />
-        </View>
-
-        <View style={styles.section}>
-          <View style={styles.switchRow}>
-            <View style={styles.switchInfo}>
-              <Text style={styles.switchLabel}>Establecer como predeterminada</Text>
-              <Text style={styles.switchDescription}>
-                Esta dirección se usará por defecto en tus pedidos
-              </Text>
-            </View>
-            <Switch
-              value={isDefault}
-              onValueChange={setIsDefault}
-              trackColor={{ false: Colors.border.medium, true: Colors.primary }}
-              thumbColor={Colors.white}
-            />
-          </View>
-        </View>
-      </ScrollView>
-
-      <View style={styles.footer}>
         <TouchableOpacity
-          style={styles.cancelButton}
-          onPress={() => router.back()}
-          disabled={isSubmitting}
+          style={[styles.locationButton, { borderColor: Colors.primary, backgroundColor: `${Colors.primary}08` }]}
+          onPress={handleUseCurrentLocation}
+          disabled={isLoadingLocation}
+          activeOpacity={0.7}
         >
-          <Text style={styles.cancelButtonText}>Cancelar</Text>
+          <Navigation size={20} color={Colors.primary} />
+          <Text style={styles.locationButtonText}>
+            {isLoadingLocation ? 'Obteniendo ubicacion...' : 'Usar mi ubicacion actual'}
+          </Text>
         </TouchableOpacity>
+      </View>
 
-        <View style={styles.submitButtonContainer}>
-          <LoadingButton
-            title="Guardar Dirección"
-            onPress={handleSubmit}
-            loading={isSubmitting}
-            style={styles.submitButton}
+      <View style={styles.section}>
+        <Text style={[styles.sectionTitle, { color: theme.text }]}>Ubicacion en el Mapa</Text>
+
+        {/* Search Bar */}
+        <View style={styles.searchContainer}>
+          <View style={[styles.searchInputWrapper, { backgroundColor: theme.card, borderColor: theme.border }]}>
+            <Search size={20} color={theme.textSecondary} />
+            <TextInput
+              style={[styles.searchInput, { color: theme.text }]}
+              placeholder="Buscar direccion..."
+              placeholderTextColor={theme.textLight}
+              value={searchQuery}
+              onChangeText={setSearchQuery}
+              onSubmitEditing={searchAddress}
+              returnKeyType="search"
+            />
+            {isSearching ? (
+              <Loader size={20} color={Colors.primary} />
+            ) : searchQuery.length > 0 ? (
+              <TouchableOpacity onPress={searchAddress}>
+                <ChevronRight size={20} color={Colors.primary} />
+              </TouchableOpacity>
+            ) : null}
+          </View>
+        </View>
+
+        <View style={[styles.mapContainer, { borderColor: theme.border, backgroundColor: theme.cardAlt }]}>
+          <MapView
+            ref={mapRef}
+            style={styles.map}
+            region={{
+              latitude: location.latitude,
+              longitude: location.longitude,
+              latitudeDelta: 0.01,
+              longitudeDelta: 0.01,
+            }}
+            onRegionChangeComplete={(region) => {
+              setLocation({
+                latitude: region.latitude,
+                longitude: region.longitude,
+              });
+            }}
+          >
+            <Marker
+              coordinate={location}
+              pinColor={Colors.primary}
+              draggable
+              onDragEnd={(e) => {
+                setLocation(e.nativeEvent.coordinate);
+              }}
+            />
+          </MapView>
+          <View style={styles.mapOverlay}>
+            <Text style={styles.mapOverlayText}>
+              Busca una direccion o arrastra el marcador
+            </Text>
+          </View>
+        </View>
+      </View>
+
+      <View style={styles.section}>
+        <Text style={[styles.sectionTitle, { color: theme.text }]}>Instrucciones Adicionales (Opcional)</Text>
+        <TextInput
+          style={[styles.textArea, { backgroundColor: theme.card, borderColor: theme.border, color: theme.text }]}
+          placeholder="Ej: Edificio azul, tercer piso, apartamento al fondo"
+          placeholderTextColor={theme.textLight}
+          value={instructions}
+          onChangeText={setInstructions}
+          multiline
+          textAlignVertical="top"
+        />
+      </View>
+
+      <View style={styles.section}>
+        <View style={[styles.switchRow, { backgroundColor: theme.card, borderColor: theme.border }]}>
+          <View style={styles.switchInfo}>
+            <Text style={[styles.switchLabel, { color: theme.text }]}>Establecer como predeterminada</Text>
+            <Text style={[styles.switchDescription, { color: theme.textSecondary }]}>
+              Esta direccion se usara por defecto en tus pedidos
+            </Text>
+          </View>
+          <Switch
+            value={isDefault}
+            onValueChange={setIsDefault}
+            trackColor={{ false: theme.border, true: Colors.primary }}
+            thumbColor={Colors.white}
           />
         </View>
       </View>
-    </View>
+    </ScreenContainer>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: Colors.background.primary,
-  },
-  scrollView: {
-    flex: 1,
-  },
-  scrollContent: {
-    padding: 20,
-    paddingBottom: 120,
-  },
   section: {
     marginBottom: 24,
   },
   sectionTitle: {
     fontSize: 16,
     fontWeight: '700' as const,
-    color: Colors.text.primary,
     marginBottom: 12,
   },
   labelsContainer: {
@@ -307,9 +384,7 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
     paddingHorizontal: 16,
     borderRadius: 12,
-    backgroundColor: Colors.white,
     borderWidth: 2,
-    borderColor: Colors.border.light,
   },
   labelIcon: {
     width: 32,
@@ -321,17 +396,13 @@ const styles = StyleSheet.create({
   labelText: {
     fontSize: 14,
     fontWeight: '600' as const,
-    color: Colors.text.primary,
   },
   textArea: {
-    backgroundColor: Colors.white,
     borderRadius: 12,
     padding: 16,
     fontSize: 15,
-    color: Colors.text.primary,
     minHeight: 80,
     borderWidth: 1.5,
-    borderColor: Colors.border.light,
   },
   locationButton: {
     flexDirection: 'row' as const,
@@ -343,21 +414,34 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     borderRadius: 10,
     borderWidth: 1.5,
-    borderColor: Colors.primary,
-    backgroundColor: `${Colors.primary}08`,
   },
   locationButtonText: {
     fontSize: 14,
     fontWeight: '600' as const,
     color: Colors.primary,
   },
+  searchContainer: {
+    marginBottom: 12,
+  },
+  searchInputWrapper: {
+    flexDirection: 'row' as const,
+    alignItems: 'center' as const,
+    borderRadius: 10,
+    paddingHorizontal: 12,
+    height: 44,
+    gap: 8,
+    borderWidth: 1.5,
+  },
+  searchInput: {
+    flex: 1,
+    fontSize: 15,
+    height: '100%' as const,
+  },
   mapContainer: {
     borderRadius: 12,
     overflow: 'hidden' as const,
     height: 250,
-    backgroundColor: Colors.background.secondary,
     borderWidth: 1.5,
-    borderColor: Colors.border.light,
   },
   map: {
     width: '100%' as const,
@@ -380,11 +464,9 @@ const styles = StyleSheet.create({
     flexDirection: 'row' as const,
     alignItems: 'center' as const,
     justifyContent: 'space-between' as const,
-    backgroundColor: Colors.white,
     borderRadius: 12,
     padding: 16,
     borderWidth: 1.5,
-    borderColor: Colors.border.light,
   },
   switchInfo: {
     flex: 1,
@@ -393,39 +475,27 @@ const styles = StyleSheet.create({
   switchLabel: {
     fontSize: 15,
     fontWeight: '600' as const,
-    color: Colors.text.primary,
     marginBottom: 4,
   },
   switchDescription: {
     fontSize: 13,
-    color: Colors.text.secondary,
     lineHeight: 18,
   },
-  footer: {
-    position: 'absolute' as const,
-    bottom: 0,
-    left: 0,
-    right: 0,
+  footerContent: {
     flexDirection: 'row' as const,
     gap: 12,
-    padding: 16,
-    backgroundColor: Colors.white,
-    borderTopWidth: 1,
-    borderTopColor: Colors.border.light,
   },
   cancelButton: {
     flex: 1,
     height: 52,
     borderRadius: 12,
     borderWidth: 2,
-    borderColor: Colors.border.medium,
     justifyContent: 'center' as const,
     alignItems: 'center' as const,
   },
   cancelButtonText: {
     fontSize: 16,
     fontWeight: '600' as const,
-    color: Colors.text.primary,
   },
   submitButtonContainer: {
     flex: 2,

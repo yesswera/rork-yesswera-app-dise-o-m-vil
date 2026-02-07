@@ -1,18 +1,59 @@
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Alert } from 'react-native';
+// ============================================================================
+// YESSWERA: PANTALLA DE PERFIL
+// Usa ScreenContainer para diseño unificado
+// ============================================================================
+
+import { View, TouchableOpacity, Alert, StyleSheet } from 'react-native';
 import { useRouter } from 'expo-router';
-import { ChevronLeft, Edit2, LogOut, Mail, Phone, User as UserIcon, Star, History, Moon, Sun, Smartphone } from 'lucide-react-native';
+import {
+  Edit2,
+  LogOut,
+  Mail,
+  Phone,
+  User as UserIcon,
+  Star,
+  History,
+  Moon,
+  Sun,
+  Smartphone,
+  Type,
+  Volume2,
+} from 'lucide-react-native';
 import { useAuth } from '@/contexts/auth';
 import { useTheme } from '@/contexts/theme';
-import Colors from '@/constants/colors';
-import { StatusBar } from 'expo-status-bar';
+import { ThemedText } from '@/components/themed';
 import { HapticFeedback } from '@/utils/haptics';
 import Avatar from '@/components/Avatar';
 import Badge from '@/components/Badge';
+import ScreenContainer from '@/components/ScreenContainer';
+import SoundSettings from '@/components/SoundSettings';
+
+// Colores explícitos para modo oscuro
+const COLORS = {
+  light: {
+    card: '#FFFFFF',
+    cardAlt: '#F5F5F4',
+    border: '#E7E5E4',
+    text: '#1C1917',
+    textSecondary: '#57534E',
+    textMuted: '#A8A29E',
+  },
+  dark: {
+    card: '#292524',
+    cardAlt: '#44403C',
+    border: '#44403C',
+    text: '#FAFAFA',
+    textSecondary: '#D6D3D1',
+    textMuted: '#78716C',
+  },
+};
 
 export default function ProfileScreen() {
   const router = useRouter();
   const { user, logout } = useAuth();
-  const { mode, isDark, setMode, colors } = useTheme();
+  const { mode, isDark, setMode, cycleSizeLevel, sizeLevelLabel, colors } = useTheme();
+
+  const theme = isDark ? COLORS.dark : COLORS.light;
 
   const getThemeModeLabel = () => {
     switch (mode) {
@@ -23,9 +64,9 @@ export default function ProfileScreen() {
   };
 
   const getThemeIcon = () => {
-    if (mode === 'light') return <Sun size={20} color={Colors.warning} />;
-    if (mode === 'dark') return <Moon size={20} color={Colors.accent} />;
-    return <Smartphone size={20} color={Colors.primary} />;
+    if (mode === 'light') return <Sun size={20} color={colors.warning} />;
+    if (mode === 'dark') return <Moon size={20} color={colors.accent} />;
+    return <Smartphone size={20} color={colors.primary} />;
   };
 
   const cycleTheme = () => {
@@ -35,6 +76,11 @@ export default function ProfileScreen() {
     else setMode('light');
   };
 
+  const handleSizeChange = () => {
+    HapticFeedback.light();
+    cycleSizeLevel();
+  };
+
   if (!user) {
     router.replace('/login' as any);
     return null;
@@ -42,14 +88,10 @@ export default function ProfileScreen() {
 
   const getUserTypeLabel = () => {
     switch (user.userType) {
-      case 'client':
-        return 'Cliente';
-      case 'driver':
-        return 'Repartidor';
-      case 'business':
-        return 'Negocio';
-      default:
-        return user.userType;
+      case 'client': return 'Cliente';
+      case 'driver': return 'Repartidor';
+      case 'business': return 'Negocio';
+      default: return user.userType;
     }
   };
 
@@ -59,10 +101,7 @@ export default function ProfileScreen() {
       'Cerrar Sesión',
       '¿Estás seguro que quieres salir de tu cuenta?',
       [
-        {
-          text: 'Cancelar',
-          style: 'cancel',
-        },
+        { text: 'Cancelar', style: 'cancel' },
         {
           text: 'Salir',
           style: 'destructive',
@@ -77,328 +116,239 @@ export default function ProfileScreen() {
   };
 
   return (
-    <View style={[styles.container, { backgroundColor: colors.background.secondary }]}>
-      <StatusBar style={isDark ? "light" : "dark"} />
-      
-      <View style={styles.header}>
-        <TouchableOpacity
-          style={styles.backButton}
-          onPress={() => router.back()}
-          activeOpacity={0.7}
-        >
-          <ChevronLeft size={24} color={Colors.white} />
-        </TouchableOpacity>
-        <Text style={styles.headerTitle}>Perfil</Text>
-        <View style={styles.headerSpacer} />
+    <ScreenContainer
+      headerGradient="primary"
+      headerIcon={UserIcon}
+      headerTitle="Mi Perfil"
+      headerSubtitle="Gestiona tu información personal"
+    >
+      {/* Avatar Section */}
+      <View style={[styles.avatarSection, { backgroundColor: theme.card }]}>
+        <View style={styles.avatarWrapper}>
+          <Avatar name={user.name} imageUri={user.avatar} size="xlarge" />
+        </View>
+        <ThemedText variant="h3" style={styles.userName}>{user.name}</ThemedText>
+        <Badge
+          label={getUserTypeLabel()}
+          variant={user.userType === 'client' ? 'primary' : user.userType === 'driver' ? 'accent' : 'secondary'}
+          size="medium"
+        />
+        {user.userType === 'driver' && user.rating && (
+          <View style={styles.ratingContainer}>
+            <Star size={18} color={colors.accent} fill={colors.accent} />
+            <ThemedText variant="subtitle" bold>{user.rating.toFixed(1)}</ThemedText>
+          </View>
+        )}
       </View>
 
-      <ScrollView style={styles.scrollView} showsVerticalScrollIndicator={false}>
-        <View style={styles.avatarSection}>
-          <View style={styles.avatarContainer}>
-            <Avatar name={user.name} imageUri={user.avatar} size="xlarge" />
+      {/* Info Section */}
+      <View style={styles.section}>
+        <ThemedText variant="subtitle" bold style={styles.sectionTitle}>
+          Información Personal
+        </ThemedText>
+        <View style={[styles.card, { backgroundColor: theme.card, borderColor: theme.border }]}>
+          {/* Email */}
+          <View style={styles.infoRow}>
+            <View style={[styles.infoIcon, { backgroundColor: colors.primary + '15' }]}>
+              <Mail size={20} color={colors.primary} />
+            </View>
+            <View style={styles.infoContent}>
+              <ThemedText variant="caption" color="secondary">Email</ThemedText>
+              <ThemedText variant="body">{user.email}</ThemedText>
+            </View>
           </View>
-          <Text style={styles.name}>{user.name}</Text>
-          <Badge 
-            label={getUserTypeLabel()} 
-            variant={user.userType === 'client' ? 'primary' : user.userType === 'driver' ? 'accent' : 'secondary'}
-            size="medium"
-          />
-          {user.userType === 'driver' && user.rating && (
-            <View style={styles.ratingContainer}>
-              <Star size={18} color={Colors.gold} fill={Colors.gold} />
-              <Text style={styles.ratingText}>{user.rating.toFixed(1)}</Text>
+
+          <View style={[styles.dividerLine, { backgroundColor: theme.border }]} />
+
+          {/* Phone */}
+          <View style={styles.infoRow}>
+            <View style={[styles.infoIcon, { backgroundColor: colors.primary + '15' }]}>
+              <Phone size={20} color={colors.primary} />
             </View>
-          )}
-        </View>
-
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Información Personal</Text>
-          <View style={styles.card}>
-            <View style={styles.infoRow}>
-              <View style={styles.infoIcon}>
-                <Mail size={20} color={Colors.primary} />
-              </View>
-              <View style={styles.infoContent}>
-                <Text style={styles.infoLabel}>Email</Text>
-                <Text style={styles.infoValue}>{user.email}</Text>
-              </View>
+            <View style={styles.infoContent}>
+              <ThemedText variant="caption" color="secondary">Teléfono</ThemedText>
+              <ThemedText variant="body">{user.phone}</ThemedText>
             </View>
+          </View>
 
-            <View style={styles.divider} />
+          <View style={[styles.dividerLine, { backgroundColor: theme.border }]} />
 
-            <View style={styles.infoRow}>
-              <View style={styles.infoIcon}>
-                <Phone size={20} color={Colors.primary} />
-              </View>
-              <View style={styles.infoContent}>
-                <Text style={styles.infoLabel}>Teléfono</Text>
-                <Text style={styles.infoValue}>{user.phone}</Text>
-              </View>
+          {/* User Type */}
+          <View style={styles.infoRow}>
+            <View style={[styles.infoIcon, { backgroundColor: colors.primary + '15' }]}>
+              <UserIcon size={20} color={colors.primary} />
             </View>
-
-            <View style={styles.divider} />
-
-            <View style={styles.infoRow}>
-              <View style={styles.infoIcon}>
-                <UserIcon size={20} color={Colors.primary} />
-              </View>
-              <View style={styles.infoContent}>
-                <Text style={styles.infoLabel}>Tipo de Usuario</Text>
-                <Text style={styles.infoValue}>{getUserTypeLabel()}</Text>
-              </View>
+            <View style={styles.infoContent}>
+              <ThemedText variant="caption" color="secondary">Tipo de Usuario</ThemedText>
+              <ThemedText variant="body">{getUserTypeLabel()}</ThemedText>
             </View>
           </View>
         </View>
+      </View>
 
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Acciones</Text>
-          
-          <TouchableOpacity
-            style={styles.actionButton}
-            onPress={() => {
-              HapticFeedback.light();
-              router.push('/profile/edit' as any);
-            }}
-            activeOpacity={0.7}
-          >
-            <View style={styles.actionIconContainer}>
-              <Edit2 size={20} color={Colors.primary} />
-            </View>
-            <Text style={styles.actionButtonText}>Editar Perfil</Text>
-          </TouchableOpacity>
+      {/* Actions Section */}
+      <View style={styles.section}>
+        <ThemedText variant="subtitle" bold style={styles.sectionTitle}>
+          Acciones
+        </ThemedText>
 
-          <TouchableOpacity
-            style={styles.actionButton}
-            onPress={() => {
-              HapticFeedback.light();
-              router.push('/orders/history' as any);
-            }}
-            activeOpacity={0.7}
-          >
-            <View style={styles.actionIconContainer}>
-              <History size={20} color={Colors.accent} />
-            </View>
-            <Text style={styles.actionButtonText}>Historial de Órdenes</Text>
-          </TouchableOpacity>
+        {/* Edit Profile */}
+        <TouchableOpacity
+          style={[styles.actionButton, { backgroundColor: theme.card, borderColor: theme.border }]}
+          onPress={() => {
+            HapticFeedback.light();
+            router.push('/profile/edit' as any);
+          }}
+          activeOpacity={0.7}
+        >
+          <View style={[styles.actionIcon, { backgroundColor: colors.primary + '15' }]}>
+            <Edit2 size={20} color={colors.primary} />
+          </View>
+          <ThemedText variant="body" bold>Editar Perfil</ThemedText>
+        </TouchableOpacity>
 
-          <TouchableOpacity
-            style={styles.actionButton}
-            onPress={cycleTheme}
-            activeOpacity={0.7}
-          >
-            <View style={styles.actionIconContainer}>
-              {getThemeIcon()}
-            </View>
-            <View style={styles.themeContent}>
-              <Text style={styles.actionButtonText}>Tema</Text>
-              <Text style={styles.themeValue}>{getThemeModeLabel()}</Text>
-            </View>
-          </TouchableOpacity>
+        {/* Order History */}
+        <TouchableOpacity
+          style={[styles.actionButton, { backgroundColor: theme.card, borderColor: theme.border }]}
+          onPress={() => {
+            HapticFeedback.light();
+            router.push('/orders/history' as any);
+          }}
+          activeOpacity={0.7}
+        >
+          <View style={[styles.actionIcon, { backgroundColor: colors.accent + '15' }]}>
+            <History size={20} color={colors.accent} />
+          </View>
+          <ThemedText variant="body" bold>Historial de Órdenes</ThemedText>
+        </TouchableOpacity>
 
-          <TouchableOpacity
-            style={[styles.actionButton, styles.logoutButton]}
-            onPress={handleLogout}
-            activeOpacity={0.7}
-          >
-            <View style={[styles.actionIconContainer, styles.logoutIconContainer]}>
-              <LogOut size={20} color={Colors.error} />
-            </View>
-            <Text style={[styles.actionButtonText, styles.logoutButtonText]}>
-              Cerrar Sesión
-            </Text>
-          </TouchableOpacity>
-        </View>
-      </ScrollView>
-    </View>
+        {/* Theme Toggle */}
+        <TouchableOpacity
+          style={[styles.actionButton, { backgroundColor: theme.card, borderColor: theme.border }]}
+          onPress={cycleTheme}
+          activeOpacity={0.7}
+        >
+          <View style={[styles.actionIcon, { backgroundColor: colors.warning + '15' }]}>
+            {getThemeIcon()}
+          </View>
+          <View style={styles.themeContent}>
+            <ThemedText variant="body" bold>Tema</ThemedText>
+            <ThemedText variant="label" color="secondary">{getThemeModeLabel()}</ThemedText>
+          </View>
+        </TouchableOpacity>
+
+        {/* Size Toggle */}
+        <TouchableOpacity
+          style={[styles.actionButton, { backgroundColor: theme.card, borderColor: theme.border }]}
+          onPress={handleSizeChange}
+          activeOpacity={0.7}
+        >
+          <View style={[styles.actionIcon, { backgroundColor: colors.secondary + '15' }]}>
+            <Type size={20} color={colors.secondary} />
+          </View>
+          <View style={styles.themeContent}>
+            <ThemedText variant="body" bold>Tamaño de Texto</ThemedText>
+            <ThemedText variant="label" color="secondary">{sizeLevelLabel}</ThemedText>
+          </View>
+        </TouchableOpacity>
+
+        {/* Sound Settings */}
+        <SoundSettings />
+
+        {/* Logout */}
+        <TouchableOpacity
+          style={[styles.actionButton, styles.logoutButton, { backgroundColor: theme.card, borderColor: colors.error }]}
+          onPress={handleLogout}
+          activeOpacity={0.7}
+        >
+          <View style={[styles.actionIcon, { backgroundColor: colors.error + '15' }]}>
+            <LogOut size={20} color={colors.error} />
+          </View>
+          <ThemedText variant="body" color="error" bold>Cerrar Sesión</ThemedText>
+        </TouchableOpacity>
+      </View>
+
+      <View style={styles.bottomSpacer} />
+    </ScreenContainer>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: Colors.background.secondary,
-  },
-  header: {
-    backgroundColor: Colors.black,
-    flexDirection: 'row' as const,
-    alignItems: 'center' as const,
-    justifyContent: 'space-between' as const,
-    paddingTop: 60,
-    paddingBottom: 16,
-    paddingHorizontal: 20,
-  },
-  backButton: {
-    width: 40,
-    height: 40,
-    justifyContent: 'center' as const,
-    alignItems: 'center' as const,
-  },
-  headerTitle: {
-    fontSize: 18,
-    fontWeight: '700' as const,
-    color: Colors.white,
-  },
-  headerSpacer: {
-    width: 40,
-  },
-  scrollView: {
-    flex: 1,
-  },
   avatarSection: {
-    alignItems: 'center' as const,
-    paddingVertical: 32,
-    backgroundColor: Colors.white,
+    alignItems: 'center',
+    paddingVertical: 24,
+    marginHorizontal: -16,
+    marginTop: -16,
+  },
+  avatarWrapper: {
     marginBottom: 16,
   },
-  avatarContainer: {
-    marginBottom: 16,
-  },
-  avatar: {
-    width: 100,
-    height: 100,
-    borderRadius: 50,
-    backgroundColor: Colors.primary,
-    justifyContent: 'center' as const,
-    alignItems: 'center' as const,
-    shadowColor: Colors.shadow.medium,
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 1,
-    shadowRadius: 12,
-    elevation: 5,
-  },
-  avatarText: {
-    fontSize: 36,
-    fontWeight: '700' as const,
-    color: Colors.white,
-  },
-  name: {
-    fontSize: 24,
-    fontWeight: '700' as const,
-    color: Colors.text.primary,
+  userName: {
     marginBottom: 8,
-  },
-  typeBadge: {
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    borderRadius: 20,
-    marginBottom: 8,
-  },
-  typeBadgeText: {
-    fontSize: 14,
-    fontWeight: '600' as const,
   },
   ratingContainer: {
-    flexDirection: 'row' as const,
-    alignItems: 'center' as const,
-    gap: 6,
-    marginTop: 4,
-  },
-  ratingText: {
-    fontSize: 16,
-    fontWeight: '600' as const,
-    color: Colors.text.primary,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    marginTop: 8,
   },
   section: {
-    paddingHorizontal: 20,
-    marginBottom: 24,
+    marginTop: 16,
   },
   sectionTitle: {
-    fontSize: 16,
-    fontWeight: '700' as const,
-    color: Colors.text.primary,
     marginBottom: 12,
   },
   card: {
-    backgroundColor: Colors.white,
-    borderRadius: 16,
+    borderRadius: 12,
     padding: 16,
     borderWidth: 1,
-    borderColor: Colors.border.light,
-    shadowColor: Colors.shadow.light,
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 1,
-    shadowRadius: 8,
-    elevation: 2,
   },
   infoRow: {
-    flexDirection: 'row' as const,
-    alignItems: 'center' as const,
+    flexDirection: 'row',
+    alignItems: 'center',
     paddingVertical: 8,
   },
   infoIcon: {
     width: 40,
     height: 40,
     borderRadius: 20,
-    backgroundColor: `${Colors.primary}10`,
-    justifyContent: 'center' as const,
-    alignItems: 'center' as const,
+    justifyContent: 'center',
+    alignItems: 'center',
     marginRight: 12,
   },
   infoContent: {
     flex: 1,
   },
-  infoLabel: {
-    fontSize: 12,
-    color: Colors.text.secondary,
-    marginBottom: 2,
-  },
-  infoValue: {
-    fontSize: 15,
-    fontWeight: '500' as const,
-    color: Colors.text.primary,
-  },
-  divider: {
+  dividerLine: {
     height: 1,
-    backgroundColor: Colors.border.light,
-    marginVertical: 8,
+    marginVertical: 4,
   },
   actionButton: {
-    flexDirection: 'row' as const,
-    alignItems: 'center' as const,
-    backgroundColor: Colors.white,
+    flexDirection: 'row',
+    alignItems: 'center',
     borderRadius: 12,
     padding: 16,
-    marginBottom: 12,
+    marginBottom: 8,
     borderWidth: 1,
-    borderColor: Colors.border.light,
-    shadowColor: Colors.shadow.light,
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 1,
-    shadowRadius: 4,
-    elevation: 1,
-  },
-  actionIconContainer: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: `${Colors.primary}10`,
-    justifyContent: 'center' as const,
-    alignItems: 'center' as const,
-    marginRight: 12,
-  },
-  actionButtonText: {
-    fontSize: 16,
-    fontWeight: '600' as const,
-    color: Colors.text.primary,
   },
   logoutButton: {
     marginTop: 8,
   },
-  logoutIconContainer: {
-    backgroundColor: `${Colors.error}10`,
-  },
-  logoutButtonText: {
-    color: Colors.error,
+  actionIcon: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 12,
   },
   themeContent: {
     flex: 1,
-    flexDirection: 'row' as const,
-    justifyContent: 'space-between' as const,
-    alignItems: 'center' as const,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
   },
-  themeValue: {
-    fontSize: 14,
-    fontWeight: '500' as const,
-    color: Colors.text.secondary,
+  bottomSpacer: {
+    height: 40,
   },
 });

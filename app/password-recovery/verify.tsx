@@ -1,30 +1,65 @@
+// ============================================================================
+// YESSWERA: RECUPERAR CONTRASENA - VERIFICAR CODIGO
+// Usa ScreenContainer para diseño unificado con soporte de tema oscuro
+// ============================================================================
+
 import { useState, useRef, useEffect } from 'react';
-import { StyleSheet, Text, View, TouchableOpacity, KeyboardAvoidingView, Platform, ScrollView, TextInput, Animated } from 'react-native';
+import {
+  View,
+  TouchableOpacity,
+  TextInput,
+  StyleSheet,
+} from 'react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
-import { ChevronLeft } from 'lucide-react-native';
-import Colors from '@/constants/colors';
+import { ShieldCheck, ArrowLeft } from 'lucide-react-native';
+import { useTheme } from '@/contexts/theme';
+import { ThemedText } from '@/components/themed';
+import ScreenContainer from '@/components/ScreenContainer';
 import LoadingButton from '@/components/LoadingButton';
 import { Toast } from '@/utils/toast';
 import { HapticFeedback } from '@/utils/haptics';
-import { StatusBar } from 'expo-status-bar';
+
+// ============================================================================
+// COLORES EXPLÍCITOS PARA MODO OSCURO
+// ============================================================================
+
+const COLORS = {
+  light: {
+    card: '#FFFFFF',
+    cardAlt: '#F5F5F4',
+    border: '#E7E5E4',
+    borderMedium: '#D6D3D1',
+    text: '#1C1917',
+    textSecondary: '#57534E',
+    textMuted: '#A8A29E',
+  },
+  dark: {
+    card: '#292524',
+    cardAlt: '#44403C',
+    border: '#44403C',
+    borderMedium: '#57534E',
+    text: '#FAFAFA',
+    textSecondary: '#D6D3D1',
+    textMuted: '#78716C',
+  },
+};
 
 export default function PasswordRecoveryVerifyScreen() {
   const router = useRouter();
   const { email } = useLocalSearchParams();
+  const { colors, isDark } = useTheme();
+  const theme = isDark ? COLORS.dark : COLORS.light;
+
   const [code, setCode] = useState<string[]>(['', '', '', '', '', '']);
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const inputRefs = useRef<(TextInput | null)[]>([]);
-  const fadeAnim = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
-    Animated.timing(fadeAnim, {
-      toValue: 1,
-      duration: 500,
-      useNativeDriver: true,
-    }).start();
-    
-    inputRefs.current[0]?.focus();
-  }, [fadeAnim]);
+    // Focus first input on mount
+    setTimeout(() => {
+      inputRefs.current[0]?.focus();
+    }, 500);
+  }, []);
 
   const handleCodeChange = (value: string, index: number) => {
     if (!/^\d*$/.test(value)) return;
@@ -46,24 +81,24 @@ export default function PasswordRecoveryVerifyScreen() {
 
   const handleVerifyCode = async () => {
     const codeString = code.join('');
-    
+
     if (codeString.length < 6) {
       HapticFeedback.error();
-      Toast.error('Ingresa el código completo');
+      Toast.error('Ingresa el codigo completo');
       return;
     }
 
     setIsLoading(true);
     try {
       await new Promise(resolve => setTimeout(resolve, 1500));
-      
+
       HapticFeedback.success();
-      Toast.success('Código verificado correctamente');
+      Toast.success('Codigo verificado correctamente');
       router.push(`/password-recovery/reset?code=${codeString}` as any);
     } catch (error) {
       console.error('Verify code error:', error);
       HapticFeedback.error();
-      Toast.error('Código incorrecto. Intenta nuevamente.');
+      Toast.error('Codigo incorrecto. Intenta nuevamente.');
     } finally {
       setIsLoading(false);
     }
@@ -71,146 +106,134 @@ export default function PasswordRecoveryVerifyScreen() {
 
   const handleResendCode = async () => {
     HapticFeedback.light();
-    Toast.info('Código reenviado a tu correo');
+    Toast.info('Codigo reenviado a tu correo');
     setCode(['', '', '', '', '', '']);
     inputRefs.current[0]?.focus();
   };
 
   const isCodeComplete = code.every(digit => digit !== '');
 
+  // Header content con boton de regreso
+  const headerContent = (
+    <View style={styles.headerControls}>
+      <TouchableOpacity
+        style={styles.backButton}
+        onPress={() => router.back()}
+      >
+        <ArrowLeft size={24} color="#FFFFFF" />
+      </TouchableOpacity>
+      <View style={styles.headerSpacer} />
+    </View>
+  );
+
   return (
-    <KeyboardAvoidingView 
-      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-      style={styles.container}
+    <ScreenContainer
+      headerGradient="secondary"
+      headerIcon={ShieldCheck}
+      headerTitle="Verificar Codigo"
+      headerSubtitle="Ingresa el codigo de 6 digitos"
+      headerContent={headerContent}
     >
-      <StatusBar style="light" />
-      
-      <View style={styles.header}>
-        <TouchableOpacity
-          style={styles.backButton}
-          onPress={() => router.back()}
-          activeOpacity={0.7}
-        >
-          <ChevronLeft size={24} color={Colors.white} />
-        </TouchableOpacity>
-        <Text style={styles.headerTitle}>Verificar Código</Text>
-        <View style={styles.headerSpacer} />
+      <ThemedText variant="h3" center style={styles.title}>
+        Verifica tu Codigo
+      </ThemedText>
+
+      <ThemedText variant="body" color="secondary" center style={styles.subtitle}>
+        Enviamos un codigo de 6 digitos a {email || 'tu correo'}
+      </ThemedText>
+
+      <View style={styles.codeContainer}>
+        {code.map((digit, index) => (
+          <TextInput
+            key={index}
+            ref={(ref) => { inputRefs.current[index] = ref; }}
+            style={[
+              styles.codeInput,
+              {
+                backgroundColor: theme.card,
+                borderColor: digit ? colors.primary : theme.border,
+                color: theme.text,
+              },
+              digit && { backgroundColor: colors.primary + '08' },
+            ]}
+            value={digit}
+            onChangeText={(value) => handleCodeChange(value, index)}
+            onKeyPress={({ nativeEvent: { key } }) => handleKeyPress(key, index)}
+            keyboardType="number-pad"
+            maxLength={1}
+            selectTextOnFocus
+            editable={!isLoading}
+          />
+        ))}
       </View>
 
-      <ScrollView 
-        contentContainerStyle={styles.scrollContent}
-        keyboardShouldPersistTaps="handled"
-      >
-        <Animated.View style={{ opacity: fadeAnim }}>
-          <Text style={styles.title}>Verifica tu Código</Text>
-          
-          <Text style={styles.subtitle}>
-            Enviamos un código de 6 dígitos a {email || 'tu correo'}
-          </Text>
+      <LoadingButton
+        title="Verificar Codigo"
+        onPress={handleVerifyCode}
+        loading={isLoading}
+        variant="primary"
+        disabled={!isCodeComplete}
+      />
 
-          <View style={styles.codeContainer}>
-            {code.map((digit, index) => (
-              <TextInput
-                key={index}
-                ref={(ref) => { inputRefs.current[index] = ref; }}
-                style={[
-                  styles.codeInput,
-                  digit && styles.codeInputFilled,
-                ]}
-                value={digit}
-                onChangeText={(value) => handleCodeChange(value, index)}
-                onKeyPress={({ nativeEvent: { key } }) => handleKeyPress(key, index)}
-                keyboardType="number-pad"
-                maxLength={1}
-                selectTextOnFocus
-                editable={!isLoading}
-              />
-            ))}
-          </View>
+      <View style={styles.linksContainer}>
+        <TouchableOpacity
+          onPress={handleResendCode}
+          disabled={isLoading}
+          style={styles.linkButton}
+        >
+          <ThemedText variant="body" color="primary" bold>
+            Reenviar codigo
+          </ThemedText>
+        </TouchableOpacity>
 
-          <LoadingButton
-            title="Verificar Código"
-            onPress={handleVerifyCode}
-            loading={isLoading}
-            variant="primary"
-            disabled={!isCodeComplete}
-          />
+        <ThemedText variant="body" color="muted" style={styles.linkSeparator}>
+          -
+        </ThemedText>
 
-          <View style={styles.linksContainer}>
-            <TouchableOpacity
-              onPress={handleResendCode}
-              disabled={isLoading}
-              style={styles.linkButton}
-            >
-              <Text style={styles.linkText}>Reenviar código</Text>
-            </TouchableOpacity>
+        <TouchableOpacity
+          onPress={() => router.back()}
+          disabled={isLoading}
+          style={styles.linkButton}
+        >
+          <ThemedText variant="body" color="primary" bold>
+            Cambiar email
+          </ThemedText>
+        </TouchableOpacity>
+      </View>
 
-            <Text style={styles.linkSeparator}>•</Text>
-
-            <TouchableOpacity
-              onPress={() => router.back()}
-              disabled={isLoading}
-              style={styles.linkButton}
-            >
-              <Text style={styles.linkText}>Cambiar email</Text>
-            </TouchableOpacity>
-          </View>
-        </Animated.View>
-      </ScrollView>
-    </KeyboardAvoidingView>
+      <View style={{ height: 40 }} />
+    </ScreenContainer>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: Colors.background.primary,
-  },
-  header: {
-    backgroundColor: Colors.black,
-    flexDirection: 'row' as const,
-    alignItems: 'center' as const,
-    justifyContent: 'space-between' as const,
-    paddingTop: 60,
-    paddingBottom: 16,
-    paddingHorizontal: 20,
+  headerControls: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 8,
   },
   backButton: {
-    width: 40,
-    height: 40,
-    justifyContent: 'center' as const,
-    alignItems: 'center' as const,
-  },
-  headerTitle: {
-    fontSize: 18,
-    fontWeight: '700' as const,
-    color: Colors.white,
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: 'rgba(255, 255, 255, 0.2)',
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   headerSpacer: {
-    width: 40,
-  },
-  scrollContent: {
-    flexGrow: 1,
-    padding: 24,
-    paddingTop: 40,
+    width: 44,
   },
   title: {
-    fontSize: 26,
-    fontWeight: '700' as const,
-    color: Colors.text.primary,
-    textAlign: 'center' as const,
     marginBottom: 12,
   },
   subtitle: {
-    fontSize: 15,
-    color: Colors.text.secondary,
-    textAlign: 'center' as const,
     marginBottom: 32,
     lineHeight: 22,
   },
   codeContainer: {
-    flexDirection: 'row' as const,
-    justifyContent: 'space-between' as const,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
     marginBottom: 32,
     gap: 8,
   },
@@ -218,35 +241,23 @@ const styles = StyleSheet.create({
     flex: 1,
     height: 60,
     borderWidth: 2,
-    borderColor: Colors.border.light,
     borderRadius: 12,
-    textAlign: 'center' as const,
+    textAlign: 'center',
     fontSize: 24,
-    fontWeight: '700' as const,
-    color: Colors.text.primary,
-    backgroundColor: Colors.white,
-  },
-  codeInputFilled: {
-    borderColor: Colors.primary,
-    backgroundColor: `${Colors.primary}05`,
+    fontWeight: '700',
   },
   linksContainer: {
-    flexDirection: 'row' as const,
-    justifyContent: 'center' as const,
-    alignItems: 'center' as const,
+    flexDirection: 'row',
+    justifyContent: 'center',
+    alignItems: 'center',
     marginTop: 24,
     gap: 12,
   },
   linkButton: {
     paddingVertical: 8,
-  },
-  linkText: {
-    fontSize: 14,
-    fontWeight: '600' as const,
-    color: Colors.primary,
+    paddingHorizontal: 4,
   },
   linkSeparator: {
     fontSize: 14,
-    color: Colors.text.secondary,
   },
 });

@@ -1,16 +1,50 @@
+// ============================================================================
+// YESSWERA: DASHBOARD DEL NEGOCIO
+// Usa ScreenContainer para diseño unificado
+// ============================================================================
+
 import { useState, useEffect, useCallback } from 'react';
-import { StyleSheet, Text, View, TouchableOpacity, ScrollView, Alert, BackHandler } from 'react-native';
+import { View, TouchableOpacity, Alert, BackHandler, StyleSheet } from 'react-native';
 import { useRouter, useFocusEffect } from 'expo-router';
-import { DollarSign, Package, TrendingUp, LogOut, ShoppingBag, Monitor } from 'lucide-react-native';
-import { LinearGradient } from 'expo-linear-gradient';
-import Colors from '@/constants/colors';
+import { DollarSign, Package, TrendingUp, LogOut, ShoppingBag, Monitor, Store } from 'lucide-react-native';
 import { useAuth } from '@/contexts/auth';
+import { useTheme } from '@/contexts/theme';
+import { ThemedText } from '@/components/themed';
+import AccessibilityControls from '@/components/AccessibilityControls';
+import ScreenContainer from '@/components/ScreenContainer';
 import { supabase } from '@/constants/supabase';
+
+// ============================================================================
+// COLORES EXPLICITOS PARA MODO OSCURO
+// ============================================================================
+
+const COLORS = {
+  light: {
+    card: '#FFFFFF',
+    cardAlt: '#F5F5F4',
+    border: '#E7E5E4',
+    text: '#1C1917',
+    textSecondary: '#57534E',
+    textMuted: '#A8A29E',
+  },
+  dark: {
+    card: '#292524',
+    cardAlt: '#44403C',
+    border: '#44403C',
+    text: '#FAFAFA',
+    textSecondary: '#D6D3D1',
+    textMuted: '#78716C',
+  },
+};
 
 export default function BusinessDashboardScreen() {
   const router = useRouter();
   const { user, logout } = useAuth();
+  const { isDark, colors, space, radius } = useTheme();
+  const theme = isDark ? COLORS.dark : COLORS.light;
+
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
   const [stats, setStats] = useState({
     todayOrders: 0,
     todayRevenue: 0,
@@ -22,22 +56,16 @@ export default function BusinessDashboardScreen() {
     loadStats();
   }, []);
 
-  // Prevenir que el botón de atrás lleve al home
+  // Prevenir boton atras
   useFocusEffect(
     useCallback(() => {
       const onBackPress = () => {
-        // Mostrar confirmación en lugar de salir
-        Alert.alert(
-          'Cerrar Sesión',
-          '¿Quieres cerrar sesión?',
-          [
-            { text: 'Cancelar', style: 'cancel' },
-            { text: 'Cerrar Sesión', style: 'destructive', onPress: () => handleLogout() },
-          ]
-        );
-        return true; // Prevenir comportamiento por defecto
+        Alert.alert('Cerrar Sesion', 'Quieres cerrar sesion?', [
+          { text: 'Cancelar', style: 'cancel' },
+          { text: 'Cerrar Sesion', style: 'destructive', onPress: handleLogout },
+        ]);
+        return true;
       };
-
       const subscription = BackHandler.addEventListener('hardwareBackPress', onBackPress);
       return () => subscription.remove();
     }, [])
@@ -83,251 +111,185 @@ export default function BusinessDashboardScreen() {
       console.error('Error loading stats:', error);
     } finally {
       setLoading(false);
+      setRefreshing(false);
     }
   };
 
-  const handleViewOrders = () => {
-    router.push('/business/orders');
-  };
-
-  const handleManageProducts = () => {
-    Alert.alert('Próximamente', 'La gestión de productos estará disponible pronto');
+  const handleRefresh = () => {
+    setRefreshing(true);
+    loadStats();
   };
 
   const handleLogout = async () => {
-    Alert.alert(
-      'Cerrar Sesión',
-      '¿Estás seguro?',
-      [
-        { text: 'Cancelar', style: 'cancel' },
-        {
-          text: 'Salir',
-          style: 'destructive',
-          onPress: async () => {
-            await logout();
-            router.replace('/login' as any);
-          },
+    Alert.alert('Cerrar Sesion', 'Estas seguro?', [
+      { text: 'Cancelar', style: 'cancel' },
+      {
+        text: 'Salir',
+        style: 'destructive',
+        onPress: async () => {
+          await logout();
+          router.replace('/login' as any);
         },
-      ]
-    );
+      },
+    ]);
   };
 
-  // Abrir modo comanda (para tablet/segunda pantalla)
-  const handleComandaMode = () => {
-    router.push('/business/comanda-mode' as any);
-  };
+  // Header content con AccessibilityControls
+  const headerContent = (
+    <View style={styles.accessibilityRow}>
+      <AccessibilityControls variant="minimal" />
+    </View>
+  );
 
   return (
-    <View style={styles.container}>
-      <ScrollView style={styles.scrollView} showsVerticalScrollIndicator={false}>
-        <LinearGradient
-          colors={[Colors.secondary, Colors.secondaryDark]}
-          style={styles.header}
-        >
-          <View style={styles.headerContent}>
-            <Text style={styles.greeting}>Portal de Negocio</Text>
-            <Text style={styles.subtitle}>{user?.name || 'Mi Negocio'}</Text>
-          </View>
-        </LinearGradient>
-
-        <View style={styles.content}>
-          {loading ? (
-            <View style={styles.loadingContainer}>
-              <Text style={styles.loadingText}>Cargando estadísticas...</Text>
-            </View>
-          ) : (
-            <>
-              <View style={styles.statsGrid}>
-                <View style={styles.statCard}>
-                  <Package size={24} color={Colors.secondary} />
-                  <Text style={styles.statValue}>{stats.todayOrders}</Text>
-                  <Text style={styles.statLabel}>Órdenes Hoy</Text>
-                </View>
-                <View style={styles.statCard}>
-                  <DollarSign size={24} color={Colors.success} />
-                  <Text style={styles.statValue}>${stats.todayRevenue.toFixed(2)}</Text>
-                  <Text style={styles.statLabel}>Ingresos Hoy</Text>
-                </View>
-                <View style={styles.statCard}>
-                  <TrendingUp size={24} color={Colors.warning} />
-                  <Text style={styles.statValue}>{stats.rating.toFixed(1)}</Text>
-                  <Text style={styles.statLabel}>Rating</Text>
-                </View>
-                <View style={styles.statCard}>
-                  <Package size={24} color={Colors.accent} />
-                  <Text style={styles.statValue}>{stats.activeProducts}</Text>
-                  <Text style={styles.statLabel}>Productos</Text>
-                </View>
-              </View>
-
-              <View style={styles.actionsSection}>
-                <TouchableOpacity style={styles.primaryButton} onPress={handleViewOrders}>
-                  <Package size={22} color={Colors.white} />
-                  <Text style={styles.primaryButtonText}>Ver Órdenes</Text>
-                </TouchableOpacity>
-
-                <TouchableOpacity style={styles.secondaryButton} onPress={handleManageProducts}>
-                  <ShoppingBag size={22} color={Colors.secondary} />
-                  <Text style={styles.secondaryButtonText}>Gestionar Productos</Text>
-                </TouchableOpacity>
-
-                <TouchableOpacity style={styles.comandaModeButton} onPress={handleComandaMode}>
-                  <Monitor size={22} color={Colors.accent} />
-                  <Text style={styles.comandaModeButtonText}>Modo Comanda (Tablet)</Text>
-                </TouchableOpacity>
-
-                <TouchableOpacity style={styles.logoutButton} onPress={handleLogout}>
-                  <LogOut size={20} color={Colors.error} />
-                  <Text style={styles.logoutButtonText}>Cerrar Sesión</Text>
-                </TouchableOpacity>
-              </View>
-            </>
-          )}
+    <ScreenContainer
+      headerGradient="secondary"
+      headerIcon={Store}
+      headerTitle="Portal de Negocio"
+      headerSubtitle={user?.name || 'Mi Negocio'}
+      headerContent={headerContent}
+      refreshing={refreshing}
+      onRefresh={handleRefresh}
+    >
+      {loading ? (
+        <View style={styles.loadingContainer}>
+          <ThemedText variant="body" color="secondary">Cargando estadisticas...</ThemedText>
         </View>
-      </ScrollView>
-    </View>
+      ) : (
+        <>
+          {/* Stats Grid */}
+          <View style={[styles.statsGrid, { gap: space.sm, marginBottom: space.lg }]}>
+            {[
+              { icon: Package, value: stats.todayOrders, label: 'Ordenes Hoy', color: colors.secondary },
+              { icon: DollarSign, value: `$${stats.todayRevenue.toFixed(2)}`, label: 'Ingresos Hoy', color: colors.success },
+              { icon: TrendingUp, value: stats.rating.toFixed(1), label: 'Rating', color: colors.warning },
+              { icon: Package, value: stats.activeProducts, label: 'Productos', color: colors.accent },
+            ].map((stat, index) => (
+              <View
+                key={index}
+                style={[styles.statCard, {
+                  backgroundColor: theme.card,
+                  borderRadius: radius.md,
+                  padding: space.md,
+                }]}
+              >
+                <stat.icon size={24} color={stat.color} />
+                <ThemedText variant="h3" style={{ marginTop: space.xs, color: theme.text }}>{stat.value}</ThemedText>
+                <ThemedText variant="caption" style={{ color: theme.textSecondary, textAlign: 'center' }}>{stat.label}</ThemedText>
+              </View>
+            ))}
+          </View>
+
+          {/* Actions */}
+          <View style={[styles.actionsSection, { gap: space.sm }]}>
+            <TouchableOpacity
+              style={[styles.primaryButton, {
+                backgroundColor: colors.secondary,
+                borderRadius: radius.md,
+                padding: space.md,
+              }]}
+              onPress={() => router.push('/business/orders')}
+            >
+              <Package size={22} color="#fff" />
+              <ThemedText variant="subtitle" color="white" bold>Ver Ordenes</ThemedText>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={[styles.secondaryButton, {
+                backgroundColor: theme.card,
+                borderColor: colors.secondary,
+                borderRadius: radius.md,
+                padding: space.md,
+              }]}
+              onPress={() => router.push('/business/products' as any)}
+            >
+              <ShoppingBag size={22} color={colors.secondary} />
+              <ThemedText variant="subtitle" style={{ color: colors.secondary, fontWeight: '700' }}>Gestionar Productos</ThemedText>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={[styles.secondaryButton, {
+                backgroundColor: theme.card,
+                borderColor: colors.accent,
+                borderRadius: radius.md,
+                padding: space.md,
+              }]}
+              onPress={() => router.push('/business/comanda-mode' as any)}
+            >
+              <Monitor size={22} color={colors.accent} />
+              <ThemedText variant="subtitle" style={{ color: colors.accent, fontWeight: '700' }}>Modo Comanda (Tablet)</ThemedText>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={[styles.logoutButton, {
+                borderColor: colors.error,
+                borderRadius: radius.md,
+                padding: space.md,
+                marginTop: space.lg,
+              }]}
+              onPress={handleLogout}
+            >
+              <LogOut size={20} color={colors.error} />
+              <ThemedText variant="body" color="error" bold>Cerrar Sesion</ThemedText>
+            </TouchableOpacity>
+          </View>
+        </>
+      )}
+    </ScreenContainer>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: Colors.background.primary,
+  accessibilityRow: {
+    alignItems: 'flex-end',
   },
-  scrollView: {
-    flex: 1,
-  },
-  header: {
-    padding: 24,
-    paddingTop: 40,
-    paddingBottom: 32,
-  },
-  headerContent: {
-    marginTop: 20,
-  },
-  greeting: {
-    fontSize: 28,
-    fontWeight: '700' as const,
-    color: Colors.white,
-    marginBottom: 4,
-  },
-  subtitle: {
-    fontSize: 15,
-    color: 'rgba(255, 255, 255, 0.9)',
-  },
-  content: {
-    padding: 16,
-    marginTop: -16,
+  loadingContainer: {
+    paddingVertical: 40,
+    alignItems: 'center',
   },
   statsGrid: {
-    flexDirection: 'row' as const,
-    flexWrap: 'wrap' as const,
-    gap: 12,
-    marginBottom: 24,
+    flexDirection: 'row',
+    flexWrap: 'wrap',
   },
   statCard: {
     flex: 1,
-    minWidth: '47%' as const,
-    backgroundColor: Colors.white,
-    borderRadius: 12,
-    padding: 16,
-    alignItems: 'center' as const,
-    shadowColor: Colors.shadow.medium,
+    minWidth: '47%',
+    alignItems: 'center',
+    shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.08,
     shadowRadius: 8,
     elevation: 2,
   },
-  statValue: {
-    fontSize: 24,
-    fontWeight: '700' as const,
-    color: Colors.text.primary,
-    marginTop: 8,
-    marginBottom: 4,
-  },
-  statLabel: {
-    fontSize: 12,
-    color: Colors.text.secondary,
-    textAlign: 'center' as const,
-  },
-  loadingContainer: {
-    paddingVertical: 40,
-    alignItems: 'center' as const,
-  },
-  loadingText: {
-    fontSize: 15,
-    color: Colors.text.secondary,
-  },
-  actionsSection: {
-    marginTop: 8,
-    gap: 12,
-  },
+  actionsSection: {},
   primaryButton: {
     height: 56,
-    backgroundColor: Colors.secondary,
-    borderRadius: 12,
-    flexDirection: 'row' as const,
-    justifyContent: 'center' as const,
-    alignItems: 'center' as const,
+    flexDirection: 'row',
+    justifyContent: 'center',
+    alignItems: 'center',
     gap: 10,
-    shadowColor: Colors.shadow.medium,
+    shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
     shadowRadius: 8,
     elevation: 3,
   },
-  primaryButtonText: {
-    fontSize: 17,
-    fontWeight: '700' as const,
-    color: Colors.white,
-  },
   secondaryButton: {
     height: 56,
-    backgroundColor: Colors.white,
-    borderRadius: 12,
-    flexDirection: 'row' as const,
-    justifyContent: 'center' as const,
-    alignItems: 'center' as const,
+    flexDirection: 'row',
+    justifyContent: 'center',
+    alignItems: 'center',
     gap: 10,
     borderWidth: 2,
-    borderColor: Colors.secondary,
-  },
-  secondaryButtonText: {
-    fontSize: 17,
-    fontWeight: '700' as const,
-    color: Colors.secondary,
-  },
-  comandaModeButton: {
-    height: 56,
-    backgroundColor: Colors.white,
-    borderRadius: 12,
-    flexDirection: 'row' as const,
-    justifyContent: 'center' as const,
-    alignItems: 'center' as const,
-    gap: 10,
-    borderWidth: 2,
-    borderColor: Colors.accent,
-  },
-  comandaModeButtonText: {
-    fontSize: 17,
-    fontWeight: '700' as const,
-    color: Colors.accent,
   },
   logoutButton: {
     height: 52,
-    backgroundColor: Colors.white,
-    borderRadius: 12,
-    flexDirection: 'row' as const,
-    justifyContent: 'center' as const,
-    alignItems: 'center' as const,
+    flexDirection: 'row',
+    justifyContent: 'center',
+    alignItems: 'center',
     gap: 8,
     borderWidth: 1.5,
-    borderColor: Colors.error,
+    backgroundColor: 'transparent',
     marginBottom: 40,
-  },
-  logoutButtonText: {
-    fontSize: 16,
-    fontWeight: '600' as const,
-    color: Colors.error,
   },
 });

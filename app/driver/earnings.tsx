@@ -1,11 +1,47 @@
+// ============================================================================
+// YESSWERA: GANANCIAS DEL REPARTIDOR
+// Usa ScreenContainer para diseño unificado con soporte de tema
+// Usa headerGradient="secondary" (naranja) para diferenciarse
+// ============================================================================
+
 import { useState, useEffect } from 'react';
-import { StyleSheet, Text, View, ScrollView, TouchableOpacity } from 'react-native';
+import { StyleSheet, View, ScrollView, TouchableOpacity } from 'react-native';
 import { useRouter } from 'expo-router';
-import { ArrowLeft, DollarSign, Package, TrendingUp, Clock } from 'lucide-react-native';
-import { LinearGradient } from 'expo-linear-gradient';
-import Colors from '@/constants/colors';
+import { DollarSign, Package, TrendingUp, Clock } from 'lucide-react-native';
 import { useAuth } from '@/contexts/auth';
+import { useTheme } from '@/contexts/theme';
+import { ThemedText } from '@/components/themed';
+import ScreenContainer, { ScreenCard } from '@/components/ScreenContainer';
 import { supabase } from '@/constants/supabase';
+
+// ============================================================================
+// COLORES EXPLICITOS PARA MODO OSCURO
+// ============================================================================
+
+const COLORS = {
+  light: {
+    card: '#FFFFFF',
+    cardAlt: '#F5F5F4',
+    border: '#E7E5E4',
+    text: '#1C1917',
+    textSecondary: '#57534E',
+    textMuted: '#A8A29E',
+    success: '#22C55E',
+    warning: '#F59E0B',
+    error: '#EF4444',
+  },
+  dark: {
+    card: '#292524',
+    cardAlt: '#44403C',
+    border: '#44403C',
+    text: '#FAFAFA',
+    textSecondary: '#D6D3D1',
+    textMuted: '#78716C',
+    success: '#22C55E',
+    warning: '#F59E0B',
+    error: '#EF4444',
+  },
+};
 
 type Period = 'today' | 'week' | 'month';
 
@@ -30,6 +66,9 @@ interface PendingSettlement {
 export default function EarningsScreen() {
   const router = useRouter();
   const { user } = useAuth();
+  const { isDark, colors, radius, space } = useTheme();
+  const theme = isDark ? COLORS.dark : COLORS.light;
+
   const [selectedPeriod, setSelectedPeriod] = useState<Period>('today');
   const [earnings, setEarnings] = useState<EarningsData>({
     totalEarned: 0,
@@ -39,6 +78,7 @@ export default function EarningsScreen() {
   });
   const [pendingSettlements, setPendingSettlements] = useState<PendingSettlement[]>([]);
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
   const [driverId, setDriverId] = useState<string | null>(null);
 
   useEffect(() => {
@@ -147,398 +187,294 @@ export default function EarningsScreen() {
     }
   };
 
+  const handleRefresh = async () => {
+    setRefreshing(true);
+    await loadEarnings();
+    setRefreshing(false);
+  };
+
   const getPeriodLabel = () => {
     if (selectedPeriod === 'today') return 'Hoy';
     if (selectedPeriod === 'week') return 'Esta Semana';
     return 'Este Mes';
   };
 
-  return (
-    <View style={styles.container}>
-      <LinearGradient colors={[Colors.primary, Colors.primaryDark]} style={styles.header}>
-        <View style={styles.headerRow}>
-          <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
-            <ArrowLeft size={24} color={Colors.white} />
-          </TouchableOpacity>
-          <Text style={styles.headerTitle}>Mis Ganancias</Text>
-          <View style={styles.placeholder} />
-        </View>
-      </LinearGradient>
-
-      <View style={styles.content}>
-        <View style={styles.tabsContainer}>
-          <TouchableOpacity
-            style={[styles.tab, selectedPeriod === 'today' && styles.tabActive]}
-            onPress={() => setSelectedPeriod('today')}
-          >
-            <Text style={[styles.tabText, selectedPeriod === 'today' && styles.tabTextActive]}>
-              Hoy
-            </Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={[styles.tab, selectedPeriod === 'week' && styles.tabActive]}
-            onPress={() => setSelectedPeriod('week')}
-          >
-            <Text style={[styles.tabText, selectedPeriod === 'week' && styles.tabTextActive]}>
-              Esta Semana
-            </Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={[styles.tab, selectedPeriod === 'month' && styles.tabActive]}
-            onPress={() => setSelectedPeriod('month')}
-          >
-            <Text style={[styles.tabText, selectedPeriod === 'month' && styles.tabTextActive]}>
-              Este Mes
-            </Text>
-          </TouchableOpacity>
-        </View>
-
-        <ScrollView style={styles.scrollView} showsVerticalScrollIndicator={false}>
-          <View style={styles.summaryCard}>
-            <View style={styles.summaryHeader}>
-              <DollarSign size={32} color={Colors.success} />
-              <Text style={styles.summaryLabel}>Total Ganado - {getPeriodLabel()}</Text>
-            </View>
-            <Text style={styles.summaryAmount}>${earnings.totalEarned.toFixed(2)} MXN</Text>
-
-            <View style={styles.statsRow}>
-              <View style={styles.statItem}>
-                <Package size={20} color={Colors.primary} />
-                <Text style={styles.statValue}>{earnings.deliveriesCompleted}</Text>
-                <Text style={styles.statLabel}>Entregas</Text>
-              </View>
-              <View style={styles.statDivider} />
-              <View style={styles.statItem}>
-                <TrendingUp size={20} color={Colors.warning} />
-                <Text style={styles.statValue}>${earnings.tipsReceived.toFixed(2)}</Text>
-                <Text style={styles.statLabel}>Propinas</Text>
-              </View>
-            </View>
-          </View>
-
-          <View style={styles.ordersSection}>
-            <Text style={styles.sectionTitle}>Historial de Ganancias</Text>
-            {loading ? (
-              <Text style={styles.loadingText}>Cargando...</Text>
-            ) : earnings.orders.length === 0 ? (
-              <View style={styles.emptyState}>
-                <Package size={48} color={Colors.text.light} />
-                <Text style={styles.emptyText}>No hay entregas en este período</Text>
-              </View>
-            ) : (
-              earnings.orders.map((order) => (
-                <View key={order.id} style={styles.orderCard}>
-                  <View style={styles.orderHeader}>
-                    <Text style={styles.orderNumber}>#{order.orderNumber}</Text>
-                    <Text style={styles.orderEarnings}>
-                      ${(order.earnings + order.tip).toFixed(2)}
-                    </Text>
-                  </View>
-                  <View style={styles.orderDetails}>
-                    <View style={styles.orderDetailRow}>
-                      <Clock size={14} color={Colors.text.secondary} />
-                      <Text style={styles.orderTime}>
-                        {new Date(order.completedAt).toLocaleString('es-MX', {
-                          day: '2-digit',
-                          month: 'short',
-                          hour: '2-digit',
-                          minute: '2-digit',
-                        })}
-                      </Text>
-                    </View>
-                    <View style={styles.breakdownRow}>
-                      <Text style={styles.breakdownLabel}>Entrega:</Text>
-                      <Text style={styles.breakdownValue}>${order.earnings.toFixed(2)}</Text>
-                    </View>
-                    {order.tip > 0 && (
-                      <View style={styles.breakdownRow}>
-                        <Text style={styles.breakdownLabel}>Propina:</Text>
-                        <Text style={[styles.breakdownValue, styles.tipValue]}>
-                          +${order.tip.toFixed(2)}
-                        </Text>
-                      </View>
-                    )}
-                  </View>
-                </View>
-              ))
-            )}
-          </View>
-
-          {pendingSettlements.length > 0 && (
-            <View style={styles.pendingSection}>
-              <Text style={styles.sectionTitle}>Liquidaciones Pendientes</Text>
-              <Text style={styles.pendingSubtitle}>
-                Montos que debes entregar a los negocios
-              </Text>
-              {pendingSettlements.map((settlement, index) => (
-                <View key={index} style={styles.settlementCard}>
-                  <View style={styles.settlementIcon}>
-                    <DollarSign size={20} color={Colors.error} />
-                  </View>
-                  <View style={styles.settlementInfo}>
-                    <Text style={styles.settlementBusiness}>{settlement.businessName}</Text>
-                    <Text style={styles.settlementLabel}>Debes entregar:</Text>
-                  </View>
-                  <Text style={styles.settlementAmount}>${settlement.amount.toFixed(2)}</Text>
-                </View>
-              ))}
-            </View>
-          )}
-        </ScrollView>
-      </View>
+  // Tab selector header content
+  const headerContent = (
+    <View style={[styles.tabsContainer, { backgroundColor: 'rgba(255,255,255,0.15)', borderRadius: radius.md }]}>
+      <TouchableOpacity
+        style={[styles.tab, selectedPeriod === 'today' && styles.tabActive]}
+        onPress={() => setSelectedPeriod('today')}
+      >
+        <ThemedText
+          variant="caption"
+          bold
+          style={{ color: selectedPeriod === 'today' ? colors.secondary : 'rgba(255,255,255,0.7)' }}
+        >
+          Hoy
+        </ThemedText>
+      </TouchableOpacity>
+      <TouchableOpacity
+        style={[styles.tab, selectedPeriod === 'week' && styles.tabActive]}
+        onPress={() => setSelectedPeriod('week')}
+      >
+        <ThemedText
+          variant="caption"
+          bold
+          style={{ color: selectedPeriod === 'week' ? colors.secondary : 'rgba(255,255,255,0.7)' }}
+        >
+          Esta Semana
+        </ThemedText>
+      </TouchableOpacity>
+      <TouchableOpacity
+        style={[styles.tab, selectedPeriod === 'month' && styles.tabActive]}
+        onPress={() => setSelectedPeriod('month')}
+      >
+        <ThemedText
+          variant="caption"
+          bold
+          style={{ color: selectedPeriod === 'month' ? colors.secondary : 'rgba(255,255,255,0.7)' }}
+        >
+          Este Mes
+        </ThemedText>
+      </TouchableOpacity>
     </View>
+  );
+
+  return (
+    <ScreenContainer
+      headerGradient="secondary"
+      headerIcon={DollarSign}
+      headerTitle="Mis Ganancias"
+      headerSubtitle="Revisa tus ingresos y entregas"
+      headerContent={headerContent}
+      refreshing={refreshing}
+      onRefresh={handleRefresh}
+    >
+      {/* Summary Card */}
+      <ScreenCard style={styles.summaryCard}>
+        <View style={styles.summaryHeader}>
+          <DollarSign size={32} color={theme.success} />
+          <ThemedText variant="label" style={{ color: theme.textSecondary }}>
+            Total Ganado - {getPeriodLabel()}
+          </ThemedText>
+        </View>
+        <ThemedText variant="h1" style={[styles.summaryAmount, { color: theme.success }]}>
+          ${earnings.totalEarned.toFixed(2)} MXN
+        </ThemedText>
+
+        <View style={styles.statsRow}>
+          <View style={styles.statItem}>
+            <Package size={20} color={colors.primary} />
+            <ThemedText variant="h3" style={{ color: theme.text }}>{earnings.deliveriesCompleted}</ThemedText>
+            <ThemedText variant="caption" style={{ color: theme.textSecondary }}>Entregas</ThemedText>
+          </View>
+          <View style={[styles.statDivider, { backgroundColor: theme.border }]} />
+          <View style={styles.statItem}>
+            <TrendingUp size={20} color={theme.warning} />
+            <ThemedText variant="h3" style={{ color: theme.text }}>${earnings.tipsReceived.toFixed(2)}</ThemedText>
+            <ThemedText variant="caption" style={{ color: theme.textSecondary }}>Propinas</ThemedText>
+          </View>
+        </View>
+      </ScreenCard>
+
+      {/* Orders History */}
+      <ThemedText variant="h3" style={[styles.sectionTitle, { color: theme.text }]}>
+        Historial de Ganancias
+      </ThemedText>
+
+      {loading ? (
+        <ThemedText variant="body" style={[styles.loadingText, { color: theme.textSecondary }]}>
+          Cargando...
+        </ThemedText>
+      ) : earnings.orders.length === 0 ? (
+        <View style={[styles.emptyState, { backgroundColor: theme.card }]}>
+          <Package size={48} color={theme.textMuted} />
+          <ThemedText variant="body" style={{ color: theme.textSecondary }}>
+            No hay entregas en este periodo
+          </ThemedText>
+        </View>
+      ) : (
+        earnings.orders.map((order) => (
+          <View key={order.id} style={[styles.orderCard, { backgroundColor: theme.card }]}>
+            <View style={styles.orderHeader}>
+              <ThemedText variant="label" style={{ color: theme.textSecondary }}>
+                #{order.orderNumber}
+              </ThemedText>
+              <ThemedText variant="h3" style={{ color: theme.success }}>
+                ${(order.earnings + order.tip).toFixed(2)}
+              </ThemedText>
+            </View>
+            <View style={[styles.orderDetails, { borderTopColor: theme.border }]}>
+              <View style={styles.orderDetailRow}>
+                <Clock size={14} color={theme.textSecondary} />
+                <ThemedText variant="caption" style={{ color: theme.textSecondary }}>
+                  {new Date(order.completedAt).toLocaleString('es-MX', {
+                    day: '2-digit',
+                    month: 'short',
+                    hour: '2-digit',
+                    minute: '2-digit',
+                  })}
+                </ThemedText>
+              </View>
+              <View style={styles.breakdownRow}>
+                <ThemedText variant="body" style={{ color: theme.textSecondary }}>Entrega:</ThemedText>
+                <ThemedText variant="body" bold style={{ color: theme.text }}>${order.earnings.toFixed(2)}</ThemedText>
+              </View>
+              {order.tip > 0 && (
+                <View style={styles.breakdownRow}>
+                  <ThemedText variant="body" style={{ color: theme.textSecondary }}>Propina:</ThemedText>
+                  <ThemedText variant="body" bold style={{ color: theme.success }}>+${order.tip.toFixed(2)}</ThemedText>
+                </View>
+              )}
+            </View>
+          </View>
+        ))
+      )}
+
+      {/* Pending Settlements */}
+      {pendingSettlements.length > 0 && (
+        <>
+          <ThemedText variant="h3" style={[styles.sectionTitle, { color: theme.text }]}>
+            Liquidaciones Pendientes
+          </ThemedText>
+          <ThemedText variant="body" style={[styles.pendingSubtitle, { color: theme.textSecondary }]}>
+            Montos que debes entregar a los negocios
+          </ThemedText>
+          {pendingSettlements.map((settlement, index) => (
+            <View key={index} style={[styles.settlementCard, { backgroundColor: theme.card, borderColor: theme.error }]}>
+              <View style={[styles.settlementIcon, { backgroundColor: theme.error + '15' }]}>
+                <DollarSign size={20} color={theme.error} />
+              </View>
+              <View style={styles.settlementInfo}>
+                <ThemedText variant="subtitle" bold style={{ color: theme.text }}>
+                  {settlement.businessName}
+                </ThemedText>
+                <ThemedText variant="caption" style={{ color: theme.textSecondary }}>
+                  Debes entregar:
+                </ThemedText>
+              </View>
+              <ThemedText variant="h3" style={{ color: theme.error }}>
+                ${settlement.amount.toFixed(2)}
+              </ThemedText>
+            </View>
+          ))}
+        </>
+      )}
+
+      <View style={styles.bottomPadding} />
+    </ScreenContainer>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: Colors.background.primary,
-  },
-  header: {
-    paddingTop: 60,
-    paddingBottom: 20,
-    paddingHorizontal: 20,
-  },
-  headerRow: {
-    flexDirection: 'row' as const,
-    justifyContent: 'space-between' as const,
-    alignItems: 'center' as const,
-  },
-  backButton: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: 'rgba(255, 255, 255, 0.2)',
-    justifyContent: 'center' as const,
-    alignItems: 'center' as const,
-  },
-  headerTitle: {
-    fontSize: 24,
-    fontWeight: '700' as const,
-    color: Colors.white,
-  },
-  placeholder: {
-    width: 40,
-  },
-  content: {
-    flex: 1,
-  },
   tabsContainer: {
-    flexDirection: 'row' as const,
-    backgroundColor: Colors.white,
-    marginHorizontal: 20,
-    marginTop: 20,
-    borderRadius: 12,
+    flexDirection: 'row',
     padding: 4,
-    shadowColor: Colors.shadow.medium,
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.08,
-    shadowRadius: 8,
-    elevation: 2,
   },
   tab: {
     flex: 1,
-    paddingVertical: 12,
+    paddingVertical: 10,
     borderRadius: 8,
-    alignItems: 'center' as const,
+    alignItems: 'center',
   },
   tabActive: {
-    backgroundColor: Colors.primary,
-  },
-  tabText: {
-    fontSize: 14,
-    fontWeight: '600' as const,
-    color: Colors.text.secondary,
-  },
-  tabTextActive: {
-    color: Colors.white,
-  },
-  scrollView: {
-    flex: 1,
-    padding: 20,
+    backgroundColor: '#FFFFFF',
   },
   summaryCard: {
-    backgroundColor: Colors.white,
-    borderRadius: 16,
     padding: 24,
-    marginBottom: 24,
-    shadowColor: Colors.shadow.medium,
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.1,
-    shadowRadius: 12,
-    elevation: 4,
   },
   summaryHeader: {
-    flexDirection: 'row' as const,
-    alignItems: 'center' as const,
+    flexDirection: 'row',
+    alignItems: 'center',
     marginBottom: 12,
-  },
-  summaryLabel: {
-    fontSize: 16,
-    fontWeight: '600' as const,
-    color: Colors.text.secondary,
-    marginLeft: 12,
+    gap: 12,
   },
   summaryAmount: {
-    fontSize: 40,
-    fontWeight: '700' as const,
-    color: Colors.success,
     marginBottom: 24,
   },
   statsRow: {
-    flexDirection: 'row' as const,
-    alignItems: 'center' as const,
-    justifyContent: 'space-around' as const,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-around',
   },
   statItem: {
     flex: 1,
-    alignItems: 'center' as const,
+    alignItems: 'center',
   },
   statDivider: {
     width: 1,
     height: 40,
-    backgroundColor: Colors.border.light,
-  },
-  statValue: {
-    fontSize: 20,
-    fontWeight: '700' as const,
-    color: Colors.text.primary,
-    marginTop: 8,
-    marginBottom: 4,
-  },
-  statLabel: {
-    fontSize: 12,
-    color: Colors.text.secondary,
-  },
-  ordersSection: {
-    marginBottom: 24,
   },
   sectionTitle: {
-    fontSize: 18,
-    fontWeight: '700' as const,
-    color: Colors.text.primary,
     marginBottom: 16,
+    marginTop: 8,
   },
   loadingText: {
-    fontSize: 14,
-    color: Colors.text.secondary,
-    textAlign: 'center' as const,
+    textAlign: 'center',
     paddingVertical: 24,
   },
   emptyState: {
-    backgroundColor: Colors.white,
     borderRadius: 12,
     padding: 32,
-    alignItems: 'center' as const,
-  },
-  emptyText: {
-    fontSize: 14,
-    color: Colors.text.secondary,
-    marginTop: 12,
+    alignItems: 'center',
+    marginBottom: 16,
   },
   orderCard: {
-    backgroundColor: Colors.white,
     borderRadius: 12,
     padding: 16,
     marginBottom: 12,
-    shadowColor: Colors.shadow.medium,
+    shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.08,
     shadowRadius: 8,
     elevation: 2,
   },
   orderHeader: {
-    flexDirection: 'row' as const,
-    justifyContent: 'space-between' as const,
-    alignItems: 'center' as const,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
     marginBottom: 12,
-  },
-  orderNumber: {
-    fontSize: 14,
-    fontWeight: '600' as const,
-    color: Colors.text.secondary,
-  },
-  orderEarnings: {
-    fontSize: 20,
-    fontWeight: '700' as const,
-    color: Colors.success,
   },
   orderDetails: {
     borderTopWidth: 1,
-    borderTopColor: Colors.border.light,
     paddingTop: 12,
   },
   orderDetailRow: {
-    flexDirection: 'row' as const,
-    alignItems: 'center' as const,
+    flexDirection: 'row',
+    alignItems: 'center',
     marginBottom: 8,
-  },
-  orderTime: {
-    fontSize: 13,
-    color: Colors.text.secondary,
-    marginLeft: 6,
+    gap: 6,
   },
   breakdownRow: {
-    flexDirection: 'row' as const,
-    justifyContent: 'space-between' as const,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
     marginBottom: 4,
   },
-  breakdownLabel: {
-    fontSize: 14,
-    color: Colors.text.secondary,
-  },
-  breakdownValue: {
-    fontSize: 14,
-    fontWeight: '600' as const,
-    color: Colors.text.primary,
-  },
-  tipValue: {
-    color: Colors.success,
-  },
-  pendingSection: {
-    marginBottom: 40,
-  },
   pendingSubtitle: {
-    fontSize: 13,
-    color: Colors.text.secondary,
     marginBottom: 16,
+    marginTop: -8,
   },
   settlementCard: {
-    backgroundColor: Colors.white,
     borderRadius: 12,
     padding: 16,
     marginBottom: 12,
-    flexDirection: 'row' as const,
-    alignItems: 'center' as const,
+    flexDirection: 'row',
+    alignItems: 'center',
     borderWidth: 1.5,
-    borderColor: Colors.error,
   },
   settlementIcon: {
     width: 44,
     height: 44,
     borderRadius: 22,
-    backgroundColor: `${Colors.error}15`,
-    justifyContent: 'center' as const,
-    alignItems: 'center' as const,
+    justifyContent: 'center',
+    alignItems: 'center',
     marginRight: 12,
   },
   settlementInfo: {
     flex: 1,
   },
-  settlementBusiness: {
-    fontSize: 15,
-    fontWeight: '600' as const,
-    color: Colors.text.primary,
-    marginBottom: 2,
-  },
-  settlementLabel: {
-    fontSize: 12,
-    color: Colors.text.secondary,
-  },
-  settlementAmount: {
-    fontSize: 18,
-    fontWeight: '700' as const,
-    color: Colors.error,
+  bottomPadding: {
+    height: 40,
   },
 });

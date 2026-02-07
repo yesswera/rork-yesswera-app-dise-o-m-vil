@@ -1,11 +1,23 @@
-import { View, Text, TouchableOpacity, StyleSheet, Modal, ScrollView, ActivityIndicator, Alert } from 'react-native';
-import { MapPin, Plus, X, Home, Briefcase, MapPinned, Star } from 'lucide-react-native';
-import { useState, useEffect, useCallback } from 'react';
+import { View, Text, TouchableOpacity, StyleSheet, Modal, ScrollView, ActivityIndicator, Alert, TextInput, Dimensions } from 'react-native';
+import { MapPin, Plus, X, Home, Briefcase, MapPinned, Star, Navigation, Search, ChevronRight, Loader, Crosshair } from 'lucide-react-native';
+import { useState, useEffect, useCallback, useRef } from 'react';
+import MapView, { Marker, Region } from 'react-native-maps';
+import * as Location from 'expo-location';
 import Colors from '@/constants/colors';
 import { SavedAddress } from '@/constants/types';
 import { getUserAddresses, setDefaultAddress } from '@/services/addresses';
 import { useAuth } from '@/contexts/auth';
 import { useRouter } from 'expo-router';
+
+const { height } = Dimensions.get('window');
+
+// Tomatlan, Jalisco coordinates
+const TOMATLAN_REGION = {
+  latitude: 19.9339,
+  longitude: -105.2474,
+  latitudeDelta: 0.02,
+  longitudeDelta: 0.02,
+};
 
 interface AddressSelectorProps {
   selectedAddress: SavedAddress | null;
@@ -16,9 +28,16 @@ interface AddressSelectorProps {
 export default function AddressSelector({ selectedAddress, onAddressSelect, onAddNewAddress }: AddressSelectorProps) {
   const { user, token } = useAuth();
   const router = useRouter();
+  const mapRef = useRef<MapView>(null);
   const [modalVisible, setModalVisible] = useState<boolean>(false);
   const [addresses, setAddresses] = useState<SavedAddress[]>([]);
   const [isLoading, setIsLoading] = useState<boolean>(false);
+
+  // Map modal states
+  const [showMapModal, setShowMapModal] = useState<boolean>(false);
+  const [tempMapRegion, setTempMapRegion] = useState<Region>(TOMATLAN_REGION);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [isSearching, setIsSearching] = useState(false);
 
   const loadAddresses = useCallback(async () => {
     if (!user || !token) return;
@@ -73,6 +92,101 @@ export default function AddressSelector({ selectedAddress, onAddressSelect, onAd
     } else {
       router.push('/addresses/add' as any);
     }
+  };
+
+  // Get current location for map
+  const getCurrentLocation = async () => {
+    try {
+      const { status } = await Location.requestForegroundPermissionsAsync();
+      if (status !== 'granted') {
+        Alert.alert('Permiso denegado', 'Necesitamos acceso a tu ubicación.');
+        return;
+      }
+
+      const location = await Location.getCurrentPositionAsync({});
+      const newRegion = {
+        latitude: location.coords.latitude,
+        longitude: location.coords.longitude,
+        latitudeDelta: 0.005,
+        longitudeDelta: 0.005,
+      };
+      setTempMapRegion(newRegion);
+      mapRef.current?.animateToRegion(newRegion, 500);
+    } catch (error) {
+      console.error('Error getting location:', error);
+      Alert.alert('Error', 'No se pudo obtener tu ubicación.');
+    }
+  };
+
+  // Search address and move map to result
+  const searchAddress = async () => {
+    if (!searchQuery.trim()) return;
+
+    setIsSearching(true);
+    try {
+      const query = searchQuery.includes('Mexico') ? searchQuery : `${searchQuery}, Jalisco, Mexico`;
+      const results = await Location.geocodeAsync(query);
+
+      if (results.length > 0) {
+        const { latitude, longitude } = results[0];
+        const newRegion = {
+          latitude,
+          longitude,
+          latitudeDelta: 0.005,
+          longitudeDelta: 0.005,
+        };
+        setTempMapRegion(newRegion);
+        mapRef.current?.animateToRegion(newRegion, 500);
+        setSearchQuery('');
+      } else {
+        Alert.alert('No encontrado', 'No se encontró la dirección. Intenta con otra búsqueda.');
+      }
+    } catch (error) {
+      console.error('Geocoding error:', error);
+      Alert.alert('Error', 'No se pudo buscar la dirección.');
+    } finally {
+      setIsSearching(false);
+    }
+  };
+
+  // Reverse geocode to get address
+  const getAddressFromCoords = async (latitude: number, longitude: number): Promise<string> => {
+    try {
+      const [result] = await Location.reverseGeocodeAsync({ latitude, longitude });
+      if (result) {
+        const parts = [result.street, result.name, result.city].filter(Boolean);
+        return parts.join(', ') || `${latitude.toFixed(6)}, ${longitude.toFixed(6)}`;
+      }
+    } catch (error) {
+      console.error('Reverse geocoding error:', error);
+    }
+    return `${latitude.toFixed(6)}, ${longitude.toFixed(6)}`;
+  };
+
+  // Confirm map location selection
+  const confirmMapLocation = async () => {
+    const address = await getAddressFromCoords(tempMapRegion.latitude, tempMapRegion.longitude);
+
+    // Create a temporary SavedAddress object (not saved to database)
+    const tempAddress: SavedAddress = {
+      id: `temp-${Date.now()}`,
+      userId: user?.id || '',
+      label: 'Otro',
+      address: address,
+      latitude: tempMapRegion.latitude,
+      longitude: tempMapRegion.longitude,
+      isDefault: false,
+    };
+
+    onAddressSelect(tempAddress);
+    setShowMapModal(false);
+    setModalVisible(false);
+  };
+
+  // Open map modal
+  const handleSelectOnMap = () => {
+    getCurrentLocation();
+    setShowMapModal(true);
   };
 
   const getIconForLabel = (label: 'Casa' | 'Trabajo' | 'Otro') => {
@@ -192,6 +306,20 @@ export default function AddressSelector({ selectedAddress, onAddressSelect, onAd
                   </View>
                 )}
 
+                {/* Select on map option */}
+                <TouchableOpacity
+                  style={styles.selectOnMapButton}
+                  onPress={handleSelectOnMap}
+                  activeOpacity={0.7}
+                >
+                  <Navigation size={22} color={Colors.accent} />
+                  <View style={styles.selectOnMapInfo}>
+                    <Text style={styles.selectOnMapTitle}>Seleccionar en mapa</Text>
+                    <Text style={styles.selectOnMapSubtitle}>Elige una ubicación sin guardarla</Text>
+                  </View>
+                  <ChevronRight size={20} color={Colors.text.light} />
+                </TouchableOpacity>
+
                 <TouchableOpacity
                   style={styles.addNewButton}
                   onPress={handleAddNewAddress}
@@ -203,6 +331,79 @@ export default function AddressSelector({ selectedAddress, onAddressSelect, onAd
               </ScrollView>
             )}
           </View>
+        </View>
+      </Modal>
+
+      {/* Map Selection Modal */}
+      <Modal
+        visible={showMapModal}
+        animationType="slide"
+        onRequestClose={() => setShowMapModal(false)}
+      >
+        <View style={styles.mapModalContainer}>
+          <View style={styles.mapHeader}>
+            <TouchableOpacity onPress={() => setShowMapModal(false)}>
+              <X size={24} color={Colors.text.primary} />
+            </TouchableOpacity>
+            <Text style={styles.mapTitle}>Seleccionar Ubicación</Text>
+            <TouchableOpacity onPress={confirmMapLocation}>
+              <Text style={styles.mapConfirm}>Confirmar</Text>
+            </TouchableOpacity>
+          </View>
+
+          {/* Search Bar */}
+          <View style={styles.searchContainer}>
+            <View style={styles.searchInputWrapper}>
+              <Search size={20} color={Colors.text.secondary} />
+              <TextInput
+                style={styles.searchInput}
+                placeholder="Buscar dirección..."
+                placeholderTextColor={Colors.text.light}
+                value={searchQuery}
+                onChangeText={setSearchQuery}
+                onSubmitEditing={searchAddress}
+                returnKeyType="search"
+              />
+              {isSearching ? (
+                <Loader size={20} color={Colors.primary} />
+              ) : searchQuery.length > 0 ? (
+                <TouchableOpacity onPress={searchAddress}>
+                  <ChevronRight size={20} color={Colors.primary} />
+                </TouchableOpacity>
+              ) : null}
+            </View>
+            <TouchableOpacity style={styles.myLocationButton} onPress={getCurrentLocation}>
+              <Crosshair size={20} color={Colors.white} />
+            </TouchableOpacity>
+          </View>
+
+          <MapView
+            ref={mapRef}
+            style={styles.map}
+            initialRegion={tempMapRegion}
+            onRegionChangeComplete={setTempMapRegion}
+          >
+            <Marker
+              coordinate={{
+                latitude: tempMapRegion.latitude,
+                longitude: tempMapRegion.longitude,
+              }}
+              draggable
+              onDragEnd={(e) => {
+                setTempMapRegion({
+                  ...tempMapRegion,
+                  latitude: e.nativeEvent.coordinate.latitude,
+                  longitude: e.nativeEvent.coordinate.longitude,
+                });
+              }}
+            />
+          </MapView>
+
+          <View style={styles.mapPinOverlay}>
+            <MapPin size={40} color={Colors.primary} />
+          </View>
+
+          <Text style={styles.mapHint}>Busca una dirección o arrastra el mapa</Text>
         </View>
       </Modal>
     </View>
@@ -378,6 +579,30 @@ const styles = StyleSheet.create({
     fontWeight: '600' as const,
     color: Colors.primary,
   },
+  selectOnMapButton: {
+    backgroundColor: `${Colors.accent}10`,
+    borderRadius: 12,
+    padding: 16,
+    flexDirection: 'row' as const,
+    alignItems: 'center' as const,
+    gap: 12,
+    marginBottom: 12,
+    borderWidth: 1.5,
+    borderColor: Colors.accent,
+  },
+  selectOnMapInfo: {
+    flex: 1,
+  },
+  selectOnMapTitle: {
+    fontSize: 15,
+    fontWeight: '600' as const,
+    color: Colors.text.primary,
+    marginBottom: 2,
+  },
+  selectOnMapSubtitle: {
+    fontSize: 12,
+    color: Colors.text.secondary,
+  },
   addNewButton: {
     backgroundColor: Colors.white,
     borderRadius: 12,
@@ -395,5 +620,84 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '600' as const,
     color: Colors.primary,
+  },
+  // Map Modal Styles
+  mapModalContainer: {
+    flex: 1,
+  },
+  mapHeader: {
+    flexDirection: 'row' as const,
+    justifyContent: 'space-between' as const,
+    alignItems: 'center' as const,
+    padding: 16,
+    backgroundColor: Colors.white,
+    borderBottomWidth: 1,
+    borderBottomColor: Colors.border.light,
+  },
+  mapTitle: {
+    fontSize: 18,
+    fontWeight: '700' as const,
+    color: Colors.text.primary,
+  },
+  mapConfirm: {
+    fontSize: 16,
+    fontWeight: '600' as const,
+    color: Colors.primary,
+  },
+  searchContainer: {
+    flexDirection: 'row' as const,
+    alignItems: 'center' as const,
+    gap: 10,
+    padding: 12,
+    backgroundColor: Colors.white,
+    borderBottomWidth: 1,
+    borderBottomColor: Colors.border.light,
+  },
+  searchInputWrapper: {
+    flex: 1,
+    flexDirection: 'row' as const,
+    alignItems: 'center' as const,
+    backgroundColor: Colors.background.secondary,
+    borderRadius: 10,
+    paddingHorizontal: 12,
+    height: 44,
+    gap: 8,
+  },
+  searchInput: {
+    flex: 1,
+    fontSize: 15,
+    color: Colors.text.primary,
+    height: '100%' as const,
+  },
+  myLocationButton: {
+    width: 44,
+    height: 44,
+    borderRadius: 10,
+    backgroundColor: Colors.primary,
+    justifyContent: 'center' as const,
+    alignItems: 'center' as const,
+  },
+  map: {
+    flex: 1,
+  },
+  mapPinOverlay: {
+    position: 'absolute' as const,
+    top: '50%',
+    left: '50%',
+    marginLeft: -20,
+    marginTop: -40,
+    pointerEvents: 'none' as const,
+  },
+  mapHint: {
+    position: 'absolute' as const,
+    bottom: 30,
+    left: 20,
+    right: 20,
+    textAlign: 'center' as const,
+    fontSize: 14,
+    color: Colors.white,
+    backgroundColor: 'rgba(0,0,0,0.6)',
+    padding: 12,
+    borderRadius: 8,
   },
 });

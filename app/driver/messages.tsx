@@ -1,13 +1,44 @@
+// ============================================================================
+// YESSWERA: MENSAJES DEL REPARTIDOR
+// Usa ScreenContainer para diseño unificado con soporte de tema
+// ============================================================================
+
 import { useState, useMemo, useEffect, useCallback } from 'react';
-import { StyleSheet, Text, View, TouchableOpacity, ScrollView, TextInput, ActivityIndicator, RefreshControl } from 'react-native';
+import { StyleSheet, View, TouchableOpacity, TextInput, ActivityIndicator } from 'react-native';
 import { useRouter } from 'expo-router';
-import { ArrowLeft, Search, MessageCircle, User, Store, ShieldCheck } from 'lucide-react-native';
-import { LinearGradient } from 'expo-linear-gradient';
-import Colors from '@/constants/colors';
+import { Search, MessageCircle, User, Store, ShieldCheck, MessageSquare } from 'lucide-react-native';
+import { useTheme } from '@/contexts/theme';
+import { ThemedText } from '@/components/themed';
+import ScreenContainer from '@/components/ScreenContainer';
 import { format, isToday, isYesterday } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { useAuth } from '@/contexts/auth';
 import { supabase } from '@/constants/supabase';
+
+// ============================================================================
+// COLORES EXPLICITOS PARA MODO OSCURO
+// ============================================================================
+
+const COLORS = {
+  light: {
+    card: '#FFFFFF',
+    cardAlt: '#F5F5F4',
+    border: '#E7E5E4',
+    text: '#1C1917',
+    textSecondary: '#57534E',
+    textMuted: '#A8A29E',
+    error: '#EF4444',
+  },
+  dark: {
+    card: '#292524',
+    cardAlt: '#44403C',
+    border: '#44403C',
+    text: '#FAFAFA',
+    textSecondary: '#D6D3D1',
+    textMuted: '#78716C',
+    error: '#EF4444',
+  },
+};
 
 interface DriverConversation {
   id: string;          // order_id (used as conversation id)
@@ -26,6 +57,9 @@ const CLOSED_STATUSES = ['delivered', 'cancelled'];
 export default function DriverMessagesScreen() {
   const router = useRouter();
   const { user } = useAuth();
+  const { isDark, colors, radius, space } = useTheme();
+  const theme = isDark ? COLORS.dark : COLORS.light;
+
   const [searchQuery, setSearchQuery] = useState('');
   const [conversations, setConversations] = useState<DriverConversation[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -213,336 +247,231 @@ export default function DriverMessagesScreen() {
     router.push(`/chat/${conversationId}` as any);
   };
 
-  return (
-    <View style={styles.container}>
-      <LinearGradient
-        colors={[Colors.primary, Colors.primaryDark]}
-        style={styles.header}
-      >
-        <View style={styles.headerContent}>
-          <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
-            <ArrowLeft size={24} color={Colors.white} />
-          </TouchableOpacity>
-          <View style={styles.headerTitleContainer}>
-            <Text style={styles.headerTitle}>Mensajes</Text>
-            {totalUnread > 0 && (
-              <View style={styles.headerBadge}>
-                <Text style={styles.headerBadgeText}>{totalUnread}</Text>
-              </View>
-            )}
-          </View>
-          <View style={styles.headerSpacer} />
-        </View>
-      </LinearGradient>
-
-      <View style={styles.searchContainer}>
-        <View style={styles.searchBar}>
-          <Search size={20} color={Colors.text.secondary} />
-          <TextInput
-            style={styles.searchInput}
-            placeholder="Buscar conversación..."
-            value={searchQuery}
-            onChangeText={setSearchQuery}
-            placeholderTextColor={Colors.text.light}
-          />
-        </View>
-      </View>
-
-      <ScrollView
-        style={styles.scrollView}
-        showsVerticalScrollIndicator={false}
-        refreshControl={
-          <RefreshControl
-            refreshing={isRefreshing}
-            onRefresh={handleRefresh}
-            colors={[Colors.primary]}
-            tintColor={Colors.primary}
-          />
-        }
-      >
-        {isLoading ? (
-          <View style={styles.emptyState}>
-            <ActivityIndicator size="large" color={Colors.primary} />
-            <Text style={[styles.emptySubtext, { marginTop: 16 }]}>Cargando conversaciones...</Text>
-          </View>
-        ) : activeConversations.length === 0 && closedConversations.length === 0 ? (
-          <View style={styles.emptyState}>
-            <MessageCircle size={48} color={Colors.text.light} />
-            <Text style={styles.emptyText}>No hay conversaciones</Text>
-            <Text style={styles.emptySubtext}>
-              {searchQuery ? 'Intenta con otro término de búsqueda' : 'Tus mensajes aparecerán aquí'}
-            </Text>
-          </View>
-        ) : (
-          <>
-            {activeConversations.length > 0 && (
-              <View style={styles.section}>
-                <Text style={styles.sectionTitle}>Activas</Text>
-                {activeConversations.map((conversation) => {
-                  const Icon = getTypeIcon(conversation.type);
-                  return (
-                    <TouchableOpacity
-                      key={conversation.id}
-                      style={styles.conversationCard}
-                      onPress={() => handleOpenConversation(conversation.id)}
-                    >
-                      <View style={styles.avatarContainer}>
-                        <View style={styles.avatar}>
-                          <Icon size={24} color={Colors.primary} />
-                        </View>
-                        {conversation.unreadCount > 0 && (
-                          <View style={styles.badge}>
-                            <Text style={styles.badgeText}>{conversation.unreadCount}</Text>
-                          </View>
-                        )}
-                      </View>
-                      <View style={styles.conversationContent}>
-                        <View style={styles.conversationHeader}>
-                          <Text style={styles.conversationName}>{conversation.name}</Text>
-                          <Text style={styles.conversationTime}>
-                            {getTimeDisplay(conversation.lastMessageTime)}
-                          </Text>
-                        </View>
-                        <Text style={styles.orderNumber}>Orden {conversation.orderNumber}</Text>
-                        <Text
-                          style={[
-                            styles.lastMessage,
-                            conversation.unreadCount > 0 && styles.lastMessageUnread,
-                          ]}
-                          numberOfLines={1}
-                        >
-                          {conversation.lastMessage}
-                        </Text>
-                      </View>
-                    </TouchableOpacity>
-                  );
-                })}
-              </View>
-            )}
-
-            {closedConversations.length > 0 && (
-              <View style={styles.section}>
-                <Text style={styles.sectionTitle}>Conversaciones Cerradas</Text>
-                {closedConversations.map((conversation) => {
-                  const Icon = getTypeIcon(conversation.type);
-                  return (
-                    <TouchableOpacity
-                      key={conversation.id}
-                      style={[styles.conversationCard, styles.conversationCardClosed]}
-                      onPress={() => handleOpenConversation(conversation.id)}
-                    >
-                      <View style={styles.avatarContainer}>
-                        <View style={[styles.avatar, styles.avatarClosed]}>
-                          <Icon size={24} color={Colors.text.light} />
-                        </View>
-                      </View>
-                      <View style={styles.conversationContent}>
-                        <View style={styles.conversationHeader}>
-                          <Text style={styles.conversationName}>{conversation.name}</Text>
-                          <Text style={styles.conversationTime}>
-                            {getTimeDisplay(conversation.lastMessageTime)}
-                          </Text>
-                        </View>
-                        <Text style={styles.orderNumber}>Orden {conversation.orderNumber}</Text>
-                        <Text style={styles.lastMessage} numberOfLines={1}>
-                          {conversation.lastMessage}
-                        </Text>
-                      </View>
-                    </TouchableOpacity>
-                  );
-                })}
-              </View>
-            )}
-          </>
-        )}
-
-        <View style={styles.bottomPadding} />
-      </ScrollView>
+  // Search bar header content
+  const headerContent = (
+    <View style={[styles.searchContainer, { backgroundColor: 'rgba(255,255,255,0.15)', borderRadius: radius.md }]}>
+      <Search size={20} color="rgba(255,255,255,0.8)" />
+      <TextInput
+        style={styles.searchInput}
+        placeholder="Buscar conversacion..."
+        value={searchQuery}
+        onChangeText={setSearchQuery}
+        placeholderTextColor="rgba(255,255,255,0.6)"
+      />
     </View>
+  );
+
+  return (
+    <ScreenContainer
+      headerGradient="primary"
+      headerIcon={MessageSquare}
+      headerTitle="Mensajes"
+      headerSubtitle={totalUnread > 0 ? `${totalUnread} mensajes sin leer` : 'Tus conversaciones'}
+      headerContent={headerContent}
+      refreshing={isRefreshing}
+      onRefresh={handleRefresh}
+    >
+      {isLoading ? (
+        <View style={styles.emptyState}>
+          <ActivityIndicator size="large" color={colors.primary} />
+          <ThemedText variant="body" style={[styles.emptySubtext, { color: theme.textSecondary }]}>
+            Cargando conversaciones...
+          </ThemedText>
+        </View>
+      ) : activeConversations.length === 0 && closedConversations.length === 0 ? (
+        <View style={styles.emptyState}>
+          <MessageCircle size={48} color={theme.textMuted} />
+          <ThemedText variant="subtitle" bold style={[styles.emptyText, { color: theme.text }]}>
+            No hay conversaciones
+          </ThemedText>
+          <ThemedText variant="body" style={[styles.emptySubtext, { color: theme.textSecondary }]}>
+            {searchQuery ? 'Intenta con otro termino de busqueda' : 'Tus mensajes apareceran aqui'}
+          </ThemedText>
+        </View>
+      ) : (
+        <>
+          {activeConversations.length > 0 && (
+            <View style={styles.section}>
+              <ThemedText variant="label" bold style={{ color: theme.text, marginBottom: 12 }}>
+                Activas
+              </ThemedText>
+              {activeConversations.map((conversation) => {
+                const Icon = getTypeIcon(conversation.type);
+                return (
+                  <TouchableOpacity
+                    key={conversation.id}
+                    style={[styles.conversationCard, { backgroundColor: theme.card, borderBottomColor: theme.border }]}
+                    onPress={() => handleOpenConversation(conversation.id)}
+                  >
+                    <View style={styles.avatarContainer}>
+                      <View style={[styles.avatar, { backgroundColor: theme.cardAlt }]}>
+                        <Icon size={24} color={colors.primary} />
+                      </View>
+                      {conversation.unreadCount > 0 && (
+                        <View style={[styles.badge, { backgroundColor: theme.error }]}>
+                          <ThemedText variant="caption" bold style={styles.badgeText}>
+                            {conversation.unreadCount}
+                          </ThemedText>
+                        </View>
+                      )}
+                    </View>
+                    <View style={styles.conversationContent}>
+                      <View style={styles.conversationHeader}>
+                        <ThemedText variant="subtitle" bold style={{ color: theme.text }}>
+                          {conversation.name}
+                        </ThemedText>
+                        <ThemedText variant="caption" style={{ color: theme.textSecondary }}>
+                          {getTimeDisplay(conversation.lastMessageTime)}
+                        </ThemedText>
+                      </View>
+                      <ThemedText variant="caption" style={{ color: theme.textMuted }}>
+                        Orden {conversation.orderNumber}
+                      </ThemedText>
+                      <ThemedText
+                        variant="body"
+                        style={[
+                          { color: theme.textSecondary },
+                          conversation.unreadCount > 0 && { fontWeight: '600', color: theme.text },
+                        ]}
+                        numberOfLines={1}
+                      >
+                        {conversation.lastMessage}
+                      </ThemedText>
+                    </View>
+                  </TouchableOpacity>
+                );
+              })}
+            </View>
+          )}
+
+          {closedConversations.length > 0 && (
+            <View style={styles.section}>
+              <ThemedText variant="label" bold style={{ color: theme.text, marginBottom: 12 }}>
+                Conversaciones Cerradas
+              </ThemedText>
+              {closedConversations.map((conversation) => {
+                const Icon = getTypeIcon(conversation.type);
+                return (
+                  <TouchableOpacity
+                    key={conversation.id}
+                    style={[
+                      styles.conversationCard,
+                      styles.conversationCardClosed,
+                      { backgroundColor: theme.card, borderBottomColor: theme.border },
+                    ]}
+                    onPress={() => handleOpenConversation(conversation.id)}
+                  >
+                    <View style={styles.avatarContainer}>
+                      <View style={[styles.avatar, styles.avatarClosed, { backgroundColor: theme.cardAlt }]}>
+                        <Icon size={24} color={theme.textMuted} />
+                      </View>
+                    </View>
+                    <View style={styles.conversationContent}>
+                      <View style={styles.conversationHeader}>
+                        <ThemedText variant="subtitle" bold style={{ color: theme.text }}>
+                          {conversation.name}
+                        </ThemedText>
+                        <ThemedText variant="caption" style={{ color: theme.textSecondary }}>
+                          {getTimeDisplay(conversation.lastMessageTime)}
+                        </ThemedText>
+                      </View>
+                      <ThemedText variant="caption" style={{ color: theme.textMuted }}>
+                        Orden {conversation.orderNumber}
+                      </ThemedText>
+                      <ThemedText variant="body" style={{ color: theme.textSecondary }} numberOfLines={1}>
+                        {conversation.lastMessage}
+                      </ThemedText>
+                    </View>
+                  </TouchableOpacity>
+                );
+              })}
+            </View>
+          )}
+        </>
+      )}
+
+      <View style={styles.bottomPadding} />
+    </ScreenContainer>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: Colors.background.secondary,
-  },
-  header: {
-    paddingTop: 50,
-    paddingBottom: 20,
-    paddingHorizontal: 16,
-  },
-  headerContent: {
-    flexDirection: 'row' as const,
-    alignItems: 'center' as const,
-    justifyContent: 'space-between' as const,
-  },
-  backButton: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    alignItems: 'center' as const,
-    justifyContent: 'center' as const,
-    backgroundColor: 'rgba(255, 255, 255, 0.2)',
-  },
-  headerTitleContainer: {
-    flex: 1,
-    flexDirection: 'row' as const,
-    alignItems: 'center' as const,
-    justifyContent: 'center' as const,
-    gap: 8,
-  },
-  headerTitle: {
-    fontSize: 20,
-    fontWeight: '700' as const,
-    color: Colors.white,
-  },
-  headerBadge: {
-    backgroundColor: Colors.error,
-    minWidth: 24,
-    height: 24,
-    borderRadius: 12,
-    alignItems: 'center' as const,
-    justifyContent: 'center' as const,
-    paddingHorizontal: 6,
-  },
-  headerBadgeText: {
-    fontSize: 12,
-    fontWeight: '700' as const,
-    color: Colors.white,
-  },
-  headerSpacer: {
-    width: 40,
-  },
   searchContainer: {
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    backgroundColor: Colors.white,
-    borderBottomWidth: 1,
-    borderBottomColor: Colors.border.light,
-  },
-  searchBar: {
-    flexDirection: 'row' as const,
-    alignItems: 'center' as const,
-    backgroundColor: Colors.background.secondary,
-    borderRadius: 12,
+    flexDirection: 'row',
+    alignItems: 'center',
     paddingHorizontal: 12,
-    height: 44,
-    gap: 8,
+    paddingVertical: 10,
+    gap: 10,
   },
   searchInput: {
     flex: 1,
     fontSize: 15,
-    color: Colors.text.primary,
+    color: '#FFFFFF',
   },
-  scrollView: {
-    flex: 1,
+  emptyState: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 80,
+    paddingHorizontal: 32,
+  },
+  emptyText: {
+    marginTop: 16,
+    marginBottom: 8,
+  },
+  emptySubtext: {
+    textAlign: 'center',
   },
   section: {
     marginBottom: 24,
   },
-  sectionTitle: {
-    fontSize: 16,
-    fontWeight: '700' as const,
-    color: Colors.text.primary,
-    paddingHorizontal: 16,
-    paddingTop: 16,
-    paddingBottom: 12,
-  },
   conversationCard: {
-    flexDirection: 'row' as const,
-    backgroundColor: Colors.white,
+    flexDirection: 'row',
     paddingHorizontal: 16,
     paddingVertical: 14,
     borderBottomWidth: 1,
-    borderBottomColor: Colors.border.light,
+    borderRadius: 12,
+    marginBottom: 8,
   },
   conversationCardClosed: {
     opacity: 0.7,
   },
   avatarContainer: {
-    position: 'relative' as const,
+    position: 'relative',
     marginRight: 12,
   },
   avatar: {
     width: 52,
     height: 52,
     borderRadius: 26,
-    backgroundColor: Colors.background.tertiary,
-    alignItems: 'center' as const,
-    justifyContent: 'center' as const,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
-  avatarClosed: {
-    backgroundColor: Colors.background.secondary,
-  },
+  avatarClosed: {},
   badge: {
-    position: 'absolute' as const,
+    position: 'absolute',
     top: -2,
     right: -2,
-    backgroundColor: Colors.error,
     minWidth: 20,
     height: 20,
     borderRadius: 10,
-    alignItems: 'center' as const,
-    justifyContent: 'center' as const,
+    alignItems: 'center',
+    justifyContent: 'center',
     paddingHorizontal: 4,
     borderWidth: 2,
-    borderColor: Colors.white,
+    borderColor: '#FFFFFF',
   },
   badgeText: {
     fontSize: 11,
-    fontWeight: '700' as const,
-    color: Colors.white,
+    color: '#FFFFFF',
   },
   conversationContent: {
     flex: 1,
   },
   conversationHeader: {
-    flexDirection: 'row' as const,
-    justifyContent: 'space-between' as const,
-    alignItems: 'center' as const,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
     marginBottom: 4,
-  },
-  conversationName: {
-    fontSize: 16,
-    fontWeight: '600' as const,
-    color: Colors.text.primary,
-  },
-  conversationTime: {
-    fontSize: 12,
-    color: Colors.text.secondary,
-  },
-  orderNumber: {
-    fontSize: 12,
-    color: Colors.text.light,
-    marginBottom: 4,
-  },
-  lastMessage: {
-    fontSize: 14,
-    color: Colors.text.secondary,
-  },
-  lastMessageUnread: {
-    fontWeight: '600' as const,
-    color: Colors.text.primary,
-  },
-  emptyState: {
-    flex: 1,
-    alignItems: 'center' as const,
-    justifyContent: 'center' as const,
-    paddingVertical: 80,
-    paddingHorizontal: 32,
-  },
-  emptyText: {
-    fontSize: 18,
-    fontWeight: '600' as const,
-    color: Colors.text.primary,
-    marginTop: 16,
-    marginBottom: 8,
-  },
-  emptySubtext: {
-    fontSize: 14,
-    color: Colors.text.secondary,
-    textAlign: 'center' as const,
   },
   bottomPadding: {
     height: 32,

@@ -1,17 +1,54 @@
+// ============================================================================
+// YESSWERA: PERFIL DEL REPARTIDOR
+// Usa ScreenContainer para diseño unificado con soporte de tema
+// ============================================================================
+
 import { useState, useEffect } from 'react';
-import { StyleSheet, Text, View, TouchableOpacity, ScrollView, Image, Alert, ActivityIndicator } from 'react-native';
+import { StyleSheet, View, TouchableOpacity, Image, Alert, ActivityIndicator } from 'react-native';
 import { useRouter } from 'expo-router';
-import { ArrowLeft, Camera, Edit2, Phone, Mail, FileText, Car, CreditCard, UserPlus, Award, CheckCircle, Clock, TrendingUp, Package, MapPin } from 'lucide-react-native';
-import { LinearGradient } from 'expo-linear-gradient';
-import Colors from '@/constants/colors';
+import { Camera, Edit2, Phone, Mail, FileText, Car, CreditCard, UserPlus, CheckCircle, Clock, TrendingUp, Package, MapPin, User } from 'lucide-react-native';
 import { useAuth } from '@/contexts/auth';
+import { useTheme } from '@/contexts/theme';
+import { ThemedText } from '@/components/themed';
+import ScreenContainer, { ScreenCard } from '@/components/ScreenContainer';
 import { supabase } from '@/constants/supabase';
+
+// ============================================================================
+// COLORES EXPLICITOS PARA MODO OSCURO
+// ============================================================================
+
+const COLORS = {
+  light: {
+    card: '#FFFFFF',
+    cardAlt: '#F5F5F4',
+    border: '#E7E5E4',
+    text: '#1C1917',
+    textSecondary: '#57534E',
+    textMuted: '#A8A29E',
+    success: '#22C55E',
+    warning: '#F59E0B',
+  },
+  dark: {
+    card: '#292524',
+    cardAlt: '#44403C',
+    border: '#44403C',
+    text: '#FAFAFA',
+    textSecondary: '#D6D3D1',
+    textMuted: '#78716C',
+    success: '#22C55E',
+    warning: '#F59E0B',
+  },
+};
 
 export default function DriverProfileScreen() {
   const router = useRouter();
   const { user } = useAuth();
+  const { isDark, colors, radius, space } = useTheme();
+  const theme = isDark ? COLORS.dark : COLORS.light;
+
   const [driverData, setDriverData] = useState<any>(null);
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
 
   useEffect(() => {
     if (!user) return;
@@ -45,32 +82,38 @@ export default function DriverProfileScreen() {
     }
   }
 
+  const handleRefresh = async () => {
+    setRefreshing(true);
+    await loadDriverProfile();
+    setRefreshing(false);
+  };
+
   const handleEditPhoto = () => {
-    Alert.alert('Cambiar Foto', '¿Qué deseas hacer?', [
-      { text: 'Tomar Foto', onPress: () => Alert.alert('Cámara', 'Disponible próximamente') },
-      { text: 'Elegir de Galería', onPress: () => Alert.alert('Galería', 'Disponible próximamente') },
+    Alert.alert('Cambiar Foto', 'Que deseas hacer?', [
+      { text: 'Tomar Foto', onPress: () => Alert.alert('Camara', 'Disponible proximamente') },
+      { text: 'Elegir de Galeria', onPress: () => Alert.alert('Galeria', 'Disponible proximamente') },
       { text: 'Cancelar', style: 'cancel' },
     ]);
   };
 
   const handleEditPersonalInfo = () => {
-    Alert.alert('Editar Datos', 'Disponible próximamente');
+    Alert.alert('Editar Datos', 'Disponible proximamente');
   };
 
   const handleEditVehicle = () => {
-    Alert.alert('Editar Vehículo', 'Disponible próximamente');
+    Alert.alert('Editar Vehiculo', 'Disponible proximamente');
   };
 
   const handleUpdateDocuments = () => {
-    Alert.alert('Actualizar Documentos', 'Disponible próximamente');
+    Alert.alert('Actualizar Documentos', 'Disponible proximamente');
   };
 
   const handleEditBankAccount = () => {
-    Alert.alert('Editar Cuenta Bancaria', 'Disponible próximamente');
+    Alert.alert('Editar Cuenta Bancaria', 'Disponible proximamente');
   };
 
   const handleEditEmergencyContact = () => {
-    Alert.alert('Cambiar Contacto', 'Disponible próximamente');
+    Alert.alert('Cambiar Contacto', 'Disponible proximamente');
   };
 
   // Format date to readable string
@@ -99,30 +142,25 @@ export default function DriverProfileScreen() {
 
   if (loading) {
     return (
-      <View style={styles.container}>
-        <LinearGradient
-          colors={[Colors.primary, Colors.primaryDark]}
-          style={styles.header}
-        >
-          <View style={styles.headerContent}>
-            <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
-              <ArrowLeft size={24} color={Colors.white} />
-            </TouchableOpacity>
-            <Text style={styles.headerTitle}>Mi Perfil</Text>
-            <View style={styles.editButton} />
-          </View>
-        </LinearGradient>
-        <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
-          <ActivityIndicator size="large" color={Colors.primary} />
-          <Text style={{ marginTop: 12, color: Colors.text.secondary, fontSize: 14 }}>Cargando perfil...</Text>
+      <ScreenContainer
+        headerGradient="primary"
+        headerIcon={User}
+        headerTitle="Mi Perfil"
+        headerSubtitle="Cargando..."
+      >
+        <View style={styles.loadingContainer}>
+          <ActivityIndicator size="large" color={colors.primary} />
+          <ThemedText variant="body" style={[styles.loadingText, { color: theme.textSecondary }]}>
+            Cargando perfil...
+          </ThemedText>
         </View>
-      </View>
+      </ScreenContainer>
     );
   }
 
   const displayName = user?.name || 'Repartidor';
   const displayEmail = user?.email || 'Sin email';
-  const displayPhone = user?.phone || 'Sin teléfono';
+  const displayPhone = user?.phone || 'Sin telefono';
   const displayAvatar = user?.avatar || `https://ui-avatars.com/api/?name=${encodeURIComponent(displayName)}&background=00C896&color=fff&size=150`;
   const displayRating = driverData?.rating_average ?? 0;
   const displayRatingCount = driverData?.rating_count ?? 0;
@@ -131,241 +169,189 @@ export default function DriverProfileScreen() {
   const totalDeliveries = driverData?.totalDeliveries ?? 0;
 
   return (
-    <View style={styles.container}>
-      <LinearGradient
-        colors={[Colors.primary, Colors.primaryDark]}
-        style={styles.header}
-      >
-        <View style={styles.headerContent}>
-          <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
-            <ArrowLeft size={24} color={Colors.white} />
+    <ScreenContainer
+      headerGradient="primary"
+      headerIcon={User}
+      headerTitle="Mi Perfil"
+      headerSubtitle="Gestiona tu informacion"
+      refreshing={refreshing}
+      onRefresh={handleRefresh}
+    >
+      {/* Profile Header */}
+      <View style={[styles.profileHeader, { backgroundColor: theme.card }]}>
+        <View style={styles.avatarContainer}>
+          <Image source={{ uri: displayAvatar }} style={[styles.avatar, { borderColor: colors.primary }]} />
+          <TouchableOpacity style={[styles.cameraButton, { backgroundColor: colors.primary }]} onPress={handleEditPhoto}>
+            <Camera size={18} color="#FFFFFF" />
           </TouchableOpacity>
-          <Text style={styles.headerTitle}>Mi Perfil</Text>
-          <TouchableOpacity onPress={handleEditPersonalInfo} style={styles.editButton}>
-            <Edit2 size={20} color={Colors.white} />
-          </TouchableOpacity>
         </View>
-      </LinearGradient>
-
-      <ScrollView style={styles.scrollView} showsVerticalScrollIndicator={false}>
-        <View style={styles.profileHeader}>
-          <View style={styles.avatarContainer}>
-            <Image source={{ uri: displayAvatar }} style={styles.avatar} />
-            <TouchableOpacity style={styles.cameraButton} onPress={handleEditPhoto}>
-              <Camera size={18} color={Colors.white} />
-            </TouchableOpacity>
-          </View>
-          <Text style={styles.profileName}>{displayName}</Text>
-          <View style={styles.ratingContainer}>
-            <Text style={styles.ratingText}>⭐ {displayRating.toFixed(1)}</Text>
-            <Text style={styles.ratingsCount}>({displayRatingCount} calificaciones)</Text>
-          </View>
-          <Text style={styles.memberSince}>🟢 Activo desde {displayMemberSince}</Text>
+        <ThemedText variant="h2" style={{ color: theme.text }}>{displayName}</ThemedText>
+        <View style={styles.ratingContainer}>
+          <ThemedText variant="subtitle" bold style={{ color: theme.text }}>{displayRating.toFixed(1)}</ThemedText>
+          <ThemedText variant="body" style={{ color: theme.textSecondary }}> ({displayRatingCount} calificaciones)</ThemedText>
         </View>
+        <ThemedText variant="body" style={{ color: theme.textSecondary }}>Activo desde {displayMemberSince}</ThemedText>
+        <TouchableOpacity onPress={handleEditPersonalInfo} style={[styles.editProfileButton, { backgroundColor: theme.cardAlt }]}>
+          <Edit2 size={16} color={colors.primary} />
+          <ThemedText variant="label" style={{ color: colors.primary }}>Editar Perfil</ThemedText>
+        </TouchableOpacity>
+      </View>
 
-        <View style={styles.section}>
-          <View style={styles.sectionHeader}>
-            <Phone size={20} color={Colors.primary} />
-            <Text style={styles.sectionTitle}>Datos Personales</Text>
-          </View>
-          <View style={styles.infoCard}>
-            <View style={styles.infoRow}>
-              <Text style={styles.infoLabel}>Teléfono:</Text>
-              <Text style={styles.infoValue}>{displayPhone}</Text>
-            </View>
-            <View style={styles.divider} />
-            <View style={styles.infoRow}>
-              <Text style={styles.infoLabel}>Email:</Text>
-              <Text style={styles.infoValue}>{displayEmail}</Text>
-            </View>
-            <View style={styles.divider} />
-            <View style={styles.infoRow}>
-              <Text style={styles.infoLabel}>CURP:</Text>
-              <Text style={styles.infoValue}>No registrado</Text>
-            </View>
-          </View>
+      {/* Personal Info */}
+      <View style={styles.sectionHeader}>
+        <Phone size={20} color={colors.primary} />
+        <ThemedText variant="h3" style={{ color: theme.text }}>Datos Personales</ThemedText>
+      </View>
+      <ScreenCard>
+        <View style={styles.infoRow}>
+          <ThemedText variant="label" style={{ color: theme.textSecondary }}>Telefono:</ThemedText>
+          <ThemedText variant="body" style={{ color: theme.text }}>{displayPhone}</ThemedText>
         </View>
+        <View style={[styles.divider, { backgroundColor: theme.border }]} />
+        <View style={styles.infoRow}>
+          <ThemedText variant="label" style={{ color: theme.textSecondary }}>Email:</ThemedText>
+          <ThemedText variant="body" style={{ color: theme.text }}>{displayEmail}</ThemedText>
+        </View>
+        <View style={[styles.divider, { backgroundColor: theme.border }]} />
+        <View style={styles.infoRow}>
+          <ThemedText variant="label" style={{ color: theme.textSecondary }}>CURP:</ThemedText>
+          <ThemedText variant="body" style={{ color: theme.text }}>No registrado</ThemedText>
+        </View>
+      </ScreenCard>
 
-        <View style={styles.section}>
-          <View style={styles.sectionHeader}>
-            <Car size={20} color={Colors.primary} />
-            <Text style={styles.sectionTitle}>Mi Vehículo</Text>
-          </View>
-          <View style={styles.vehicleCard}>
-            <View style={styles.vehicleInfo}>
-              <Text style={styles.vehicleName}>
-                {displayVehicleType}
-              </Text>
-              <Text style={styles.vehicleDetails}>
-                Marca y modelo: No registrado
-              </Text>
-              <Text style={styles.vehiclePlate}>Placas: No registrado</Text>
-            </View>
-            <TouchableOpacity style={styles.updateButton} onPress={handleEditVehicle}>
-              <Text style={styles.updateButtonText}>Registrar vehículo</Text>
-            </TouchableOpacity>
+      {/* Vehicle */}
+      <View style={styles.sectionHeader}>
+        <Car size={20} color={colors.primary} />
+        <ThemedText variant="h3" style={{ color: theme.text }}>Mi Vehiculo</ThemedText>
+      </View>
+      <ScreenCard>
+        <View style={styles.vehicleInfo}>
+          <ThemedText variant="subtitle" bold style={{ color: theme.text }}>{displayVehicleType}</ThemedText>
+          <ThemedText variant="body" style={{ color: theme.textSecondary }}>Marca y modelo: No registrado</ThemedText>
+          <ThemedText variant="body" style={{ color: theme.textSecondary }}>Placas: No registrado</ThemedText>
+        </View>
+        <TouchableOpacity style={[styles.updateButton, { backgroundColor: theme.cardAlt }]} onPress={handleEditVehicle}>
+          <ThemedText variant="label" style={{ color: colors.primary }}>Registrar vehiculo</ThemedText>
+        </TouchableOpacity>
+      </ScreenCard>
+
+      {/* Documents */}
+      <View style={styles.sectionHeader}>
+        <FileText size={20} color={colors.primary} />
+        <ThemedText variant="h3" style={{ color: theme.text }}>Mis Documentos</ThemedText>
+      </View>
+      <ScreenCard>
+        <View style={styles.documentRow}>
+          <ThemedText variant="label" style={{ color: theme.textSecondary }}>INE:</ThemedText>
+          <View style={styles.documentStatus}>
+            <Clock size={16} color={theme.warning} />
+            <ThemedText variant="body" style={{ color: theme.textSecondary }}>Pendiente</ThemedText>
           </View>
         </View>
-
-        <View style={styles.section}>
-          <View style={styles.sectionHeader}>
-            <FileText size={20} color={Colors.primary} />
-            <Text style={styles.sectionTitle}>Mis Documentos</Text>
-          </View>
-          <View style={styles.infoCard}>
-            <View style={styles.documentRow}>
-              <Text style={styles.documentLabel}>INE:</Text>
-              <View style={styles.documentStatus}>
-                <Clock size={16} color={Colors.warning} />
-                <Text style={styles.documentText}>
-                  Pendiente
-                </Text>
-              </View>
-            </View>
-            <View style={styles.divider} />
-            <View style={styles.documentRow}>
-              <Text style={styles.documentLabel}>Licencia:</Text>
-              <View style={styles.documentStatus}>
-                <Clock size={16} color={Colors.warning} />
-                <Text style={styles.documentText}>
-                  Pendiente
-                </Text>
-              </View>
-            </View>
-            <View style={styles.divider} />
-            <View style={styles.documentRow}>
-              <Text style={styles.documentLabel}>Comprobante:</Text>
-              <View style={styles.documentStatus}>
-                <Clock size={16} color={Colors.warning} />
-                <Text style={styles.documentText}>
-                  Pendiente
-                </Text>
-              </View>
-            </View>
-            <TouchableOpacity style={styles.linkButton} onPress={handleUpdateDocuments}>
-              <Text style={styles.linkButtonText}>Subir documentos</Text>
-            </TouchableOpacity>
+        <View style={[styles.divider, { backgroundColor: theme.border }]} />
+        <View style={styles.documentRow}>
+          <ThemedText variant="label" style={{ color: theme.textSecondary }}>Licencia:</ThemedText>
+          <View style={styles.documentStatus}>
+            <Clock size={16} color={theme.warning} />
+            <ThemedText variant="body" style={{ color: theme.textSecondary }}>Pendiente</ThemedText>
           </View>
         </View>
-
-        <View style={styles.section}>
-          <View style={styles.sectionHeader}>
-            <CreditCard size={20} color={Colors.primary} />
-            <Text style={styles.sectionTitle}>Datos Bancarios</Text>
-          </View>
-          <View style={styles.infoCard}>
-            <View style={styles.infoRow}>
-              <Text style={styles.infoLabel}>Estado:</Text>
-              <Text style={styles.infoValue}>No configurada</Text>
-            </View>
-            <TouchableOpacity style={styles.linkButton} onPress={handleEditBankAccount}>
-              <Text style={styles.linkButtonText}>Configurar cuenta</Text>
-            </TouchableOpacity>
+        <View style={[styles.divider, { backgroundColor: theme.border }]} />
+        <View style={styles.documentRow}>
+          <ThemedText variant="label" style={{ color: theme.textSecondary }}>Comprobante:</ThemedText>
+          <View style={styles.documentStatus}>
+            <Clock size={16} color={theme.warning} />
+            <ThemedText variant="body" style={{ color: theme.textSecondary }}>Pendiente</ThemedText>
           </View>
         </View>
+        <TouchableOpacity style={styles.linkButton} onPress={handleUpdateDocuments}>
+          <ThemedText variant="label" style={{ color: colors.primary }}>Subir documentos</ThemedText>
+        </TouchableOpacity>
+      </ScreenCard>
 
-        <View style={styles.section}>
-          <View style={styles.sectionHeader}>
-            <UserPlus size={20} color={Colors.primary} />
-            <Text style={styles.sectionTitle}>Contacto de Emergencia</Text>
+      {/* Bank Account */}
+      <View style={styles.sectionHeader}>
+        <CreditCard size={20} color={colors.primary} />
+        <ThemedText variant="h3" style={{ color: theme.text }}>Datos Bancarios</ThemedText>
+      </View>
+      <ScreenCard>
+        <View style={styles.infoRow}>
+          <ThemedText variant="label" style={{ color: theme.textSecondary }}>Estado:</ThemedText>
+          <ThemedText variant="body" style={{ color: theme.text }}>No configurada</ThemedText>
+        </View>
+        <TouchableOpacity style={styles.linkButton} onPress={handleEditBankAccount}>
+          <ThemedText variant="label" style={{ color: colors.primary }}>Configurar cuenta</ThemedText>
+        </TouchableOpacity>
+      </ScreenCard>
+
+      {/* Emergency Contact */}
+      <View style={styles.sectionHeader}>
+        <UserPlus size={20} color={colors.primary} />
+        <ThemedText variant="h3" style={{ color: theme.text }}>Contacto de Emergencia</ThemedText>
+      </View>
+      <ScreenCard>
+        <View style={styles.infoRow}>
+          <ThemedText variant="label" style={{ color: theme.textSecondary }}>Estado:</ThemedText>
+          <ThemedText variant="body" style={{ color: theme.text }}>No configurado</ThemedText>
+        </View>
+        <TouchableOpacity style={styles.linkButton} onPress={handleEditEmergencyContact}>
+          <ThemedText variant="label" style={{ color: colors.primary }}>Agregar contacto</ThemedText>
+        </TouchableOpacity>
+      </ScreenCard>
+
+      {/* Statistics */}
+      <View style={styles.sectionHeader}>
+        <TrendingUp size={20} color={colors.primary} />
+        <ThemedText variant="h3" style={{ color: theme.text }}>Mis Estadisticas</ThemedText>
+      </View>
+      <ScreenCard>
+        <View style={styles.statsGrid}>
+          <View style={styles.statItem}>
+            <Package size={20} color={colors.primary} />
+            <ThemedText variant="h2" style={{ color: theme.text }}>{totalDeliveries}</ThemedText>
+            <ThemedText variant="caption" style={{ color: theme.textSecondary }}>Entregas totales</ThemedText>
           </View>
-          <View style={styles.infoCard}>
-            <View style={styles.infoRow}>
-              <Text style={styles.infoLabel}>Estado:</Text>
-              <Text style={styles.infoValue}>No configurado</Text>
-            </View>
-            <TouchableOpacity style={styles.linkButton} onPress={handleEditEmergencyContact}>
-              <Text style={styles.linkButtonText}>Agregar contacto</Text>
-            </TouchableOpacity>
+          <View style={styles.statItem}>
+            <CheckCircle size={20} color={theme.success} />
+            <ThemedText variant="h2" style={{ color: theme.text }}>--</ThemedText>
+            <ThemedText variant="caption" style={{ color: theme.textSecondary }}>Aceptacion</ThemedText>
+          </View>
+          <View style={styles.statItem}>
+            <Clock size={20} color={colors.accent} />
+            <ThemedText variant="h2" style={{ color: theme.text }}>--</ThemedText>
+            <ThemedText variant="caption" style={{ color: theme.textSecondary }}>A tiempo</ThemedText>
+          </View>
+          <View style={styles.statItem}>
+            <MapPin size={20} color={theme.warning} />
+            <ThemedText variant="h2" style={{ color: theme.text }}>--</ThemedText>
+            <ThemedText variant="caption" style={{ color: theme.textSecondary }}>Km recorridos</ThemedText>
           </View>
         </View>
+      </ScreenCard>
 
-        <View style={styles.section}>
-          <View style={styles.sectionHeader}>
-            <TrendingUp size={20} color={Colors.primary} />
-            <Text style={styles.sectionTitle}>Mis Estadísticas</Text>
-          </View>
-          <View style={styles.statsCard}>
-            <View style={styles.statsGrid}>
-              <View style={styles.statItem}>
-                <Package size={20} color={Colors.primary} />
-                <Text style={styles.statValue}>{totalDeliveries}</Text>
-                <Text style={styles.statLabel}>Entregas totales</Text>
-              </View>
-              <View style={styles.statItem}>
-                <CheckCircle size={20} color={Colors.success} />
-                <Text style={styles.statValue}>--</Text>
-                <Text style={styles.statLabel}>Aceptación</Text>
-              </View>
-              <View style={styles.statItem}>
-                <Clock size={20} color={Colors.accent} />
-                <Text style={styles.statValue}>--</Text>
-                <Text style={styles.statLabel}>A tiempo</Text>
-              </View>
-              <View style={styles.statItem}>
-                <MapPin size={20} color={Colors.warning} />
-                <Text style={styles.statValue}>--</Text>
-                <Text style={styles.statLabel}>Km recorridos</Text>
-              </View>
-            </View>
-          </View>
-        </View>
-
-        <View style={styles.bottomPadding} />
-      </ScrollView>
-    </View>
+      <View style={styles.bottomPadding} />
+    </ScreenContainer>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
+  loadingContainer: {
     flex: 1,
-    backgroundColor: Colors.background.secondary,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingVertical: 60,
   },
-  header: {
-    paddingTop: 50,
-    paddingBottom: 20,
-    paddingHorizontal: 16,
-  },
-  headerContent: {
-    flexDirection: 'row' as const,
-    alignItems: 'center' as const,
-    justifyContent: 'space-between' as const,
-  },
-  backButton: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    alignItems: 'center' as const,
-    justifyContent: 'center' as const,
-    backgroundColor: 'rgba(255, 255, 255, 0.2)',
-  },
-  editButton: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    alignItems: 'center' as const,
-    justifyContent: 'center' as const,
-    backgroundColor: 'rgba(255, 255, 255, 0.2)',
-  },
-  headerTitle: {
-    fontSize: 20,
-    fontWeight: '700' as const,
-    color: Colors.white,
-    flex: 1,
-    textAlign: 'center' as const,
-  },
-  scrollView: {
-    flex: 1,
+  loadingText: {
+    marginTop: 12,
   },
   profileHeader: {
-    backgroundColor: Colors.white,
-    alignItems: 'center' as const,
+    alignItems: 'center',
     paddingVertical: 32,
     marginBottom: 16,
+    borderRadius: 16,
   },
   avatarContainer: {
-    position: 'relative' as const,
+    position: 'relative',
     marginBottom: 16,
   },
   avatar: {
@@ -373,243 +359,85 @@ const styles = StyleSheet.create({
     height: 100,
     borderRadius: 50,
     borderWidth: 4,
-    borderColor: Colors.primary,
   },
   cameraButton: {
-    position: 'absolute' as const,
+    position: 'absolute',
     bottom: 0,
     right: 0,
     width: 32,
     height: 32,
     borderRadius: 16,
-    backgroundColor: Colors.primary,
-    alignItems: 'center' as const,
-    justifyContent: 'center' as const,
+    alignItems: 'center',
+    justifyContent: 'center',
     borderWidth: 3,
-    borderColor: Colors.white,
-  },
-  profileName: {
-    fontSize: 24,
-    fontWeight: '700' as const,
-    color: Colors.text.primary,
-    marginBottom: 8,
+    borderColor: '#FFFFFF',
   },
   ratingContainer: {
-    flexDirection: 'row' as const,
-    alignItems: 'center' as const,
-    gap: 6,
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: 8,
     marginBottom: 4,
   },
-  ratingText: {
-    fontSize: 16,
-    fontWeight: '600' as const,
-    color: Colors.text.primary,
-  },
-  ratingsCount: {
-    fontSize: 14,
-    color: Colors.text.secondary,
-  },
-  memberSince: {
-    fontSize: 14,
-    color: Colors.text.secondary,
-    marginTop: 4,
-  },
-  section: {
-    marginBottom: 16,
+  editProfileButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginTop: 16,
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    borderRadius: 20,
   },
   sectionHeader: {
-    flexDirection: 'row' as const,
-    alignItems: 'center' as const,
+    flexDirection: 'row',
+    alignItems: 'center',
     gap: 8,
-    paddingHorizontal: 16,
     marginBottom: 12,
-  },
-  sectionTitle: {
-    fontSize: 18,
-    fontWeight: '700' as const,
-    color: Colors.text.primary,
-  },
-  infoCard: {
-    backgroundColor: Colors.white,
-    marginHorizontal: 16,
-    borderRadius: 12,
-    padding: 16,
-    shadowColor: Colors.shadow.medium,
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.08,
-    shadowRadius: 8,
-    elevation: 2,
+    marginTop: 8,
   },
   infoRow: {
-    flexDirection: 'row' as const,
-    justifyContent: 'space-between' as const,
-    alignItems: 'center' as const,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
     paddingVertical: 8,
-  },
-  infoLabel: {
-    fontSize: 14,
-    fontWeight: '600' as const,
-    color: Colors.text.secondary,
-  },
-  infoValue: {
-    fontSize: 14,
-    color: Colors.text.primary,
   },
   divider: {
     height: 1,
-    backgroundColor: Colors.border.light,
     marginVertical: 4,
-  },
-  vehicleCard: {
-    backgroundColor: Colors.white,
-    marginHorizontal: 16,
-    borderRadius: 12,
-    padding: 16,
-    shadowColor: Colors.shadow.medium,
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.08,
-    shadowRadius: 8,
-    elevation: 2,
-  },
-  vehiclePhoto: {
-    width: '100%' as const,
-    height: 160,
-    borderRadius: 8,
-    marginBottom: 12,
   },
   vehicleInfo: {
     marginBottom: 12,
   },
-  vehicleName: {
-    fontSize: 16,
-    fontWeight: '700' as const,
-    color: Colors.text.primary,
-    marginBottom: 4,
-  },
-  vehicleDetails: {
-    fontSize: 14,
-    color: Colors.text.secondary,
-    marginBottom: 2,
-  },
-  vehiclePlate: {
-    fontSize: 14,
-    fontWeight: '600' as const,
-    color: Colors.text.primary,
-  },
   updateButton: {
-    backgroundColor: Colors.background.secondary,
     paddingVertical: 10,
     paddingHorizontal: 16,
     borderRadius: 8,
-    alignItems: 'center' as const,
-  },
-  updateButtonText: {
-    fontSize: 14,
-    fontWeight: '600' as const,
-    color: Colors.primary,
+    alignItems: 'center',
   },
   documentRow: {
-    flexDirection: 'row' as const,
-    justifyContent: 'space-between' as const,
-    alignItems: 'center' as const,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
     paddingVertical: 8,
   },
-  documentLabel: {
-    fontSize: 14,
-    fontWeight: '600' as const,
-    color: Colors.text.secondary,
-  },
   documentStatus: {
-    flexDirection: 'row' as const,
-    alignItems: 'center' as const,
+    flexDirection: 'row',
+    alignItems: 'center',
     gap: 6,
-  },
-  documentText: {
-    fontSize: 14,
-    color: Colors.text.secondary,
-  },
-  documentVerified: {
-    color: Colors.success,
-    fontWeight: '600' as const,
   },
   linkButton: {
     marginTop: 12,
     paddingVertical: 8,
-    alignItems: 'center' as const,
-  },
-  linkButtonText: {
-    fontSize: 14,
-    fontWeight: '600' as const,
-    color: Colors.primary,
-  },
-  statsCard: {
-    backgroundColor: Colors.white,
-    marginHorizontal: 16,
-    borderRadius: 12,
-    padding: 20,
-    shadowColor: Colors.shadow.medium,
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.08,
-    shadowRadius: 8,
-    elevation: 2,
+    alignItems: 'center',
   },
   statsGrid: {
-    flexDirection: 'row' as const,
-    flexWrap: 'wrap' as const,
+    flexDirection: 'row',
+    flexWrap: 'wrap',
     gap: 20,
   },
   statItem: {
     flex: 1,
-    minWidth: '42%' as const,
-    alignItems: 'center' as const,
-  },
-  statValue: {
-    fontSize: 22,
-    fontWeight: '700' as const,
-    color: Colors.text.primary,
-    marginTop: 8,
-    marginBottom: 4,
-  },
-  statLabel: {
-    fontSize: 12,
-    color: Colors.text.secondary,
-    textAlign: 'center' as const,
-  },
-  achievementsGrid: {
-    flexDirection: 'row' as const,
-    flexWrap: 'wrap' as const,
-    gap: 12,
-    paddingHorizontal: 16,
-  },
-  achievementCard: {
-    width: '30%' as const,
-    aspectRatio: 1,
-    backgroundColor: Colors.white,
-    borderRadius: 12,
-    alignItems: 'center' as const,
-    justifyContent: 'center' as const,
-    padding: 12,
-    shadowColor: Colors.shadow.medium,
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.08,
-    shadowRadius: 8,
-    elevation: 2,
-  },
-  achievementLocked: {
-    opacity: 0.4,
-  },
-  achievementIcon: {
-    fontSize: 32,
-    marginBottom: 8,
-  },
-  achievementName: {
-    fontSize: 11,
-    fontWeight: '600' as const,
-    color: Colors.text.primary,
-    textAlign: 'center' as const,
-  },
-  achievementNameLocked: {
-    color: Colors.text.light,
+    minWidth: '42%',
+    alignItems: 'center',
   },
   bottomPadding: {
     height: 32,

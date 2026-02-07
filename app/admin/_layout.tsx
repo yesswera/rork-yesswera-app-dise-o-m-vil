@@ -1,12 +1,12 @@
 import { Tabs, useRouter } from 'expo-router';
-import { BarChart3, Users, ShoppingBag, MessageSquare, Settings } from 'lucide-react-native';
+import { BarChart3, Users, ShoppingBag, TrendingUp, Settings, MessageSquare, MessageCircle } from 'lucide-react-native';
 import { useEffect } from 'react';
-import { Alert } from 'react-native';
+import { Alert, BackHandler } from 'react-native';
 import Colors from '@/constants/colors';
 import { useAuth } from '@/contexts/auth';
 
 export default function AdminLayout() {
-  const { user } = useAuth();
+  const { user, logout } = useAuth();
   const router = useRouter();
 
   useEffect(() => {
@@ -15,6 +15,30 @@ export default function AdminLayout() {
       router.replace('/');
     }
   }, [user]);
+
+  // Manejar botón de retroceso - preguntar si desea cerrar sesión
+  useEffect(() => {
+    const backHandler = BackHandler.addEventListener('hardwareBackPress', () => {
+      Alert.alert(
+        'Cerrar Sesión',
+        '¿Deseas cerrar sesión del panel administrativo?',
+        [
+          { text: 'Cancelar', style: 'cancel' },
+          {
+            text: 'Cerrar Sesión',
+            style: 'destructive',
+            onPress: async () => {
+              await logout();
+              router.replace('/login' as any);
+            },
+          },
+        ]
+      );
+      return true; // Prevenir comportamiento por defecto
+    });
+
+    return () => backHandler.remove();
+  }, [logout, router]);
 
   if (!user || user.userType !== 'admin') {
     return null;
@@ -44,14 +68,23 @@ export default function AdminLayout() {
         headerTitleStyle: {
           fontWeight: '700' as const,
         },
+        headerLeft: () => null, // Sin botón de retroceso
       }}
     >
       <Tabs.Screen
         name="dashboard"
         options={{
-          title: 'Analytics',
+          title: 'Inicio',
           tabBarIcon: ({ color, size }) => <BarChart3 size={size} color={color} />,
           headerTitle: 'Panel Administrativo',
+        }}
+      />
+      <Tabs.Screen
+        name="analytics"
+        options={{
+          title: 'Analytics',
+          tabBarIcon: ({ color, size }) => <TrendingUp size={size} color={color} />,
+          headerTitle: 'Analytics Avanzados',
         }}
       />
       <Tabs.Screen
@@ -69,10 +102,19 @@ export default function AdminLayout() {
         }}
       />
       <Tabs.Screen
-        name="surveys"
+        name="support"
         options={{
-          title: 'Encuestas',
+          title: 'Soporte',
           tabBarIcon: ({ color, size }) => <MessageSquare size={size} color={color} />,
+          headerTitle: 'Centro de Soporte',
+        }}
+      />
+      <Tabs.Screen
+        name="chats"
+        options={{
+          title: 'Chats',
+          tabBarIcon: ({ color, size }) => <MessageCircle size={size} color={color} />,
+          headerTitle: 'Conversaciones',
         }}
       />
       <Tabs.Screen

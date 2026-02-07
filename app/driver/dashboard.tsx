@@ -1,25 +1,59 @@
+// ============================================================================
+// YESSWERA: DASHBOARD DEL REPARTIDOR
+// Usa ScreenContainer para diseño unificado con soporte de tema
+// ============================================================================
+
 import { useState, useEffect, useCallback } from 'react';
-import { StyleSheet, Text, View, TouchableOpacity, ScrollView, Alert, Linking, Platform, BackHandler } from 'react-native';
+import { View, TouchableOpacity, Alert, Linking, Platform, BackHandler, StyleSheet, useColorScheme } from 'react-native';
 import { useRouter, useFocusEffect } from 'expo-router';
-import { Package, DollarSign, Star, Clock, MapPin, Wallet, Power, Navigation, MessageCircle, History, User, HelpCircle, AlertTriangle } from 'lucide-react-native';
-import { LinearGradient } from 'expo-linear-gradient';
-import Colors from '@/constants/colors';
+import { Package, DollarSign, Star, Power, MessageCircle, History, User, HelpCircle, AlertTriangle, Truck } from 'lucide-react-native';
 import { useAuth } from '@/contexts/auth';
+import { useTheme } from '@/contexts/theme';
 import { useAnalytics } from '@/contexts/analytics';
-import PanicButton from '@/components/PanicButton';
+import { ThemedText } from '@/components/themed';
+import ScreenContainer, { ScreenCard } from '@/components/ScreenContainer';
+import AccessibilityControls from '@/components/AccessibilityControls';
 import PanicModal from '@/components/PanicModal';
 import SurveyPopup from '@/components/SurveyPopup';
-import { getAvailableOrdersForDriver, getDriverOrders, assignOrderToDriver } from '@/services/orders';
+import { getAvailableOrdersForDriver, assignOrderToDriver } from '@/services/orders';
 import { supabase } from '@/constants/supabase';
 import { Order } from '@/constants/types';
 import { useDriverOrderSubscription } from '@/hooks/useRealtimeOrders';
 import { useDriverMonitoring } from '@/hooks/useDriverMonitoring';
 import { Toast } from '@/utils/toast';
+import { OrderSounds, SoundFeedback, AuthSounds } from '@/services/sounds';
+
+// ============================================================================
+// COLORES EXPLICITOS PARA MODO OSCURO
+// ============================================================================
+
+const COLORS = {
+  light: {
+    card: '#FFFFFF',
+    cardAlt: '#F5F5F4',
+    border: '#E7E5E4',
+    text: '#1C1917',
+    textSecondary: '#57534E',
+    textMuted: '#A8A29E',
+  },
+  dark: {
+    card: '#292524',
+    cardAlt: '#44403C',
+    border: '#44403C',
+    text: '#FAFAFA',
+    textSecondary: '#D6D3D1',
+    textMuted: '#78716C',
+  },
+};
 
 export default function DriverDashboardScreen() {
   const router = useRouter();
-  const { user, token, logout } = useAuth();
+  const { user, logout } = useAuth();
+  const { colors, space, radius, isDark } = useTheme();
+  const colorScheme = useColorScheme();
+  const theme = isDark ? COLORS.dark : COLORS.light;
   const { trackEvent, trackPageView, currentSurvey, closeSurvey, submitSurvey } = useAnalytics();
+
   const [isOnline, setIsOnline] = useState(false);
   const [stats, setStats] = useState({
     todayDeliveries: 0,
@@ -31,22 +65,14 @@ export default function DriverDashboardScreen() {
   const [driverId, setDriverId] = useState<string | null>(null);
   const [showPanicModal, setShowPanicModal] = useState(false);
   const [activeOrderId, setActiveOrderId] = useState<string | null>(null);
+  const [refreshing, setRefreshing] = useState(false);
 
   // GPS Monitoring hook
-  const {
-    isTracking,
-    status: driverStatus,
-    lastError: gpsError,
-    goOnline,
-    goOffline,
-  } = useDriverMonitoring({
+  const { isTracking, goOnline, goOffline } = useDriverMonitoring({
     driverId: driverId || '',
     orderId: activeOrderId || undefined,
     enabled: !!driverId,
-    onAlert: (alert) => {
-      console.log('Driver alert:', alert);
-      // Could show a modal or notification here
-    },
+    onAlert: (alert) => console.log('Driver alert:', alert),
   });
 
   // Load driver record ID and active order
@@ -63,7 +89,6 @@ export default function DriverDashboardScreen() {
         if (driver) {
           setDriverId(driver.id);
 
-          // Check for active order
           const { data: activeOrder } = await supabase
             .from('orders')
             .select('id')
@@ -82,53 +107,41 @@ export default function DriverDashboardScreen() {
     loadDriverData();
   }, [user]);
 
-  // Prevenir que el botón de atrás lleve al home
+  // Prevenir boton atras
   useFocusEffect(
     useCallback(() => {
       const onBackPress = () => {
-        Alert.alert(
-          'Cerrar Sesión',
-          '¿Quieres cerrar sesión?',
-          [
-            { text: 'Cancelar', style: 'cancel' },
-            { text: 'Cerrar Sesión', style: 'destructive', onPress: () => handleLogout() },
-          ]
-        );
+        Alert.alert('Cerrar Sesion', 'Quieres cerrar sesion?', [
+          { text: 'Cancelar', style: 'cancel' },
+          { text: 'Cerrar Sesion', style: 'destructive', onPress: handleLogout },
+        ]);
         return true;
       };
-
       const subscription = BackHandler.addEventListener('hardwareBackPress', onBackPress);
       return () => subscription.remove();
     }, [])
   );
 
-  // Realtime subscription for order updates
+  // Realtime subscription
   useDriverOrderSubscription(
     isOnline ? driverId : null,
     () => {
-      // On assigned order update - refresh available orders and stats
+      OrderSounds.newOrder(); // Sound when new order is available
       loadAvailableOrders();
       loadDriverStats();
     },
-    () => {
-      // On new available order - refresh the list
-      loadAvailableOrders();
-    }
+    () => { loadAvailableOrders(); }
   );
 
-  // Cargar estadísticas del repartidor desde Supabase
   const loadDriverStats = useCallback(async () => {
     if (!user || !driverId) return;
-
     try {
-      // Get driver rating
       const { data: driver } = await supabase
         .from('drivers')
         .select('rating_average')
         .eq('id', driverId)
         .single();
 
-      // Get today's completed deliveries
       const today = new Date();
       today.setHours(0, 0, 0, 0);
 
@@ -149,22 +162,19 @@ export default function DriverDashboardScreen() {
         totalBalance: earnings,
       });
     } catch {
-      console.log('Stats not available, using defaults');
+      console.log('Stats not available');
     }
   }, [user, driverId]);
 
-  // Cargar órdenes disponibles desde Supabase
   const loadAvailableOrders = useCallback(async () => {
     if (!user || !isOnline) {
       setAvailableOrders([]);
       return;
     }
-
     try {
       const orders = await getAvailableOrdersForDriver();
       setAvailableOrders(orders);
     } catch {
-      console.log('No available orders');
       setAvailableOrders([]);
     }
   }, [user, isOnline]);
@@ -184,26 +194,32 @@ export default function DriverDashboardScreen() {
     }
   }, [loadAvailableOrders, isOnline]);
 
+  const handleRefresh = useCallback(async () => {
+    setRefreshing(true);
+    await Promise.all([loadDriverStats(), loadAvailableOrders()]);
+    setRefreshing(false);
+  }, [loadDriverStats, loadAvailableOrders]);
+
   const toggleOnlineStatus = async () => {
     const newStatus = !isOnline;
     trackEvent('driver_status_change', { newStatus: newStatus ? 'online' : 'offline' });
 
     if (newStatus) {
-      // Going online - start GPS tracking
       try {
         await goOnline();
         setIsOnline(true);
+        AuthSounds.login(); // Sound when driver goes online
         Toast.success('Ahora estas EN LINEA - GPS activo');
-      } catch (error) {
+      } catch {
+        SoundFeedback.error(); // Sound on error
         Toast.error('Error al activar GPS');
         return;
       }
     } else {
-      // Going offline - verificar si tiene orden activa
       if (activeOrderId) {
         Alert.alert(
           'Tienes una orden activa',
-          'No puedes desconectarte mientras tienes una orden en curso. Debes:\n\n• Completar la entrega\n• Cancelar la orden\n• Transferir a otro repartidor',
+          'No puedes desconectarte mientras tienes una orden en curso.',
           [
             { text: 'Ver Orden Activa', onPress: () => router.push('/driver/active-order' as any) },
             { text: 'Entendido', style: 'cancel' },
@@ -212,82 +228,52 @@ export default function DriverDashboardScreen() {
         return;
       }
 
-      // Sin orden activa - puede desconectarse
       try {
         await goOffline();
         setIsOnline(false);
         setAvailableOrders([]);
+        AuthSounds.logout(); // Sound when driver goes offline
         Toast.info('Desconectado - GPS detenido');
       } catch (error) {
+        SoundFeedback.error(); // Sound on error
         console.error('Error going offline:', error);
       }
     }
   };
 
-  const openNavigation = (lat: number, lng: number, label: string) => {
-    const url = Platform.select({
-      ios: `maps:?daddr=${lat},${lng}&dirflg=d`,
-      android: `google.navigation:q=${lat},${lng}`,
-    });
-
-    // Intentar abrir Waze primero, luego Google Maps
-    Linking.canOpenURL('waze://').then((supported) => {
-      if (supported) {
-        Linking.openURL(`waze://?ll=${lat},${lng}&navigate=yes`);
-      } else {
-        Linking.openURL(url || `https://www.google.com/maps/dir/?api=1&destination=${lat},${lng}`);
-      }
-    });
-  };
-
-  const handleViewActiveOrder = () => {
-    router.push('/driver/active-order');
-  };
-
-  const handleViewWallet = () => {
-    router.push('/wallet/index' as any);
-  };
-
   const handleAcceptOrder = (orderId: string) => {
     trackEvent('order_accept_attempt', { orderId });
-    Alert.alert(
-      'Aceptar Orden',
-      '¿Estás seguro de aceptar esta orden?',
-      [
-        {
-          text: 'Cancelar',
-          style: 'cancel',
-          onPress: () => trackEvent('order_accept_cancelled', { orderId })
-        },
-        {
-          text: 'Aceptar',
-          onPress: async () => {
-            try {
-              if (!driverId) {
-                Alert.alert('Error', 'No se encontró tu registro de repartidor');
-                return;
-              }
-              await assignOrderToDriver(orderId, driverId);
-              setActiveOrderId(orderId); // Save for GPS tracking
-              trackEvent('order_accepted', { orderId });
-              loadAvailableOrders();
-              router.push('/driver/active-order' as any);
-            } catch (error) {
-              console.error('Error accepting order:', error);
-              Alert.alert('Error', 'No se pudo aceptar la orden');
+    Alert.alert('Aceptar Orden', 'Estas seguro de aceptar esta orden?', [
+      { text: 'Cancelar', style: 'cancel' },
+      {
+        text: 'Aceptar',
+        onPress: async () => {
+          try {
+            if (!driverId) {
+              SoundFeedback.error(); // Sound on error
+              Alert.alert('Error', 'No se encontro tu registro de repartidor');
+              return;
             }
-          },
+            await assignOrderToDriver(orderId, driverId);
+            setActiveOrderId(orderId);
+            OrderSounds.accepted(); // Sound when order is accepted
+            trackEvent('order_accepted', { orderId });
+            loadAvailableOrders();
+            router.push('/driver/active-order' as any);
+          } catch (error) {
+            SoundFeedback.error(); // Sound on error
+            Alert.alert('Error', 'No se pudo aceptar la orden');
+          }
         },
-      ]
-    );
+      },
+    ]);
   };
 
   const handleLogout = async () => {
-    // No puede cerrar sesión con orden activa
     if (activeOrderId) {
       Alert.alert(
         'Tienes una orden activa',
-        'No puedes cerrar sesión mientras tienes una orden en curso. Debes completarla, cancelarla o transferirla primero.',
+        'No puedes cerrar sesion mientras tienes una orden en curso.',
         [
           { text: 'Ver Orden Activa', onPress: () => router.push('/driver/active-order' as any) },
           { text: 'Entendido', style: 'cancel' },
@@ -296,29 +282,66 @@ export default function DriverDashboardScreen() {
       return;
     }
 
-    Alert.alert(
-      'Cerrar Sesión',
-      '¿Estás seguro?',
-      [
-        { text: 'Cancelar', style: 'cancel' },
-        {
-          text: 'Salir',
-          style: 'destructive',
-          onPress: async () => {
-            if (isOnline) {
-              await goOffline();
-            }
-            await logout();
-            router.replace('/login' as any);
-          },
+    Alert.alert('Cerrar Sesion', 'Estas seguro?', [
+      { text: 'Cancelar', style: 'cancel' },
+      {
+        text: 'Salir',
+        style: 'destructive',
+        onPress: async () => {
+          if (isOnline) await goOffline();
+          await logout();
+          router.replace('/login' as any);
         },
-      ]
-    );
+      },
+    ]);
   };
 
+  // Custom header content with online toggle
+  const headerContent = (
+    <View style={styles.headerContentContainer}>
+      <View style={styles.accessibilityRow}>
+        <AccessibilityControls variant="minimal" />
+      </View>
+      <View style={styles.headerTop}>
+        <View>
+          <ThemedText variant="body" style={styles.headerSubtitleText}>
+            {isOnline
+              ? isTracking ? 'GPS activo - Recibiendo ordenes' : 'Conectando GPS...'
+              : 'Desconectado'}
+          </ThemedText>
+        </View>
+        <TouchableOpacity
+          style={[
+            styles.onlineToggle,
+            {
+              backgroundColor: isOnline ? colors.success : 'rgba(255,255,255,0.9)',
+              borderRadius: radius.full,
+            },
+          ]}
+          onPress={toggleOnlineStatus}
+        >
+          <Power size={20} color={isOnline ? '#fff' : colors.text.secondary} />
+          <ThemedText
+            variant="caption"
+            color={isOnline ? 'white' : 'secondary'}
+            bold
+          >
+            {isOnline ? 'EN LINEA' : 'OFFLINE'}
+          </ThemedText>
+        </TouchableOpacity>
+      </View>
+    </View>
+  );
+
   return (
-    <View style={styles.container}>
-      {/* Panic Modal for emergencies */}
+    <ScreenContainer
+      headerGradient="primary"
+      headerIcon={Truck}
+      headerTitle={`Hola, ${user?.name || 'Repartidor'}!`}
+      headerContent={headerContent}
+      refreshing={refreshing}
+      onRefresh={handleRefresh}
+    >
       <PanicModal
         visible={showPanicModal}
         onClose={() => setShowPanicModal(false)}
@@ -336,490 +359,235 @@ export default function DriverDashboardScreen() {
         onClose={closeSurvey}
         onSubmit={(responses) => submitSurvey(currentSurvey!.id, responses)}
       />
-      <ScrollView style={styles.scrollView} showsVerticalScrollIndicator={false}>
-        <LinearGradient
-          colors={[Colors.primary, Colors.primaryDark]}
-          style={styles.header}
-        >
-          <View style={styles.headerContent}>
-            <View style={styles.headerTop}>
-              <View>
-                <Text style={styles.greeting}>Hola, {user?.name || 'Repartidor'}!</Text>
-                <Text style={styles.subtitle}>
-                  {isOnline
-                    ? isTracking
-                      ? 'GPS activo - Recibiendo ordenes'
-                      : 'Conectando GPS...'
-                    : 'Desconectado'}
-                </Text>
-              </View>
-              <TouchableOpacity
-                style={[styles.onlineToggle, isOnline && styles.onlineToggleActive]}
-                onPress={toggleOnlineStatus}
-              >
-                <Power size={20} color={isOnline ? Colors.white : Colors.text.secondary} />
-                <Text style={[styles.onlineText, isOnline && styles.onlineTextActive]}>
-                  {isOnline ? 'EN LÍNEA' : 'OFFLINE'}
-                </Text>
-              </TouchableOpacity>
-            </View>
-          </View>
-        </LinearGradient>
 
-        <View style={styles.content}>
-          <View style={styles.statsGrid}>
-            <View style={styles.statCard}>
-              <Package size={24} color={Colors.primary} />
-              <Text style={styles.statValue}>{stats.todayDeliveries}</Text>
-              <Text style={styles.statLabel}>Entregas Hoy</Text>
-            </View>
-            <View style={styles.statCard}>
-              <DollarSign size={24} color={Colors.success} />
-              <Text style={styles.statValue}>${stats.todayEarnings}</Text>
-              <Text style={styles.statLabel}>Ganancia Hoy</Text>
-            </View>
-            <View style={styles.statCard}>
-              <Star size={24} color={Colors.warning} />
-              <Text style={styles.statValue}>{stats.rating}</Text>
-              <Text style={styles.statLabel}>Rating</Text>
-            </View>
-            <View style={styles.statCard}>
-              <DollarSign size={24} color={Colors.accent} />
-              <Text style={styles.statValue}>${stats.totalBalance}</Text>
-              <Text style={styles.statLabel}>Balance Total</Text>
-            </View>
-          </View>
-
-          <View style={styles.actionButtonsRow}>
-            <TouchableOpacity
-              style={[styles.actionButton, styles.activeOrderButton]}
-              onPress={handleViewActiveOrder}
-            >
-              <Package size={24} color={Colors.white} />
-              <Text style={styles.actionButtonText}>Orden Activa</Text>
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              style={[styles.actionButton, styles.walletButton]}
-              onPress={() => router.push('/driver/earnings' as any)}
-            >
-              <DollarSign size={24} color={Colors.white} />
-              <Text style={styles.actionButtonText}>Ganancias</Text>
-            </TouchableOpacity>
-          </View>
-
-          {/* Panic Button - opens emergency modal */}
-          <TouchableOpacity
-            style={styles.panicButton}
-            onPress={() => setShowPanicModal(true)}
+      {/* Stats Grid */}
+      <View style={[styles.statsGrid, { gap: space.sm, marginBottom: space.lg }]}>
+        {[
+          { icon: Package, value: stats.todayDeliveries, label: 'Entregas Hoy', color: colors.primary },
+          { icon: DollarSign, value: `$${stats.todayEarnings}`, label: 'Ganancia Hoy', color: colors.success },
+          { icon: Star, value: stats.rating.toFixed(1), label: 'Rating', color: colors.warning },
+          { icon: DollarSign, value: `$${stats.totalBalance}`, label: 'Balance Total', color: colors.accent },
+        ].map((stat, index) => (
+          <View
+            key={index}
+            style={[styles.statCard, {
+              backgroundColor: theme.card,
+              borderRadius: radius.md,
+              padding: space.md,
+            }]}
           >
-            <AlertTriangle size={20} color="#fff" />
-            <Text style={styles.panicButtonText}>Necesito Ayuda</Text>
+            <stat.icon size={24} color={stat.color} />
+            <ThemedText variant="h3" style={[styles.statValue, { color: theme.text }]}>{stat.value}</ThemedText>
+            <ThemedText variant="caption" style={[styles.statLabel, { color: theme.textSecondary }]}>{stat.label}</ThemedText>
+          </View>
+        ))}
+      </View>
+
+      {/* Action Buttons */}
+      <View style={[styles.actionButtonsRow, { gap: space.sm, marginBottom: space.lg }]}>
+        <TouchableOpacity
+          style={[styles.actionBtn, { backgroundColor: colors.primary, borderRadius: radius.md, padding: space.md }]}
+          onPress={() => router.push('/driver/active-order')}
+        >
+          <Package size={24} color="#fff" />
+          <ThemedText variant="label" color="white" bold style={{ marginTop: space.xs }}>
+            Orden Activa
+          </ThemedText>
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          style={[styles.actionBtn, { backgroundColor: colors.success, borderRadius: radius.md, padding: space.md }]}
+          onPress={() => router.push('/driver/earnings' as any)}
+        >
+          <DollarSign size={24} color="#fff" />
+          <ThemedText variant="label" color="white" bold style={{ marginTop: space.xs }}>
+            Ganancias
+          </ThemedText>
+        </TouchableOpacity>
+      </View>
+
+      {/* Panic Button */}
+      <TouchableOpacity
+        style={[styles.panicButton, { borderRadius: radius.md, padding: space.md, marginBottom: space.lg }]}
+        onPress={() => setShowPanicModal(true)}
+      >
+        <AlertTriangle size={20} color="#fff" />
+        <ThemedText variant="label" color="white" bold>Necesito Ayuda</ThemedText>
+      </TouchableOpacity>
+
+      {/* Quick Actions */}
+      <ThemedText variant="title" style={[styles.sectionTitle, { color: theme.text, marginBottom: space.sm }]}>Acciones Rapidas</ThemedText>
+      <View style={[styles.quickActionsGrid, { gap: space.sm, marginBottom: space.lg }]}>
+        {[
+          { icon: History, label: 'Historial', color: colors.primary, route: '/driver/history' },
+          { icon: User, label: 'Mi Perfil', color: colors.accent, route: '/driver/profile' },
+          { icon: MessageCircle, label: 'Mensajes', color: colors.success, route: '/driver/messages' },
+          { icon: HelpCircle, label: 'Ayuda', color: colors.warning, route: null },
+        ].map((action, index) => (
+          <TouchableOpacity
+            key={index}
+            style={[styles.quickActionCard, {
+              backgroundColor: theme.card,
+              borderRadius: radius.md,
+              padding: space.md,
+            }]}
+            onPress={() => {
+              if (action.route) router.push(action.route as any);
+              else Alert.alert('Soporte Yesswera', 'WhatsApp: 322-100-0000\nEmail: soporte@yesswera.com');
+            }}
+          >
+            <action.icon size={24} color={action.color} />
+            <ThemedText variant="caption" bold style={[styles.quickActionLabel, { color: theme.text }]}>{action.label}</ThemedText>
           </TouchableOpacity>
+        ))}
+      </View>
 
-          <View style={styles.quickActionsSection}>
-            <Text style={styles.sectionTitle}>Acciones Rápidas</Text>
-            <View style={styles.quickActionsGrid}>
-              <TouchableOpacity style={styles.quickActionCard} onPress={() => {
-                trackEvent('button_click', { button: 'history' });
-                router.push('/driver/history' as any);
-              }}>
-                <History size={24} color={Colors.primary} />
-                <Text style={styles.quickActionText}>Historial</Text>
-              </TouchableOpacity>
-              <TouchableOpacity style={styles.quickActionCard} onPress={() => {
-                trackEvent('button_click', { button: 'profile' });
-                router.push('/driver/profile' as any);
-              }}>
-                <User size={24} color={Colors.accent} />
-                <Text style={styles.quickActionText}>Mi Perfil</Text>
-              </TouchableOpacity>
-              <TouchableOpacity style={styles.quickActionCard} onPress={() => {
-                trackEvent('button_click', { button: 'messages' });
-                router.push('/driver/messages' as any);
-              }}>
-                <MessageCircle size={24} color={Colors.success} />
-                <Text style={styles.quickActionText}>Mensajes</Text>
-              </TouchableOpacity>
-              <TouchableOpacity style={styles.quickActionCard} onPress={() => Alert.alert('Soporte Yesswera', '¿Necesitas ayuda?\n\nWhatsApp: 322-100-0000\nEmail: soporte@yesswera.com', [{ text: 'OK' }])}>
-                <HelpCircle size={24} color={Colors.warning} />
-                <Text style={styles.quickActionText}>Ayuda</Text>
-              </TouchableOpacity>
+      {/* Orders Section */}
+      <ThemedText variant="title" style={[styles.sectionTitle, { color: theme.text, marginBottom: space.sm }]}>
+        {isOnline ? 'Ordenes Disponibles' : 'Activa tu estado para ver ordenes'}
+      </ThemedText>
+
+      {!isOnline && (
+        <View style={[styles.emptyState, { backgroundColor: theme.cardAlt, borderRadius: radius.md, padding: space.xl }]}>
+          <Power size={32} color={theme.textMuted} />
+          <ThemedText variant="body" style={[styles.emptyStateText, { color: theme.textSecondary }]}>
+            Presiona "EN LINEA" arriba para comenzar a recibir ordenes
+          </ThemedText>
+        </View>
+      )}
+
+      {isOnline && availableOrders.length === 0 && (
+        <View style={[styles.emptyState, { backgroundColor: theme.card, borderRadius: radius.md, padding: space.xl }]}>
+          <Package size={32} color={theme.textMuted} />
+          <ThemedText variant="subtitle" style={[styles.emptyStateTitle, { color: theme.text }]}>
+            No hay ordenes disponibles en tu zona
+          </ThemedText>
+          <ThemedText variant="caption" style={[styles.emptyStateText, { color: theme.textSecondary }]}>
+            Te notificaremos cuando haya nuevas
+          </ThemedText>
+        </View>
+      )}
+
+      {isOnline && availableOrders.map((order) => (
+        <View
+          key={order.id}
+          style={[styles.orderCard, {
+            backgroundColor: theme.card,
+            borderRadius: radius.lg,
+            padding: space.md,
+            marginBottom: space.sm,
+          }]}
+        >
+          <View style={styles.orderHeader}>
+            <View style={[styles.orderTypeTag, { backgroundColor: theme.cardAlt, borderRadius: radius.sm, padding: space.xs }]}>
+              <ThemedText variant="caption" bold style={{ color: theme.text }}>
+                {order.type === 'food' ? 'Alimentos' : order.type === 'shopping' ? 'Compras' : 'Envio'}
+              </ThemedText>
             </View>
+            <ThemedText variant="title" style={{ color: colors.success }}>${order.deliveryFee?.toFixed(2)}</ThemedText>
           </View>
 
-          <View style={styles.ordersSection}>
-            <Text style={styles.sectionTitle}>
-              {isOnline ? 'Órdenes Disponibles' : 'Activa tu estado para ver órdenes'}
-            </Text>
-            {!isOnline && (
-              <View style={styles.offlineMessage}>
-                <Power size={32} color={Colors.text.light} />
-                <Text style={styles.offlineText}>Presiona &quot;EN LÍNEA&quot; arriba para comenzar a recibir órdenes</Text>
-              </View>
-            )}
-            {isOnline && availableOrders.length === 0 && (
-              <View style={styles.noOrdersMessage}>
-                <Package size={32} color={Colors.text.light} />
-                <Text style={styles.noOrdersText}>No hay órdenes disponibles en tu zona</Text>
-                <Text style={styles.noOrdersSubtext}>Te notificaremos cuando haya nuevas</Text>
-              </View>
-            )}
-            {isOnline && availableOrders.map((order) => (
-              <View key={order.id} style={styles.orderCard}>
-                <View style={styles.orderHeader}>
-                  <View style={styles.orderTypeTag}>
-                    <Text style={styles.orderTypeText}>
-                      {order.type === 'food' ? '🍔 Alimentos' : order.type === 'shopping' ? '🛒 Compras' : '📦 Envío'}
-                    </Text>
-                  </View>
-                  <Text style={styles.earningsText}>${order.deliveryFee?.toFixed(2)}</Text>
-                </View>
+          <ThemedText variant="subtitle" bold style={[styles.orderBusinessName, { color: theme.text }]}>
+            {order.businessName || 'Negocio'}
+          </ThemedText>
 
-                <Text style={styles.businessName}>{order.businessName || 'Negocio'}</Text>
-
-                <View style={styles.addressSection}>
-                  <Text style={styles.addressLabel}>Recogida:</Text>
-                  <Text style={styles.addressText}>{order.pickupAddress || 'N/A'}</Text>
-                  <Text style={styles.addressLabel}>Entrega:</Text>
-                  <Text style={styles.addressText}>{order.deliveryAddress}</Text>
-                </View>
-
-                <Text style={styles.totalText}>Total: ${order.total?.toFixed(2)} MXN</Text>
-
-                <View style={styles.orderActions}>
-                  <TouchableOpacity
-                    style={[styles.acceptButton, styles.acceptButtonFull]}
-                    onPress={() => handleAcceptOrder(order.id.toString())}
-                  >
-                    <Text style={styles.acceptButtonText}>Aceptar Orden</Text>
-                  </TouchableOpacity>
-                </View>
-              </View>
-            ))}
+          <View style={[styles.addressSection, { backgroundColor: theme.cardAlt, borderRadius: radius.sm, padding: space.sm }]}>
+            <ThemedText variant="caption" bold style={{ color: theme.textSecondary }}>Recogida:</ThemedText>
+            <ThemedText variant="label" style={{ color: theme.text }}>{order.pickupAddress || 'N/A'}</ThemedText>
+            <ThemedText variant="caption" bold style={[styles.addressLabel, { color: theme.textSecondary }]}>Entrega:</ThemedText>
+            <ThemedText variant="label" style={{ color: theme.text }}>{order.deliveryAddress}</ThemedText>
           </View>
 
-          <TouchableOpacity style={styles.logoutButton} onPress={handleLogout}>
-            <Text style={styles.logoutButtonText}>Cerrar Sesión</Text>
+          <ThemedText variant="body" style={[styles.orderTotal, { color: theme.text }]}>
+            Total: ${order.total?.toFixed(2)} MXN
+          </ThemedText>
+
+          <TouchableOpacity
+            style={[styles.acceptButton, { backgroundColor: colors.primary, borderRadius: radius.md, padding: space.md }]}
+            onPress={() => handleAcceptOrder(order.id.toString())}
+          >
+            <ThemedText variant="label" color="white" bold center>Aceptar Orden</ThemedText>
           </TouchableOpacity>
         </View>
-      </ScrollView>
-    </View>
+      ))}
+
+      {/* Logout */}
+      <TouchableOpacity
+        style={[styles.logoutButton, {
+          borderColor: colors.error,
+          borderRadius: radius.md,
+          padding: space.md,
+          marginVertical: space.xl,
+        }]}
+        onPress={handleLogout}
+      >
+        <ThemedText variant="body" color="error" bold center>Cerrar Sesion</ThemedText>
+      </TouchableOpacity>
+    </ScreenContainer>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: Colors.background.primary,
+  headerContentContainer: {
+    marginTop: 12,
   },
-  scrollView: {
-    flex: 1,
-  },
-  header: {
-    padding: 24,
-    paddingTop: 50,
-    paddingBottom: 32,
-  },
-  headerContent: {
-    marginTop: 10,
+  accessibilityRow: {
+    alignItems: 'flex-end',
+    marginBottom: 8,
   },
   headerTop: {
-    flexDirection: 'row' as const,
-    justifyContent: 'space-between' as const,
-    alignItems: 'center' as const,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
   },
-  greeting: {
-    fontSize: 24,
-    fontWeight: '700' as const,
-    color: Colors.white,
-    marginBottom: 4,
-  },
-  subtitle: {
-    fontSize: 14,
+  headerSubtitleText: {
     color: 'rgba(255, 255, 255, 0.9)',
   },
   onlineToggle: {
-    flexDirection: 'row' as const,
-    alignItems: 'center' as const,
-    backgroundColor: 'rgba(255, 255, 255, 0.9)',
-    paddingHorizontal: 14,
-    paddingVertical: 10,
-    borderRadius: 25,
+    flexDirection: 'row',
+    alignItems: 'center',
     gap: 6,
-  },
-  onlineToggleActive: {
-    backgroundColor: Colors.success,
-  },
-  onlineText: {
-    fontSize: 12,
-    fontWeight: '700' as const,
-    color: Colors.text.secondary,
-  },
-  onlineTextActive: {
-    color: Colors.white,
-  },
-  content: {
-    padding: 16,
-    marginTop: -16,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
   },
   statsGrid: {
-    flexDirection: 'row' as const,
-    flexWrap: 'wrap' as const,
-    gap: 12,
-    marginBottom: 24,
+    flexDirection: 'row',
+    flexWrap: 'wrap',
   },
   statCard: {
     flex: 1,
-    minWidth: '47%' as const,
-    backgroundColor: Colors.white,
-    borderRadius: 12,
-    padding: 16,
-    alignItems: 'center' as const,
-    shadowColor: Colors.shadow.medium,
+    minWidth: '47%',
+    alignItems: 'center',
+    shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.08,
     shadowRadius: 8,
     elevation: 2,
   },
   statValue: {
-    fontSize: 24,
-    fontWeight: '700' as const,
-    color: Colors.text.primary,
     marginTop: 8,
-    marginBottom: 4,
   },
   statLabel: {
-    fontSize: 12,
-    color: Colors.text.secondary,
-    textAlign: 'center' as const,
-  },
-  ordersSection: {
-    marginBottom: 24,
-  },
-  sectionTitle: {
-    fontSize: 20,
-    fontWeight: '700' as const,
-    color: Colors.text.primary,
-    marginBottom: 16,
-  },
-  orderCard: {
-    backgroundColor: Colors.white,
-    borderRadius: 16,
-    padding: 16,
-    marginBottom: 12,
-    shadowColor: Colors.shadow.medium,
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 8,
-    elevation: 3,
-  },
-  orderHeader: {
-    flexDirection: 'row' as const,
-    justifyContent: 'space-between' as const,
-    alignItems: 'center' as const,
-    marginBottom: 12,
-  },
-  orderTypeTag: {
-    backgroundColor: Colors.background.tertiary,
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 8,
-  },
-  orderTypeText: {
-    fontSize: 13,
-    fontWeight: '600' as const,
-    color: Colors.text.primary,
-  },
-  earningsText: {
-    fontSize: 20,
-    fontWeight: '700' as const,
-    color: Colors.success,
-  },
-  businessName: {
-    fontSize: 18,
-    fontWeight: '600' as const,
-    color: Colors.text.primary,
-    marginBottom: 12,
-  },
-  orderDetails: {
-    flexDirection: 'row' as const,
-    gap: 16,
-    marginBottom: 12,
-  },
-  detailRow: {
-    flexDirection: 'row' as const,
-    alignItems: 'center' as const,
-    gap: 4,
-  },
-  detailText: {
-    fontSize: 14,
-    color: Colors.text.secondary,
-  },
-  addressSection: {
-    backgroundColor: Colors.background.secondary,
-    borderRadius: 8,
-    padding: 12,
-    marginBottom: 12,
-  },
-  addressLabel: {
-    fontSize: 12,
-    fontWeight: '600' as const,
-    color: Colors.text.secondary,
-    marginBottom: 2,
-    marginTop: 4,
-  },
-  addressText: {
-    fontSize: 14,
-    color: Colors.text.primary,
-  },
-  orderActions: {
-    flexDirection: 'row' as const,
-    gap: 10,
-  },
-  navButton: {
-    flexDirection: 'row' as const,
-    alignItems: 'center' as const,
-    justifyContent: 'center' as const,
-    backgroundColor: Colors.accent,
-    paddingVertical: 12,
-    paddingHorizontal: 16,
-    borderRadius: 10,
-    gap: 6,
-  },
-  navButtonText: {
-    fontSize: 14,
-    fontWeight: '600' as const,
-    color: Colors.white,
-  },
-  acceptButton: {
-    flex: 1,
-    height: 44,
-    backgroundColor: Colors.primary,
-    borderRadius: 10,
-    justifyContent: 'center' as const,
-    alignItems: 'center' as const,
-  },
-  acceptButtonFull: {
-    flex: 1,
-  },
-  acceptButtonText: {
-    fontSize: 15,
-    fontWeight: '600' as const,
-    color: Colors.white,
-  },
-  quickActionsSection: {
-    marginBottom: 24,
-  },
-  quickActionsGrid: {
-    flexDirection: 'row' as const,
-    flexWrap: 'wrap' as const,
-    gap: 12,
-  },
-  quickActionCard: {
-    flex: 1,
-    minWidth: '45%' as const,
-    backgroundColor: Colors.white,
-    borderRadius: 12,
-    padding: 16,
-    alignItems: 'center' as const,
-    shadowColor: Colors.shadow.medium,
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.08,
-    shadowRadius: 8,
-    elevation: 2,
-  },
-  quickActionText: {
-    fontSize: 12,
-    fontWeight: '600' as const,
-    color: Colors.text.primary,
-    marginTop: 8,
-  },
-  offlineMessage: {
-    backgroundColor: Colors.background.secondary,
-    borderRadius: 12,
-    padding: 24,
-    alignItems: 'center' as const,
-    marginBottom: 16,
-  },
-  offlineText: {
-    fontSize: 14,
-    color: Colors.text.secondary,
-    textAlign: 'center' as const,
-    marginTop: 12,
-  },
-  noOrdersMessage: {
-    backgroundColor: Colors.white,
-    borderRadius: 12,
-    padding: 24,
-    alignItems: 'center' as const,
-    marginBottom: 16,
-  },
-  noOrdersText: {
-    fontSize: 16,
-    fontWeight: '600' as const,
-    color: Colors.text.primary,
-    marginTop: 12,
-  },
-  noOrdersSubtext: {
-    fontSize: 13,
-    color: Colors.text.secondary,
-    marginTop: 4,
-  },
-  logoutButton: {
-    height: 52,
-    backgroundColor: Colors.white,
-    borderRadius: 12,
-    justifyContent: 'center' as const,
-    alignItems: 'center' as const,
-    borderWidth: 1.5,
-    borderColor: Colors.error,
-    marginBottom: 40,
-  },
-  logoutButtonText: {
-    fontSize: 16,
-    fontWeight: '600' as const,
-    color: Colors.error,
+    textAlign: 'center',
   },
   actionButtonsRow: {
-    flexDirection: 'row' as const,
-    gap: 12,
-    marginBottom: 24,
+    flexDirection: 'row',
   },
-  actionButton: {
+  actionBtn: {
     flex: 1,
-    borderRadius: 12,
-    flexDirection: 'column' as const,
-    alignItems: 'center' as const,
-    justifyContent: 'center' as const,
-    paddingVertical: 16,
-    shadowColor: Colors.shadow.medium,
+    alignItems: 'center',
+    justifyContent: 'center',
+    shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
     shadowRadius: 8,
     elevation: 3,
   },
-  activeOrderButton: {
-    backgroundColor: Colors.primary,
-  },
-  walletButton: {
-    backgroundColor: Colors.success,
-  },
-  actionButtonText: {
-    fontSize: 14,
-    fontWeight: '700' as const,
-    color: Colors.white,
-    marginTop: 8,
-  },
   panicButton: {
-    flexDirection: 'row' as const,
-    alignItems: 'center' as const,
-    justifyContent: 'center' as const,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
     backgroundColor: '#DC2626',
-    paddingVertical: 14,
-    paddingHorizontal: 20,
-    borderRadius: 12,
-    marginBottom: 24,
     gap: 8,
     shadowColor: '#DC2626',
     shadowOffset: { width: 0, height: 4 },
@@ -827,9 +595,66 @@ const styles = StyleSheet.create({
     shadowRadius: 8,
     elevation: 4,
   },
-  panicButtonText: {
-    fontSize: 15,
-    fontWeight: '700' as const,
-    color: '#fff',
+  sectionTitle: {
+    fontWeight: '700',
+  },
+  quickActionsGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+  },
+  quickActionCard: {
+    flex: 1,
+    minWidth: '45%',
+    alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.08,
+    shadowRadius: 8,
+    elevation: 2,
+  },
+  quickActionLabel: {
+    marginTop: 8,
+  },
+  emptyState: {
+    alignItems: 'center',
+    marginBottom: 16,
+  },
+  emptyStateTitle: {
+    marginTop: 12,
+    textAlign: 'center',
+  },
+  emptyStateText: {
+    marginTop: 8,
+    textAlign: 'center',
+  },
+  orderCard: {
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 8,
+    elevation: 3,
+  },
+  orderHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  orderTypeTag: {},
+  orderBusinessName: {
+    marginVertical: 8,
+  },
+  addressSection: {},
+  addressLabel: {
+    marginTop: 8,
+  },
+  orderTotal: {
+    marginTop: 8,
+  },
+  acceptButton: {
+    marginTop: 12,
+  },
+  logoutButton: {
+    borderWidth: 1.5,
+    backgroundColor: 'transparent',
   },
 });

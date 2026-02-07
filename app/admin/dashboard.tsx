@@ -1,687 +1,642 @@
-import { useState, useEffect } from 'react';
+// ============================================================================
+// YESSWERA: ADMIN DASHBOARD
+// Panel principal de administracion - Actualizado con ScreenContainer
+// ============================================================================
+
+import { useState, useEffect, useCallback } from 'react';
 import {
   StyleSheet,
   Text,
   View,
-  ScrollView,
   TouchableOpacity,
   ActivityIndicator,
+  Alert,
 } from 'react-native';
+import { useRouter } from 'expo-router';
 import {
   BarChart3,
   Users,
-  MapPin,
-  Star,
-  Clock,
+  Store,
+  Truck,
   ShoppingBag,
-  MessageSquare,
+  Clock,
+  DollarSign,
+  TrendingUp,
   AlertCircle,
   RefreshCw,
+  ChevronRight,
+  Package,
+  CheckCircle,
+  XCircle,
+  Settings,
+  Database,
+  LayoutDashboard,
 } from 'lucide-react-native';
-import { LinearGradient } from 'expo-linear-gradient';
-import Colors from '@/constants/colors';
-import { API_BASE } from '@/constants/api';
+import { useTheme } from '@/contexts/theme';
+import ScreenContainer from '@/components/ScreenContainer';
 import { useAuth } from '@/contexts/auth';
+import {
+  getAdminStats,
+  AdminStats,
+  getTodayOrders,
+  getOrdersInProgress,
+  AdminOrder,
+  getDailyOrderSummary,
+  DailyOrderSummary,
+  seedAllShoppingBusinesses,
+} from '@/services/admin';
 
-interface AnalyticsSummary {
-  totalUsers: number;
-  activeUsers24h: number;
-  totalOrders: number;
-  ordersToday: number;
-  averageRating: number;
-  surveyResponseRate: number;
-}
+// ============================================================================
+// COLORES EXPLICITOS (modo oscuro)
+// ============================================================================
 
-interface EventStat {
-  eventType: string;
-  count: number;
-  percentage: number;
-}
+const COLORS = {
+  light: {
+    card: '#FFFFFF',
+    cardAlt: '#F5F5F4',
+    border: '#E7E5E4',
+    text: '#1C1917',
+    textSecondary: '#57534E',
+    textMuted: '#A8A29E',
+  },
+  dark: {
+    card: '#292524',
+    cardAlt: '#44403C',
+    border: '#44403C',
+    text: '#FAFAFA',
+    textSecondary: '#D6D3D1',
+    textMuted: '#78716C',
+  },
+};
 
-interface HourlyActivity {
-  hour: number;
-  events: number;
-}
-
-interface ZoneHeat {
-  zone: string;
-  orders: number;
-  avgDeliveryTime: number;
-}
-
-interface SurveyInsight {
-  question: string;
-  avgRating?: number;
-  responses: { answer: string; count: number }[];
-}
+// Colores fijos (no cambian con tema)
+const FIXED_COLORS = {
+  primary: '#22C55E',
+  primaryDark: '#15803D',
+  accent: '#3B82F6',
+  success: '#22C55E',
+  warning: '#F59E0B',
+  error: '#EF4444',
+  white: '#FFFFFF',
+};
 
 export default function AdminDashboard() {
-  const { token } = useAuth();
+  const router = useRouter();
+  const { user } = useAuth();
+  const { isDark } = useTheme();
+  const theme = isDark ? COLORS.dark : COLORS.light;
+
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
-  const [summary, setSummary] = useState<AnalyticsSummary>({
-    totalUsers: 0,
-    activeUsers24h: 0,
-    totalOrders: 0,
-    ordersToday: 0,
-    averageRating: 0,
-    surveyResponseRate: 0,
-  });
-  const [topEvents, setTopEvents] = useState<EventStat[]>([]);
-  const [hourlyActivity, setHourlyActivity] = useState<HourlyActivity[]>([]);
-  const [zoneHeat, setZoneHeat] = useState<ZoneHeat[]>([]);
-  const [surveyInsights, setSurveyInsights] = useState<SurveyInsight[]>([]);
-  const [selectedTimeRange, setSelectedTimeRange] = useState<'24h' | '7d' | '30d'>('24h');
+  const [stats, setStats] = useState<AdminStats | null>(null);
+  const [todayOrders, setTodayOrders] = useState<AdminOrder[]>([]);
+  const [ordersInProgress, setOrdersInProgress] = useState<AdminOrder[]>([]);
+  const [dailySummary, setDailySummary] = useState<DailyOrderSummary[]>([]);
+  const [seeding, setSeeding] = useState(false);
 
-  useEffect(() => {
-    loadAnalyticsData();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selectedTimeRange]);
-
-  const loadAnalyticsData = async () => {
-    setLoading(true);
+  const loadData = useCallback(async () => {
     try {
-      const [summaryRes, eventsRes, hourlyRes, zonesRes, surveysRes] = await Promise.all([
-        fetch(`${API_BASE}/analytics/summary?range=${selectedTimeRange}`, {
-          headers: { Authorization: `Bearer ${token}` },
-        }),
-        fetch(`${API_BASE}/analytics/events/top?range=${selectedTimeRange}`, {
-          headers: { Authorization: `Bearer ${token}` },
-        }),
-        fetch(`${API_BASE}/analytics/events/hourly?range=${selectedTimeRange}`, {
-          headers: { Authorization: `Bearer ${token}` },
-        }),
-        fetch(`${API_BASE}/analytics/zones/heatmap?range=${selectedTimeRange}`, {
-          headers: { Authorization: `Bearer ${token}` },
-        }),
-        fetch(`${API_BASE}/analytics/surveys/insights?range=${selectedTimeRange}`, {
-          headers: { Authorization: `Bearer ${token}` },
-        }),
+      const [statsData, todayData, inProgressData, summaryData] = await Promise.all([
+        getAdminStats(),
+        getTodayOrders(),
+        getOrdersInProgress(),
+        getDailyOrderSummary(7),
       ]);
 
-      if (summaryRes.ok) {
-        const data = await summaryRes.json();
-        setSummary(data);
-      }
-
-      if (eventsRes.ok) {
-        const data = await eventsRes.json();
-        setTopEvents(data);
-      }
-
-      if (hourlyRes.ok) {
-        const data = await hourlyRes.json();
-        setHourlyActivity(data);
-      }
-
-      if (zonesRes.ok) {
-        const data = await zonesRes.json();
-        setZoneHeat(data);
-      }
-
-      if (surveysRes.ok) {
-        const data = await surveysRes.json();
-        setSurveyInsights(data);
-      }
+      setStats(statsData);
+      setTodayOrders(todayData);
+      setOrdersInProgress(inProgressData);
+      setDailySummary(summaryData);
     } catch (error) {
-      console.error('Error loading analytics:', error);
-      loadMockData();
+      console.error('Error loading admin data:', error);
+      Alert.alert('Error', 'No se pudieron cargar los datos');
     } finally {
       setLoading(false);
       setRefreshing(false);
     }
-  };
+  }, []);
 
-  const loadMockData = () => {
-    setSummary({
-      totalUsers: 1247,
-      activeUsers24h: 342,
-      totalOrders: 5834,
-      ordersToday: 127,
-      averageRating: 4.6,
-      surveyResponseRate: 68.5,
-    });
+  useEffect(() => {
+    loadData();
+  }, [loadData]);
 
-    setTopEvents([
-      { eventType: 'page_view', count: 8945, percentage: 35.2 },
-      { eventType: 'order_placed', count: 2341, percentage: 9.2 },
-      { eventType: 'button_click', count: 12456, percentage: 49.1 },
-      { eventType: 'search', count: 1234, percentage: 4.9 },
-      { eventType: 'filter_applied', count: 432, percentage: 1.7 },
-    ]);
-
-    setHourlyActivity([
-      { hour: 0, events: 45 },
-      { hour: 1, events: 23 },
-      { hour: 2, events: 12 },
-      { hour: 3, events: 8 },
-      { hour: 4, events: 15 },
-      { hour: 5, events: 34 },
-      { hour: 6, events: 89 },
-      { hour: 7, events: 156 },
-      { hour: 8, events: 234 },
-      { hour: 9, events: 312 },
-      { hour: 10, events: 389 },
-      { hour: 11, events: 445 },
-      { hour: 12, events: 567 },
-      { hour: 13, events: 623 },
-      { hour: 14, events: 589 },
-      { hour: 15, events: 512 },
-      { hour: 16, events: 478 },
-      { hour: 17, events: 434 },
-      { hour: 18, events: 512 },
-      { hour: 19, events: 589 },
-      { hour: 20, events: 634 },
-      { hour: 21, events: 512 },
-      { hour: 22, events: 345 },
-      { hour: 23, events: 178 },
-    ]);
-
-    setZoneHeat([
-      { zone: 'Centro', orders: 234, avgDeliveryTime: 18 },
-      { zone: 'Chapalita', orders: 189, avgDeliveryTime: 22 },
-      { zone: 'Providencia', orders: 156, avgDeliveryTime: 20 },
-      { zone: 'Zapopan', orders: 134, avgDeliveryTime: 25 },
-      { zone: 'Tlaquepaque', orders: 98, avgDeliveryTime: 28 },
-    ]);
-
-    setSurveyInsights([
-      {
-        question: '¿Qué tan satisfecho estás con el servicio?',
-        avgRating: 4.5,
-        responses: [
-          { answer: '5 estrellas', count: 234 },
-          { answer: '4 estrellas', count: 156 },
-          { answer: '3 estrellas', count: 45 },
-          { answer: '2 estrellas', count: 12 },
-          { answer: '1 estrella', count: 8 },
-        ],
-      },
-      {
-        question: '¿Volverías a usar Yesswera?',
-        responses: [
-          { answer: 'Definitivamente sí', count: 312 },
-          { answer: 'Probablemente sí', count: 134 },
-          { answer: 'No estoy seguro', count: 23 },
-          { answer: 'Probablemente no', count: 8 },
-        ],
-      },
-    ]);
-  };
-
-  const handleRefresh = () => {
+  const onRefresh = () => {
     setRefreshing(true);
-    loadAnalyticsData();
+    loadData();
   };
 
-  const maxHourlyEvents = Math.max(...hourlyActivity.map((h) => h.events), 1);
+  const handleSeedProducts = async () => {
+    Alert.alert(
+      'Sembrar Productos',
+      '¿Deseas agregar productos de prueba a todos los negocios que no tienen productos?',
+      [
+        { text: 'Cancelar', style: 'cancel' },
+        {
+          text: 'Sembrar',
+          onPress: async () => {
+            setSeeding(true);
+            try {
+              const results = await seedAllShoppingBusinesses();
+              if (results.length === 0) {
+                Alert.alert('Info', 'Todos los negocios ya tienen productos');
+              } else {
+                const summary = results.map(r => `${r.businessName}: ${r.productsAdded} productos`).join('\n');
+                Alert.alert('Productos Agregados', summary);
+              }
+              loadData();
+            } catch (error) {
+              console.error('Seed error:', error);
+              Alert.alert('Error', 'No se pudieron agregar los productos');
+            } finally {
+              setSeeding(false);
+            }
+          },
+        },
+      ]
+    );
+  };
 
-  if (loading && !refreshing) {
+  const formatCurrency = (amount: number) => `$${amount.toLocaleString('es-MX', { minimumFractionDigits: 2 })}`;
+  const formatDate = (dateStr: string) => {
+    const date = new Date(dateStr);
+    return date.toLocaleDateString('es-MX', { weekday: 'short', day: 'numeric' });
+  };
+  const formatTime = (dateStr: string) => {
+    const date = new Date(dateStr);
+    return date.toLocaleTimeString('es-MX', { hour: '2-digit', minute: '2-digit' });
+  };
+
+  const getStatusColor = (status: string) => {
+    switch (status) {
+      case 'pending': return FIXED_COLORS.warning;
+      case 'accepted':
+      case 'preparing': return FIXED_COLORS.primary;
+      case 'ready':
+      case 'picked_up':
+      case 'in_transit': return FIXED_COLORS.accent;
+      case 'delivered': return FIXED_COLORS.success;
+      case 'cancelled': return FIXED_COLORS.error;
+      default: return theme.textSecondary;
+    }
+  };
+
+  const getStatusLabel = (status: string) => {
+    const labels: Record<string, string> = {
+      pending: 'Pendiente',
+      accepted: 'Aceptada',
+      preparing: 'Preparando',
+      ready: 'Lista',
+      picked_up: 'Recogida',
+      in_transit: 'En camino',
+      delivered: 'Entregada',
+      cancelled: 'Cancelada',
+    };
+    return labels[status] || status;
+  };
+
+  if (loading) {
     return (
-      <View style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color={Colors.primary} />
-        <Text style={styles.loadingText}>Cargando analytics...</Text>
+      <View style={[styles.loadingContainer, { backgroundColor: theme.card }]}>
+        <ActivityIndicator size="large" color={FIXED_COLORS.primary} />
+        <Text style={[styles.loadingText, { color: theme.textSecondary }]}>Cargando dashboard...</Text>
       </View>
     );
   }
 
   return (
-    <View style={styles.container}>
-      <LinearGradient colors={[Colors.primary, Colors.primaryDark]} style={styles.header}>
-        <Text style={styles.headerTitle}>Analytics Dashboard</Text>
-        <Text style={styles.headerSubtitle}>Insights en tiempo real</Text>
-      </LinearGradient>
+    <ScreenContainer
+      headerGradient="primary"
+      headerIcon={LayoutDashboard}
+      headerTitle="Panel Admin"
+      headerSubtitle="Yesswera Dashboard"
+      refreshing={refreshing}
+      onRefresh={onRefresh}
+    >
+      {/* Stats Grid */}
+      <View style={styles.statsGrid}>
+        <TouchableOpacity
+          style={[styles.statCard, { backgroundColor: theme.card }]}
+          onPress={() => router.push('/admin/users' as any)}
+        >
+          <Users size={24} color={FIXED_COLORS.primary} />
+          <Text style={[styles.statValue, { color: theme.text }]}>{stats?.totalUsers || 0}</Text>
+          <Text style={[styles.statLabel, { color: theme.textSecondary }]}>Usuarios</Text>
+          <Text style={[styles.statSubtext, { color: theme.textMuted }]}>+{stats?.newUsersToday || 0} hoy</Text>
+        </TouchableOpacity>
 
-      <ScrollView style={styles.scrollView} showsVerticalScrollIndicator={false}>
-        <View style={styles.content}>
-          <View style={styles.timeRangeSelector}>
-            {(['24h', '7d', '30d'] as const).map((range) => (
-              <TouchableOpacity
-                key={range}
-                style={[styles.timeRangeButton, selectedTimeRange === range && styles.timeRangeButtonActive]}
-                onPress={() => setSelectedTimeRange(range)}
-              >
-                <Text style={[styles.timeRangeText, selectedTimeRange === range && styles.timeRangeTextActive]}>
-                  {range === '24h' ? '24 Horas' : range === '7d' ? '7 Días' : '30 Días'}
-                </Text>
-              </TouchableOpacity>
-            ))}
-            <TouchableOpacity style={styles.refreshButton} onPress={handleRefresh} disabled={refreshing}>
-              <RefreshCw size={20} color={Colors.primary} />
-            </TouchableOpacity>
-          </View>
+        <TouchableOpacity
+          style={[styles.statCard, { backgroundColor: theme.card }]}
+          onPress={() => router.push('/admin/orders' as any)}
+        >
+          <ShoppingBag size={24} color={FIXED_COLORS.accent} />
+          <Text style={[styles.statValue, { color: theme.text }]}>{stats?.totalOrders || 0}</Text>
+          <Text style={[styles.statLabel, { color: theme.textSecondary }]}>Ordenes</Text>
+          <Text style={[styles.statSubtext, { color: theme.textMuted }]}>{stats?.ordersToday || 0} hoy</Text>
+        </TouchableOpacity>
 
-          <View style={styles.summaryGrid}>
-            <View style={styles.summaryCard}>
-              <Users size={24} color={Colors.primary} />
-              <Text style={styles.summaryValue}>{summary.totalUsers.toLocaleString()}</Text>
-              <Text style={styles.summaryLabel}>Usuarios Totales</Text>
-              <Text style={styles.summarySubtext}>{summary.activeUsers24h} activos hoy</Text>
-            </View>
+        <View style={[styles.statCard, { backgroundColor: theme.card }]}>
+          <DollarSign size={24} color={FIXED_COLORS.success} />
+          <Text style={[styles.statValue, { color: theme.text }]}>{formatCurrency(stats?.totalRevenue || 0)}</Text>
+          <Text style={[styles.statLabel, { color: theme.textSecondary }]}>Ingresos</Text>
+          <Text style={[styles.statSubtext, { color: theme.textMuted }]}>{formatCurrency(stats?.revenueToday || 0)} hoy</Text>
+        </View>
 
-            <View style={styles.summaryCard}>
-              <ShoppingBag size={24} color={Colors.accent} />
-              <Text style={styles.summaryValue}>{summary.totalOrders.toLocaleString()}</Text>
-              <Text style={styles.summaryLabel}>Órdenes</Text>
-              <Text style={styles.summarySubtext}>{summary.ordersToday} hoy</Text>
-            </View>
+        <View style={[styles.statCard, { backgroundColor: theme.card }]}>
+          <TrendingUp size={24} color={FIXED_COLORS.warning} />
+          <Text style={[styles.statValue, { color: theme.text }]}>{stats?.averageRating || 0}</Text>
+          <Text style={[styles.statLabel, { color: theme.textSecondary }]}>Rating</Text>
+          <Text style={[styles.statSubtext, { color: theme.textMuted }]}>Promedio</Text>
+        </View>
+      </View>
 
-            <View style={styles.summaryCard}>
-              <Star size={24} color={Colors.warning} />
-              <Text style={styles.summaryValue}>{summary.averageRating.toFixed(1)}</Text>
-              <Text style={styles.summaryLabel}>Rating Promedio</Text>
-              <Text style={styles.summarySubtext}>De {summary.totalOrders} órdenes</Text>
+      {/* User Breakdown */}
+      <View style={styles.section}>
+        <View style={styles.sectionHeader}>
+          <Users size={20} color={FIXED_COLORS.primary} />
+          <Text style={[styles.sectionTitle, { color: theme.text }]}>Usuarios por Tipo</Text>
+        </View>
+        <View style={[styles.breakdownCard, { backgroundColor: theme.card }]}>
+          <View style={styles.breakdownRow}>
+            <View style={styles.breakdownItem}>
+              <Users size={18} color={FIXED_COLORS.primary} />
+              <Text style={[styles.breakdownValue, { color: theme.text }]}>{stats?.totalClients || 0}</Text>
+              <Text style={[styles.breakdownLabel, { color: theme.textSecondary }]}>Clientes</Text>
             </View>
-
-            <View style={styles.summaryCard}>
-              <MessageSquare size={24} color={Colors.success} />
-              <Text style={styles.summaryValue}>{summary.surveyResponseRate.toFixed(1)}%</Text>
-              <Text style={styles.summaryLabel}>Tasa de Respuesta</Text>
-              <Text style={styles.summarySubtext}>Encuestas</Text>
+            <View style={styles.breakdownItem}>
+              <Store size={18} color={FIXED_COLORS.success} />
+              <Text style={[styles.breakdownValue, { color: theme.text }]}>{stats?.totalBusinesses || 0}</Text>
+              <Text style={[styles.breakdownLabel, { color: theme.textSecondary }]}>Negocios</Text>
             </View>
-          </View>
-
-          <View style={styles.section}>
-            <View style={styles.sectionHeader}>
-              <BarChart3 size={24} color={Colors.primary} />
-              <Text style={styles.sectionTitle}>Eventos Principales</Text>
-            </View>
-            <View style={styles.card}>
-              {topEvents.map((event, index) => (
-                <View key={index} style={styles.eventRow}>
-                  <View style={styles.eventInfo}>
-                    <Text style={styles.eventType}>{event.eventType.replace(/_/g, ' ')}</Text>
-                    <Text style={styles.eventCount}>{event.count.toLocaleString()} eventos</Text>
-                  </View>
-                  <View style={styles.eventBarContainer}>
-                    <View style={[styles.eventBar, { width: `${event.percentage}%` }]} />
-                  </View>
-                  <Text style={styles.eventPercentage}>{event.percentage.toFixed(1)}%</Text>
-                </View>
-              ))}
-            </View>
-          </View>
-
-          <View style={styles.section}>
-            <View style={styles.sectionHeader}>
-              <Clock size={24} color={Colors.accent} />
-              <Text style={styles.sectionTitle}>Actividad por Hora</Text>
-            </View>
-            <View style={styles.card}>
-              <View style={styles.chartContainer}>
-                <View style={styles.chart}>
-                  {hourlyActivity.map((item) => {
-                    const height = (item.events / maxHourlyEvents) * 120;
-                    return (
-                      <View key={item.hour} style={styles.chartBarContainer}>
-                        <View style={[styles.chartBar, { height: Math.max(height, 4) }]} />
-                        <Text style={styles.chartLabel}>{item.hour}</Text>
-                      </View>
-                    );
-                  })}
-                </View>
-              </View>
-              <View style={styles.chartLegend}>
-                <Text style={styles.chartLegendText}>Pico: 20:00 hrs ({Math.max(...hourlyActivity.map(h => h.events))} eventos)</Text>
-              </View>
-            </View>
-          </View>
-
-          <View style={styles.section}>
-            <View style={styles.sectionHeader}>
-              <MapPin size={24} color={Colors.error} />
-              <Text style={styles.sectionTitle}>Mapa de Calor - Zonas</Text>
-            </View>
-            <View style={styles.card}>
-              {zoneHeat.map((zone, index) => (
-                <View key={index} style={styles.zoneRow}>
-                  <View style={styles.zoneInfo}>
-                    <Text style={styles.zoneName}>{zone.zone}</Text>
-                    <View style={styles.zoneStats}>
-                      <View style={styles.zoneStat}>
-                        <ShoppingBag size={14} color={Colors.text.secondary} />
-                        <Text style={styles.zoneStatText}>{zone.orders} órdenes</Text>
-                      </View>
-                      <View style={styles.zoneStat}>
-                        <Clock size={14} color={Colors.text.secondary} />
-                        <Text style={styles.zoneStatText}>{zone.avgDeliveryTime} min</Text>
-                      </View>
-                    </View>
-                  </View>
-                  <View
-                    style={[
-                      styles.zoneIndicator,
-                      {
-                        backgroundColor:
-                          zone.orders > 200
-                            ? Colors.error
-                            : zone.orders > 150
-                            ? Colors.warning
-                            : Colors.success,
-                      },
-                    ]}
-                  />
-                </View>
-              ))}
-              <View style={styles.heatmapLegend}>
-                <View style={styles.legendItem}>
-                  <View style={[styles.legendDot, { backgroundColor: Colors.error }]} />
-                  <Text style={styles.legendText}>Alta demanda (&gt;200)</Text>
-                </View>
-                <View style={styles.legendItem}>
-                  <View style={[styles.legendDot, { backgroundColor: Colors.warning }]} />
-                  <Text style={styles.legendText}>Media (150-200)</Text>
-                </View>
-                <View style={styles.legendItem}>
-                  <View style={[styles.legendDot, { backgroundColor: Colors.success }]} />
-                  <Text style={styles.legendText}>Baja (&lt;150)</Text>
-                </View>
-              </View>
-            </View>
-          </View>
-
-          <View style={styles.section}>
-            <View style={styles.sectionHeader}>
-              <MessageSquare size={24} color={Colors.success} />
-              <Text style={styles.sectionTitle}>Insights de Encuestas</Text>
-            </View>
-            {surveyInsights.map((insight, index) => (
-              <View key={index} style={styles.card}>
-                <Text style={styles.insightQuestion}>{insight.question}</Text>
-                {insight.avgRating && (
-                  <View style={styles.avgRatingContainer}>
-                    <Star size={20} color={Colors.warning} fill={Colors.warning} />
-                    <Text style={styles.avgRating}>{insight.avgRating.toFixed(1)} / 5.0</Text>
-                  </View>
-                )}
-                <View style={styles.responsesContainer}>
-                  {insight.responses.map((response, idx) => {
-                    const total = insight.responses.reduce((sum, r) => sum + r.count, 0);
-                    const percentage = (response.count / total) * 100;
-                    return (
-                      <View key={idx} style={styles.responseRow}>
-                        <Text style={styles.responseAnswer}>{response.answer}</Text>
-                        <View style={styles.responseBarContainer}>
-                          <View style={[styles.responseBar, { width: `${percentage}%` }]} />
-                        </View>
-                        <Text style={styles.responseCount}>{response.count}</Text>
-                      </View>
-                    );
-                  })}
-                </View>
-              </View>
-            ))}
-          </View>
-
-          <View style={styles.alertsSection}>
-            <View style={styles.alertCard}>
-              <AlertCircle size={24} color={Colors.warning} />
-              <View style={styles.alertContent}>
-                <Text style={styles.alertTitle}>Recomendación</Text>
-                <Text style={styles.alertText}>
-                  La hora pico es de 18:00 a 21:00. Considera incentivar a más repartidores durante este horario.
-                </Text>
-              </View>
+            <View style={styles.breakdownItem}>
+              <Truck size={18} color={FIXED_COLORS.accent} />
+              <Text style={[styles.breakdownValue, { color: theme.text }]}>{stats?.totalDrivers || 0}</Text>
+              <Text style={[styles.breakdownLabel, { color: theme.textSecondary }]}>Repartidores</Text>
             </View>
           </View>
         </View>
-      </ScrollView>
-    </View>
+      </View>
+
+      {/* Orders In Progress */}
+      <View style={styles.section}>
+        <View style={styles.sectionHeader}>
+          <Clock size={20} color={FIXED_COLORS.accent} />
+          <Text style={[styles.sectionTitle, { color: theme.text }]}>Ordenes en Proceso ({ordersInProgress.length})</Text>
+        </View>
+        {ordersInProgress.length === 0 ? (
+          <View style={[styles.emptyCard, { backgroundColor: theme.card }]}>
+            <CheckCircle size={32} color={FIXED_COLORS.success} />
+            <Text style={[styles.emptyText, { color: theme.textSecondary }]}>No hay ordenes en proceso</Text>
+          </View>
+        ) : (
+          <View style={[styles.ordersListSmall, { backgroundColor: theme.card }]}>
+            {ordersInProgress.slice(0, 5).map((order) => (
+              <TouchableOpacity
+                key={order.id}
+                style={[styles.orderCardSmall, { borderBottomColor: theme.border }]}
+                onPress={() => router.push('/admin/orders' as any)}
+              >
+                <View style={styles.orderInfo}>
+                  <Text style={[styles.orderClient, { color: theme.text }]}>{order.clientName}</Text>
+                  <Text style={[styles.orderBusiness, { color: theme.textSecondary }]}>{order.businessName || 'Sin negocio'}</Text>
+                  <Text style={[styles.orderTime, { color: theme.textMuted }]}>{formatTime(order.createdAt)}</Text>
+                </View>
+                <View style={[styles.statusBadge, { backgroundColor: getStatusColor(order.status) + '20' }]}>
+                  <Text style={[styles.statusText, { color: getStatusColor(order.status) }]}>
+                    {getStatusLabel(order.status)}
+                  </Text>
+                </View>
+              </TouchableOpacity>
+            ))}
+            {ordersInProgress.length > 5 && (
+              <TouchableOpacity
+                style={styles.seeMoreButton}
+                onPress={() => router.push('/admin/orders' as any)}
+              >
+                <Text style={[styles.seeMoreText, { color: FIXED_COLORS.primary }]}>Ver todas ({ordersInProgress.length})</Text>
+                <ChevronRight size={16} color={FIXED_COLORS.primary} />
+              </TouchableOpacity>
+            )}
+          </View>
+        )}
+      </View>
+
+      {/* Daily Summary */}
+      <View style={styles.section}>
+        <View style={styles.sectionHeader}>
+          <BarChart3 size={20} color={FIXED_COLORS.primary} />
+          <Text style={[styles.sectionTitle, { color: theme.text }]}>Ultimos 7 Dias</Text>
+        </View>
+        <View style={[styles.chartCard, { backgroundColor: theme.card }]}>
+          <View style={styles.chartContainer}>
+            {dailySummary.map((day, index) => {
+              const maxOrders = Math.max(...dailySummary.map(d => d.totalOrders), 1);
+              const height = (day.totalOrders / maxOrders) * 100;
+              return (
+                <View key={index} style={styles.chartBarContainer}>
+                  <Text style={[styles.chartBarValue, { color: theme.textSecondary }]}>{day.totalOrders}</Text>
+                  <View style={[styles.chartBar, { height: Math.max(height, 4), backgroundColor: FIXED_COLORS.primary + '40' }]}>
+                    <View
+                      style={[
+                        styles.chartBarCompleted,
+                        { height: `${(day.completedOrders / Math.max(day.totalOrders, 1)) * 100}%`, backgroundColor: FIXED_COLORS.success }
+                      ]}
+                    />
+                  </View>
+                  <Text style={[styles.chartLabel, { color: theme.textMuted }]}>{formatDate(day.date)}</Text>
+                </View>
+              );
+            })}
+          </View>
+          <View style={[styles.chartLegend, { borderTopColor: theme.border }]}>
+            <View style={styles.legendItem}>
+              <View style={[styles.legendDot, { backgroundColor: FIXED_COLORS.primary }]} />
+              <Text style={[styles.legendText, { color: theme.textSecondary }]}>Total</Text>
+            </View>
+            <View style={styles.legendItem}>
+              <View style={[styles.legendDot, { backgroundColor: FIXED_COLORS.success }]} />
+              <Text style={[styles.legendText, { color: theme.textSecondary }]}>Completadas</Text>
+            </View>
+          </View>
+        </View>
+      </View>
+
+      {/* Quick Actions */}
+      <View style={styles.section}>
+        <View style={styles.sectionHeader}>
+          <Settings size={20} color={theme.text} />
+          <Text style={[styles.sectionTitle, { color: theme.text }]}>Acciones Rapidas</Text>
+        </View>
+        <View style={styles.actionsGrid}>
+          <TouchableOpacity
+            style={[styles.actionCard, { backgroundColor: theme.card }]}
+            onPress={() => router.push('/admin/users' as any)}
+          >
+            <Users size={24} color={FIXED_COLORS.primary} />
+            <Text style={[styles.actionText, { color: theme.text }]}>Gestionar Usuarios</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={[styles.actionCard, { backgroundColor: theme.card }]}
+            onPress={() => router.push('/admin/orders' as any)}
+          >
+            <Package size={24} color={FIXED_COLORS.accent} />
+            <Text style={[styles.actionText, { color: theme.text }]}>Ver Ordenes</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={[styles.actionCard, { backgroundColor: theme.card }, seeding && styles.actionCardDisabled]}
+            onPress={handleSeedProducts}
+            disabled={seeding}
+          >
+            {seeding ? (
+              <ActivityIndicator size="small" color={FIXED_COLORS.success} />
+            ) : (
+              <Database size={24} color={FIXED_COLORS.success} />
+            )}
+            <Text style={[styles.actionText, { color: theme.text }]}>
+              {seeding ? 'Sembrando...' : 'Sembrar Productos'}
+            </Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={[styles.actionCard, { backgroundColor: theme.card }]}
+            onPress={() => router.push('/admin/settings' as any)}
+          >
+            <Settings size={24} color={theme.textSecondary} />
+            <Text style={[styles.actionText, { color: theme.text }]}>Configuracion</Text>
+          </TouchableOpacity>
+        </View>
+      </View>
+
+      {/* Today's Orders */}
+      <View style={styles.section}>
+        <View style={styles.sectionHeader}>
+          <ShoppingBag size={20} color={FIXED_COLORS.warning} />
+          <Text style={[styles.sectionTitle, { color: theme.text }]}>Ordenes de Hoy ({todayOrders.length})</Text>
+        </View>
+        {todayOrders.length === 0 ? (
+          <View style={[styles.emptyCard, { backgroundColor: theme.card }]}>
+            <AlertCircle size={32} color={theme.textMuted} />
+            <Text style={[styles.emptyText, { color: theme.textSecondary }]}>No hay ordenes hoy</Text>
+          </View>
+        ) : (
+          <View style={styles.ordersList}>
+            {todayOrders.slice(0, 10).map((order) => (
+              <TouchableOpacity
+                key={order.id}
+                style={[styles.orderCard, { backgroundColor: theme.card }]}
+                onPress={() => router.push('/admin/orders' as any)}
+              >
+                <View style={styles.orderLeft}>
+                  <View style={[styles.orderIcon, { backgroundColor: getStatusColor(order.status) + '20' }]}>
+                    {order.status === 'delivered' ? (
+                      <CheckCircle size={20} color={FIXED_COLORS.success} />
+                    ) : order.status === 'cancelled' ? (
+                      <XCircle size={20} color={FIXED_COLORS.error} />
+                    ) : (
+                      <Package size={20} color={getStatusColor(order.status)} />
+                    )}
+                  </View>
+                  <View style={styles.orderDetails}>
+                    <Text style={[styles.orderClientName, { color: theme.text }]}>{order.clientName}</Text>
+                    <Text style={[styles.orderBusinessName, { color: theme.textSecondary }]}>{order.businessName || order.serviceType}</Text>
+                    <View style={styles.orderMeta}>
+                      <Text style={[styles.orderMetaText, { color: theme.textMuted }]}>{formatTime(order.createdAt)}</Text>
+                      <Text style={[styles.orderMetaDot, { color: theme.textMuted }]}>•</Text>
+                      <Text style={[styles.orderMetaText, { color: theme.textMuted }]}>{formatCurrency(order.total)}</Text>
+                    </View>
+                  </View>
+                </View>
+                <View style={styles.orderRight}>
+                  <View style={[styles.statusBadgeLarge, { backgroundColor: getStatusColor(order.status) + '20' }]}>
+                    <Text style={[styles.statusTextLarge, { color: getStatusColor(order.status) }]}>
+                      {getStatusLabel(order.status)}
+                    </Text>
+                  </View>
+                  <ChevronRight size={18} color={theme.textMuted} />
+                </View>
+              </TouchableOpacity>
+            ))}
+          </View>
+        )}
+      </View>
+    </ScreenContainer>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: Colors.background.secondary,
-  },
   loadingContainer: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: Colors.background.primary,
   },
   loadingText: {
     marginTop: 12,
     fontSize: 16,
-    color: Colors.text.secondary,
   },
-  header: {
-    paddingTop: 50,
-    paddingBottom: 24,
-    paddingHorizontal: 20,
-  },
-  headerTitle: {
-    fontSize: 28,
-    fontWeight: '700' as const,
-    color: Colors.white,
-    marginBottom: 4,
-  },
-  headerSubtitle: {
-    fontSize: 14,
-    color: 'rgba(255, 255, 255, 0.9)',
-  },
-  scrollView: {
-    flex: 1,
-  },
-  content: {
-    padding: 16,
-  },
-  timeRangeSelector: {
-    flexDirection: 'row' as const,
-    gap: 8,
+  statsGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 12,
     marginBottom: 20,
   },
-  timeRangeButton: {
+  statCard: {
     flex: 1,
-    paddingVertical: 10,
-    paddingHorizontal: 16,
-    borderRadius: 10,
-    backgroundColor: Colors.white,
-    alignItems: 'center' as const,
-  },
-  timeRangeButtonActive: {
-    backgroundColor: Colors.primary,
-  },
-  timeRangeText: {
-    fontSize: 13,
-    fontWeight: '600' as const,
-    color: Colors.text.secondary,
-  },
-  timeRangeTextActive: {
-    color: Colors.white,
-  },
-  refreshButton: {
-    width: 44,
-    height: 44,
-    borderRadius: 10,
-    backgroundColor: Colors.white,
-    justifyContent: 'center' as const,
-    alignItems: 'center' as const,
-  },
-  summaryGrid: {
-    flexDirection: 'row' as const,
-    flexWrap: 'wrap' as const,
-    gap: 12,
-    marginBottom: 24,
-  },
-  summaryCard: {
-    flex: 1,
-    minWidth: '47%' as const,
-    backgroundColor: Colors.white,
+    minWidth: '47%',
     borderRadius: 12,
     padding: 16,
-    alignItems: 'center' as const,
-    shadowColor: Colors.shadow.medium,
+    alignItems: 'center',
+    shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.08,
     shadowRadius: 8,
     elevation: 2,
   },
-  summaryValue: {
-    fontSize: 28,
-    fontWeight: '700' as const,
-    color: Colors.text.primary,
+  statValue: {
+    fontSize: 24,
+    fontWeight: '700',
     marginTop: 8,
     marginBottom: 4,
   },
-  summaryLabel: {
+  statLabel: {
     fontSize: 13,
-    fontWeight: '600' as const,
-    color: Colors.text.secondary,
-    textAlign: 'center' as const,
+    fontWeight: '600',
   },
-  summarySubtext: {
+  statSubtext: {
     fontSize: 11,
-    color: Colors.text.light,
     marginTop: 2,
   },
   section: {
     marginBottom: 24,
   },
   sectionHeader: {
-    flexDirection: 'row' as const,
-    alignItems: 'center' as const,
+    flexDirection: 'row',
+    alignItems: 'center',
     gap: 8,
     marginBottom: 12,
   },
   sectionTitle: {
     fontSize: 18,
-    fontWeight: '700' as const,
-    color: Colors.text.primary,
+    fontWeight: '700',
   },
-  card: {
-    backgroundColor: Colors.white,
+  breakdownCard: {
     borderRadius: 12,
     padding: 16,
-    marginBottom: 12,
-    shadowColor: Colors.shadow.medium,
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.08,
-    shadowRadius: 8,
-    elevation: 2,
   },
-  eventRow: {
-    flexDirection: 'row' as const,
-    alignItems: 'center' as const,
-    marginBottom: 16,
+  breakdownRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-around',
   },
-  eventInfo: {
-    width: 120,
+  breakdownItem: {
+    alignItems: 'center',
+    gap: 6,
   },
-  eventType: {
+  breakdownValue: {
+    fontSize: 24,
+    fontWeight: '700',
+  },
+  breakdownLabel: {
+    fontSize: 12,
+  },
+  emptyCard: {
+    borderRadius: 12,
+    padding: 32,
+    alignItems: 'center',
+  },
+  emptyText: {
+    fontSize: 14,
+    marginTop: 12,
+  },
+  ordersListSmall: {
+    borderRadius: 12,
+    overflow: 'hidden',
+  },
+  orderCardSmall: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    padding: 14,
+    borderBottomWidth: 1,
+  },
+  orderInfo: {
+    flex: 1,
+  },
+  orderClient: {
+    fontSize: 15,
+    fontWeight: '600',
+  },
+  orderBusiness: {
     fontSize: 13,
-    fontWeight: '600' as const,
-    color: Colors.text.primary,
-    textTransform: 'capitalize' as const,
-  },
-  eventCount: {
-    fontSize: 11,
-    color: Colors.text.secondary,
     marginTop: 2,
   },
-  eventBarContainer: {
-    flex: 1,
-    height: 8,
-    backgroundColor: Colors.background.tertiary,
-    borderRadius: 4,
-    marginHorizontal: 12,
-    overflow: 'hidden' as const,
+  orderTime: {
+    fontSize: 12,
+    marginTop: 2,
   },
-  eventBar: {
-    height: '100%',
-    backgroundColor: Colors.primary,
-    borderRadius: 4,
+  statusBadge: {
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 12,
   },
-  eventPercentage: {
-    width: 50,
-    fontSize: 13,
-    fontWeight: '600' as const,
-    color: Colors.text.primary,
-    textAlign: 'right' as const,
+  statusText: {
+    fontSize: 12,
+    fontWeight: '600',
+  },
+  seeMoreButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: 12,
+    gap: 4,
+  },
+  seeMoreText: {
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  chartCard: {
+    borderRadius: 12,
+    padding: 16,
   },
   chartContainer: {
-    marginBottom: 12,
-  },
-  chart: {
-    flexDirection: 'row' as const,
-    alignItems: 'flex-end' as const,
-    justifyContent: 'space-between' as const,
+    flexDirection: 'row',
+    alignItems: 'flex-end',
+    justifyContent: 'space-between',
     height: 140,
-    gap: 2,
+    marginBottom: 12,
   },
   chartBarContainer: {
     flex: 1,
-    alignItems: 'center' as const,
-    justifyContent: 'flex-end' as const,
+    alignItems: 'center',
+    justifyContent: 'flex-end',
+  },
+  chartBarValue: {
+    fontSize: 10,
+    marginBottom: 4,
   },
   chartBar: {
+    width: 28,
+    borderRadius: 4,
+    overflow: 'hidden',
+    justifyContent: 'flex-end',
+  },
+  chartBarCompleted: {
     width: '100%',
-    backgroundColor: Colors.accent,
-    borderTopLeftRadius: 3,
-    borderTopRightRadius: 3,
+    borderRadius: 4,
   },
   chartLabel: {
-    fontSize: 9,
-    color: Colors.text.light,
-    marginTop: 4,
+    fontSize: 10,
+    marginTop: 6,
   },
   chartLegend: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    gap: 20,
     paddingTop: 12,
     borderTopWidth: 1,
-    borderTopColor: Colors.border.light,
-  },
-  chartLegendText: {
-    fontSize: 12,
-    color: Colors.text.secondary,
-    textAlign: 'center' as const,
-  },
-  zoneRow: {
-    flexDirection: 'row' as const,
-    justifyContent: 'space-between' as const,
-    alignItems: 'center' as const,
-    paddingVertical: 12,
-    borderBottomWidth: 1,
-    borderBottomColor: Colors.border.light,
-  },
-  zoneInfo: {
-    flex: 1,
-  },
-  zoneName: {
-    fontSize: 15,
-    fontWeight: '600' as const,
-    color: Colors.text.primary,
-    marginBottom: 6,
-  },
-  zoneStats: {
-    flexDirection: 'row' as const,
-    gap: 16,
-  },
-  zoneStat: {
-    flexDirection: 'row' as const,
-    alignItems: 'center' as const,
-    gap: 4,
-  },
-  zoneStatText: {
-    fontSize: 12,
-    color: Colors.text.secondary,
-  },
-  zoneIndicator: {
-    width: 16,
-    height: 16,
-    borderRadius: 8,
-  },
-  heatmapLegend: {
-    flexDirection: 'row' as const,
-    justifyContent: 'space-around' as const,
-    paddingTop: 16,
-    marginTop: 12,
-    borderTopWidth: 1,
-    borderTopColor: Colors.border.light,
   },
   legendItem: {
-    flexDirection: 'row' as const,
-    alignItems: 'center' as const,
+    flexDirection: 'row',
+    alignItems: 'center',
     gap: 6,
   },
   legendDot: {
@@ -690,82 +645,86 @@ const styles = StyleSheet.create({
     borderRadius: 5,
   },
   legendText: {
-    fontSize: 11,
-    color: Colors.text.secondary,
+    fontSize: 12,
   },
-  insightQuestion: {
-    fontSize: 15,
-    fontWeight: '600' as const,
-    color: Colors.text.primary,
-    marginBottom: 12,
-  },
-  avgRatingContainer: {
-    flexDirection: 'row' as const,
-    alignItems: 'center' as const,
-    gap: 6,
-    marginBottom: 16,
-  },
-  avgRating: {
-    fontSize: 18,
-    fontWeight: '700' as const,
-    color: Colors.text.primary,
-  },
-  responsesContainer: {
+  actionsGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
     gap: 12,
   },
-  responseRow: {
-    flexDirection: 'row' as const,
-    alignItems: 'center' as const,
-  },
-  responseAnswer: {
-    fontSize: 13,
-    color: Colors.text.secondary,
-    width: 120,
-  },
-  responseBarContainer: {
+  actionCard: {
     flex: 1,
-    height: 6,
-    backgroundColor: Colors.background.tertiary,
-    borderRadius: 3,
-    marginHorizontal: 12,
-    overflow: 'hidden' as const,
-  },
-  responseBar: {
-    height: '100%',
-    backgroundColor: Colors.success,
-    borderRadius: 3,
-  },
-  responseCount: {
-    width: 40,
-    fontSize: 13,
-    fontWeight: '600' as const,
-    color: Colors.text.primary,
-    textAlign: 'right' as const,
-  },
-  alertsSection: {
-    marginBottom: 24,
-  },
-  alertCard: {
-    flexDirection: 'row' as const,
-    backgroundColor: `${Colors.warning}15`,
+    minWidth: '47%',
     borderRadius: 12,
     padding: 16,
-    borderWidth: 1,
-    borderColor: `${Colors.warning}40`,
+    alignItems: 'center',
+    gap: 8,
   },
-  alertContent: {
-    flex: 1,
-    marginLeft: 12,
+  actionCardDisabled: {
+    opacity: 0.6,
   },
-  alertTitle: {
-    fontSize: 15,
-    fontWeight: '700' as const,
-    color: Colors.text.primary,
-    marginBottom: 4,
-  },
-  alertText: {
+  actionText: {
     fontSize: 13,
-    color: Colors.text.secondary,
-    lineHeight: 18,
+    fontWeight: '600',
+    textAlign: 'center',
+  },
+  ordersList: {
+    gap: 8,
+  },
+  orderCard: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    borderRadius: 12,
+    padding: 14,
+  },
+  orderLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flex: 1,
+    gap: 12,
+  },
+  orderIcon: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  orderDetails: {
+    flex: 1,
+  },
+  orderClientName: {
+    fontSize: 15,
+    fontWeight: '600',
+  },
+  orderBusinessName: {
+    fontSize: 13,
+    marginTop: 2,
+  },
+  orderMeta: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: 4,
+  },
+  orderMetaText: {
+    fontSize: 12,
+  },
+  orderMetaDot: {
+    marginHorizontal: 6,
+  },
+  orderRight: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  statusBadgeLarge: {
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: 8,
+  },
+  statusTextLarge: {
+    fontSize: 11,
+    fontWeight: '600',
   },
 });

@@ -1,13 +1,50 @@
+// ============================================================================
+// YESSWERA: HISTORIAL DE ENTREGAS DEL REPARTIDOR
+// Usa ScreenContainer para diseño unificado con soporte de tema
+// ============================================================================
+
 import { useState, useMemo, useEffect, useCallback } from 'react';
-import { StyleSheet, Text, View, TouchableOpacity, ScrollView, TextInput, Modal, Alert, ActivityIndicator, RefreshControl } from 'react-native';
+import { StyleSheet, View, TouchableOpacity, TextInput, Modal, Alert, ActivityIndicator, RefreshControl, ScrollView } from 'react-native';
 import { useRouter } from 'expo-router';
-import { ArrowLeft, Search, SlidersHorizontal, Calendar, Package, X, Download, Star, Clock, MapPin } from 'lucide-react-native';
-import { LinearGradient } from 'expo-linear-gradient';
-import Colors from '@/constants/colors';
+import { Search, SlidersHorizontal, Calendar, Package, X, Download, Star, Clock, MapPin, History } from 'lucide-react-native';
+import { useTheme } from '@/contexts/theme';
+import { ThemedText } from '@/components/themed';
+import ScreenContainer, { ScreenCard } from '@/components/ScreenContainer';
 import { format, isToday, isYesterday, isThisWeek } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { useAuth } from '@/contexts/auth';
 import { supabase } from '@/constants/supabase';
+
+// ============================================================================
+// COLORES EXPLICITOS PARA MODO OSCURO
+// ============================================================================
+
+const COLORS = {
+  light: {
+    card: '#FFFFFF',
+    cardAlt: '#F5F5F4',
+    border: '#E7E5E4',
+    text: '#1C1917',
+    textSecondary: '#57534E',
+    textMuted: '#A8A29E',
+    success: '#22C55E',
+    warning: '#F59E0B',
+    error: '#EF4444',
+    gold: '#EAB308',
+  },
+  dark: {
+    card: '#292524',
+    cardAlt: '#44403C',
+    border: '#44403C',
+    text: '#FAFAFA',
+    textSecondary: '#D6D3D1',
+    textMuted: '#78716C',
+    success: '#22C55E',
+    warning: '#F59E0B',
+    error: '#EF4444',
+    gold: '#EAB308',
+  },
+};
 
 interface DeliveryHistory {
   id: string;
@@ -79,6 +116,9 @@ type DateFilter = 'today' | 'yesterday' | 'week' | 'month' | 'all';
 export default function DriverHistoryScreen() {
   const router = useRouter();
   const { user } = useAuth();
+  const { isDark, colors, radius, space } = useTheme();
+  const theme = isDark ? COLORS.dark : COLORS.light;
+
   const [searchQuery, setSearchQuery] = useState('');
   const [showFilters, setShowFilters] = useState(false);
   const [typeFilter, setTypeFilter] = useState<FilterType>('all');
@@ -146,7 +186,7 @@ export default function DriverHistoryScreen() {
     let filtered = history;
 
     if (searchQuery) {
-      filtered = filtered.filter(item => 
+      filtered = filtered.filter(item =>
         item.businessName.toLowerCase().includes(searchQuery.toLowerCase()) ||
         item.orderNumber.toLowerCase().includes(searchQuery.toLowerCase())
       );
@@ -175,7 +215,7 @@ export default function DriverHistoryScreen() {
 
   const groupedHistory = useMemo(() => {
     const groups: { [key: string]: DeliveryHistory[] } = {};
-    
+
     filteredHistory.forEach(item => {
       let groupKey = '';
       if (isToday(item.completedAt)) {
@@ -187,7 +227,7 @@ export default function DriverHistoryScreen() {
       } else {
         groupKey = format(item.completedAt, 'MMMM yyyy', { locale: es });
       }
-      
+
       if (!groups[groupKey]) {
         groups[groupKey] = [];
       }
@@ -221,29 +261,20 @@ export default function DriverHistoryScreen() {
 
   const getTypeIcon = (type: string) => {
     switch (type) {
-      case 'food': return '🍔';
-      case 'shopping': return '🛒';
-      case 'delivery': return '📦';
-      default: return '📦';
-    }
-  };
-
-  const getTypeLabel = (type: string) => {
-    switch (type) {
       case 'food': return 'Alimentos';
       case 'shopping': return 'Compras';
-      case 'delivery': return 'Envío';
-      default: return 'Envío';
+      case 'delivery': return 'Envio';
+      default: return 'Envio';
     }
   };
 
   const handleExportPDF = () => {
     Alert.alert(
       'Exportar PDF',
-      'Se generará un PDF con tu historial de entregas para fines fiscales.',
+      'Se generara un PDF con tu historial de entregas para fines fiscales.',
       [
         { text: 'Cancelar', style: 'cancel' },
-        { text: 'Generar', onPress: () => Alert.alert('PDF Generado', 'El archivo se guardó en Descargas') },
+        { text: 'Generar', onPress: () => Alert.alert('PDF Generado', 'El archivo se guardo en Descargas') },
       ]
     );
   };
@@ -258,577 +289,424 @@ export default function DriverHistoryScreen() {
     setStatusFilter('all');
   };
 
+  // Search bar header content
+  const headerContent = (
+    <View style={[styles.searchContainer, { backgroundColor: 'rgba(255,255,255,0.15)', borderRadius: radius.md }]}>
+      <Search size={20} color="rgba(255,255,255,0.8)" />
+      <TextInput
+        style={styles.searchInput}
+        placeholder="Buscar por negocio o numero..."
+        value={searchQuery}
+        onChangeText={setSearchQuery}
+        placeholderTextColor="rgba(255,255,255,0.6)"
+      />
+      <TouchableOpacity onPress={() => setShowFilters(true)}>
+        <SlidersHorizontal size={20} color="#FFFFFF" />
+      </TouchableOpacity>
+    </View>
+  );
+
   return (
-    <View style={styles.container}>
-      <LinearGradient
-        colors={[Colors.primary, Colors.primaryDark]}
-        style={styles.header}
-      >
-        <View style={styles.headerContent}>
-          <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
-            <ArrowLeft size={24} color={Colors.white} />
-          </TouchableOpacity>
-          <Text style={styles.headerTitle}>Historial de Entregas</Text>
-          <View style={styles.headerSpacer} />
+    <ScreenContainer
+      headerGradient="primary"
+      headerIcon={History}
+      headerTitle="Historial de Entregas"
+      headerSubtitle="Revisa tus entregas completadas"
+      headerContent={headerContent}
+      refreshing={refreshing}
+      onRefresh={onRefresh}
+    >
+      {loading ? (
+        <View style={styles.emptyState}>
+          <ActivityIndicator size="large" color={colors.primary} />
+          <ThemedText variant="body" style={[styles.emptySubtext, { color: theme.textSecondary }]}>
+            Cargando historial...
+          </ThemedText>
         </View>
-      </LinearGradient>
-
-      <View style={styles.searchContainer}>
-        <View style={styles.searchBar}>
-          <Search size={20} color={Colors.text.secondary} />
-          <TextInput
-            style={styles.searchInput}
-            placeholder="Buscar por negocio o número..."
-            value={searchQuery}
-            onChangeText={setSearchQuery}
-            placeholderTextColor={Colors.text.light}
-          />
+      ) : Object.keys(groupedHistory).length === 0 ? (
+        <View style={styles.emptyState}>
+          <Package size={48} color={theme.textMuted} />
+          <ThemedText variant="subtitle" bold style={[styles.emptyText, { color: theme.text }]}>
+            No hay entregas que mostrar
+          </ThemedText>
+          <ThemedText variant="body" style={[styles.emptySubtext, { color: theme.textSecondary }]}>
+            Intenta cambiar los filtros
+          </ThemedText>
         </View>
-        <TouchableOpacity style={styles.filterButton} onPress={() => setShowFilters(true)}>
-          <SlidersHorizontal size={20} color={Colors.white} />
-        </TouchableOpacity>
-      </View>
+      ) : (
+        <>
+          {Object.entries(groupedHistory).map(([groupKey, items]) => {
+            const groupEarnings = items.reduce((sum, item) => sum + item.earnings, 0);
+            const groupCount = items.length;
 
-      <ScrollView
-        style={styles.scrollView}
-        showsVerticalScrollIndicator={false}
-        refreshControl={
-          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={[Colors.primary]} />
-        }
-      >
-        {loading ? (
-          <View style={styles.emptyState}>
-            <ActivityIndicator size="large" color={Colors.primary} />
-            <Text style={styles.emptySubtext}>Cargando historial...</Text>
-          </View>
-        ) : Object.keys(groupedHistory).length === 0 ? (
-          <View style={styles.emptyState}>
-            <Package size={48} color={Colors.text.light} />
-            <Text style={styles.emptyText}>No hay entregas que mostrar</Text>
-            <Text style={styles.emptySubtext}>Intenta cambiar los filtros</Text>
-          </View>
-        ) : (
-          <>
-            {Object.entries(groupedHistory).map(([groupKey, items]) => {
-              const groupEarnings = items.reduce((sum, item) => sum + item.earnings, 0);
-              const groupCount = items.length;
-
-              return (
-                <View key={groupKey} style={styles.groupSection}>
-                  <View style={styles.groupHeader}>
-                    <Text style={styles.groupTitle}>{groupKey}</Text>
-                    <Text style={styles.groupSubtitle}>
-                      {groupCount} {groupCount === 1 ? 'entrega' : 'entregas'} - ${groupEarnings.toFixed(2)}
-                    </Text>
-                  </View>
-
-                  {items.map((item) => (
-                    <TouchableOpacity key={item.id} style={styles.historyCard}>
-                      <View style={styles.cardHeader}>
-                        <View style={styles.typeTag}>
-                          <Text style={styles.typeIcon}>{getTypeIcon(item.type)}</Text>
-                          <Text style={styles.typeText}>{getTypeLabel(item.type)}</Text>
-                        </View>
-                        <Text style={styles.earningsText}>${item.earnings.toFixed(2)}</Text>
-                      </View>
-
-                      <Text style={styles.businessName}>{item.businessName}</Text>
-                      
-                      <View style={styles.cardDetails}>
-                        {item.rating && (
-                          <View style={styles.detailItem}>
-                            <Star size={14} color={Colors.gold} fill={Colors.gold} />
-                            <Text style={styles.detailText}>{item.rating.toFixed(1)}</Text>
-                          </View>
-                        )}
-                        <View style={styles.detailItem}>
-                          <MapPin size={14} color={Colors.text.secondary} />
-                          <Text style={styles.detailText}>{item.distance === '-' ? '-' : `${item.distance} km`}</Text>
-                        </View>
-                        <View style={styles.detailItem}>
-                          <Clock size={14} color={Colors.text.secondary} />
-                          <Text style={styles.detailText}>{item.duration === '-' ? '-' : `${item.duration} min`}</Text>
-                        </View>
-                      </View>
-
-                      <View style={styles.addressSection}>
-                        <Text style={styles.addressFrom}>📍 {item.pickupAddress} → {item.deliveryAddress}</Text>
-                      </View>
-
-                      <View style={styles.cardFooter}>
-                        <Text style={styles.orderNumber}>Orden: {item.orderNumber}</Text>
-                        <Text style={styles.completedTime}>
-                          {item.status === 'completed' ? '✅' : '❌'} {format(item.completedAt, 'h:mm a', { locale: es })}
-                        </Text>
-                      </View>
-                    </TouchableOpacity>
-                  ))}
+            return (
+              <View key={groupKey} style={styles.groupSection}>
+                <View style={styles.groupHeader}>
+                  <ThemedText variant="h3" style={{ color: theme.text }}>{groupKey}</ThemedText>
+                  <ThemedText variant="body" style={{ color: theme.textSecondary }}>
+                    {groupCount} {groupCount === 1 ? 'entrega' : 'entregas'} - ${groupEarnings.toFixed(2)}
+                  </ThemedText>
                 </View>
-              );
-            })}
 
-            <View style={styles.summaryCard}>
-              <View style={styles.summaryHeader}>
-                <Calendar size={24} color={Colors.primary} />
-                <Text style={styles.summaryTitle}>Resumen del Mes</Text>
+                {items.map((item) => (
+                  <TouchableOpacity key={item.id} style={[styles.historyCard, { backgroundColor: theme.card }]}>
+                    <View style={styles.cardHeader}>
+                      <View style={[styles.typeTag, { backgroundColor: theme.cardAlt }]}>
+                        <ThemedText variant="caption" bold style={{ color: theme.text }}>
+                          {getTypeIcon(item.type)}
+                        </ThemedText>
+                      </View>
+                      <ThemedText variant="h3" style={{ color: theme.success }}>${item.earnings.toFixed(2)}</ThemedText>
+                    </View>
+
+                    <ThemedText variant="subtitle" bold style={{ color: theme.text }}>{item.businessName}</ThemedText>
+
+                    <View style={styles.cardDetails}>
+                      {item.rating && (
+                        <View style={styles.detailItem}>
+                          <Star size={14} color={theme.gold} />
+                          <ThemedText variant="caption" style={{ color: theme.textSecondary }}>{item.rating.toFixed(1)}</ThemedText>
+                        </View>
+                      )}
+                      <View style={styles.detailItem}>
+                        <MapPin size={14} color={theme.textSecondary} />
+                        <ThemedText variant="caption" style={{ color: theme.textSecondary }}>
+                          {item.distance === '-' ? '-' : `${item.distance} km`}
+                        </ThemedText>
+                      </View>
+                      <View style={styles.detailItem}>
+                        <Clock size={14} color={theme.textSecondary} />
+                        <ThemedText variant="caption" style={{ color: theme.textSecondary }}>
+                          {item.duration === '-' ? '-' : `${item.duration} min`}
+                        </ThemedText>
+                      </View>
+                    </View>
+
+                    <View style={[styles.addressSection, { backgroundColor: theme.cardAlt }]}>
+                      <ThemedText variant="caption" style={{ color: theme.textSecondary }}>
+                        {item.pickupAddress} - {item.deliveryAddress}
+                      </ThemedText>
+                    </View>
+
+                    <View style={styles.cardFooter}>
+                      <ThemedText variant="caption" bold style={{ color: theme.textSecondary }}>
+                        Orden: {item.orderNumber}
+                      </ThemedText>
+                      <ThemedText variant="caption" style={{ color: theme.textMuted }}>
+                        {item.status === 'completed' ? 'Completada' : 'Cancelada'} {format(item.completedAt, 'h:mm a', { locale: es })}
+                      </ThemedText>
+                    </View>
+                  </TouchableOpacity>
+                ))}
               </View>
-              <View style={styles.summaryGrid}>
-                <View style={styles.summaryItem}>
-                  <Text style={styles.summaryValue}>{monthSummary.totalDeliveries}</Text>
-                  <Text style={styles.summaryLabel}>Entregas</Text>
-                </View>
-                <View style={styles.summaryItem}>
-                  <Text style={styles.summaryValue}>${monthSummary.totalEarned.toFixed(0)}</Text>
-                  <Text style={styles.summaryLabel}>Ganado</Text>
-                </View>
-                <View style={styles.summaryItem}>
-                  <Text style={styles.summaryValue}>{monthSummary.avgRating.toFixed(1)} ⭐</Text>
-                  <Text style={styles.summaryLabel}>Rating</Text>
-                </View>
-                <View style={styles.summaryItem}>
-                  <Text style={styles.summaryValue}>{monthSummary.totalKm.toFixed(0)} km</Text>
-                  <Text style={styles.summaryLabel}>Recorrido</Text>
-                </View>
+            );
+          })}
+
+          <ScreenCard>
+            <View style={styles.summaryHeader}>
+              <Calendar size={24} color={colors.primary} />
+              <ThemedText variant="h3" style={{ color: theme.text }}>Resumen del Mes</ThemedText>
+            </View>
+            <View style={styles.summaryGrid}>
+              <View style={styles.summaryItem}>
+                <ThemedText variant="h2" style={{ color: theme.text }}>{monthSummary.totalDeliveries}</ThemedText>
+                <ThemedText variant="caption" style={{ color: theme.textSecondary }}>Entregas</ThemedText>
+              </View>
+              <View style={styles.summaryItem}>
+                <ThemedText variant="h2" style={{ color: theme.text }}>${monthSummary.totalEarned.toFixed(0)}</ThemedText>
+                <ThemedText variant="caption" style={{ color: theme.textSecondary }}>Ganado</ThemedText>
+              </View>
+              <View style={styles.summaryItem}>
+                <ThemedText variant="h2" style={{ color: theme.text }}>{monthSummary.avgRating.toFixed(1)}</ThemedText>
+                <ThemedText variant="caption" style={{ color: theme.textSecondary }}>Rating</ThemedText>
+              </View>
+              <View style={styles.summaryItem}>
+                <ThemedText variant="h2" style={{ color: theme.text }}>{monthSummary.totalKm.toFixed(0)} km</ThemedText>
+                <ThemedText variant="caption" style={{ color: theme.textSecondary }}>Recorrido</ThemedText>
               </View>
             </View>
+          </ScreenCard>
 
-            <TouchableOpacity style={styles.exportButton} onPress={handleExportPDF}>
-              <Download size={20} color={Colors.white} />
-              <Text style={styles.exportButtonText}>Exportar PDF para Impuestos</Text>
-            </TouchableOpacity>
-          </>
-        )}
-      </ScrollView>
+          <TouchableOpacity
+            style={[styles.exportButton, { backgroundColor: colors.accent, borderRadius: radius.md }]}
+            onPress={handleExportPDF}
+          >
+            <Download size={20} color="#FFFFFF" />
+            <ThemedText variant="label" bold color="white">Exportar PDF para Impuestos</ThemedText>
+          </TouchableOpacity>
+        </>
+      )}
 
       <Modal visible={showFilters} animationType="slide" transparent>
         <View style={styles.modalOverlay}>
-          <View style={styles.modalContent}>
-            <View style={styles.modalHeader}>
-              <Text style={styles.modalTitle}>Filtros</Text>
+          <View style={[styles.modalContent, { backgroundColor: theme.card }]}>
+            <View style={[styles.modalHeader, { borderBottomColor: theme.border }]}>
+              <ThemedText variant="h3" style={{ color: theme.text }}>Filtros</ThemedText>
               <TouchableOpacity onPress={() => setShowFilters(false)}>
-                <X size={24} color={Colors.text.primary} />
+                <X size={24} color={theme.text} />
               </TouchableOpacity>
             </View>
 
-            <View style={styles.filterSection}>
-              <Text style={styles.filterLabel}>Fecha</Text>
-              <View style={styles.filterOptions}>
-                {[
-                  { value: 'all', label: 'Todo' },
-                  { value: 'today', label: 'Hoy' },
-                  { value: 'yesterday', label: 'Ayer' },
-                  { value: 'week', label: 'Esta Semana' },
-                  { value: 'month', label: 'Este Mes' },
-                ].map((option) => (
-                  <TouchableOpacity
-                    key={option.value}
-                    style={[styles.filterOption, dateFilter === option.value && styles.filterOptionActive]}
-                    onPress={() => setDateFilter(option.value as DateFilter)}
-                  >
-                    <Text style={[styles.filterOptionText, dateFilter === option.value && styles.filterOptionTextActive]}>
-                      {option.label}
-                    </Text>
-                  </TouchableOpacity>
-                ))}
+            <ScrollView style={styles.modalScroll}>
+              <View style={styles.filterSection}>
+                <ThemedText variant="label" bold style={{ color: theme.text }}>Fecha</ThemedText>
+                <View style={styles.filterOptions}>
+                  {[
+                    { value: 'all', label: 'Todo' },
+                    { value: 'today', label: 'Hoy' },
+                    { value: 'yesterday', label: 'Ayer' },
+                    { value: 'week', label: 'Esta Semana' },
+                    { value: 'month', label: 'Este Mes' },
+                  ].map((option) => (
+                    <TouchableOpacity
+                      key={option.value}
+                      style={[
+                        styles.filterOption,
+                        { backgroundColor: theme.cardAlt, borderColor: theme.border },
+                        dateFilter === option.value && { backgroundColor: colors.primary, borderColor: colors.primary },
+                      ]}
+                      onPress={() => setDateFilter(option.value as DateFilter)}
+                    >
+                      <ThemedText
+                        variant="caption"
+                        style={{ color: dateFilter === option.value ? '#FFFFFF' : theme.text }}
+                      >
+                        {option.label}
+                      </ThemedText>
+                    </TouchableOpacity>
+                  ))}
+                </View>
               </View>
-            </View>
 
-            <View style={styles.filterSection}>
-              <Text style={styles.filterLabel}>Tipo</Text>
-              <View style={styles.filterOptions}>
-                {[
-                  { value: 'all', label: 'Todos', icon: '📦' },
-                  { value: 'food', label: 'Alimentos', icon: '🍔' },
-                  { value: 'shopping', label: 'Compras', icon: '🛒' },
-                  { value: 'delivery', label: 'Envíos', icon: '📦' },
-                ].map((option) => (
-                  <TouchableOpacity
-                    key={option.value}
-                    style={[styles.filterOption, typeFilter === option.value && styles.filterOptionActive]}
-                    onPress={() => setTypeFilter(option.value as FilterType)}
-                  >
-                    <Text style={[styles.filterOptionText, typeFilter === option.value && styles.filterOptionTextActive]}>
-                      {option.icon} {option.label}
-                    </Text>
-                  </TouchableOpacity>
-                ))}
+              <View style={styles.filterSection}>
+                <ThemedText variant="label" bold style={{ color: theme.text }}>Tipo</ThemedText>
+                <View style={styles.filterOptions}>
+                  {[
+                    { value: 'all', label: 'Todos' },
+                    { value: 'food', label: 'Alimentos' },
+                    { value: 'shopping', label: 'Compras' },
+                    { value: 'delivery', label: 'Envios' },
+                  ].map((option) => (
+                    <TouchableOpacity
+                      key={option.value}
+                      style={[
+                        styles.filterOption,
+                        { backgroundColor: theme.cardAlt, borderColor: theme.border },
+                        typeFilter === option.value && { backgroundColor: colors.primary, borderColor: colors.primary },
+                      ]}
+                      onPress={() => setTypeFilter(option.value as FilterType)}
+                    >
+                      <ThemedText
+                        variant="caption"
+                        style={{ color: typeFilter === option.value ? '#FFFFFF' : theme.text }}
+                      >
+                        {option.label}
+                      </ThemedText>
+                    </TouchableOpacity>
+                  ))}
+                </View>
               </View>
-            </View>
 
-            <View style={styles.filterSection}>
-              <Text style={styles.filterLabel}>Estado</Text>
-              <View style={styles.filterOptions}>
-                {[
-                  { value: 'all', label: 'Todos' },
-                  { value: 'completed', label: 'Completadas' },
-                  { value: 'cancelled', label: 'Canceladas' },
-                ].map((option) => (
-                  <TouchableOpacity
-                    key={option.value}
-                    style={[styles.filterOption, statusFilter === option.value && styles.filterOptionActive]}
-                    onPress={() => setStatusFilter(option.value as any)}
-                  >
-                    <Text style={[styles.filterOptionText, statusFilter === option.value && styles.filterOptionTextActive]}>
-                      {option.label}
-                    </Text>
-                  </TouchableOpacity>
-                ))}
+              <View style={styles.filterSection}>
+                <ThemedText variant="label" bold style={{ color: theme.text }}>Estado</ThemedText>
+                <View style={styles.filterOptions}>
+                  {[
+                    { value: 'all', label: 'Todos' },
+                    { value: 'completed', label: 'Completadas' },
+                    { value: 'cancelled', label: 'Canceladas' },
+                  ].map((option) => (
+                    <TouchableOpacity
+                      key={option.value}
+                      style={[
+                        styles.filterOption,
+                        { backgroundColor: theme.cardAlt, borderColor: theme.border },
+                        statusFilter === option.value && { backgroundColor: colors.primary, borderColor: colors.primary },
+                      ]}
+                      onPress={() => setStatusFilter(option.value as any)}
+                    >
+                      <ThemedText
+                        variant="caption"
+                        style={{ color: statusFilter === option.value ? '#FFFFFF' : theme.text }}
+                      >
+                        {option.label}
+                      </ThemedText>
+                    </TouchableOpacity>
+                  ))}
+                </View>
               </View>
-            </View>
+            </ScrollView>
 
-            <View style={styles.modalActions}>
-              <TouchableOpacity style={styles.resetButton} onPress={resetFilters}>
-                <Text style={styles.resetButtonText}>Resetear</Text>
+            <View style={[styles.modalActions, { borderTopColor: theme.border }]}>
+              <TouchableOpacity
+                style={[styles.resetButton, { backgroundColor: theme.cardAlt }]}
+                onPress={resetFilters}
+              >
+                <ThemedText variant="label" bold style={{ color: theme.text }}>Resetear</ThemedText>
               </TouchableOpacity>
-              <TouchableOpacity style={styles.applyButton} onPress={applyFilters}>
-                <Text style={styles.applyButtonText}>Aplicar</Text>
+              <TouchableOpacity
+                style={[styles.applyButton, { backgroundColor: colors.primary }]}
+                onPress={applyFilters}
+              >
+                <ThemedText variant="label" bold color="white">Aplicar</ThemedText>
               </TouchableOpacity>
             </View>
           </View>
         </View>
       </Modal>
-    </View>
+    </ScreenContainer>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: Colors.background.secondary,
-  },
-  header: {
-    paddingTop: 50,
-    paddingBottom: 20,
-    paddingHorizontal: 16,
-  },
-  headerContent: {
-    flexDirection: 'row' as const,
-    alignItems: 'center' as const,
-    justifyContent: 'space-between' as const,
-  },
-  backButton: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    alignItems: 'center' as const,
-    justifyContent: 'center' as const,
-    backgroundColor: 'rgba(255, 255, 255, 0.2)',
-  },
-  headerTitle: {
-    fontSize: 20,
-    fontWeight: '700' as const,
-    color: Colors.white,
-    flex: 1,
-    textAlign: 'center' as const,
-  },
-  headerSpacer: {
-    width: 40,
-  },
   searchContainer: {
-    flexDirection: 'row' as const,
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    gap: 10,
-    backgroundColor: Colors.white,
-    borderBottomWidth: 1,
-    borderBottomColor: Colors.border.light,
-  },
-  searchBar: {
-    flex: 1,
-    flexDirection: 'row' as const,
-    alignItems: 'center' as const,
-    backgroundColor: Colors.background.secondary,
-    borderRadius: 12,
+    flexDirection: 'row',
+    alignItems: 'center',
     paddingHorizontal: 12,
-    height: 44,
-    gap: 8,
+    paddingVertical: 10,
+    gap: 10,
   },
   searchInput: {
     flex: 1,
     fontSize: 15,
-    color: Colors.text.primary,
+    color: '#FFFFFF',
   },
-  filterButton: {
-    width: 44,
-    height: 44,
-    borderRadius: 12,
-    backgroundColor: Colors.primary,
-    alignItems: 'center' as const,
-    justifyContent: 'center' as const,
+  emptyState: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 60,
   },
-  scrollView: {
-    flex: 1,
+  emptyText: {
+    marginTop: 16,
+  },
+  emptySubtext: {
+    marginTop: 4,
   },
   groupSection: {
     marginBottom: 24,
   },
   groupHeader: {
-    paddingHorizontal: 16,
-    paddingTop: 16,
-    paddingBottom: 12,
-  },
-  groupTitle: {
-    fontSize: 18,
-    fontWeight: '700' as const,
-    color: Colors.text.primary,
-    marginBottom: 4,
-  },
-  groupSubtitle: {
-    fontSize: 14,
-    color: Colors.text.secondary,
+    marginBottom: 12,
   },
   historyCard: {
-    backgroundColor: Colors.white,
-    marginHorizontal: 16,
-    marginBottom: 12,
     borderRadius: 12,
     padding: 16,
-    shadowColor: Colors.shadow.medium,
+    marginBottom: 12,
+    shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.08,
     shadowRadius: 8,
     elevation: 2,
   },
   cardHeader: {
-    flexDirection: 'row' as const,
-    justifyContent: 'space-between' as const,
-    alignItems: 'center' as const,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
     marginBottom: 10,
   },
   typeTag: {
-    flexDirection: 'row' as const,
-    alignItems: 'center' as const,
-    backgroundColor: Colors.background.tertiary,
     paddingHorizontal: 10,
     paddingVertical: 6,
     borderRadius: 8,
-    gap: 4,
-  },
-  typeIcon: {
-    fontSize: 14,
-  },
-  typeText: {
-    fontSize: 13,
-    fontWeight: '600' as const,
-    color: Colors.text.primary,
-  },
-  earningsText: {
-    fontSize: 18,
-    fontWeight: '700' as const,
-    color: Colors.success,
-  },
-  businessName: {
-    fontSize: 16,
-    fontWeight: '600' as const,
-    color: Colors.text.primary,
-    marginBottom: 8,
   },
   cardDetails: {
-    flexDirection: 'row' as const,
+    flexDirection: 'row',
     gap: 12,
+    marginTop: 8,
     marginBottom: 10,
   },
   detailItem: {
-    flexDirection: 'row' as const,
-    alignItems: 'center' as const,
+    flexDirection: 'row',
+    alignItems: 'center',
     gap: 4,
   },
-  detailText: {
-    fontSize: 13,
-    color: Colors.text.secondary,
-  },
   addressSection: {
-    backgroundColor: Colors.background.secondary,
     borderRadius: 8,
     padding: 10,
     marginBottom: 10,
   },
-  addressFrom: {
-    fontSize: 12,
-    color: Colors.text.secondary,
-    lineHeight: 16,
-  },
   cardFooter: {
-    flexDirection: 'row' as const,
-    justifyContent: 'space-between' as const,
-    alignItems: 'center' as const,
-  },
-  orderNumber: {
-    fontSize: 12,
-    fontWeight: '600' as const,
-    color: Colors.text.secondary,
-  },
-  completedTime: {
-    fontSize: 12,
-    color: Colors.text.light,
-  },
-  summaryCard: {
-    backgroundColor: Colors.white,
-    marginHorizontal: 16,
-    marginBottom: 16,
-    marginTop: 8,
-    borderRadius: 12,
-    padding: 20,
-    shadowColor: Colors.shadow.medium,
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 8,
-    elevation: 3,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
   },
   summaryHeader: {
-    flexDirection: 'row' as const,
-    alignItems: 'center' as const,
+    flexDirection: 'row',
+    alignItems: 'center',
     gap: 10,
     marginBottom: 16,
   },
-  summaryTitle: {
-    fontSize: 18,
-    fontWeight: '700' as const,
-    color: Colors.text.primary,
-  },
   summaryGrid: {
-    flexDirection: 'row' as const,
-    flexWrap: 'wrap' as const,
+    flexDirection: 'row',
+    flexWrap: 'wrap',
     gap: 16,
   },
   summaryItem: {
     flex: 1,
-    minWidth: '40%' as const,
-    alignItems: 'center' as const,
-  },
-  summaryValue: {
-    fontSize: 20,
-    fontWeight: '700' as const,
-    color: Colors.text.primary,
-    marginBottom: 4,
-  },
-  summaryLabel: {
-    fontSize: 13,
-    color: Colors.text.secondary,
+    minWidth: '40%',
+    alignItems: 'center',
   },
   exportButton: {
-    flexDirection: 'row' as const,
-    alignItems: 'center' as const,
-    justifyContent: 'center' as const,
-    backgroundColor: Colors.accent,
-    marginHorizontal: 16,
-    marginBottom: 32,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
     height: 48,
-    borderRadius: 12,
     gap: 8,
-  },
-  exportButtonText: {
-    fontSize: 15,
-    fontWeight: '600' as const,
-    color: Colors.white,
-  },
-  emptyState: {
-    flex: 1,
-    alignItems: 'center' as const,
-    justifyContent: 'center' as const,
-    paddingVertical: 60,
-  },
-  emptyText: {
-    fontSize: 18,
-    fontWeight: '600' as const,
-    color: Colors.text.primary,
-    marginTop: 16,
-  },
-  emptySubtext: {
-    fontSize: 14,
-    color: Colors.text.secondary,
-    marginTop: 4,
+    marginTop: 8,
+    marginBottom: 32,
   },
   modalOverlay: {
     flex: 1,
     backgroundColor: 'rgba(0, 0, 0, 0.5)',
-    justifyContent: 'flex-end' as const,
+    justifyContent: 'flex-end',
   },
   modalContent: {
-    backgroundColor: Colors.white,
     borderTopLeftRadius: 24,
     borderTopRightRadius: 24,
-    paddingBottom: 32,
-    maxHeight: '80%' as const,
+    maxHeight: '80%',
   },
   modalHeader: {
-    flexDirection: 'row' as const,
-    justifyContent: 'space-between' as const,
-    alignItems: 'center' as const,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
     padding: 20,
     borderBottomWidth: 1,
-    borderBottomColor: Colors.border.light,
   },
-  modalTitle: {
-    fontSize: 20,
-    fontWeight: '700' as const,
-    color: Colors.text.primary,
+  modalScroll: {
+    paddingHorizontal: 20,
   },
   filterSection: {
-    paddingHorizontal: 20,
     paddingTop: 20,
   },
-  filterLabel: {
-    fontSize: 16,
-    fontWeight: '600' as const,
-    color: Colors.text.primary,
-    marginBottom: 12,
-  },
   filterOptions: {
-    flexDirection: 'row' as const,
-    flexWrap: 'wrap' as const,
+    flexDirection: 'row',
+    flexWrap: 'wrap',
     gap: 8,
+    marginTop: 12,
   },
   filterOption: {
     paddingHorizontal: 16,
     paddingVertical: 10,
     borderRadius: 20,
-    backgroundColor: Colors.background.secondary,
     borderWidth: 1,
-    borderColor: Colors.border.light,
-  },
-  filterOptionActive: {
-    backgroundColor: Colors.primary,
-    borderColor: Colors.primary,
-  },
-  filterOptionText: {
-    fontSize: 14,
-    fontWeight: '500' as const,
-    color: Colors.text.primary,
-  },
-  filterOptionTextActive: {
-    color: Colors.white,
   },
   modalActions: {
-    flexDirection: 'row' as const,
-    paddingHorizontal: 20,
-    paddingTop: 24,
+    flexDirection: 'row',
+    padding: 20,
     gap: 12,
+    borderTopWidth: 1,
   },
   resetButton: {
     flex: 1,
     height: 48,
     borderRadius: 12,
-    backgroundColor: Colors.background.secondary,
-    alignItems: 'center' as const,
-    justifyContent: 'center' as const,
-  },
-  resetButtonText: {
-    fontSize: 15,
-    fontWeight: '600' as const,
-    color: Colors.text.primary,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   applyButton: {
     flex: 1,
     height: 48,
     borderRadius: 12,
-    backgroundColor: Colors.primary,
-    alignItems: 'center' as const,
-    justifyContent: 'center' as const,
-  },
-  applyButtonText: {
-    fontSize: 15,
-    fontWeight: '600' as const,
-    color: Colors.white,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
 });

@@ -6,9 +6,15 @@ import { ArrowLeft, MapPin, Star, Store, Navigation, List } from 'lucide-react-n
 import MapView, { Marker, Circle, PROVIDER_GOOGLE } from 'react-native-maps';
 import * as Location from 'expo-location';
 import Colors from '@/constants/colors';
+import { useTheme } from '@/contexts/theme';
 import { Business } from '@/constants/types';
 import { supabase } from '@/constants/supabase';
 import { parseLocation } from '@/utils/geo';
+
+const COLORS = {
+  light: { background: '#FFFFFF', card: '#FFFFFF', cardAlt: '#F5F5F4', border: '#E7E5E4', text: '#1C1917', textSecondary: '#57534E', textMuted: '#78716C' },
+  dark: { background: '#1C1917', card: '#292524', cardAlt: '#44403C', border: '#44403C', text: '#FAFAFA', textSecondary: '#D6D3D1', textMuted: '#78716C' },
+};
 
 const { width, height } = Dimensions.get('window');
 const RADIUS_KM = 5;
@@ -38,6 +44,8 @@ interface BusinessWithLocation extends Business {
 
 export default function NearbyStoresScreen() {
   const router = useRouter();
+  const { isDark } = useTheme();
+  const theme = isDark ? COLORS.dark : COLORS.light;
   const mapRef = useRef<MapView>(null);
   const [userLocation, setUserLocation] = useState<{ latitude: number; longitude: number } | null>(null);
   const [businesses, setBusinesses] = useState<BusinessWithLocation[]>([]);
@@ -174,28 +182,28 @@ export default function NearbyStoresScreen() {
 
   if (!userLocation) {
     return (
-      <View style={styles.loadingContainer}>
+      <View style={[styles.loadingContainer, { backgroundColor: theme.background }]}>
         <ActivityIndicator size="large" color={Colors.primary} />
-        <Text style={styles.loadingText}>Obteniendo tu ubicación...</Text>
+        <Text style={[styles.loadingText, { color: theme.textSecondary }]}>Obteniendo tu ubicación...</Text>
       </View>
     );
   }
 
   return (
-    <View style={styles.container}>
+    <View style={[styles.container, { backgroundColor: theme.background }]}>
       {/* Header */}
-      <View style={styles.header}>
-        <TouchableOpacity style={styles.backButton} onPress={() => router.back()}>
-          <ArrowLeft size={24} color={Colors.text.primary} />
+      <View style={[styles.header, { backgroundColor: theme.card, borderBottomColor: theme.border }]}>
+        <TouchableOpacity style={[styles.backButton, { backgroundColor: theme.cardAlt }]} onPress={() => router.back()}>
+          <ArrowLeft size={24} color={theme.text} />
         </TouchableOpacity>
         <View style={styles.headerContent}>
-          <Text style={styles.headerTitle}>Comercios Cercanos</Text>
-          <Text style={styles.headerSubtitle}>
+          <Text style={[styles.headerTitle, { color: theme.text }]}>Comercios Cercanos</Text>
+          <Text style={[styles.headerSubtitle, { color: theme.textSecondary }]}>
             {businesses.length} negocios en {RADIUS_KM} km
           </Text>
         </View>
         <TouchableOpacity
-          style={[styles.toggleButton, showList && styles.toggleButtonActive]}
+          style={[styles.toggleButton, { backgroundColor: theme.cardAlt }, showList && styles.toggleButtonActive]}
           onPress={() => setShowList(!showList)}
         >
           <List size={20} color={showList ? Colors.white : Colors.primary} />
@@ -248,38 +256,38 @@ export default function NearbyStoresScreen() {
         </MapView>
 
         {/* Botón centrar en usuario */}
-        <TouchableOpacity style={styles.centerButton} onPress={centerOnUser}>
+        <TouchableOpacity style={[styles.centerButton, { backgroundColor: theme.card }]} onPress={centerOnUser}>
           <Navigation size={20} color={Colors.primary} />
         </TouchableOpacity>
 
         {/* Leyenda */}
-        <View style={styles.legend}>
+        <View style={[styles.legend, { backgroundColor: theme.card }]}>
           <View style={styles.legendItem}>
             <View style={[styles.legendDot, { backgroundColor: Colors.primary }]} />
-            <Text style={styles.legendText}>Tú</Text>
+            <Text style={[styles.legendText, { color: theme.textSecondary }]}>Tú</Text>
           </View>
           <View style={styles.legendItem}>
             <View style={[styles.legendDot, { backgroundColor: Colors.accent }]} />
-            <Text style={styles.legendText}>Comercios</Text>
+            <Text style={[styles.legendText, { color: theme.textSecondary }]}>Comercios</Text>
           </View>
         </View>
       </View>
 
       {/* Card del negocio seleccionado */}
       {selectedBusiness && !showList && (
-        <View style={styles.selectedCard}>
+        <View style={[styles.selectedCard, { backgroundColor: theme.card }]}>
           <View style={styles.selectedHeader}>
             <View style={[styles.categoryBadge, { backgroundColor: CATEGORY_COLORS[selectedBusiness.category] || Colors.accent }]}>
               <Text style={styles.categoryBadgeText}>{selectedBusiness.category}</Text>
             </View>
             <View style={styles.ratingBadge}>
               <Star size={12} color={Colors.warning} fill={Colors.warning} />
-              <Text style={styles.ratingText}>{selectedBusiness.rating.toFixed(1)}</Text>
+              <Text style={[styles.ratingText, { color: theme.text }]}>{selectedBusiness.rating.toFixed(1)}</Text>
             </View>
           </View>
-          <Text style={styles.selectedName}>{selectedBusiness.name}</Text>
-          <Text style={styles.selectedDistance}>
-            <MapPin size={14} color={Colors.text.secondary} /> {selectedBusiness.distance} km de distancia
+          <Text style={[styles.selectedName, { color: theme.text }]}>{selectedBusiness.name}</Text>
+          <Text style={[styles.selectedDistance, { color: theme.textSecondary }]}>
+            <MapPin size={14} color={theme.textSecondary} /> {selectedBusiness.distance} km de distancia
           </Text>
           <TouchableOpacity
             style={styles.selectButton}
@@ -292,13 +300,13 @@ export default function NearbyStoresScreen() {
 
       {/* Lista de negocios */}
       {showList && (
-        <View style={styles.listContainer}>
+        <View style={[styles.listContainer, { backgroundColor: theme.card }]}>
           {loading ? (
             <ActivityIndicator size="large" color={Colors.primary} />
           ) : businesses.length === 0 ? (
             <View style={styles.emptyState}>
-              <Store size={48} color={Colors.text.light} />
-              <Text style={styles.emptyText}>No hay comercios cercanos</Text>
+              <Store size={48} color={theme.textMuted} />
+              <Text style={[styles.emptyText, { color: theme.textSecondary }]}>No hay comercios cercanos</Text>
             </View>
           ) : (
             businesses.map((business) => (
@@ -306,6 +314,7 @@ export default function NearbyStoresScreen() {
                 key={business.id}
                 style={[
                   styles.listItem,
+                  { backgroundColor: theme.cardAlt },
                   selectedBusiness?.id === business.id && styles.listItemSelected,
                 ]}
                 onPress={() => handleSelectBusiness(business)}
@@ -314,14 +323,14 @@ export default function NearbyStoresScreen() {
                   <Store size={18} color={Colors.white} />
                 </View>
                 <View style={styles.listContent}>
-                  <Text style={styles.listName}>{business.name}</Text>
-                  <Text style={styles.listCategory}>{business.category}</Text>
+                  <Text style={[styles.listName, { color: theme.text }]}>{business.name}</Text>
+                  <Text style={[styles.listCategory, { color: theme.textSecondary }]}>{business.category}</Text>
                 </View>
                 <View style={styles.listMeta}>
                   <Text style={styles.listDistance}>{business.distance} km</Text>
                   <View style={styles.listRating}>
                     <Star size={12} color={Colors.warning} fill={Colors.warning} />
-                    <Text style={styles.listRatingText}>{business.rating.toFixed(1)}</Text>
+                    <Text style={[styles.listRatingText, { color: theme.textSecondary }]}>{business.rating.toFixed(1)}</Text>
                   </View>
                 </View>
               </TouchableOpacity>

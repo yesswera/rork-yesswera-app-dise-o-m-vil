@@ -1,21 +1,68 @@
+// ============================================================================
+// YESSWERA: CHAT - CONVERSACION
+// Pantalla de chat por conversationId
+// Actualizada para usar ScreenContainer
+// ============================================================================
+
 import { useState, useEffect, useRef, useCallback } from 'react';
-import { StyleSheet, Text, View, TouchableOpacity, FlatList, TextInput, KeyboardAvoidingView, Platform, ActivityIndicator, Keyboard } from 'react-native';
+import {
+  StyleSheet,
+  View,
+  TouchableOpacity,
+  FlatList,
+  TextInput,
+  ActivityIndicator,
+  Keyboard,
+} from 'react-native';
 import { useRouter, useLocalSearchParams, Stack } from 'expo-router';
-import { ChevronLeft, Send } from 'lucide-react-native';
+import { ChevronLeft, Send, MessageCircle } from 'lucide-react-native';
 import * as Haptics from 'expo-haptics';
-import Colors from '@/constants/colors';
 import { useAuth } from '@/contexts/auth';
+import { useTheme } from '@/contexts/theme';
 import { Message } from '@/constants/types';
 import { getMessages, sendMessage, markMessagesAsRead } from '@/services/messages';
 import ErrorState from '@/components/ErrorState';
+import ScreenContainer from '@/components/ScreenContainer';
+import { ThemedText } from '@/components/themed';
+import { ChatSounds, SoundFeedback, playSoundDebounced } from '@/services/sounds';
+
+// ============================================================================
+// COLORES EXPLICITOS PARA MODO OSCURO
+// ============================================================================
+
+const COLORS = {
+  light: {
+    card: '#FFFFFF',
+    cardAlt: '#F5F5F4',
+    border: '#E7E5E4',
+    text: '#1C1917',
+    textSecondary: '#57534E',
+    textMuted: '#A8A29E',
+  },
+  dark: {
+    card: '#292524',
+    cardAlt: '#44403C',
+    border: '#44403C',
+    text: '#FAFAFA',
+    textSecondary: '#D6D3D1',
+    textMuted: '#78716C',
+  },
+};
+
+// ============================================================================
+// COMPONENTE PRINCIPAL
+// ============================================================================
 
 export default function ChatScreen() {
   const router = useRouter();
-  const { conversationId, otherPartyName } = useLocalSearchParams<{ 
-    conversationId: string; 
+  const { conversationId, otherPartyName } = useLocalSearchParams<{
+    conversationId: string;
     otherPartyName: string;
   }>();
   const { user, token } = useAuth();
+  const { isDark, colors } = useTheme();
+  const theme = isDark ? COLORS.dark : COLORS.light;
+
   const [messages, setMessages] = useState<Message[]>([]);
   const [messageText, setMessageText] = useState('');
   const [isLoading, setIsLoading] = useState(true);
@@ -23,15 +70,32 @@ export default function ChatScreen() {
   const [error, setError] = useState<string | null>(null);
   const flatListRef = useRef<FlatList>(null);
   const pollingRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const previousMessageCountRef = useRef<number>(0);
+
+  // ============================================================================
+  // CARGA DE MENSAJES
+  // ============================================================================
 
   const loadMessages = useCallback(async () => {
     if (!token || !conversationId) return;
 
     try {
       const data = await getMessages(conversationId as string, token);
-      setMessages(data.reverse());
+      const reversedData = data.reverse();
+
+      // Play sound if new messages received (not on initial load)
+      if (previousMessageCountRef.current > 0 && reversedData.length > previousMessageCountRef.current) {
+        // Check if the new message is from someone else
+        const lastMessage = reversedData[reversedData.length - 1];
+        if (lastMessage && lastMessage.senderId !== user?.id) {
+          playSoundDebounced('messageReceived');
+        }
+      }
+      previousMessageCountRef.current = reversedData.length;
+
+      setMessages(reversedData);
       setError(null);
-      
+
       await markMessagesAsRead(conversationId as string, token);
     } catch (err) {
       console.error('Error cargando mensajes:', err);
@@ -41,7 +105,7 @@ export default function ChatScreen() {
     } finally {
       setIsLoading(false);
     }
-  }, [token, conversationId, isLoading]);
+  }, [token, conversationId, isLoading, user?.id]);
 
   useEffect(() => {
     loadMessages();
@@ -55,6 +119,10 @@ export default function ChatScreen() {
     };
   }, [conversationId, token, loadMessages]);
 
+  // ============================================================================
+  // ENVIAR MENSAJE
+  // ============================================================================
+
   const handleSendMessage = async () => {
     if (!messageText.trim() || !token || !conversationId || isSending) return;
 
@@ -65,15 +133,18 @@ export default function ChatScreen() {
 
     try {
       const newMessage = await sendMessage(conversationId as string, textToSend, token);
-      setMessages(prev => [...prev, newMessage]);
+      setMessages((prev) => [...prev, newMessage]);
+      previousMessageCountRef.current += 1;
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-      
+      ChatSounds.sent();
+
       setTimeout(() => {
         flatListRef.current?.scrollToEnd({ animated: true });
       }, 100);
     } catch (err) {
       console.error('Error enviando mensaje:', err);
       setMessageText(textToSend);
+      SoundFeedback.error();
     } finally {
       setIsSending(false);
     }
@@ -85,10 +156,18 @@ export default function ChatScreen() {
     loadMessages();
   };
 
+  // ============================================================================
+  // VALIDACION DE USUARIO
+  // ============================================================================
+
   if (!user) {
     router.replace('/login' as any);
     return null;
   }
+
+  // ============================================================================
+  // FORMATEO DE FECHAS
+  // ============================================================================
 
   const formatTime = (dateString: string) => {
     const date = new Date(dateString);
@@ -110,151 +189,209 @@ export default function ChatScreen() {
     }
   };
 
+  // ============================================================================
+  // RENDERIZADO DE MENSAJES
+  // ============================================================================
+
   const renderMessage = ({ item, index }: { item: Message; index: number }) => {
     const isMyMessage = item.senderId === user.id;
     const prevMessage = index > 0 ? messages[index - 1] : null;
-    const showDate = !prevMessage ||
+    const showDate =
+      !prevMessage ||
       new Date(item.createdAt).toDateString() !== new Date(prevMessage.createdAt).toDateString();
     const showAvatar = !prevMessage || prevMessage.senderId !== item.senderId;
 
     // Fallback to email if name is not available
-    const senderName = item.senderName || (item as any).senderEmail || otherPartyName || 'Usuario';
+    const senderName =
+      item.senderName || (item as any).senderEmail || otherPartyName || 'Usuario';
     const avatarLetter = senderName.charAt(0).toUpperCase();
 
     return (
       <>
         {showDate && (
           <View style={styles.dateSeparator}>
-            <Text style={styles.dateText}>{formatDate(item.createdAt)}</Text>
+            <View style={[styles.dateBadge, { backgroundColor: theme.cardAlt }]}>
+              <ThemedText variant="caption" color="secondary">
+                {formatDate(item.createdAt)}
+              </ThemedText>
+            </View>
           </View>
         )}
         <View style={[styles.messageContainer, isMyMessage && styles.myMessageContainer]}>
           {!isMyMessage && showAvatar && (
-            <View style={styles.avatarPlaceholder}>
-              <Text style={styles.avatarText}>{avatarLetter}</Text>
+            <View style={[styles.avatarPlaceholder, { backgroundColor: colors.primary }]}>
+              <ThemedText style={styles.avatarText}>{avatarLetter}</ThemedText>
             </View>
           )}
           {!isMyMessage && !showAvatar && <View style={styles.avatarSpacer} />}
-          <View style={[styles.messageBubble, isMyMessage ? styles.myMessageBubble : styles.otherMessageBubble]}>
+          <View
+            style={[
+              styles.messageBubble,
+              isMyMessage
+                ? [styles.myMessageBubble, { backgroundColor: colors.primary }]
+                : [styles.otherMessageBubble, { backgroundColor: theme.card, borderColor: theme.border }],
+            ]}
+          >
             {!isMyMessage && showAvatar && (
-              <Text style={styles.senderName}>{senderName}</Text>
+              <ThemedText variant="caption" color="secondary" style={styles.senderName}>
+                {senderName}
+              </ThemedText>
             )}
-            <Text style={[styles.messageText, isMyMessage && styles.myMessageText]}>
+            <ThemedText
+              style={[
+                styles.messageText,
+                { color: isMyMessage ? '#FFFFFF' : theme.text },
+              ]}
+            >
               {item.content}
-            </Text>
-            <Text style={[styles.messageTime, isMyMessage && styles.myMessageTime]}>
+            </ThemedText>
+            <ThemedText
+              style={[
+                styles.messageTime,
+                { color: isMyMessage ? 'rgba(255, 255, 255, 0.7)' : theme.textMuted },
+              ]}
+            >
               {formatTime(item.createdAt)}
-            </Text>
+            </ThemedText>
           </View>
         </View>
       </>
     );
   };
 
+  // ============================================================================
+  // FOOTER - INPUT DE MENSAJE
+  // ============================================================================
+
+  const renderFooter = () => (
+    <View style={styles.inputWrapper}>
+      <TextInput
+        style={[
+          styles.input,
+          {
+            backgroundColor: theme.cardAlt,
+            color: theme.text,
+            borderColor: theme.border,
+          },
+        ]}
+        placeholder="Escribe un mensaje..."
+        placeholderTextColor={theme.textMuted}
+        value={messageText}
+        onChangeText={setMessageText}
+        multiline
+        maxLength={500}
+        editable={!isSending}
+      />
+      <TouchableOpacity
+        style={[
+          styles.sendButton,
+          { backgroundColor: colors.primary },
+          (!messageText.trim() || isSending) && styles.sendButtonDisabled,
+        ]}
+        onPress={handleSendMessage}
+        disabled={!messageText.trim() || isSending}
+        activeOpacity={0.7}
+      >
+        {isSending ? (
+          <ActivityIndicator size="small" color="#FFFFFF" />
+        ) : (
+          <Send size={20} color="#FFFFFF" />
+        )}
+      </TouchableOpacity>
+    </View>
+  );
+
+  // ============================================================================
+  // RENDER PRINCIPAL
+  // ============================================================================
+
   return (
-    <View style={styles.container}>
+    <>
       <Stack.Screen
         options={{
           headerShown: true,
-          headerStyle: { backgroundColor: Colors.black },
-          headerTintColor: Colors.white,
-          headerTitle: otherPartyName as string || 'Chat',
-          headerTitleStyle: { fontSize: 18, fontWeight: '700' as const },
+          headerStyle: { backgroundColor: colors.primary },
+          headerTintColor: '#FFFFFF',
+          headerTitle: (otherPartyName as string) || 'Chat',
+          headerTitleStyle: { fontSize: 18, fontWeight: '700' },
           headerLeft: () => (
             <TouchableOpacity
               style={styles.headerBackButton}
               onPress={() => router.back()}
               activeOpacity={0.7}
             >
-              <ChevronLeft size={24} color={Colors.white} />
+              <ChevronLeft size={24} color="#FFFFFF" />
             </TouchableOpacity>
           ),
         }}
       />
 
-      {isLoading ? (
-        <View style={styles.centerContent}>
-          <ActivityIndicator size="large" color={Colors.primary} />
-          <Text style={styles.loadingText}>Cargando conversación...</Text>
-        </View>
-      ) : error ? (
-        <ErrorState message={error} onRetry={handleRetry} />
-      ) : (
-        <>
+      <ScreenContainer
+        headerGradient="primary"
+        headerIcon={MessageCircle}
+        headerTitle={(otherPartyName as string) || 'Chat'}
+        headerSubtitle="Conversacion activa"
+        scrollEnabled={false}
+        keyboardAvoiding={true}
+        footer={renderFooter()}
+        footerPadding={80}
+        noPadding
+      >
+        {isLoading ? (
+          <View style={styles.centerContent}>
+            <ActivityIndicator size="large" color={colors.primary} />
+            <ThemedText color="secondary" style={styles.loadingText}>
+              Cargando conversacion...
+            </ThemedText>
+          </View>
+        ) : error ? (
+          <ErrorState message={error} onRetry={handleRetry} />
+        ) : (
           <FlatList
             ref={flatListRef}
             data={messages}
             renderItem={renderMessage}
-            keyExtractor={item => item.id}
-            contentContainerStyle={styles.messagesList}
+            keyExtractor={(item) => item.id}
+            contentContainerStyle={[styles.messagesList, { paddingBottom: 20 }]}
             showsVerticalScrollIndicator={false}
             onContentSizeChange={() => flatListRef.current?.scrollToEnd({ animated: true })}
             ListEmptyComponent={
               <View style={styles.emptyContainer}>
-                <Text style={styles.emptyText}>No hay mensajes aún</Text>
-                <Text style={styles.emptySubtext}>Envía un mensaje para iniciar la conversación</Text>
+                <MessageCircle size={48} color={theme.textMuted} strokeWidth={1.5} />
+                <ThemedText color="secondary" style={styles.emptyText}>
+                  No hay mensajes aun
+                </ThemedText>
+                <ThemedText color="muted" style={styles.emptySubtext}>
+                  Envia un mensaje para iniciar la conversacion
+                </ThemedText>
               </View>
             }
           />
-
-          <KeyboardAvoidingView
-            behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-            keyboardVerticalOffset={Platform.OS === 'ios' ? 90 : 0}
-          >
-            <View style={styles.inputContainer}>
-              <TextInput
-                style={styles.input}
-                placeholder="Escribe un mensaje..."
-                placeholderTextColor={Colors.text.light}
-                value={messageText}
-                onChangeText={setMessageText}
-                multiline
-                maxLength={500}
-                editable={!isSending}
-              />
-              <TouchableOpacity
-                style={[
-                  styles.sendButton,
-                  (!messageText.trim() || isSending) && styles.sendButtonDisabled
-                ]}
-                onPress={handleSendMessage}
-                disabled={!messageText.trim() || isSending}
-                activeOpacity={0.7}
-              >
-                {isSending ? (
-                  <ActivityIndicator size="small" color={Colors.white} />
-                ) : (
-                  <Send size={20} color={Colors.white} />
-                )}
-              </TouchableOpacity>
-            </View>
-          </KeyboardAvoidingView>
-        </>
-      )}
-    </View>
+        )}
+      </ScreenContainer>
+    </>
   );
 }
 
+// ============================================================================
+// ESTILOS
+// ============================================================================
+
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: Colors.background.secondary,
-  },
   centerContent: {
     flex: 1,
-    justifyContent: 'center' as const,
-    alignItems: 'center' as const,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   loadingText: {
     fontSize: 16,
-    color: Colors.text.secondary,
     marginTop: 12,
   },
   headerBackButton: {
     width: 40,
     height: 40,
-    justifyContent: 'center' as const,
-    alignItems: 'center' as const,
+    justifyContent: 'center',
+    alignItems: 'center',
     marginLeft: -8,
   },
   messagesList: {
@@ -262,129 +399,105 @@ const styles = StyleSheet.create({
     flexGrow: 1,
   },
   dateSeparator: {
-    alignItems: 'center' as const,
+    alignItems: 'center',
     marginVertical: 16,
   },
-  dateText: {
-    fontSize: 12,
-    fontWeight: '600' as const,
-    color: Colors.text.secondary,
-    backgroundColor: Colors.background.tertiary,
+  dateBadge: {
     paddingHorizontal: 12,
     paddingVertical: 4,
     borderRadius: 12,
   },
   messageContainer: {
-    flexDirection: 'row' as const,
+    flexDirection: 'row',
     marginBottom: 12,
-    alignItems: 'flex-end' as const,
+    alignItems: 'flex-end',
   },
   myMessageContainer: {
-    justifyContent: 'flex-end' as const,
+    justifyContent: 'flex-end',
   },
   avatarPlaceholder: {
     width: 32,
     height: 32,
     borderRadius: 16,
-    backgroundColor: Colors.primary,
-    justifyContent: 'center' as const,
-    alignItems: 'center' as const,
+    justifyContent: 'center',
+    alignItems: 'center',
     marginRight: 8,
   },
   avatarText: {
     fontSize: 14,
-    fontWeight: '600' as const,
-    color: Colors.white,
+    fontWeight: '600',
+    color: '#FFFFFF',
   },
   avatarSpacer: {
     width: 40,
   },
   messageBubble: {
-    maxWidth: '75%' as const,
+    maxWidth: '75%',
     borderRadius: 16,
     padding: 12,
-    shadowColor: Colors.shadow.light,
+    shadowColor: '#000',
     shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 1,
+    shadowOpacity: 0.08,
     shadowRadius: 2,
     elevation: 1,
   },
   myMessageBubble: {
-    backgroundColor: Colors.primary,
     borderBottomRightRadius: 4,
   },
   otherMessageBubble: {
-    backgroundColor: Colors.white,
     borderBottomLeftRadius: 4,
+    borderWidth: 1,
   },
   senderName: {
-    fontSize: 12,
-    fontWeight: '600' as const,
-    color: Colors.text.secondary,
     marginBottom: 4,
   },
   messageText: {
     fontSize: 15,
-    color: Colors.text.primary,
     lineHeight: 20,
-  },
-  myMessageText: {
-    color: Colors.white,
   },
   messageTime: {
     fontSize: 11,
-    color: Colors.text.light,
     marginTop: 4,
-    alignSelf: 'flex-end' as const,
-  },
-  myMessageTime: {
-    color: 'rgba(255, 255, 255, 0.7)',
+    alignSelf: 'flex-end',
   },
   emptyContainer: {
     flex: 1,
-    justifyContent: 'center' as const,
-    alignItems: 'center' as const,
+    justifyContent: 'center',
+    alignItems: 'center',
     paddingVertical: 60,
   },
   emptyText: {
     fontSize: 18,
-    fontWeight: '600' as const,
-    color: Colors.text.secondary,
+    fontWeight: '600',
+    marginTop: 16,
     marginBottom: 8,
   },
   emptySubtext: {
     fontSize: 14,
-    color: Colors.text.light,
-    textAlign: 'center' as const,
+    textAlign: 'center',
   },
-  inputContainer: {
-    flexDirection: 'row' as const,
-    padding: 12,
-    backgroundColor: Colors.white,
-    borderTopWidth: 1,
-    borderTopColor: Colors.border.light,
-    alignItems: 'flex-end' as const,
+  inputWrapper: {
+    flexDirection: 'row',
+    alignItems: 'flex-end',
+    gap: 8,
   },
   input: {
     flex: 1,
-    backgroundColor: Colors.background.secondary,
     borderRadius: 20,
     paddingHorizontal: 16,
     paddingVertical: 10,
     fontSize: 15,
-    color: Colors.text.primary,
     maxHeight: 100,
-    marginRight: 8,
+    borderWidth: 1,
   },
   sendButton: {
     width: 44,
     height: 44,
     borderRadius: 22,
-    backgroundColor: Colors.primary,
-    justifyContent: 'center' as const,
-    alignItems: 'center' as const,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   sendButtonDisabled: {
-    backgroundColor: Colors.text.light,
+    opacity: 0.5,
   },
 });

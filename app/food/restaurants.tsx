@@ -1,15 +1,33 @@
-import { StyleSheet, Text, View, TouchableOpacity, ScrollView, TextInput, ActivityIndicator, RefreshControl, Alert } from 'react-native';
+// ============================================================================
+// YESSWERA: LISTA DE RESTAURANTES
+// Usa ScreenContainer para diseño unificado con gradiente naranja
+// ============================================================================
+
+import { View, TouchableOpacity, TextInput, ActivityIndicator, StyleSheet } from 'react-native';
 import { useRouter } from 'expo-router';
-import { Search, Star, Clock } from 'lucide-react-native';
+import { Search, Star, Clock, UtensilsCrossed } from 'lucide-react-native';
 import { Image } from 'expo-image';
 import { useState, useEffect, useCallback } from 'react';
-import Colors from '@/constants/colors';
+import { useTheme } from '@/contexts/theme';
+import { ThemedText } from '@/components/themed';
 import { Business } from '@/constants/types';
 import { getBusinesses } from '@/services/products';
 import EmptyState from '@/components/EmptyState';
+import ScreenContainer from '@/components/ScreenContainer';
+
+// ============================================================================
+// COLORES EXPLÍCITOS PARA MODO OSCURO
+// ============================================================================
+const COLORS = {
+  light: { card: '#FFFFFF', cardAlt: '#F5F5F4', border: '#E7E5E4' },
+  dark: { card: '#292524', cardAlt: '#44403C', border: '#44403C' },
+};
 
 export default function RestaurantsScreen() {
   const router = useRouter();
+  const { isDark, colors, space, radius, fonts } = useTheme();
+  const theme = isDark ? COLORS.dark : COLORS.light;
+
   const [search, setSearch] = useState('');
   const [businesses, setBusinesses] = useState<Business[]>([]);
   const [loading, setLoading] = useState(true);
@@ -21,7 +39,6 @@ export default function RestaurantsScreen() {
       setBusinesses(data);
     } catch (error) {
       console.error('Error loading businesses:', error);
-      Alert.alert('Error', 'No se pudieron cargar los restaurantes. Desliza hacia abajo para reintentar.');
     } finally {
       setLoading(false);
       setRefreshing(false);
@@ -43,200 +60,175 @@ export default function RestaurantsScreen() {
       business.category.toLowerCase().includes(search.toLowerCase())
   );
 
-  return (
-    <View style={styles.container}>
-      <View style={styles.searchContainer}>
-        <View style={styles.searchInputContainer}>
-          <Search size={20} color={Colors.text.secondary} />
-          <TextInput
-            style={styles.searchInput}
-            placeholder="Buscar restaurantes..."
-            placeholderTextColor={Colors.text.light}
-            value={search}
-            onChangeText={setSearch}
-          />
-        </View>
-      </View>
+  // Barra de búsqueda como contenido custom del header
+  const searchBar = (
+    <View style={[styles.searchContainer, {
+      backgroundColor: 'rgba(255, 255, 255, 0.2)',
+      borderRadius: radius.md,
+      paddingHorizontal: space.md,
+      height: 48,
+    }]}>
+      <Search size={20} color="rgba(255, 255, 255, 0.8)" />
+      <TextInput
+        style={[styles.searchInput, {
+          color: '#FFFFFF',
+          fontSize: fonts.base,
+          marginLeft: space.sm,
+        }]}
+        placeholder="Buscar restaurantes..."
+        placeholderTextColor="rgba(255, 255, 255, 0.6)"
+        value={search}
+        onChangeText={setSearch}
+      />
+    </View>
+  );
 
-      {loading ? (
+  if (loading) {
+    return (
+      <ScreenContainer
+        headerGradient="secondary"
+        headerIcon={UtensilsCrossed}
+        headerTitle="Restaurantes"
+        headerSubtitle="Cargando..."
+      >
         <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color={Colors.primary} />
+          <ActivityIndicator size="large" color={colors.primary} />
         </View>
+      </ScreenContainer>
+    );
+  }
+
+  return (
+    <ScreenContainer
+      headerGradient="secondary"
+      headerIcon={UtensilsCrossed}
+      headerTitle="Restaurantes"
+      headerSubtitle="Encuentra tu comida favorita en Tomatlan"
+      headerContent={searchBar}
+      refreshing={refreshing}
+      onRefresh={onRefresh}
+    >
+      {filteredBusinesses.length === 0 ? (
+        <EmptyState
+          title="Sin resultados"
+          message={search ? 'No hay negocios que coincidan con tu busqueda' : 'No hay negocios disponibles aun'}
+        />
       ) : (
-        <ScrollView
-          style={styles.scrollView}
-          showsVerticalScrollIndicator={false}
-          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={[Colors.primary]} />}
-        >
-          <View style={styles.content}>
-            {filteredBusinesses.length === 0 ? (
-              <EmptyState
-                title="Sin resultados"
-                message={search ? 'No hay negocios que coincidan con tu búsqueda' : 'No hay negocios disponibles aún'}
+        filteredBusinesses.map((business) => (
+          <TouchableOpacity
+            key={business.id}
+            style={[styles.businessCard, {
+              backgroundColor: theme.card,
+              borderRadius: radius.lg,
+              marginBottom: space.md,
+            }]}
+            activeOpacity={0.8}
+            onPress={() => router.push(`/food/menu/${business.id}` as any)}
+          >
+            {business.image ? (
+              <Image
+                source={{ uri: business.image }}
+                style={[styles.businessImage, { borderTopLeftRadius: radius.lg, borderTopRightRadius: radius.lg }]}
+                contentFit="cover"
               />
             ) : (
-              filteredBusinesses.map((business) => (
-                <TouchableOpacity
-                  key={business.id}
-                  style={styles.businessCard}
-                  activeOpacity={0.8}
-                  onPress={() => router.push(`/food/menu/${business.id}` as any)}
-                >
-                  {business.image ? (
-                    <Image
-                      source={{ uri: business.image }}
-                      style={styles.businessImage}
-                      contentFit="cover"
-                    />
-                  ) : (
-                    <View style={[styles.businessImage, styles.imagePlaceholder]}>
-                      <Text style={styles.imagePlaceholderText}>{business.name.charAt(0)}</Text>
-                    </View>
-                  )}
-                  <View style={styles.businessInfo}>
-                    <Text style={styles.businessName}>{business.name}</Text>
-                    <Text style={styles.businessDescription} numberOfLines={1}>
-                      {business.description}
-                    </Text>
-                    <View style={styles.businessMeta}>
-                      <View style={styles.metaItem}>
-                        <Star size={14} color={Colors.warning} fill={Colors.warning} />
-                        <Text style={styles.metaText}>{business.rating.toFixed(1)}</Text>
-                      </View>
-                      <View style={styles.metaDivider} />
-                      <View style={styles.metaItem}>
-                        <Clock size={14} color={Colors.text.secondary} />
-                        <Text style={styles.metaText}>{business.deliveryTime}</Text>
-                      </View>
-                    </View>
-                    <View style={styles.tagsContainer}>
-                      {business.tags.slice(0, 3).map((tag) => (
-                        <View key={tag} style={styles.tag}>
-                          <Text style={styles.tagText}>{tag}</Text>
-                        </View>
-                      ))}
-                    </View>
-                  </View>
-                </TouchableOpacity>
-              ))
+              <View style={[styles.businessImage, styles.imagePlaceholder, {
+                backgroundColor: colors.primary,
+                borderTopLeftRadius: radius.lg,
+                borderTopRightRadius: radius.lg,
+              }]}>
+                <ThemedText variant="h2" color="white">{business.name.charAt(0)}</ThemedText>
+              </View>
             )}
-          </View>
-        </ScrollView>
+
+            <View style={[styles.businessInfo, { padding: space.md }]}>
+              <ThemedText variant="subtitle" bold>{business.name}</ThemedText>
+              <ThemedText variant="caption" color="secondary" numberOfLines={1}>
+                {business.description}
+              </ThemedText>
+
+              <View style={[styles.businessMeta, { marginTop: space.sm, gap: space.md }]}>
+                <View style={styles.metaItem}>
+                  <Star size={14} color={colors.warning} fill={colors.warning} />
+                  <ThemedText variant="caption" bold style={{ marginLeft: 4 }}>
+                    {business.rating.toFixed(1)}
+                  </ThemedText>
+                </View>
+                <View style={[styles.metaDivider, { backgroundColor: theme.border }]} />
+                <View style={styles.metaItem}>
+                  <Clock size={14} color={isDark ? '#D6D3D1' : colors.text.secondary} />
+                  <ThemedText variant="caption" color="secondary" style={{ marginLeft: 4 }}>
+                    {business.deliveryTime}
+                  </ThemedText>
+                </View>
+              </View>
+
+              <View style={[styles.tagsContainer, { marginTop: space.sm, gap: space.xs }]}>
+                {business.tags.slice(0, 3).map((tag) => (
+                  <View key={tag} style={[styles.tag, {
+                    backgroundColor: colors.primary + '15',
+                    borderRadius: radius.full,
+                    paddingHorizontal: space.sm,
+                    paddingVertical: space.xs,
+                  }]}>
+                    <ThemedText variant="caption" color="accent">{tag}</ThemedText>
+                  </View>
+                ))}
+              </View>
+            </View>
+          </TouchableOpacity>
+        ))
       )}
-    </View>
+    </ScreenContainer>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: Colors.background.primary,
-  },
   searchContainer: {
-    padding: 16,
-    backgroundColor: Colors.white,
-    borderBottomWidth: 1,
-    borderBottomColor: Colors.border.light,
-  },
-  searchInputContainer: {
-    flexDirection: 'row' as const,
-    alignItems: 'center' as const,
-    backgroundColor: Colors.background.secondary,
-    borderRadius: 12,
-    paddingHorizontal: 16,
-    height: 48,
-    gap: 12,
+    flexDirection: 'row',
+    alignItems: 'center',
   },
   searchInput: {
     flex: 1,
-    fontSize: 16,
-    color: Colors.text.primary,
   },
   loadingContainer: {
     flex: 1,
-    justifyContent: 'center' as const,
-    alignItems: 'center' as const,
-  },
-  scrollView: {
-    flex: 1,
-  },
-  content: {
-    padding: 16,
-    gap: 16,
+    justifyContent: 'center',
+    alignItems: 'center',
+    minHeight: 200,
   },
   businessCard: {
-    backgroundColor: Colors.white,
-    borderRadius: 16,
-    overflow: 'hidden' as const,
-    shadowColor: Colors.shadow.medium,
+    shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
     shadowRadius: 8,
     elevation: 3,
+    overflow: 'hidden',
   },
   businessImage: {
-    width: '100%' as const,
-    height: 180,
-    backgroundColor: Colors.background.tertiary,
+    width: '100%',
+    height: 150,
   },
   imagePlaceholder: {
-    justifyContent: 'center' as const,
-    alignItems: 'center' as const,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
-  imagePlaceholderText: {
-    fontSize: 48,
-    fontWeight: '700' as const,
-    color: Colors.text.light,
-  },
-  businessInfo: {
-    padding: 16,
-  },
-  businessName: {
-    fontSize: 20,
-    fontWeight: '700' as const,
-    color: Colors.text.primary,
-    marginBottom: 4,
-  },
-  businessDescription: {
-    fontSize: 14,
-    color: Colors.text.secondary,
-    marginBottom: 12,
-  },
+  businessInfo: {},
   businessMeta: {
-    flexDirection: 'row' as const,
-    alignItems: 'center' as const,
-    marginBottom: 12,
+    flexDirection: 'row',
+    alignItems: 'center',
   },
   metaItem: {
-    flexDirection: 'row' as const,
-    alignItems: 'center' as const,
-    gap: 4,
+    flexDirection: 'row',
+    alignItems: 'center',
   },
   metaDivider: {
     width: 1,
-    height: 12,
-    backgroundColor: Colors.border.light,
-    marginHorizontal: 12,
-  },
-  metaText: {
-    fontSize: 13,
-    color: Colors.text.secondary,
-    fontWeight: '500' as const,
+    height: 14,
   },
   tagsContainer: {
-    flexDirection: 'row' as const,
-    flexWrap: 'wrap' as const,
-    gap: 6,
+    flexDirection: 'row',
+    flexWrap: 'wrap',
   },
-  tag: {
-    backgroundColor: Colors.background.tertiary,
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    borderRadius: 8,
-  },
-  tagText: {
-    fontSize: 12,
-    color: Colors.text.secondary,
-    fontWeight: '500' as const,
-  },
+  tag: {},
 });

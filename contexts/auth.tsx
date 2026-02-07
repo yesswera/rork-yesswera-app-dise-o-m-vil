@@ -2,6 +2,7 @@ import createContextHook from '@nkzw/create-context-hook';
 import { useState, useEffect } from 'react';
 import type { User } from '@/constants/types';
 import { supabase } from '@/constants/supabase';
+import { AuthSounds } from '@/services/sounds';
 
 interface AuthState {
   user: User | null;
@@ -210,6 +211,7 @@ export const [AuthProvider, useAuth] = createContextHook<AuthState>(() => {
 
   const logout = async () => {
     try {
+      AuthSounds.logout();
       await supabase.auth.signOut();
       setUser(null);
       setToken(null);

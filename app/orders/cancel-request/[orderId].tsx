@@ -1,31 +1,67 @@
+// ============================================================================
+// YESSWERA: SOLICITAR CANCELACION
+// Pantalla para solicitar cancelacion de pedidos ya aceptados
+// Actualizado para usar ScreenContainer
+// ============================================================================
+
 import { useState, useEffect } from 'react';
 import {
   StyleSheet,
   Text,
   View,
-  ScrollView,
   TouchableOpacity,
   Alert,
   ActivityIndicator,
 } from 'react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import {
-  ArrowLeft,
   MessageCircle,
   Store,
   Truck,
-  AlertTriangle,
   CheckCircle,
-  DollarSign,
-  Phone,
 } from 'lucide-react-native';
-import Colors from '@/constants/colors';
 import { getOrderById, getEstimatedCompensation } from '@/services/orders';
 import { Order } from '@/constants/types';
+import ScreenContainer from '@/components/ScreenContainer';
+import { useTheme } from '@/contexts/theme';
+
+// ============================================================================
+// COLORES EXPLICITOS PARA MODO OSCURO
+// ============================================================================
+
+const COLORS = {
+  light: {
+    card: '#FFFFFF',
+    cardAlt: '#F5F5F4',
+    border: '#E7E5E4',
+    text: '#1C1917',
+    textSecondary: '#57534E',
+    textMuted: '#A8A29E',
+  },
+  dark: {
+    card: '#292524',
+    cardAlt: '#44403C',
+    border: '#44403C',
+    text: '#FAFAFA',
+    textSecondary: '#D6D3D1',
+    textMuted: '#78716C',
+  },
+};
+
+const STATUS_COLORS = {
+  success: '#22C55E',
+  error: '#EF4444',
+  warning: '#F59E0B',
+  accent: '#3B82F6',
+  primary: '#22C55E',
+  secondary: '#F97316',
+};
 
 export default function CancelRequestScreen() {
   const router = useRouter();
   const { orderId } = useLocalSearchParams<{ orderId: string }>();
+  const { isDark, colors } = useTheme();
+  const theme = isDark ? COLORS.dark : COLORS.light;
 
   const [order, setOrder] = useState<Order | null>(null);
   const [loading, setLoading] = useState(true);
@@ -40,12 +76,10 @@ export default function CancelRequestScreen() {
     try {
       const fetchedOrder = await getOrderById(orderId);
       if (fetchedOrder) {
-        // If pending, redirect to direct cancel
         if (fetchedOrder.status === 'pending') {
           router.replace(`/orders/cancel/${orderId}` as any);
           return;
         }
-        // If already cancelled or delivered
         if (fetchedOrder.status === 'cancelled' || fetchedOrder.status === 'delivered') {
           setOrder(fetchedOrder);
           setLoading(false);
@@ -54,7 +88,6 @@ export default function CancelRequestScreen() {
 
         setOrder(fetchedOrder);
 
-        // Calculate compensation if driver is assigned
         if (fetchedOrder.driverId) {
           const comp = await getEstimatedCompensation(orderId);
           setCompensation({
@@ -73,18 +106,8 @@ export default function CancelRequestScreen() {
 
   const handleOpenChat = () => {
     if (!order) return;
-    // Navigate to chat with business, prefilled with cancellation request
     const message = encodeURIComponent('Hola, quisiera solicitar la cancelacion de mi pedido. El motivo es:');
     router.push(`/chat/${orderId}?prefill=${message}` as any);
-  };
-
-  const handleCallBusiness = () => {
-    // This would open phone dialer - for now just show info
-    Alert.alert(
-      'Llamar al negocio',
-      'Funcion de llamada disponible proximamente.\nUsa el chat para contactar al negocio.',
-      [{ text: 'OK' }]
-    );
   };
 
   const getStatusLabel = (status: string) => {
@@ -104,271 +127,260 @@ export default function CancelRequestScreen() {
   };
 
   const getStatusColor = (status: string) => {
-    if (status === 'accepted') return Colors.accent;
-    if (status === 'preparing') return Colors.warning;
-    if (status === 'ready' || status === 'assigned') return Colors.primary;
-    if (status === 'delivered') return Colors.success;
-    if (status === 'cancelled') return Colors.error;
-    return Colors.text.secondary;
+    if (status === 'accepted') return STATUS_COLORS.accent;
+    if (status === 'preparing') return STATUS_COLORS.warning;
+    if (status === 'ready' || status === 'assigned') return STATUS_COLORS.primary;
+    if (status === 'delivered') return STATUS_COLORS.success;
+    if (status === 'cancelled') return STATUS_COLORS.error;
+    return theme.textSecondary;
   };
 
+  // Loading state
   if (loading) {
     return (
-      <View style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color={Colors.primary} />
-        <Text style={styles.loadingText}>Cargando orden...</Text>
-      </View>
+      <ScreenContainer
+        headerGradient="accent"
+        headerIcon={MessageCircle}
+        headerTitle="Solicitar Cancelacion"
+        headerSubtitle="Cargando informacion..."
+      >
+        <View style={styles.loadingContainer}>
+          <ActivityIndicator size="large" color={colors.primary} />
+          <Text style={[styles.loadingText, { color: theme.textSecondary }]}>
+            Cargando orden...
+          </Text>
+        </View>
+      </ScreenContainer>
     );
   }
 
+  // Error state
   if (!order) {
     return (
-      <View style={styles.loadingContainer}>
-        <Text style={styles.errorText}>Orden no encontrada</Text>
-        <TouchableOpacity onPress={() => router.back()}>
-          <Text style={styles.backLink}>Volver</Text>
-        </TouchableOpacity>
-      </View>
+      <ScreenContainer
+        headerGradient="accent"
+        headerIcon={MessageCircle}
+        headerTitle="Solicitar Cancelacion"
+        headerSubtitle="Orden no encontrada"
+      >
+        <View style={styles.loadingContainer}>
+          <Text style={[styles.errorText, { color: STATUS_COLORS.error }]}>
+            Orden no encontrada
+          </Text>
+          <TouchableOpacity onPress={() => router.back()}>
+            <Text style={[styles.backLink, { color: colors.primary }]}>Volver</Text>
+          </TouchableOpacity>
+        </View>
+      </ScreenContainer>
     );
   }
 
   // Order already cancelled
   if (order.status === 'cancelled') {
     return (
-      <View style={styles.container}>
-        <View style={styles.header}>
-          <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
-            <ArrowLeft size={24} color={Colors.white} />
-          </TouchableOpacity>
-          <Text style={styles.headerTitle}>Pedido Cancelado</Text>
-          <View style={styles.placeholder} />
-        </View>
-
-        <ScrollView style={styles.content} contentContainerStyle={styles.centeredContent}>
+      <ScreenContainer
+        headerGradient="primary"
+        headerIcon={CheckCircle}
+        headerTitle="Pedido Cancelado"
+        headerSubtitle="Tu pedido ha sido cancelado"
+      >
+        <View style={styles.centeredContent}>
           <View style={styles.successIcon}>
-            <CheckCircle size={64} color={Colors.success} />
+            <CheckCircle size={64} color={STATUS_COLORS.success} />
           </View>
-          <Text style={styles.successTitle}>Pedido Cancelado</Text>
+          <Text style={[styles.successTitle, { color: theme.text }]}>Pedido Cancelado</Text>
 
-          <View style={styles.refundCard}>
-            <Text style={styles.refundTitle}>Resumen de cancelacion:</Text>
+          <View style={[styles.refundCard, { backgroundColor: theme.card }]}>
+            <Text style={[styles.refundTitle, { color: theme.text }]}>Resumen de cancelacion:</Text>
             {order.cancelReason && (
               <View style={styles.refundRow}>
-                <Text style={styles.refundLabel}>Motivo:</Text>
-                <Text style={styles.refundValue}>{order.cancelReason.split('|')[0].trim()}</Text>
+                <Text style={[styles.refundLabel, { color: theme.textSecondary }]}>Motivo:</Text>
+                <Text style={[styles.refundValue, { color: theme.text }]}>
+                  {order.cancelReason.split('|')[0].trim()}
+                </Text>
               </View>
             )}
             {compensation && (
               <>
                 <View style={styles.refundRow}>
-                  <Text style={styles.refundLabel}>Reembolso:</Text>
-                  <Text style={[styles.refundValue, { color: Colors.success }]}>
+                  <Text style={[styles.refundLabel, { color: theme.textSecondary }]}>Reembolso:</Text>
+                  <Text style={[styles.refundValue, { color: STATUS_COLORS.success }]}>
                     ${compensation.clientRefund.toFixed(2)} MXN
                   </Text>
                 </View>
                 {compensation.driverAmount > 0 && (
                   <View style={styles.refundRow}>
-                    <Text style={styles.refundLabel}>Compensacion repartidor:</Text>
-                    <Text style={styles.refundValue}>
+                    <Text style={[styles.refundLabel, { color: theme.textSecondary }]}>
+                      Compensacion repartidor:
+                    </Text>
+                    <Text style={[styles.refundValue, { color: theme.text }]}>
                       ${compensation.driverAmount.toFixed(2)} MXN
                     </Text>
                   </View>
                 )}
               </>
             )}
-            <Text style={styles.refundNote}>
+            <Text style={[styles.refundNote, { color: theme.textSecondary }]}>
               El negocio te contactara para coordinar el reembolso.
             </Text>
           </View>
 
           <TouchableOpacity
-            style={styles.doneButton}
+            style={[styles.doneButton, { backgroundColor: colors.primary }]}
             onPress={() => router.replace('/orders/history')}
           >
             <Text style={styles.doneButtonText}>Ver Historial</Text>
           </TouchableOpacity>
-        </ScrollView>
-      </View>
+        </View>
+      </ScreenContainer>
     );
   }
 
   return (
-    <View style={styles.container}>
-      {/* Header */}
-      <View style={styles.header}>
-        <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
-          <ArrowLeft size={24} color={Colors.white} />
-        </TouchableOpacity>
-        <Text style={styles.headerTitle}>Solicitar Cancelacion</Text>
-        <View style={styles.placeholder} />
+    <ScreenContainer
+      headerGradient="accent"
+      headerIcon={MessageCircle}
+      headerTitle="Solicitar Cancelacion"
+      headerSubtitle="Contacta al negocio para cancelar"
+    >
+      {/* Info Message */}
+      <View style={styles.infoSection}>
+        <View style={[styles.infoIconBg, { backgroundColor: `${STATUS_COLORS.accent}20` }]}>
+          <MessageCircle size={40} color={STATUS_COLORS.accent} />
+        </View>
+        <Text style={[styles.infoTitle, { color: theme.text }]}>Tu pedido ya fue aceptado</Text>
+        <Text style={[styles.infoSubtitle, { color: theme.textSecondary }]}>
+          Para cancelar, necesitas comunicarte directamente con el negocio.
+          Ellos decidiran si la cancelacion es posible.
+        </Text>
       </View>
 
-      <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
-        {/* Info Message */}
-        <View style={styles.infoSection}>
-          <View style={styles.infoIconBg}>
-            <MessageCircle size={40} color={Colors.accent} />
-          </View>
-          <Text style={styles.infoTitle}>Tu pedido ya fue aceptado</Text>
-          <Text style={styles.infoSubtitle}>
-            Para cancelar, necesitas comunicarte directamente con el negocio.
-            Ellos decidiran si la cancelacion es posible.
-          </Text>
+      {/* Business Info Card */}
+      <View style={[styles.businessCard, { backgroundColor: theme.card }]}>
+        <View style={styles.businessHeader}>
+          <Store size={20} color={colors.primary} />
+          <Text style={[styles.businessName, { color: theme.text }]}>{order.businessName}</Text>
         </View>
-
-        {/* Business Info Card */}
-        <View style={styles.businessCard}>
-          <View style={styles.businessHeader}>
-            <Store size={20} color={Colors.primary} />
-            <Text style={styles.businessName}>{order.businessName}</Text>
-          </View>
-          <View style={styles.statusRow}>
-            <Text style={styles.statusLabel}>Estado actual:</Text>
-            <View style={[styles.statusBadge, { backgroundColor: getStatusColor(order.status) + '20' }]}>
-              <Text style={[styles.statusText, { color: getStatusColor(order.status) }]}>
-                {getStatusLabel(order.status)}
-              </Text>
-            </View>
-          </View>
-
-          {/* Driver info if assigned */}
-          {order.driverId && order.driverName && (
-            <View style={styles.driverRow}>
-              <Truck size={18} color={Colors.secondary} />
-              <Text style={styles.driverText}>
-                Repartidor: {order.driverName}
-              </Text>
-            </View>
-          )}
-        </View>
-
-        {/* Main Action: Open Chat */}
-        <TouchableOpacity style={styles.chatButton} onPress={handleOpenChat}>
-          <MessageCircle size={24} color={Colors.white} />
-          <Text style={styles.chatButtonText}>Abrir Chat con el Negocio</Text>
-        </TouchableOpacity>
-
-        {/* Driver Compensation Warning */}
-        {order.driverId && compensation && (
-          <View style={styles.compensationCard}>
-            <View style={styles.compensationHeader}>
-              <Truck size={22} color={Colors.warning} />
-              <Text style={styles.compensationTitle}>
-                Hay un repartidor asignado
-              </Text>
-            </View>
-            <Text style={styles.compensationText}>
-              Si el negocio acepta la cancelacion, el repartidor recibira una
-              compensacion por su tiempo y traslado.
+        <View style={styles.statusRow}>
+          <Text style={[styles.statusLabel, { color: theme.textSecondary }]}>Estado actual:</Text>
+          <View style={[styles.statusBadge, { backgroundColor: `${getStatusColor(order.status)}20` }]}>
+            <Text style={[styles.statusText, { color: getStatusColor(order.status) }]}>
+              {getStatusLabel(order.status)}
             </Text>
+          </View>
+        </View>
 
-            <View style={styles.compensationBreakdown}>
-              <View style={styles.compensationRow}>
-                <Text style={styles.compensationLabel}>Compensacion repartidor:</Text>
-                <Text style={styles.compensationAmount}>
-                  ~${compensation.driverAmount.toFixed(2)} MXN
-                </Text>
-              </View>
-              <View style={styles.compensationRow}>
-                <Text style={styles.compensationLabel}>Tu reembolso estimado:</Text>
-                <Text style={[styles.compensationAmount, { color: Colors.success }]}>
-                  ~${compensation.clientRefund.toFixed(2)} MXN
-                </Text>
-              </View>
-            </View>
-
-            <Text style={styles.compensationNote}>
-              El monto final depende de la decision del negocio
+        {order.driverId && order.driverName && (
+          <View style={[styles.driverRow, { borderTopColor: theme.border }]}>
+            <Truck size={18} color={STATUS_COLORS.secondary} />
+            <Text style={[styles.driverText, { color: STATUS_COLORS.secondary }]}>
+              Repartidor: {order.driverName}
             </Text>
           </View>
         )}
+      </View>
 
-        {/* Order Summary */}
-        <View style={styles.orderSummary}>
-          <Text style={styles.summaryTitle}>Resumen del pedido</Text>
-          {order.items && order.items.map((item, index) => (
-            <Text key={index} style={styles.summaryItem}>
-              {item.quantity}x {item.name} - ${item.price.toFixed(2)}
+      {/* Main Action: Open Chat */}
+      <TouchableOpacity
+        style={[styles.chatButton, { backgroundColor: STATUS_COLORS.accent }]}
+        onPress={handleOpenChat}
+      >
+        <MessageCircle size={24} color="#FFFFFF" />
+        <Text style={styles.chatButtonText}>Abrir Chat con el Negocio</Text>
+      </TouchableOpacity>
+
+      {/* Driver Compensation Warning */}
+      {order.driverId && compensation && (
+        <View style={[styles.compensationCard, { borderColor: `${STATUS_COLORS.warning}40` }]}>
+          <View style={styles.compensationHeader}>
+            <Truck size={22} color={STATUS_COLORS.warning} />
+            <Text style={[styles.compensationTitle, { color: theme.text }]}>
+              Hay un repartidor asignado
             </Text>
-          ))}
-          <View style={styles.summaryTotal}>
-            <Text style={styles.summaryTotalLabel}>Total:</Text>
-            <Text style={styles.summaryTotalValue}>${order.total.toFixed(2)} MXN</Text>
           </View>
+          <Text style={[styles.compensationText, { color: theme.textSecondary }]}>
+            Si el negocio acepta la cancelacion, el repartidor recibira una
+            compensacion por su tiempo y traslado.
+          </Text>
+
+          <View style={[styles.compensationBreakdown, { backgroundColor: theme.card }]}>
+            <View style={styles.compensationRow}>
+              <Text style={[styles.compensationLabel, { color: theme.textSecondary }]}>
+                Compensacion repartidor:
+              </Text>
+              <Text style={[styles.compensationAmount, { color: theme.text }]}>
+                ~${compensation.driverAmount.toFixed(2)} MXN
+              </Text>
+            </View>
+            <View style={styles.compensationRow}>
+              <Text style={[styles.compensationLabel, { color: theme.textSecondary }]}>
+                Tu reembolso estimado:
+              </Text>
+              <Text style={[styles.compensationAmount, { color: STATUS_COLORS.success }]}>
+                ~${compensation.clientRefund.toFixed(2)} MXN
+              </Text>
+            </View>
+          </View>
+
+          <Text style={[styles.compensationNote, { color: theme.textSecondary }]}>
+            El monto final depende de la decision del negocio
+          </Text>
         </View>
+      )}
 
-        {/* Back Button */}
-        <TouchableOpacity
-          style={styles.backToOrderButton}
-          onPress={() => router.back()}
-        >
-          <Text style={styles.backToOrderText}>Volver al Pedido</Text>
-        </TouchableOpacity>
+      {/* Order Summary */}
+      <View style={[styles.orderSummary, { backgroundColor: theme.card }]}>
+        <Text style={[styles.summaryTitle, { color: theme.text }]}>Resumen del pedido</Text>
+        {order.items && order.items.map((item, index) => (
+          <Text key={index} style={[styles.summaryItem, { color: theme.textSecondary }]}>
+            {item.quantity}x {item.name} - ${item.price.toFixed(2)}
+          </Text>
+        ))}
+        <View style={[styles.summaryTotal, { borderTopColor: theme.border }]}>
+          <Text style={[styles.summaryTotalLabel, { color: theme.text }]}>Total:</Text>
+          <Text style={[styles.summaryTotalValue, { color: STATUS_COLORS.secondary }]}>
+            ${order.total.toFixed(2)} MXN
+          </Text>
+        </View>
+      </View>
 
-        <View style={styles.bottomPadding} />
-      </ScrollView>
-    </View>
+      {/* Back Button */}
+      <TouchableOpacity
+        style={styles.backToOrderButton}
+        onPress={() => router.back()}
+      >
+        <Text style={[styles.backToOrderText, { color: theme.textSecondary }]}>Volver al Pedido</Text>
+      </TouchableOpacity>
+    </ScreenContainer>
   );
 }
 
+// ============================================================================
+// ESTILOS
+// ============================================================================
+
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: Colors.background.primary,
-  },
-  header: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingHorizontal: 20,
-    paddingTop: 60,
-    paddingBottom: 20,
-    backgroundColor: Colors.text.primary,
-  },
-  backButton: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: 'rgba(255, 255, 255, 0.2)',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  headerTitle: {
-    fontSize: 18,
-    fontWeight: '700',
-    color: Colors.white,
-  },
-  placeholder: {
-    width: 40,
-  },
-  content: {
-    flex: 1,
-    padding: 20,
-  },
-  centeredContent: {
-    alignItems: 'center',
-    paddingTop: 40,
-  },
   loadingContainer: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: Colors.background.primary,
+    padding: 40,
   },
   loadingText: {
     marginTop: 12,
     fontSize: 16,
-    color: Colors.text.secondary,
   },
   errorText: {
     fontSize: 18,
-    color: Colors.error,
     marginBottom: 16,
   },
   backLink: {
     fontSize: 16,
-    color: Colors.primary,
     textDecorationLine: 'underline',
+  },
+  centeredContent: {
+    alignItems: 'center',
+    paddingTop: 40,
   },
   infoSection: {
     alignItems: 'center',
@@ -378,7 +390,6 @@ const styles = StyleSheet.create({
     width: 80,
     height: 80,
     borderRadius: 40,
-    backgroundColor: Colors.accent + '20',
     justifyContent: 'center',
     alignItems: 'center',
     marginBottom: 16,
@@ -386,22 +397,19 @@ const styles = StyleSheet.create({
   infoTitle: {
     fontSize: 20,
     fontWeight: '700',
-    color: Colors.text.primary,
     textAlign: 'center',
     marginBottom: 8,
   },
   infoSubtitle: {
     fontSize: 14,
-    color: Colors.text.secondary,
     textAlign: 'center',
     lineHeight: 20,
   },
   businessCard: {
-    backgroundColor: Colors.white,
     borderRadius: 12,
     padding: 16,
     marginBottom: 16,
-    shadowColor: Colors.shadow.medium,
+    shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
     shadowRadius: 4,
@@ -415,7 +423,6 @@ const styles = StyleSheet.create({
   businessName: {
     fontSize: 17,
     fontWeight: '600',
-    color: Colors.text.primary,
     marginLeft: 10,
   },
   statusRow: {
@@ -425,7 +432,6 @@ const styles = StyleSheet.create({
   },
   statusLabel: {
     fontSize: 14,
-    color: Colors.text.secondary,
     marginRight: 8,
   },
   statusBadge: {
@@ -443,16 +449,13 @@ const styles = StyleSheet.create({
     marginTop: 8,
     paddingTop: 10,
     borderTopWidth: 1,
-    borderTopColor: Colors.border.light,
   },
   driverText: {
     fontSize: 14,
-    color: Colors.secondary,
     marginLeft: 8,
     fontWeight: '500',
   },
   chatButton: {
-    backgroundColor: Colors.accent,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
@@ -464,15 +467,14 @@ const styles = StyleSheet.create({
   chatButtonText: {
     fontSize: 16,
     fontWeight: '700',
-    color: Colors.white,
+    color: '#FFFFFF',
   },
   compensationCard: {
-    backgroundColor: Colors.warning + '10',
+    backgroundColor: 'rgba(245, 158, 11, 0.1)',
     borderRadius: 12,
     padding: 16,
     marginBottom: 20,
     borderWidth: 1,
-    borderColor: Colors.warning + '40',
   },
   compensationHeader: {
     flexDirection: 'row',
@@ -483,16 +485,13 @@ const styles = StyleSheet.create({
   compensationTitle: {
     fontSize: 16,
     fontWeight: '700',
-    color: Colors.text.primary,
   },
   compensationText: {
     fontSize: 14,
-    color: Colors.text.secondary,
     lineHeight: 20,
     marginBottom: 14,
   },
   compensationBreakdown: {
-    backgroundColor: Colors.white,
     borderRadius: 8,
     padding: 12,
     marginBottom: 10,
@@ -505,21 +504,17 @@ const styles = StyleSheet.create({
   },
   compensationLabel: {
     fontSize: 14,
-    color: Colors.text.secondary,
   },
   compensationAmount: {
     fontSize: 15,
     fontWeight: '600',
-    color: Colors.text.primary,
   },
   compensationNote: {
     fontSize: 12,
-    color: Colors.text.secondary,
     textAlign: 'center',
     fontStyle: 'italic',
   },
   orderSummary: {
-    backgroundColor: Colors.white,
     borderRadius: 12,
     padding: 16,
     marginBottom: 20,
@@ -527,12 +522,10 @@ const styles = StyleSheet.create({
   summaryTitle: {
     fontSize: 15,
     fontWeight: '600',
-    color: Colors.text.primary,
     marginBottom: 12,
   },
   summaryItem: {
     fontSize: 14,
-    color: Colors.text.secondary,
     marginBottom: 4,
   },
   summaryTotal: {
@@ -541,28 +534,22 @@ const styles = StyleSheet.create({
     marginTop: 12,
     paddingTop: 12,
     borderTopWidth: 1,
-    borderTopColor: Colors.border.light,
   },
   summaryTotalLabel: {
     fontSize: 16,
     fontWeight: '600',
-    color: Colors.text.primary,
   },
   summaryTotalValue: {
     fontSize: 16,
     fontWeight: '700',
-    color: Colors.secondary,
   },
   backToOrderButton: {
     alignItems: 'center',
     padding: 14,
+    marginBottom: 20,
   },
   backToOrderText: {
     fontSize: 15,
-    color: Colors.text.secondary,
-  },
-  bottomPadding: {
-    height: 40,
   },
   // Cancelled state styles
   successIcon: {
@@ -571,11 +558,9 @@ const styles = StyleSheet.create({
   successTitle: {
     fontSize: 24,
     fontWeight: '700',
-    color: Colors.text.primary,
     marginBottom: 24,
   },
   refundCard: {
-    backgroundColor: Colors.white,
     borderRadius: 12,
     padding: 20,
     width: '100%',
@@ -584,7 +569,6 @@ const styles = StyleSheet.create({
   refundTitle: {
     fontSize: 16,
     fontWeight: '600',
-    color: Colors.text.primary,
     marginBottom: 14,
   },
   refundRow: {
@@ -594,24 +578,20 @@ const styles = StyleSheet.create({
   },
   refundLabel: {
     fontSize: 14,
-    color: Colors.text.secondary,
   },
   refundValue: {
     fontSize: 14,
     fontWeight: '600',
-    color: Colors.text.primary,
     flex: 1,
     textAlign: 'right',
   },
   refundNote: {
     fontSize: 13,
-    color: Colors.text.secondary,
     marginTop: 10,
     fontStyle: 'italic',
     textAlign: 'center',
   },
   doneButton: {
-    backgroundColor: Colors.primary,
     paddingVertical: 14,
     paddingHorizontal: 40,
     borderRadius: 12,
@@ -619,6 +599,6 @@ const styles = StyleSheet.create({
   doneButtonText: {
     fontSize: 16,
     fontWeight: '700',
-    color: Colors.white,
+    color: '#FFFFFF',
   },
 });

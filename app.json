@@ -1,13 +1,27 @@
 {
   "expo": {
-    "name": "Yesswera App Diseño Móvil",
-    "slug": "yesswera-app-disenio-movil",
+    "name": "Yesswera",
+    "slug": "yesswera",
     "version": "1.0.0",
+    "runtimeVersion": {
+      "policy": "appVersion"
+    },
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
-    "scheme": "rork-app",
+    "scheme": "yesswera",
     "userInterfaceStyle": "automatic",
     "newArchEnabled": false,
+    "updates": {
+      "enabled": true,
+      "checkAutomatically": "ON_LOAD",
+      "fallbackToCacheTimeout": 5000,
+      "url": "https://u.expo.dev/your-project-id"
+    },
+    "extra": {
+      "eas": {
+        "projectId": "your-project-id"
+      }
+    },
     "splash": {
       "image": "./assets/images/splash-icon.png",
       "resizeMode": "contain",

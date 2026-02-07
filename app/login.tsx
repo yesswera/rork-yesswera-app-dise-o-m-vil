@@ -1,71 +1,66 @@
-import { useState, useRef, useEffect } from 'react';
-import { StyleSheet, Text, View, TouchableOpacity, KeyboardAvoidingView, Platform, ScrollView, Image, Animated } from 'react-native';
+// ============================================================================
+// YESSWERA: PANTALLA DE LOGIN
+// Diseño unificado con ScreenContainer - Todo scrollea junto
+// ============================================================================
+
+import { useState } from 'react';
+import {
+  View,
+  TextInput,
+  TouchableOpacity,
+  StyleSheet,
+} from 'react-native';
 import { useRouter } from 'expo-router';
+import { Mail, Lock, LogIn } from 'lucide-react-native';
 import { useAuth } from '@/contexts/auth';
-import Colors from '@/constants/colors';
-import FormInput from '@/components/FormInput';
-import LoadingButton from '@/components/LoadingButton';
+import { useTheme } from '@/contexts/theme';
+import { ThemedText } from '@/components/themed';
+import ScreenContainer from '@/components/ScreenContainer';
+import AccessibilityControls from '@/components/AccessibilityControls';
 import { Toast } from '@/utils/toast';
 import { Validator } from '@/utils/validation';
 import { HapticFeedback } from '@/utils/haptics';
+import { AuthSounds, SoundFeedback } from '@/services/sounds';
+
+// Colores explícitos para garantizar consistencia
+const COLORS = {
+  light: {
+    card: '#FFFFFF',
+    cardAlt: '#F5F5F4',
+    border: '#E7E5E4',
+    text: { primary: '#1C1917', muted: '#A8A29E' },
+  },
+  dark: {
+    card: '#292524',
+    cardAlt: '#44403C',
+    border: '#44403C',
+    text: { primary: '#FAFAFA', muted: '#78716C' },
+  },
+};
 
 export default function LoginScreen() {
   const router = useRouter();
   const { login } = useAuth();
-  const [email, setEmail] = useState<string>('');
-  const [password, setPassword] = useState<string>('');
-  const [isLoading, setIsLoading] = useState<boolean>(false);
-  const [errors, setErrors] = useState({
-    email: '',
-    password: '',
-  });
-  const fadeAnim = useRef(new Animated.Value(0)).current;
-  const slideAnim = useRef(new Animated.Value(30)).current;
+  const { colors, space, radius, fonts, isDark } = useTheme();
 
-  useEffect(() => {
-    Animated.parallel([
-      Animated.timing(fadeAnim, {
-        toValue: 1,
-        duration: 500,
-        useNativeDriver: true,
-      }),
-      Animated.spring(slideAnim, {
-        toValue: 0,
-        tension: 50,
-        friction: 7,
-        useNativeDriver: true,
-      }),
-    ]).start();
-  }, [fadeAnim, slideAnim]);
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [isLoading, setIsLoading] = useState(false);
+  const [errors, setErrors] = useState({ email: '', password: '' });
 
-  const validateEmail = (value: string) => {
-    return Validator.email(value);
-  };
+  const theme = isDark ? COLORS.dark : COLORS.light;
 
-  const validatePassword = (value: string) => {
-    return Validator.required(value) || '';
-  };
-
-  const handleEmailChange = (value: string) => {
-    setEmail(value);
-    setErrors((prev) => ({ ...prev, email: '' }));
-  };
-
-  const handlePasswordChange = (value: string) => {
-    setPassword(value);
-    setErrors((prev) => ({ ...prev, password: '' }));
-  };
+  const validateEmail = (value: string) => Validator.email(value);
+  const validatePassword = (value: string) => Validator.required(value) || '';
 
   const handleLogin = async () => {
     const emailError = validateEmail(email);
     const passwordError = validatePassword(password);
 
     if (emailError || passwordError) {
-      setErrors({
-        email: emailError,
-        password: passwordError,
-      });
+      setErrors({ email: emailError, password: passwordError });
       HapticFeedback.error();
+      SoundFeedback.error();
       return;
     }
 
@@ -73,188 +68,213 @@ export default function LoginScreen() {
     try {
       const userData = await login(email, password);
       HapticFeedback.success();
+      AuthSounds.login();
       Toast.success('¡Bienvenido de nuevo!');
-      
-      // Redirigir según el tipo de usuario
-      if (userData && userData.userType) {
-        if (userData.userType === 'driver') {
-          router.replace('/driver/dashboard' as any);
-        } else if (userData.userType === 'business') {
-          router.replace('/business/dashboard' as any);
-        } else if (userData.userType === 'admin') {
-          router.replace('/admin/dashboard' as any);
-        } else {
-          // Cliente o cualquier otro tipo
-          router.replace('/' as any);
-        }
+
+      // Redirigir según tipo de usuario
+      if (userData?.userType === 'driver') {
+        router.replace('/driver/dashboard' as any);
+      } else if (userData?.userType === 'business') {
+        router.replace('/business/dashboard' as any);
+      } else if (userData?.userType === 'admin') {
+        router.replace('/admin/dashboard' as any);
       } else {
         router.replace('/' as any);
       }
-    } catch (error: unknown) {
+    } catch (error) {
       console.error('Login error:', error);
       HapticFeedback.error();
+      SoundFeedback.error();
       Toast.error('Credenciales incorrectas. Intenta nuevamente.');
     } finally {
       setIsLoading(false);
     }
   };
 
+  // Contenido del header (controles de accesibilidad)
+  const headerContent = (
+    <View style={styles.accessibilityRow}>
+      <AccessibilityControls variant="compact" />
+    </View>
+  );
+
   return (
-    <KeyboardAvoidingView 
-      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-      style={styles.container}
+    <ScreenContainer
+      headerGradient="primary"
+      headerIcon={LogIn}
+      headerTitle="Bienvenido"
+      headerSubtitle="Inicia sesión para continuar"
+      headerContent={headerContent}
     >
-      <ScrollView 
-        contentContainerStyle={styles.scrollContent}
-        keyboardShouldPersistTaps="handled"
-      >
-        <Animated.View style={[styles.iconContainer, { opacity: fadeAnim, transform: [{ translateY: slideAnim }] }]}>
-          <Image
-            source={{ uri: 'https://rork.app/pa/9eb35k949i660ayrsld5b/logo' }}
-            style={styles.logoImage}
-            resizeMode="contain"
-          />
-        </Animated.View>
+      {/* Icono decorativo */}
+      <View style={[styles.iconContainer, { backgroundColor: theme.cardAlt }]}>
+        <LogIn size={48} color={colors.primary} />
+      </View>
 
-        <Animated.Text style={[styles.title, { opacity: fadeAnim }]}>Bienvenido de nuevo</Animated.Text>
-        <Animated.Text style={[styles.subtitle, { opacity: fadeAnim }]}>Inicia sesión para continuar</Animated.Text>
+      <ThemedText variant="h3" center style={{ marginBottom: space.xs }}>
+        Accede a tu cuenta
+      </ThemedText>
+      <ThemedText variant="body" color="secondary" center style={{ marginBottom: space.xl }}>
+        Ingresa tus credenciales
+      </ThemedText>
 
-        <View style={styles.form}>
-          <FormInput
-            label="Correo Electrónico"
-            value={email}
-            onChangeText={handleEmailChange}
-            error={errors.email}
+      {/* Email */}
+      <View style={styles.inputGroup}>
+        <ThemedText variant="label" bold style={{ marginBottom: space.xs }}>
+          Correo Electrónico
+        </ThemedText>
+        <View style={[styles.inputWrapper, {
+          backgroundColor: theme.card,
+          borderColor: errors.email ? colors.error : theme.border,
+          borderRadius: radius.md,
+        }]}>
+          <Mail size={20} color={theme.text.muted} />
+          <TextInput
+            style={[styles.input, { color: theme.text.primary, fontSize: fonts.base }]}
             placeholder="tu@email.com"
+            placeholderTextColor={theme.text.muted}
+            value={email}
+            onChangeText={(v) => { setEmail(v.toLowerCase()); setErrors(p => ({ ...p, email: '' })); }}
             keyboardType="email-address"
             autoCapitalize="none"
             editable={!isLoading}
           />
+        </View>
+        {errors.email ? <ThemedText variant="caption" color="error">{errors.email}</ThemedText> : null}
+      </View>
 
-          <FormInput
-            label="Contraseña"
-            value={password}
-            onChangeText={handlePasswordChange}
-            error={errors.password}
+      {/* Contraseña */}
+      <View style={styles.inputGroup}>
+        <ThemedText variant="label" bold style={{ marginBottom: space.xs }}>
+          Contraseña
+        </ThemedText>
+        <View style={[styles.inputWrapper, {
+          backgroundColor: theme.card,
+          borderColor: errors.password ? colors.error : theme.border,
+          borderRadius: radius.md,
+        }]}>
+          <Lock size={20} color={theme.text.muted} />
+          <TextInput
+            style={[styles.input, { color: theme.text.primary, fontSize: fonts.base }]}
             placeholder="••••••••"
+            placeholderTextColor={theme.text.muted}
+            value={password}
+            onChangeText={(v) => { setPassword(v); setErrors(p => ({ ...p, password: '' })); }}
             secureTextEntry
             autoCapitalize="none"
             editable={!isLoading}
           />
-
-          <TouchableOpacity
-            style={styles.forgotPassword}
-            onPress={() => router.push('/password-recovery/request' as any)}
-            disabled={isLoading}
-          >
-            <Text style={styles.forgotPasswordText}>¿Olvidaste tu contraseña?</Text>
-          </TouchableOpacity>
-
-          <LoadingButton
-            title="Iniciar Sesión"
-            onPress={handleLogin}
-            loading={isLoading}
-            variant="primary"
-          />
-
-          <View style={styles.divider}>
-            <View style={styles.dividerLine} />
-            <Text style={styles.dividerText}>o</Text>
-            <View style={styles.dividerLine} />
-          </View>
-
-          <TouchableOpacity
-            style={styles.registerPrompt}
-            onPress={() => router.push('/register' as any)}
-            disabled={isLoading}
-          >
-            <Text style={styles.registerPromptText}>
-              ¿No tienes cuenta? <Text style={styles.registerPromptLink}>Regístrate</Text>
-            </Text>
-          </TouchableOpacity>
         </View>
-      </ScrollView>
-    </KeyboardAvoidingView>
+        {errors.password ? <ThemedText variant="caption" color="error">{errors.password}</ThemedText> : null}
+      </View>
+
+      {/* Olvidé contraseña */}
+      <TouchableOpacity
+        style={styles.forgotPassword}
+        onPress={() => router.push('/password-recovery/request' as any)}
+        disabled={isLoading}
+      >
+        <ThemedText variant="label" color="accent" bold>
+          ¿Olvidaste tu contraseña?
+        </ThemedText>
+      </TouchableOpacity>
+
+      {/* Botón Iniciar Sesión */}
+      <TouchableOpacity
+        style={[styles.button, {
+          backgroundColor: isLoading ? theme.border : colors.primary,
+          borderRadius: radius.md,
+          marginTop: space.lg,
+        }]}
+        onPress={handleLogin}
+        disabled={isLoading}
+        activeOpacity={0.8}
+      >
+        <ThemedText variant="subtitle" color="white" bold>
+          {isLoading ? 'Iniciando...' : 'Iniciar Sesión'}
+        </ThemedText>
+      </TouchableOpacity>
+
+      {/* Divider */}
+      <View style={[styles.divider, { marginVertical: space.xl }]}>
+        <View style={[styles.dividerLine, { backgroundColor: theme.border }]} />
+        <ThemedText variant="caption" color="secondary" style={{ marginHorizontal: space.md }}>
+          o
+        </ThemedText>
+        <View style={[styles.dividerLine, { backgroundColor: theme.border }]} />
+      </View>
+
+      {/* Link a registro */}
+      <TouchableOpacity
+        style={styles.linkButton}
+        onPress={() => router.push('/register' as any)}
+        disabled={isLoading}
+      >
+        <ThemedText variant="body" color="secondary">
+          ¿No tienes cuenta?{' '}
+          <ThemedText variant="body" color="accent" bold>Regístrate</ThemedText>
+        </ThemedText>
+      </TouchableOpacity>
+
+      <View style={{ height: 40 }} />
+    </ScreenContainer>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: Colors.background.primary,
-  },
-  scrollContent: {
-    flexGrow: 1,
-    padding: 24,
-    paddingTop: 40,
+  accessibilityRow: {
+    alignItems: 'center',
+    marginTop: 8,
   },
   iconContainer: {
-    alignItems: 'center' as const,
+    width: 96,
+    height: 96,
+    borderRadius: 48,
+    justifyContent: 'center',
+    alignItems: 'center',
+    alignSelf: 'center',
     marginBottom: 24,
+    marginTop: -16, // Overlap con el header gradient
   },
-  logoImage: {
-    width: 160,
-    height: 80,
+  inputGroup: {
+    marginBottom: 16,
   },
-  iconCircle: {
-    width: 80,
-    height: 80,
-    borderRadius: 40,
-    backgroundColor: `${Colors.primary}15`,
-    justifyContent: 'center' as const,
-    alignItems: 'center' as const,
+  inputWrapper: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    height: 56,
+    paddingHorizontal: 16,
+    borderWidth: 1.5,
+    gap: 12,
   },
-  title: {
-    fontSize: 28,
-    fontWeight: '700' as const,
-    color: Colors.text.primary,
-    textAlign: 'center' as const,
-    marginBottom: 8,
-  },
-  subtitle: {
-    fontSize: 15,
-    color: Colors.text.secondary,
-    textAlign: 'center' as const,
-    marginBottom: 32,
-  },
-  form: {
-    width: '100%' as const,
-    gap: 16,
+  input: {
+    flex: 1,
+    height: '100%',
   },
   forgotPassword: {
-    alignSelf: 'flex-end' as const,
+    alignSelf: 'flex-end',
     marginTop: -8,
-    marginBottom: 8,
   },
-  forgotPasswordText: {
-    fontSize: 14,
-    fontWeight: '600' as const,
-    color: Colors.primary,
+  button: {
+    height: 56,
+    justifyContent: 'center',
+    alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.2,
+    shadowRadius: 8,
+    elevation: 4,
   },
   divider: {
-    flexDirection: 'row' as const,
-    alignItems: 'center' as const,
-    marginVertical: 24,
+    flexDirection: 'row',
+    alignItems: 'center',
   },
   dividerLine: {
     flex: 1,
     height: 1,
-    backgroundColor: Colors.border.light,
   },
-  dividerText: {
-    marginHorizontal: 16,
-    fontSize: 14,
-    color: Colors.text.secondary,
-  },
-  registerPrompt: {
-    alignItems: 'center' as const,
-  },
-  registerPromptText: {
-    fontSize: 15,
-    color: Colors.text.secondary,
-  },
-  registerPromptLink: {
-    color: Colors.primary,
-    fontWeight: '600' as const,
+  linkButton: {
+    alignItems: 'center',
+    paddingVertical: 8,
   },
 });

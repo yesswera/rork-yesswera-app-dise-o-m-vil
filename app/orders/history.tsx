@@ -1,9 +1,13 @@
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, RefreshControl, ActivityIndicator, Alert } from 'react-native';
+// ============================================================================
+// YESSWERA: HISTORIAL DE ORDENES
+// Pantalla para ver el historial de ordenes del usuario
+// Actualizado para usar ScreenContainer
+// ============================================================================
+
+import { View, Text, StyleSheet, TouchableOpacity, ActivityIndicator, Alert } from 'react-native';
 import { useRouter } from 'expo-router';
-import { ChevronLeft, PackageX } from 'lucide-react-native';
+import { Package, PackageX } from 'lucide-react-native';
 import { useAuth } from '@/contexts/auth';
-import Colors from '@/constants/colors';
-import { StatusBar } from 'expo-status-bar';
 import { useState, useMemo, useEffect, useCallback } from 'react';
 import { Order } from '@/constants/types';
 import { getUserOrders } from '@/services/orders';
@@ -11,12 +15,40 @@ import OrderCard from '@/components/OrderCard';
 import EmptyState from '@/components/EmptyState';
 import ErrorState from '@/components/ErrorState';
 import RatingModal from '@/components/RatingModal';
+import ScreenContainer from '@/components/ScreenContainer';
+import { useTheme } from '@/contexts/theme';
+
+// ============================================================================
+// COLORES EXPLICITOS PARA MODO OSCURO
+// ============================================================================
+
+const COLORS = {
+  light: {
+    card: '#FFFFFF',
+    cardAlt: '#F5F5F4',
+    border: '#E7E5E4',
+    text: '#1C1917',
+    textSecondary: '#57534E',
+    textMuted: '#A8A29E',
+  },
+  dark: {
+    card: '#292524',
+    cardAlt: '#44403C',
+    border: '#44403C',
+    text: '#FAFAFA',
+    textSecondary: '#D6D3D1',
+    textMuted: '#78716C',
+  },
+};
 
 type FilterTab = 'all' | 'delivered' | 'cancelled';
 
 export default function OrderHistoryScreen() {
   const router = useRouter();
   const { user, token } = useAuth();
+  const { isDark, colors } = useTheme();
+  const theme = isDark ? COLORS.dark : COLORS.light;
+
   const [selectedTab, setSelectedTab] = useState<FilterTab>('all');
   const [orders, setOrders] = useState<Order[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -32,8 +64,8 @@ export default function OrderHistoryScreen() {
       setOrders(userOrders);
       setError(null);
     } catch (err) {
-      console.error('Error cargando órdenes:', err);
-      setError('No se pudieron cargar las órdenes');
+      console.error('Error cargando ordenes:', err);
+      setError('No se pudieron cargar las ordenes');
     } finally {
       setIsLoading(false);
       setRefreshing(false);
@@ -50,19 +82,17 @@ export default function OrderHistoryScreen() {
   };
 
   const handleOrderPress = (order: Order) => {
-    // If order is delivered and has a driver, show rating modal
     if (order.status === 'delivered' && order.driverId && order.driverName) {
       setRatingOrder(order);
     } else {
-      // Otherwise navigate to order details
       router.push(`/orders/${order.id}` as any);
     }
   };
 
   const handleRatingSuccess = () => {
     Alert.alert(
-      '¡Gracias!',
-      'Tu calificación ha sido enviada',
+      'Gracias!',
+      'Tu calificacion ha sido enviada',
       [{ text: 'OK', onPress: loadOrders }]
     );
   };
@@ -85,82 +115,70 @@ export default function OrderHistoryScreen() {
     return null;
   }
 
-  if (isLoading) {
-    return (
-      <View style={styles.container}>
-        <StatusBar style="light" />
-        <View style={styles.header}>
-          <TouchableOpacity
-            style={styles.backButton}
-            onPress={() => router.back()}
-            activeOpacity={0.7}
-          >
-            <ChevronLeft size={24} color={Colors.white} />
-          </TouchableOpacity>
-          <Text style={styles.headerTitle}>Historial de Órdenes</Text>
-          <View style={styles.headerSpacer} />
-        </View>
-        <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color={Colors.primary} />
-          <Text style={styles.loadingText}>Cargando órdenes...</Text>
-        </View>
-      </View>
-    );
-  }
-
-  if (error) {
-    return (
-      <View style={styles.container}>
-        <StatusBar style="light" />
-        <View style={styles.header}>
-          <TouchableOpacity
-            style={styles.backButton}
-            onPress={() => router.back()}
-            activeOpacity={0.7}
-          >
-            <ChevronLeft size={24} color={Colors.white} />
-          </TouchableOpacity>
-          <Text style={styles.headerTitle}>Historial de Órdenes</Text>
-          <View style={styles.headerSpacer} />
-        </View>
-        <ErrorState message={error} onRetry={() => {
-          setIsLoading(true);
-          setError(null);
-          loadOrders();
-        }} />
-      </View>
-    );
-  }
-
   const tabs = [
     { id: 'all' as FilterTab, label: 'Todas' },
     { id: 'delivered' as FilterTab, label: 'Completadas' },
     { id: 'cancelled' as FilterTab, label: 'Canceladas' },
   ];
 
-  return (
-    <View style={styles.container}>
-      <StatusBar style="light" />
-      
-      <View style={styles.header}>
-        <TouchableOpacity
-          style={styles.backButton}
-          onPress={() => router.back()}
-          activeOpacity={0.7}
-        >
-          <ChevronLeft size={24} color={Colors.white} />
-        </TouchableOpacity>
-        <Text style={styles.headerTitle}>Historial de Órdenes</Text>
-        <View style={styles.headerSpacer} />
-      </View>
+  // Loading state
+  if (isLoading) {
+    return (
+      <ScreenContainer
+        headerGradient="primary"
+        headerIcon={Package}
+        headerTitle="Historial de Ordenes"
+        headerSubtitle="Cargando tus ordenes..."
+      >
+        <View style={styles.loadingContainer}>
+          <ActivityIndicator size="large" color={colors.primary} />
+          <Text style={[styles.loadingText, { color: theme.textSecondary }]}>
+            Cargando ordenes...
+          </Text>
+        </View>
+      </ScreenContainer>
+    );
+  }
 
-      <View style={styles.tabsContainer}>
+  // Error state
+  if (error) {
+    return (
+      <ScreenContainer
+        headerGradient="primary"
+        headerIcon={Package}
+        headerTitle="Historial de Ordenes"
+        headerSubtitle="Ocurrio un problema"
+      >
+        <ErrorState
+          message={error}
+          onRetry={() => {
+            setIsLoading(true);
+            setError(null);
+            loadOrders();
+          }}
+        />
+      </ScreenContainer>
+    );
+  }
+
+  return (
+    <ScreenContainer
+      headerGradient="primary"
+      headerIcon={Package}
+      headerTitle="Historial de Ordenes"
+      headerSubtitle={`${orders.length} ordenes en total`}
+      refreshing={refreshing}
+      onRefresh={onRefresh}
+    >
+      {/* Tabs de filtro */}
+      <View style={[styles.tabsContainer, { backgroundColor: theme.card }]}>
         {tabs.map((tab) => (
           <TouchableOpacity
             key={tab.id}
             style={[
               styles.tab,
-              selectedTab === tab.id && styles.tabActive,
+              { backgroundColor: theme.cardAlt },
+              selectedTab === tab.id && { backgroundColor: colors.primary },
             ]}
             onPress={() => setSelectedTab(tab.id)}
             activeOpacity={0.7}
@@ -168,6 +186,7 @@ export default function OrderHistoryScreen() {
             <Text
               style={[
                 styles.tabText,
+                { color: theme.textSecondary },
                 selectedTab === tab.id && styles.tabTextActive,
               ]}
             >
@@ -177,14 +196,8 @@ export default function OrderHistoryScreen() {
         ))}
       </View>
 
-      <ScrollView
-        style={styles.scrollView}
-        contentContainerStyle={styles.scrollContent}
-        showsVerticalScrollIndicator={false}
-        refreshControl={
-          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={[Colors.primary]} />
-        }
-      >
+      {/* Lista de ordenes */}
+      <View style={styles.ordersContainer}>
         {filteredOrders.length > 0 ? (
           <>
             {filteredOrders.map((order: Order) => (
@@ -199,20 +212,21 @@ export default function OrderHistoryScreen() {
         ) : (
           <EmptyState
             icon={PackageX}
-            title="No hay órdenes"
+            title="No hay ordenes"
             message={
               selectedTab === 'all'
-                ? 'Aún no tienes órdenes en tu historial'
+                ? 'Aun no tienes ordenes en tu historial'
                 : selectedTab === 'delivered'
-                ? 'No tienes órdenes completadas'
-                : 'No tienes órdenes canceladas'
+                ? 'No tienes ordenes completadas'
+                : 'No tienes ordenes canceladas'
             }
             actionLabel="Hacer un pedido"
             onActionPress={() => router.push('/' as any)}
           />
         )}
-      </ScrollView>
+      </View>
 
+      {/* Modal de calificacion */}
       {ratingOrder && ratingOrder.driverId && ratingOrder.driverName && (
         <RatingModal
           visible={!!ratingOrder}
@@ -223,80 +237,48 @@ export default function OrderHistoryScreen() {
           onSuccess={handleRatingSuccess}
         />
       )}
-    </View>
+    </ScreenContainer>
   );
 }
 
+// ============================================================================
+// ESTILOS
+// ============================================================================
+
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: Colors.background.secondary,
-  },
-  header: {
-    backgroundColor: Colors.black,
-    flexDirection: 'row' as const,
-    alignItems: 'center' as const,
-    justifyContent: 'space-between' as const,
-    paddingTop: 60,
-    paddingBottom: 16,
-    paddingHorizontal: 20,
-  },
-  backButton: {
-    width: 40,
-    height: 40,
-    justifyContent: 'center' as const,
-    alignItems: 'center' as const,
-  },
-  headerTitle: {
-    fontSize: 18,
-    fontWeight: '700' as const,
-    color: Colors.white,
-  },
-  headerSpacer: {
-    width: 40,
-  },
   loadingContainer: {
     flex: 1,
-    justifyContent: 'center' as const,
-    alignItems: 'center' as const,
+    justifyContent: 'center',
+    alignItems: 'center',
     padding: 40,
   },
   loadingText: {
     fontSize: 16,
-    color: Colors.text.secondary,
     marginTop: 16,
   },
   tabsContainer: {
-    flexDirection: 'row' as const,
-    backgroundColor: Colors.white,
-    paddingHorizontal: 20,
-    paddingTop: 16,
-    paddingBottom: 8,
+    flexDirection: 'row',
+    paddingHorizontal: 4,
+    paddingVertical: 12,
     gap: 8,
+    marginBottom: 16,
+    borderRadius: 12,
   },
   tab: {
     flex: 1,
     paddingVertical: 10,
     paddingHorizontal: 16,
     borderRadius: 20,
-    backgroundColor: Colors.background.secondary,
-    alignItems: 'center' as const,
-  },
-  tabActive: {
-    backgroundColor: Colors.primary,
+    alignItems: 'center',
   },
   tabText: {
     fontSize: 14,
-    fontWeight: '600' as const,
-    color: Colors.text.secondary,
+    fontWeight: '600',
   },
   tabTextActive: {
-    color: Colors.white,
+    color: '#FFFFFF',
   },
-  scrollView: {
+  ordersContainer: {
     flex: 1,
-  },
-  scrollContent: {
-    padding: 20,
   },
 });

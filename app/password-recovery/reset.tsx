@@ -1,17 +1,55 @@
-import { useState, useRef, useEffect } from 'react';
-import { StyleSheet, Text, View, TouchableOpacity, KeyboardAvoidingView, Platform, ScrollView, Animated } from 'react-native';
+// ============================================================================
+// YESSWERA: RECUPERAR CONTRASENA - NUEVA CONTRASENA
+// Usa ScreenContainer para diseño unificado con soporte de tema oscuro
+// ============================================================================
+
+import { useState } from 'react';
+import {
+  View,
+  TouchableOpacity,
+  StyleSheet,
+} from 'react-native';
 import { useRouter } from 'expo-router';
-import { ChevronLeft, CheckCircle } from 'lucide-react-native';
-import Colors from '@/constants/colors';
+import { LockKeyhole, ArrowLeft, CheckCircle } from 'lucide-react-native';
+import { useTheme } from '@/contexts/theme';
+import { ThemedText } from '@/components/themed';
+import ScreenContainer from '@/components/ScreenContainer';
 import PasswordInput from '@/components/PasswordInput';
 import LoadingButton from '@/components/LoadingButton';
 import { Toast } from '@/utils/toast';
 import { Validator } from '@/utils/validation';
 import { HapticFeedback } from '@/utils/haptics';
-import { StatusBar } from 'expo-status-bar';
+
+// ============================================================================
+// COLORES EXPLÍCITOS PARA MODO OSCURO
+// ============================================================================
+
+const COLORS = {
+  light: {
+    card: '#FFFFFF',
+    cardAlt: '#F5F5F4',
+    border: '#E7E5E4',
+    borderMedium: '#D6D3D1',
+    text: '#1C1917',
+    textSecondary: '#57534E',
+    textMuted: '#A8A29E',
+  },
+  dark: {
+    card: '#292524',
+    cardAlt: '#44403C',
+    border: '#44403C',
+    borderMedium: '#57534E',
+    text: '#FAFAFA',
+    textSecondary: '#D6D3D1',
+    textMuted: '#78716C',
+  },
+};
 
 export default function PasswordRecoveryResetScreen() {
   const router = useRouter();
+  const { colors, isDark } = useTheme();
+  const theme = isDark ? COLORS.dark : COLORS.light;
+
   const [password, setPassword] = useState<string>('');
   const [confirmPassword, setConfirmPassword] = useState<string>('');
   const [isLoading, setIsLoading] = useState<boolean>(false);
@@ -19,15 +57,6 @@ export default function PasswordRecoveryResetScreen() {
     password: '',
     confirmPassword: '',
   });
-  const fadeAnim = useRef(new Animated.Value(0)).current;
-
-  useEffect(() => {
-    Animated.timing(fadeAnim, {
-      toValue: 1,
-      duration: 500,
-      useNativeDriver: true,
-    }).start();
-  }, [fadeAnim]);
 
   const handlePasswordChange = (value: string) => {
     setPassword(value);
@@ -55,202 +84,182 @@ export default function PasswordRecoveryResetScreen() {
     setIsLoading(true);
     try {
       await new Promise(resolve => setTimeout(resolve, 1500));
-      
+
       HapticFeedback.success();
-      Toast.success('Contraseña actualizada exitosamente');
+      Toast.success('Contrasena actualizada exitosamente');
       router.replace('/login' as any);
     } catch (error) {
       console.error('Reset password error:', error);
       HapticFeedback.error();
-      Toast.error('No se pudo cambiar la contraseña. Intenta nuevamente.');
+      Toast.error('No se pudo cambiar la contrasena. Intenta nuevamente.');
     } finally {
       setIsLoading(false);
     }
   };
 
+  // Header content con boton de regreso
+  const headerContent = (
+    <View style={styles.headerControls}>
+      <TouchableOpacity
+        style={styles.backButton}
+        onPress={() => router.back()}
+      >
+        <ArrowLeft size={24} color="#FFFFFF" />
+      </TouchableOpacity>
+      <View style={styles.headerSpacer} />
+    </View>
+  );
+
+  // Indicadores de requisitos
+  const passwordLengthOk = password.length >= 6;
+  const passwordsMatch = password === confirmPassword && password.length > 0;
+
   return (
-    <KeyboardAvoidingView 
-      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-      style={styles.container}
+    <ScreenContainer
+      headerGradient="primary"
+      headerIcon={LockKeyhole}
+      headerTitle="Nueva Contrasena"
+      headerSubtitle="Crea una contrasena segura"
+      headerContent={headerContent}
     >
-      <StatusBar style="light" />
-      
-      <View style={styles.header}>
-        <TouchableOpacity
-          style={styles.backButton}
-          onPress={() => router.back()}
-          activeOpacity={0.7}
-        >
-          <ChevronLeft size={24} color={Colors.white} />
-        </TouchableOpacity>
-        <Text style={styles.headerTitle}>Nueva Contraseña</Text>
-        <View style={styles.headerSpacer} />
+      {/* Icono de exito */}
+      <View style={[styles.iconContainer, { backgroundColor: colors.primary + '15' }]}>
+        <CheckCircle size={48} color={colors.primary} />
       </View>
 
-      <ScrollView 
-        contentContainerStyle={styles.scrollContent}
-        keyboardShouldPersistTaps="handled"
-      >
-        <Animated.View style={{ opacity: fadeAnim }}>
-          <View style={styles.iconContainer}>
-            <CheckCircle size={48} color={Colors.primary} />
+      <ThemedText variant="h3" center style={styles.title}>
+        Nueva Contrasena
+      </ThemedText>
+
+      <ThemedText variant="body" color="secondary" center style={styles.subtitle}>
+        Crea una nueva contrasena segura para tu cuenta
+      </ThemedText>
+
+      <View style={styles.form}>
+        <PasswordInput
+          label="Nueva Contrasena"
+          value={password}
+          onChangeText={handlePasswordChange}
+          error={errors.password}
+          placeholder="********"
+          showStrength
+          editable={!isLoading}
+        />
+
+        <PasswordInput
+          label="Confirmar Contrasena"
+          value={confirmPassword}
+          onChangeText={handleConfirmPasswordChange}
+          error={errors.confirmPassword}
+          placeholder="********"
+          editable={!isLoading}
+        />
+
+        <View style={[styles.requirementsContainer, { backgroundColor: theme.cardAlt }]}>
+          <ThemedText variant="label" bold style={styles.requirementsTitle}>
+            La contrasena debe tener:
+          </ThemedText>
+
+          <View style={styles.requirement}>
+            <View style={[
+              styles.requirementBullet,
+              { backgroundColor: passwordLengthOk ? colors.primary : theme.borderMedium }
+            ]} />
+            <ThemedText
+              variant="caption"
+              color={passwordLengthOk ? 'primary' : 'secondary'}
+              style={passwordLengthOk ? styles.requirementTextActive : undefined}
+            >
+              Minimo 6 caracteres
+            </ThemedText>
           </View>
 
-          <Text style={styles.title}>Nueva Contraseña</Text>
-          
-          <Text style={styles.subtitle}>
-            Crea una nueva contraseña segura para tu cuenta
-          </Text>
-
-          <View style={styles.form}>
-            <PasswordInput
-              label="Nueva Contraseña"
-              value={password}
-              onChangeText={handlePasswordChange}
-              error={errors.password}
-              placeholder="••••••••"
-              showStrength
-              editable={!isLoading}
-            />
-
-            <PasswordInput
-              label="Confirmar Contraseña"
-              value={confirmPassword}
-              onChangeText={handleConfirmPasswordChange}
-              error={errors.confirmPassword}
-              placeholder="••••••••"
-              editable={!isLoading}
-            />
-
-            <View style={styles.requirementsContainer}>
-              <Text style={styles.requirementsTitle}>La contraseña debe tener:</Text>
-              <View style={styles.requirement}>
-                <View style={[
-                  styles.requirementBullet,
-                  password.length >= 6 && styles.requirementBulletActive
-                ]} />
-                <Text style={[
-                  styles.requirementText,
-                  password.length >= 6 && styles.requirementTextActive
-                ]}>
-                  Mínimo 6 caracteres
-                </Text>
-              </View>
-              <View style={styles.requirement}>
-                <View style={[
-                  styles.requirementBullet,
-                  password === confirmPassword && password.length > 0 && styles.requirementBulletActive
-                ]} />
-                <Text style={[
-                  styles.requirementText,
-                  password === confirmPassword && password.length > 0 && styles.requirementTextActive
-                ]}>
-                  Las contraseñas coinciden
-                </Text>
-              </View>
-            </View>
-
-            <LoadingButton
-              title="Cambiar Contraseña"
-              onPress={handleResetPassword}
-              loading={isLoading}
-              variant="primary"
-            />
+          <View style={styles.requirement}>
+            <View style={[
+              styles.requirementBullet,
+              { backgroundColor: passwordsMatch ? colors.primary : theme.borderMedium }
+            ]} />
+            <ThemedText
+              variant="caption"
+              color={passwordsMatch ? 'primary' : 'secondary'}
+              style={passwordsMatch ? styles.requirementTextActive : undefined}
+            >
+              Las contrasenas coinciden
+            </ThemedText>
           </View>
-        </Animated.View>
-      </ScrollView>
-    </KeyboardAvoidingView>
+        </View>
+
+        <LoadingButton
+          title="Cambiar Contrasena"
+          onPress={handleResetPassword}
+          loading={isLoading}
+          variant="primary"
+        />
+      </View>
+
+      <View style={{ height: 40 }} />
+    </ScreenContainer>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: Colors.background.primary,
-  },
-  header: {
-    backgroundColor: Colors.black,
-    flexDirection: 'row' as const,
-    alignItems: 'center' as const,
-    justifyContent: 'space-between' as const,
-    paddingTop: 60,
-    paddingBottom: 16,
-    paddingHorizontal: 20,
+  headerControls: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 8,
   },
   backButton: {
-    width: 40,
-    height: 40,
-    justifyContent: 'center' as const,
-    alignItems: 'center' as const,
-  },
-  headerTitle: {
-    fontSize: 18,
-    fontWeight: '700' as const,
-    color: Colors.white,
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: 'rgba(255, 255, 255, 0.2)',
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   headerSpacer: {
-    width: 40,
-  },
-  scrollContent: {
-    flexGrow: 1,
-    padding: 24,
-    paddingTop: 40,
+    width: 44,
   },
   iconContainer: {
-    alignItems: 'center' as const,
+    width: 80,
+    height: 80,
+    borderRadius: 40,
+    justifyContent: 'center',
+    alignItems: 'center',
+    alignSelf: 'center',
     marginBottom: 24,
   },
   title: {
-    fontSize: 26,
-    fontWeight: '700' as const,
-    color: Colors.text.primary,
-    textAlign: 'center' as const,
     marginBottom: 12,
   },
   subtitle: {
-    fontSize: 15,
-    color: Colors.text.secondary,
-    textAlign: 'center' as const,
     marginBottom: 32,
     lineHeight: 22,
   },
   form: {
-    width: '100%' as const,
+    width: '100%',
     gap: 16,
   },
   requirementsContainer: {
-    backgroundColor: Colors.background.secondary,
     borderRadius: 12,
     padding: 16,
     marginBottom: 8,
   },
   requirementsTitle: {
-    fontSize: 14,
-    fontWeight: '600' as const,
-    color: Colors.text.primary,
     marginBottom: 12,
   },
   requirement: {
-    flexDirection: 'row' as const,
-    alignItems: 'center' as const,
+    flexDirection: 'row',
+    alignItems: 'center',
     marginBottom: 8,
   },
   requirementBullet: {
     width: 6,
     height: 6,
     borderRadius: 3,
-    backgroundColor: Colors.border.medium,
     marginRight: 8,
   },
-  requirementBulletActive: {
-    backgroundColor: Colors.primary,
-  },
-  requirementText: {
-    fontSize: 13,
-    color: Colors.text.secondary,
-  },
   requirementTextActive: {
-    color: Colors.primary,
-    fontWeight: '500' as const,
+    fontWeight: '500',
   },
 });

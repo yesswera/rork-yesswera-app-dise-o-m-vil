@@ -5,9 +5,15 @@ import { Store, Star, ArrowLeft, Filter, ShoppingBag } from 'lucide-react-native
 import { Image } from 'expo-image';
 import { useState, useEffect, useCallback } from 'react';
 import Colors from '@/constants/colors';
+import { useTheme } from '@/contexts/theme';
 import { Business } from '@/constants/types';
 import { getBusinesses, getBusinessesByCategory } from '@/services/products';
 import EmptyState from '@/components/EmptyState';
+
+const COLORS = {
+  light: { background: '#FFFFFF', card: '#FFFFFF', cardAlt: '#F5F5F4', border: '#E7E5E4', text: '#1C1917', textSecondary: '#57534E', textMuted: '#A8A29E' },
+  dark: { background: '#1C1917', card: '#292524', cardAlt: '#44403C', border: '#44403C', text: '#FAFAFA', textSecondary: '#D6D3D1', textMuted: '#78716C' },
+};
 
 // Mapeo de categorías a nombres legibles
 const CATEGORY_NAMES: Record<string, string> = {
@@ -23,6 +29,8 @@ const CATEGORY_NAMES: Record<string, string> = {
 
 export default function StoresScreen() {
   const router = useRouter();
+  const { isDark } = useTheme();
+  const theme = isDark ? COLORS.dark : COLORS.light;
   const { category } = useLocalSearchParams<{ category?: string }>();
   const [stores, setStores] = useState<Business[]>([]);
   const [loading, setLoading] = useState(true);
@@ -63,15 +71,15 @@ export default function StoresScreen() {
   };
 
   return (
-    <View style={styles.container}>
+    <View style={[styles.container, { backgroundColor: theme.background }]}>
       {/* Header con categoría */}
-      <View style={styles.header}>
-        <TouchableOpacity style={styles.backButton} onPress={handleGoBack}>
-          <ArrowLeft size={24} color={Colors.text.primary} />
+      <View style={[styles.header, { backgroundColor: theme.card, borderBottomColor: theme.border }]}>
+        <TouchableOpacity style={[styles.backButton, { backgroundColor: theme.cardAlt }]} onPress={handleGoBack}>
+          <ArrowLeft size={24} color={theme.text} />
         </TouchableOpacity>
         <View style={styles.headerContent}>
-          <Text style={styles.headerTitle}>{categoryTitle}</Text>
-          <Text style={styles.headerSubtitle}>
+          <Text style={[styles.headerTitle, { color: theme.text }]}>{categoryTitle}</Text>
+          <Text style={[styles.headerSubtitle, { color: theme.textSecondary }]}>
             {stores.length} {stores.length === 1 ? 'negocio' : 'negocios'} disponible{stores.length !== 1 ? 's' : ''}
           </Text>
         </View>
@@ -85,7 +93,7 @@ export default function StoresScreen() {
       {loading ? (
         <View style={styles.loadingContainer}>
           <ActivityIndicator size="large" color={Colors.primary} />
-          <Text style={styles.loadingText}>Buscando negocios...</Text>
+          <Text style={[styles.loadingText, { color: theme.textSecondary }]}>Buscando negocios...</Text>
         </View>
       ) : (
         <ScrollView
@@ -107,19 +115,19 @@ export default function StoresScreen() {
               stores.map((store) => (
                 <TouchableOpacity
                   key={store.id}
-                  style={styles.storeCard}
+                  style={[styles.storeCard, { backgroundColor: theme.card }]}
                   activeOpacity={0.8}
                   onPress={() => router.push(`/shopping/list/${store.id}` as any)}
                 >
                   {store.image ? (
                     <Image
                       source={{ uri: store.image }}
-                      style={styles.storeImage}
+                      style={[styles.storeImage, { backgroundColor: theme.cardAlt }]}
                       contentFit="cover"
                     />
                   ) : (
-                    <View style={[styles.storeImage, styles.imagePlaceholder]}>
-                      <Store size={48} color={Colors.text.light} />
+                    <View style={[styles.storeImage, styles.imagePlaceholder, { backgroundColor: theme.cardAlt }]}>
+                      <Store size={48} color={theme.textMuted} />
                     </View>
                   )}
                   <View style={styles.storeInfo}>
@@ -127,18 +135,18 @@ export default function StoresScreen() {
                       <Store size={18} color={Colors.secondary} />
                       <Text style={styles.storeType}>{store.category}</Text>
                     </View>
-                    <Text style={styles.storeName}>{store.name}</Text>
+                    <Text style={[styles.storeName, { color: theme.text }]}>{store.name}</Text>
                     {store.description && (
-                      <Text style={styles.storeDescription} numberOfLines={2}>
+                      <Text style={[styles.storeDescription, { color: theme.textSecondary }]} numberOfLines={2}>
                         {store.description}
                       </Text>
                     )}
                     <View style={styles.storeFooter}>
                       <View style={styles.ratingContainer}>
                         <Star size={14} color={Colors.warning} fill={Colors.warning} />
-                        <Text style={styles.ratingText}>{store.rating.toFixed(1)}</Text>
+                        <Text style={[styles.ratingText, { color: theme.textSecondary }]}>{store.rating.toFixed(1)}</Text>
                       </View>
-                      <Text style={styles.selectText}>Seleccionar →</Text>
+                      <Text style={styles.selectText}>Seleccionar</Text>
                     </View>
                   </View>
                 </TouchableOpacity>
@@ -149,7 +157,7 @@ export default function StoresScreen() {
             {category && stores.length > 0 && (
               <View style={styles.tipCard}>
                 <Text style={styles.tipText}>
-                  💡 Selecciona una tienda y escribe tu lista de compras
+                  Selecciona una tienda y escribe tu lista de compras
                 </Text>
               </View>
             )}
