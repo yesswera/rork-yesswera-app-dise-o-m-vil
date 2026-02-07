@@ -10,7 +10,6 @@
     "icon": "./assets/images/icon.png",
     "scheme": "yesswera",
     "userInterfaceStyle": "automatic",
-    "newArchEnabled": false,
     "updates": {
       "enabled": true,
       "checkAutomatically": "ON_LOAD",
