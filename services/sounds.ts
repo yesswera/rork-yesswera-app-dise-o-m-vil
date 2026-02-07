@@ -1,6 +1,6 @@
 // ============================================================================
 // YESSWERA: SERVICIO DE SONIDOS
-// Sonidos limpios y profesionales - Pixabay (sin atribución)
+// Sonidos locales en assets/sounds/
 // ============================================================================
 
 import { Audio } from 'expo-av';
@@ -11,24 +11,24 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 // ============================================================================
 
 export type SoundType =
-  // Feedback suave (UI normal)
+  // Feedback suave
   | 'success'
   | 'error'
   | 'warning'
   | 'info'
 
-  // Autenticación (suave)
+  // Autenticación
   | 'login'
   | 'logout'
 
-  // Navegación (muy suave)
+  // Navegación
   | 'navigate'
   | 'back'
   | 'tap'
   | 'toggle'
   | 'refresh'
 
-  // ALERTAS - Órdenes
+  // Órdenes
   | 'newOrder'
   | 'orderAccepted'
   | 'orderReady'
@@ -36,7 +36,7 @@ export type SoundType =
   | 'orderDelivered'
   | 'orderCancelled'
 
-  // ALERTAS - Llegadas
+  // Llegadas
   | 'driverArrived'
   | 'arrivedAtBusiness'
   | 'arrivedAtClient'
@@ -50,204 +50,184 @@ export type SoundType =
   | 'alert';
 
 // ============================================================================
-// CONFIGURACIÓN DE SONIDOS
-// Fuente: Pixabay (100% gratis, sin atribución requerida)
-// Estilo: Limpio, minimalista, profesional
+// CONFIGURACIÓN - Archivos locales en assets/sounds/
 // ============================================================================
 
 interface SoundConfig {
-  url: string;
+  file: any;  // require() del archivo
   volume: number;
   priority: 'low' | 'medium' | 'high' | 'critical';
   category: 'subtle' | 'normal' | 'alert' | 'emergency';
 }
 
-// URLs de Pixabay - Sonidos limpios y modernos
-const SOUND_URLS: Record<SoundType, SoundConfig> = {
+// Sonidos locales - Archivos en assets/sounds/
+const SOUND_FILES: Record<SoundType, SoundConfig> = {
   // =========================================================================
-  // SONIDOS MUY SUAVES (10-25% volumen) - Flujo normal
+  // SONIDOS SUAVES (8-25% volumen)
   // =========================================================================
 
   success: {
-    url: 'https://cdn.pixabay.com/audio/2022/03/10/audio_c8c8a73467.mp3', // Soft success ding
+    file: require('@/assets/sounds/success.mp3'),
     volume: 0.20,
     priority: 'medium',
     category: 'subtle',
   },
   error: {
-    url: 'https://cdn.pixabay.com/audio/2022/03/15/audio_7e21c19e66.mp3', // Soft error
+    file: require('@/assets/sounds/error.mp3'),
     volume: 0.30,
     priority: 'high',
     category: 'normal',
   },
   warning: {
-    url: 'https://cdn.pixabay.com/audio/2021/08/04/audio_c6ccf3232f.mp3', // Gentle warning
+    file: require('@/assets/sounds/warning.mp3'),
     volume: 0.25,
     priority: 'medium',
     category: 'normal',
   },
   info: {
-    url: 'https://cdn.pixabay.com/audio/2022/03/24/audio_71d86f891a.mp3', // Soft pop
+    file: require('@/assets/sounds/info.mp3'),
     volume: 0.15,
     priority: 'low',
     category: 'subtle',
   },
 
-  // Autenticación - Muy sutil y agradable
   login: {
-    url: 'https://cdn.pixabay.com/audio/2022/11/21/audio_febc508520.mp3', // Gentle welcome chime
+    file: require('@/assets/sounds/login.mp3'),
     volume: 0.25,
     priority: 'medium',
     category: 'subtle',
   },
   logout: {
-    url: 'https://cdn.pixabay.com/audio/2022/03/10/audio_c8c8a73467.mp3', // Soft goodbye
+    file: require('@/assets/sounds/logout.mp3'),
     volume: 0.15,
     priority: 'low',
     category: 'subtle',
   },
 
-  // Navegación - Casi imperceptible
   navigate: {
-    url: 'https://cdn.pixabay.com/audio/2022/03/24/audio_71d86f891a.mp3', // Soft swoosh
+    file: require('@/assets/sounds/navigate.mp3'),
     volume: 0.10,
     priority: 'low',
     category: 'subtle',
   },
   back: {
-    url: 'https://cdn.pixabay.com/audio/2022/03/24/audio_71d86f891a.mp3', // Soft pop
+    file: require('@/assets/sounds/back.mp3'),
     volume: 0.10,
     priority: 'low',
     category: 'subtle',
   },
   tap: {
-    url: 'https://cdn.pixabay.com/audio/2022/03/24/audio_71d86f891a.mp3', // Minimal click
+    file: require('@/assets/sounds/tap.mp3'),
     volume: 0.08,
     priority: 'low',
     category: 'subtle',
   },
   toggle: {
-    url: 'https://cdn.pixabay.com/audio/2022/03/24/audio_71d86f891a.mp3', // Soft switch
+    file: require('@/assets/sounds/toggle.mp3'),
     volume: 0.12,
     priority: 'low',
     category: 'subtle',
   },
   refresh: {
-    url: 'https://cdn.pixabay.com/audio/2022/03/24/audio_71d86f891a.mp3', // Subtle refresh
+    file: require('@/assets/sounds/refresh.mp3'),
     volume: 0.10,
     priority: 'low',
     category: 'subtle',
   },
 
   // =========================================================================
-  // ALERTAS FUERTES (70-95% volumen) - Eventos importantes
+  // ALERTAS FUERTES (70-95% volumen)
   // =========================================================================
 
-  // ¡NUEVA ORDEN! - Campanilla clara y llamativa
   newOrder: {
-    url: 'https://cdn.pixabay.com/audio/2024/02/19/audio_e4043e6a0c.mp3', // Restaurant bell
+    file: require('@/assets/sounds/new-order.mp3'),
     volume: 0.90,
     priority: 'critical',
     category: 'alert',
   },
-
-  // Orden aceptada - Confirmación positiva
   orderAccepted: {
-    url: 'https://cdn.pixabay.com/audio/2021/08/04/audio_12b0c7443c.mp3', // Success notification
+    file: require('@/assets/sounds/order-accepted.mp3'),
     volume: 0.50,
     priority: 'high',
     category: 'normal',
   },
-
-  // ¡LISTO PARA RECOGER! - Alerta clara para driver
   orderReady: {
-    url: 'https://cdn.pixabay.com/audio/2022/03/15/audio_8cb749bf56.mp3', // Kitchen bell
+    file: require('@/assets/sounds/order-ready.mp3'),
     volume: 0.85,
     priority: 'critical',
     category: 'alert',
   },
-
-  // Recogido - Confirmación media
   orderPickedUp: {
-    url: 'https://cdn.pixabay.com/audio/2022/03/10/audio_c8c8a73467.mp3', // Pickup confirm
+    file: require('@/assets/sounds/order-pickup.mp3'),
     volume: 0.45,
     priority: 'high',
     category: 'normal',
   },
-
-  // ¡ENTREGADO! - Celebración
   orderDelivered: {
-    url: 'https://cdn.pixabay.com/audio/2021/08/04/audio_12b0c7443c.mp3', // Success fanfare
+    file: require('@/assets/sounds/order-delivered.mp3'),
     volume: 0.70,
     priority: 'high',
     category: 'alert',
   },
-
-  // Cancelado - Alerta negativa
   orderCancelled: {
-    url: 'https://cdn.pixabay.com/audio/2022/03/15/audio_7e21c19e66.mp3', // Negative tone
+    file: require('@/assets/sounds/order-cancelled.mp3'),
     volume: 0.55,
     priority: 'high',
     category: 'alert',
   },
 
   // =========================================================================
-  // ALERTAS DE LLEGADA (MUY FUERTES - 85-95%)
+  // LLEGADAS (85-95% volumen)
   // =========================================================================
 
-  // ¡LLEGÓ EL REPARTIDOR! - Para cliente (timbre fuerte)
   driverArrived: {
-    url: 'https://cdn.pixabay.com/audio/2022/10/30/audio_db7e0a88f1.mp3', // Doorbell
+    file: require('@/assets/sounds/driver-arrived.mp3'),
     volume: 0.95,
     priority: 'critical',
     category: 'alert',
   },
-
-  // Driver llegó al negocio
   arrivedAtBusiness: {
-    url: 'https://cdn.pixabay.com/audio/2024/02/19/audio_e4043e6a0c.mp3', // Arrival chime
+    file: require('@/assets/sounds/arrived-business.mp3'),
     volume: 0.85,
     priority: 'critical',
     category: 'alert',
   },
-
-  // Driver llegó con cliente
   arrivedAtClient: {
-    url: 'https://cdn.pixabay.com/audio/2022/10/30/audio_db7e0a88f1.mp3', // Doorbell
+    file: require('@/assets/sounds/arrived-client.mp3'),
     volume: 0.95,
     priority: 'critical',
     category: 'alert',
   },
 
   // =========================================================================
-  // CHAT (suave - 20-35%)
+  // CHAT (18-30% volumen)
   // =========================================================================
 
   messageSent: {
-    url: 'https://cdn.pixabay.com/audio/2022/03/24/audio_71d86f891a.mp3', // Soft bubble
+    file: require('@/assets/sounds/message-sent.mp3'),
     volume: 0.18,
     priority: 'low',
     category: 'subtle',
   },
   messageReceived: {
-    url: 'https://cdn.pixabay.com/audio/2022/11/21/audio_febc508520.mp3', // Soft chime
+    file: require('@/assets/sounds/message-received.mp3'),
     volume: 0.30,
     priority: 'medium',
     category: 'subtle',
   },
 
   // =========================================================================
-  // EMERGENCIA (100% - siempre suena)
+  // EMERGENCIA (100%)
   // =========================================================================
 
   panic: {
-    url: 'https://cdn.pixabay.com/audio/2022/03/15/audio_c6797ed47c.mp3', // Emergency alarm
+    file: require('@/assets/sounds/panic.mp3'),
     volume: 1.0,
     priority: 'critical',
     category: 'emergency',
   },
   alert: {
-    url: 'https://cdn.pixabay.com/audio/2021/08/04/audio_c6ccf3232f.mp3', // Critical alert
+    file: require('@/assets/sounds/alert.mp3'),
     volume: 0.95,
     priority: 'critical',
     category: 'emergency',
@@ -296,20 +276,20 @@ export async function initializeSounds(): Promise<void> {
     await preloadCriticalSounds();
 
     isInitialized = true;
-    console.log('[Sounds] Sistema inicializado');
+    console.log('[Sounds] Sistema inicializado con sonidos locales');
   } catch (error) {
     console.error('[Sounds] Error inicializando:', error);
   }
 }
 
 async function preloadCriticalSounds(): Promise<void> {
-  const criticalSounds: SoundType[] = ['newOrder', 'orderReady', 'driverArrived'];
+  const criticalSounds: SoundType[] = ['newOrder', 'orderReady', 'driverArrived', 'success', 'error'];
 
   for (const soundType of criticalSounds) {
     try {
       await loadSound(soundType);
     } catch (error) {
-      console.warn(`[Sounds] No se pudo pre-cargar ${soundType}`);
+      console.warn(`[Sounds] No se pudo pre-cargar ${soundType}:`, error);
     }
   }
 }
@@ -320,9 +300,9 @@ async function loadSound(type: SoundType): Promise<Audio.Sound | null> {
   }
 
   try {
-    const config = SOUND_URLS[type];
+    const config = SOUND_FILES[type];
     const { sound } = await Audio.Sound.createAsync(
-      { uri: config.url },
+      config.file,
       { volume: config.volume * currentPreferences.volume }
     );
 
@@ -342,7 +322,7 @@ export async function playSound(
   type: SoundType,
   options?: { volume?: number; force?: boolean }
 ): Promise<void> {
-  const config = SOUND_URLS[type];
+  const config = SOUND_FILES[type];
 
   if (!currentPreferences.enabled && !options?.force) {
     return;
@@ -378,7 +358,7 @@ export async function playSound(
 }
 
 // ============================================================================
-// FUNCIONES DE CONVENIENCIA - SUAVES
+// FUNCIONES DE CONVENIENCIA
 // ============================================================================
 
 export const SoundFeedback = {
@@ -403,10 +383,6 @@ export const ChatSounds = {
   sent: () => playSound('messageSent'),
   received: () => playSound('messageReceived'),
 };
-
-// ============================================================================
-// FUNCIONES DE CONVENIENCIA - ALERTAS FUERTES
-// ============================================================================
 
 export const OrderSounds = {
   newOrder: () => playSound('newOrder'),
@@ -463,7 +439,7 @@ export async function updateSoundPreferences(
 
   if (updates.volume !== undefined) {
     for (const [type, sound] of soundCache.entries()) {
-      const config = SOUND_URLS[type];
+      const config = SOUND_FILES[type];
       try {
         await sound.setVolumeAsync(config.volume * currentPreferences.volume);
       } catch { }
