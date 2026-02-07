@@ -16,6 +16,7 @@ import {
   addNotificationResponseReceivedListener,
 } from "@/services/notifications";
 import { initializeSounds, cleanupSounds } from "@/services/sounds";
+import { startAISupervision, stopAISupervision } from "@/services/ai-supervisor";
 
 SplashScreen.preventAutoHideAsync();
 
@@ -106,6 +107,9 @@ export default function RootLayout() {
     // Inicializar sistema de sonidos
     initializeSounds().catch(console.error);
 
+    // Iniciar IA Supervisor (supervisa capacidad de drivers, etc.)
+    startAISupervision().catch(console.error);
+
     // Escuchar cambios de estado de la app
     const subscription = AppState.addEventListener('change', (state: AppStateStatus) => {
       if (state === 'background' || state === 'inactive') {
@@ -121,6 +125,7 @@ export default function RootLayout() {
     return () => {
       subscription.remove();
       cleanupSounds();
+      stopAISupervision();
     };
   }, []);
 

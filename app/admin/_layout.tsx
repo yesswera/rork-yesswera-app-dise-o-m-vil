@@ -1,5 +1,5 @@
 import { Tabs, useRouter } from 'expo-router';
-import { BarChart3, Users, ShoppingBag, TrendingUp, Settings, MessageSquare, MessageCircle } from 'lucide-react-native';
+import { BarChart3, Users, ShoppingBag, TrendingUp, Settings, MessageSquare, MessageCircle, Truck } from 'lucide-react-native';
 import { useEffect } from 'react';
 import { Alert, BackHandler } from 'react-native';
 import Colors from '@/constants/colors';
@@ -92,6 +92,14 @@ export default function AdminLayout() {
         options={{
           title: 'Usuarios',
           tabBarIcon: ({ color, size }) => <Users size={size} color={color} />,
+        }}
+      />
+      <Tabs.Screen
+        name="drivers"
+        options={{
+          title: 'Drivers',
+          tabBarIcon: ({ color, size }) => <Truck size={size} color={color} />,
+          headerTitle: 'Control de Repartidores',
         }}
       />
       <Tabs.Screen

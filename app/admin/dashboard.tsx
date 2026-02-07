@@ -31,6 +31,9 @@ import {
   Settings,
   Database,
   LayoutDashboard,
+  Brain,
+  Zap,
+  Activity,
 } from 'lucide-react-native';
 import { useTheme } from '@/contexts/theme';
 import ScreenContainer from '@/components/ScreenContainer';
@@ -45,6 +48,13 @@ import {
   DailyOrderSummary,
   seedAllShoppingBusinesses,
 } from '@/services/admin';
+import {
+  runSupervisionCheck,
+  getAISupervisorConfig,
+  AIHealthReport,
+  AISupervisorConfig,
+} from '@/services/ai-supervisor';
+import { getDriverCapacityStats, DriverCapacityStats } from '@/services/driver-capacity';
 
 // ============================================================================
 // COLORES EXPLICITOS (modo oscuro)
@@ -94,19 +104,27 @@ export default function AdminDashboard() {
   const [dailySummary, setDailySummary] = useState<DailyOrderSummary[]>([]);
   const [seeding, setSeeding] = useState(false);
 
+  // AI Supervisor state
+  const [aiConfig, setAiConfig] = useState<AISupervisorConfig | null>(null);
+  const [driverStats, setDriverStats] = useState<DriverCapacityStats | null>(null);
+
   const loadData = useCallback(async () => {
     try {
-      const [statsData, todayData, inProgressData, summaryData] = await Promise.all([
+      const [statsData, todayData, inProgressData, summaryData, aiConfigData, driverStatsData] = await Promise.all([
         getAdminStats(),
         getTodayOrders(),
         getOrdersInProgress(),
         getDailyOrderSummary(7),
+        getAISupervisorConfig(),
+        getDriverCapacityStats(),
       ]);
 
       setStats(statsData);
       setTodayOrders(todayData);
       setOrdersInProgress(inProgressData);
       setDailySummary(summaryData);
+      setAiConfig(aiConfigData);
+      setDriverStats(driverStatsData);
     } catch (error) {
       console.error('Error loading admin data:', error);
       Alert.alert('Error', 'No se pudieron cargar los datos');
@@ -248,6 +266,83 @@ export default function AdminDashboard() {
           <Text style={[styles.statSubtext, { color: theme.textMuted }]}>Promedio</Text>
         </View>
       </View>
+
+      {/* AI Supervisor Status */}
+      {aiConfig && driverStats && (
+        <TouchableOpacity
+          style={[styles.aiStatusCard, { backgroundColor: theme.card }]}
+          onPress={() => router.push('/admin/drivers' as any)}
+        >
+          <View style={styles.aiStatusHeader}>
+            <View style={styles.aiStatusLeft}>
+              <View style={[
+                styles.aiStatusIcon,
+                { backgroundColor: aiConfig.enabled ? FIXED_COLORS.accent + '20' : theme.cardAlt }
+              ]}>
+                <Brain size={20} color={aiConfig.enabled ? FIXED_COLORS.accent : theme.textMuted} />
+              </View>
+              <View>
+                <Text style={[styles.aiStatusTitle, { color: theme.text }]}>IA Supervisor</Text>
+                <Text style={[styles.aiStatusSubtitle, { color: theme.textSecondary }]}>
+                  {aiConfig.enabled ? 'Activo' : 'Deshabilitado'}
+                </Text>
+              </View>
+            </View>
+            <View style={[
+              styles.aiStatusBadge,
+              {
+                backgroundColor: driverStats.settings.registrationOpen
+                  ? FIXED_COLORS.success + '20'
+                  : FIXED_COLORS.warning + '20'
+              }
+            ]}>
+              <Text style={[
+                styles.aiStatusBadgeText,
+                {
+                  color: driverStats.settings.registrationOpen
+                    ? FIXED_COLORS.success
+                    : FIXED_COLORS.warning
+                }
+              ]}>
+                Registro {driverStats.settings.registrationOpen ? 'Abierto' : 'Cerrado'}
+              </Text>
+            </View>
+          </View>
+
+          <View style={[styles.aiMetricsRow, { borderTopColor: theme.border }]}>
+            <View style={styles.aiMetric}>
+              <Truck size={16} color={FIXED_COLORS.primary} />
+              <Text style={[styles.aiMetricValue, { color: theme.text }]}>{driverStats.onlineDrivers}</Text>
+              <Text style={[styles.aiMetricLabel, { color: theme.textMuted }]}>En linea</Text>
+            </View>
+            <View style={[styles.aiMetricDivider, { backgroundColor: theme.border }]} />
+            <View style={styles.aiMetric}>
+              <ShoppingBag size={16} color={FIXED_COLORS.accent} />
+              <Text style={[styles.aiMetricValue, { color: theme.text }]}>{driverStats.ordersToday}</Text>
+              <Text style={[styles.aiMetricLabel, { color: theme.textMuted }]}>Ordenes hoy</Text>
+            </View>
+            <View style={[styles.aiMetricDivider, { backgroundColor: theme.border }]} />
+            <View style={styles.aiMetric}>
+              <Activity size={16} color={
+                driverStats.currentRatio >= 8 && driverStats.currentRatio <= 12
+                  ? FIXED_COLORS.success
+                  : driverStats.currentRatio < 6 || driverStats.currentRatio > 15
+                    ? FIXED_COLORS.error
+                    : FIXED_COLORS.warning
+              } />
+              <Text style={[styles.aiMetricValue, { color: theme.text }]}>
+                {driverStats.currentRatio.toFixed(1)}
+              </Text>
+              <Text style={[styles.aiMetricLabel, { color: theme.textMuted }]}>Ratio</Text>
+            </View>
+          </View>
+
+          <View style={styles.aiTapHint}>
+            <Text style={[styles.aiTapHintText, { color: theme.textMuted }]}>Toca para ver detalles</Text>
+            <ChevronRight size={14} color={theme.textMuted} />
+          </View>
+        </TouchableOpacity>
+      )}
 
       {/* User Breakdown */}
       <View style={styles.section}>
@@ -726,5 +821,82 @@ const styles = StyleSheet.create({
   statusTextLarge: {
     fontSize: 11,
     fontWeight: '600',
+  },
+  // AI Supervisor Card
+  aiStatusCard: {
+    borderRadius: 12,
+    padding: 16,
+    marginBottom: 20,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.08,
+    shadowRadius: 8,
+    elevation: 2,
+  },
+  aiStatusHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  aiStatusLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  aiStatusIcon: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  aiStatusTitle: {
+    fontSize: 16,
+    fontWeight: '700',
+  },
+  aiStatusSubtitle: {
+    fontSize: 13,
+    marginTop: 2,
+  },
+  aiStatusBadge: {
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: 12,
+  },
+  aiStatusBadgeText: {
+    fontSize: 12,
+    fontWeight: '600',
+  },
+  aiMetricsRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-around',
+    marginTop: 16,
+    paddingTop: 16,
+    borderTopWidth: 1,
+  },
+  aiMetric: {
+    alignItems: 'center',
+    gap: 4,
+  },
+  aiMetricValue: {
+    fontSize: 20,
+    fontWeight: '700',
+  },
+  aiMetricLabel: {
+    fontSize: 11,
+  },
+  aiMetricDivider: {
+    width: 1,
+    height: 40,
+  },
+  aiTapHint: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginTop: 12,
+    gap: 4,
+  },
+  aiTapHintText: {
+    fontSize: 12,
   },
 });
