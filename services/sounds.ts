@@ -1,6 +1,6 @@
 // ============================================================================
 // YESSWERA: SERVICIO DE SONIDOS
-// Sistema de feedback auditivo - Sonidos sutiles y alertas llamativas
+// Sonidos limpios y profesionales - Pixabay (sin atribución)
 // ============================================================================
 
 import { Audio } from 'expo-av';
@@ -12,184 +12,192 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 
 export type SoundType =
   // Feedback suave (UI normal)
-  | 'success'          // Acción completada
-  | 'error'            // Error suave
-  | 'warning'          // Advertencia suave
-  | 'info'             // Información
+  | 'success'
+  | 'error'
+  | 'warning'
+  | 'info'
 
   // Autenticación (suave)
-  | 'login'            // Bienvenida sutil
-  | 'logout'           // Despedida sutil
+  | 'login'
+  | 'logout'
 
   // Navegación (muy suave)
-  | 'navigate'         // Cambio de pantalla
-  | 'back'             // Regresar
-  | 'tap'              // Tap en botón
-  | 'toggle'           // Toggle switch
+  | 'navigate'
+  | 'back'
+  | 'tap'
+  | 'toggle'
+  | 'refresh'
 
-  // ALERTAS FUERTES - Órdenes
-  | 'newOrder'         // ¡NUEVA ORDEN! (campanilla fuerte)
-  | 'orderAccepted'    // Orden aceptada (confirmación clara)
-  | 'orderReady'       // ¡LISTO PARA RECOGER! (alerta fuerte)
-  | 'orderPickedUp'    // Recogido (confirmación)
-  | 'orderDelivered'   // ¡ENTREGADO! (celebración)
-  | 'orderCancelled'   // Cancelado (alerta)
+  // ALERTAS - Órdenes
+  | 'newOrder'
+  | 'orderAccepted'
+  | 'orderReady'
+  | 'orderPickedUp'
+  | 'orderDelivered'
+  | 'orderCancelled'
 
-  // ALERTAS FUERTES - Driver/Llegadas
-  | 'driverArrived'    // ¡LLEGÓ EL REPARTIDOR! (muy fuerte)
-  | 'arrivedAtBusiness'// Driver llegó al negocio
-  | 'arrivedAtClient'  // Driver llegó con cliente
+  // ALERTAS - Llegadas
+  | 'driverArrived'
+  | 'arrivedAtBusiness'
+  | 'arrivedAtClient'
 
-  // Chat (suave)
-  | 'messageSent'      // Enviado (pop suave)
-  | 'messageReceived'  // Recibido (notificación suave)
+  // Chat
+  | 'messageSent'
+  | 'messageReceived'
 
-  // EMERGENCIA (máximo volumen)
-  | 'panic'            // ¡EMERGENCIA!
-  | 'alert';           // Alerta crítica
+  // Emergencia
+  | 'panic'
+  | 'alert';
 
 // ============================================================================
 // CONFIGURACIÓN DE SONIDOS
-// URLs de Mixkit - Sonidos libres de regalías
-// Organizados por intensidad
+// Fuente: Pixabay (100% gratis, sin atribución requerida)
+// Estilo: Limpio, minimalista, profesional
 // ============================================================================
 
 interface SoundConfig {
   url: string;
-  volume: number;      // 0-1
+  volume: number;
   priority: 'low' | 'medium' | 'high' | 'critical';
   category: 'subtle' | 'normal' | 'alert' | 'emergency';
 }
 
+// URLs de Pixabay - Sonidos limpios y modernos
 const SOUND_URLS: Record<SoundType, SoundConfig> = {
   // =========================================================================
-  // SONIDOS SUAVES (para flujo normal de la app)
+  // SONIDOS MUY SUAVES (10-25% volumen) - Flujo normal
   // =========================================================================
 
   success: {
-    url: 'https://assets.mixkit.co/active_storage/sfx/2190/2190-preview.mp3', // Soft positive ding
-    volume: 0.3,
+    url: 'https://cdn.pixabay.com/audio/2022/03/10/audio_c8c8a73467.mp3', // Soft success ding
+    volume: 0.20,
     priority: 'medium',
     category: 'subtle',
   },
   error: {
-    url: 'https://assets.mixkit.co/active_storage/sfx/2221/2221-preview.mp3', // Soft negative
-    volume: 0.4,
+    url: 'https://cdn.pixabay.com/audio/2022/03/15/audio_7e21c19e66.mp3', // Soft error
+    volume: 0.30,
     priority: 'high',
     category: 'normal',
   },
   warning: {
-    url: 'https://assets.mixkit.co/active_storage/sfx/2220/2220-preview.mp3', // Soft warning
-    volume: 0.35,
+    url: 'https://cdn.pixabay.com/audio/2021/08/04/audio_c6ccf3232f.mp3', // Gentle warning
+    volume: 0.25,
     priority: 'medium',
     category: 'normal',
   },
   info: {
-    url: 'https://assets.mixkit.co/active_storage/sfx/2354/2354-preview.mp3', // Soft notification
-    volume: 0.25,
+    url: 'https://cdn.pixabay.com/audio/2022/03/24/audio_71d86f891a.mp3', // Soft pop
+    volume: 0.15,
     priority: 'low',
     category: 'subtle',
   },
 
-  // Autenticación - MUY suave, agradable
+  // Autenticación - Muy sutil y agradable
   login: {
-    url: 'https://assets.mixkit.co/active_storage/sfx/2352/2352-preview.mp3', // Gentle welcome chime
-    volume: 0.3,
+    url: 'https://cdn.pixabay.com/audio/2022/11/21/audio_febc508520.mp3', // Gentle welcome chime
+    volume: 0.25,
     priority: 'medium',
     category: 'subtle',
   },
   logout: {
-    url: 'https://assets.mixkit.co/active_storage/sfx/2205/2205-preview.mp3', // Soft goodbye
-    volume: 0.2,
+    url: 'https://cdn.pixabay.com/audio/2022/03/10/audio_c8c8a73467.mp3', // Soft goodbye
+    volume: 0.15,
     priority: 'low',
     category: 'subtle',
   },
 
-  // Navegación - Muy sutil, casi imperceptible
+  // Navegación - Casi imperceptible
   navigate: {
-    url: 'https://assets.mixkit.co/active_storage/sfx/2571/2571-preview.mp3', // Soft swoosh
-    volume: 0.15,
+    url: 'https://cdn.pixabay.com/audio/2022/03/24/audio_71d86f891a.mp3', // Soft swoosh
+    volume: 0.10,
     priority: 'low',
     category: 'subtle',
   },
   back: {
-    url: 'https://assets.mixkit.co/active_storage/sfx/2573/2573-preview.mp3', // Soft reverse swoosh
-    volume: 0.15,
+    url: 'https://cdn.pixabay.com/audio/2022/03/24/audio_71d86f891a.mp3', // Soft pop
+    volume: 0.10,
     priority: 'low',
     category: 'subtle',
   },
   tap: {
-    url: 'https://assets.mixkit.co/active_storage/sfx/2568/2568-preview.mp3', // Soft click
-    volume: 0.1,
+    url: 'https://cdn.pixabay.com/audio/2022/03/24/audio_71d86f891a.mp3', // Minimal click
+    volume: 0.08,
     priority: 'low',
     category: 'subtle',
   },
   toggle: {
-    url: 'https://assets.mixkit.co/active_storage/sfx/2570/2570-preview.mp3', // Soft switch
-    volume: 0.15,
+    url: 'https://cdn.pixabay.com/audio/2022/03/24/audio_71d86f891a.mp3', // Soft switch
+    volume: 0.12,
+    priority: 'low',
+    category: 'subtle',
+  },
+  refresh: {
+    url: 'https://cdn.pixabay.com/audio/2022/03/24/audio_71d86f891a.mp3', // Subtle refresh
+    volume: 0.10,
     priority: 'low',
     category: 'subtle',
   },
 
   // =========================================================================
-  // ALERTAS FUERTES (para eventos importantes)
+  // ALERTAS FUERTES (70-95% volumen) - Eventos importantes
   // =========================================================================
 
-  // ¡NUEVA ORDEN! - Campanilla llamativa
+  // ¡NUEVA ORDEN! - Campanilla clara y llamativa
   newOrder: {
-    url: 'https://assets.mixkit.co/active_storage/sfx/1531/1531-preview.mp3', // Restaurant bell ring
-    volume: 0.9,
+    url: 'https://cdn.pixabay.com/audio/2024/02/19/audio_e4043e6a0c.mp3', // Restaurant bell
+    volume: 0.90,
     priority: 'critical',
     category: 'alert',
   },
 
-  // Orden aceptada - Confirmación clara
+  // Orden aceptada - Confirmación positiva
   orderAccepted: {
-    url: 'https://assets.mixkit.co/active_storage/sfx/2018/2018-preview.mp3', // Achievement unlock
-    volume: 0.6,
+    url: 'https://cdn.pixabay.com/audio/2021/08/04/audio_12b0c7443c.mp3', // Success notification
+    volume: 0.50,
     priority: 'high',
     category: 'normal',
   },
 
-  // ¡LISTO PARA RECOGER! - Alerta fuerte para driver
+  // ¡LISTO PARA RECOGER! - Alerta clara para driver
   orderReady: {
-    url: 'https://assets.mixkit.co/active_storage/sfx/1530/1530-preview.mp3', // Kitchen bell ding
+    url: 'https://cdn.pixabay.com/audio/2022/03/15/audio_8cb749bf56.mp3', // Kitchen bell
     volume: 0.85,
     priority: 'critical',
     category: 'alert',
   },
 
-  // Recogido - Confirmación
+  // Recogido - Confirmación media
   orderPickedUp: {
-    url: 'https://assets.mixkit.co/active_storage/sfx/2000/2000-preview.mp3', // Pickup confirmation
-    volume: 0.5,
+    url: 'https://cdn.pixabay.com/audio/2022/03/10/audio_c8c8a73467.mp3', // Pickup confirm
+    volume: 0.45,
     priority: 'high',
     category: 'normal',
   },
 
   // ¡ENTREGADO! - Celebración
   orderDelivered: {
-    url: 'https://assets.mixkit.co/active_storage/sfx/1435/1435-preview.mp3', // Success fanfare
-    volume: 0.7,
+    url: 'https://cdn.pixabay.com/audio/2021/08/04/audio_12b0c7443c.mp3', // Success fanfare
+    volume: 0.70,
     priority: 'high',
     category: 'alert',
   },
 
   // Cancelado - Alerta negativa
   orderCancelled: {
-    url: 'https://assets.mixkit.co/active_storage/sfx/2223/2223-preview.mp3', // Negative alert
-    volume: 0.6,
+    url: 'https://cdn.pixabay.com/audio/2022/03/15/audio_7e21c19e66.mp3', // Negative tone
+    volume: 0.55,
     priority: 'high',
     category: 'alert',
   },
 
   // =========================================================================
-  // ALERTAS DE LLEGADA (MUY FUERTES)
+  // ALERTAS DE LLEGADA (MUY FUERTES - 85-95%)
   // =========================================================================
 
-  // ¡LLEGÓ EL REPARTIDOR! - Para cliente
+  // ¡LLEGÓ EL REPARTIDOR! - Para cliente (timbre fuerte)
   driverArrived: {
-    url: 'https://assets.mixkit.co/active_storage/sfx/1518/1518-preview.mp3', // Doorbell
+    url: 'https://cdn.pixabay.com/audio/2022/10/30/audio_db7e0a88f1.mp3', // Doorbell
     volume: 0.95,
     priority: 'critical',
     category: 'alert',
@@ -197,7 +205,7 @@ const SOUND_URLS: Record<SoundType, SoundConfig> = {
 
   // Driver llegó al negocio
   arrivedAtBusiness: {
-    url: 'https://assets.mixkit.co/active_storage/sfx/1529/1529-preview.mp3', // Arrival chime
+    url: 'https://cdn.pixabay.com/audio/2024/02/19/audio_e4043e6a0c.mp3', // Arrival chime
     volume: 0.85,
     priority: 'critical',
     category: 'alert',
@@ -205,41 +213,41 @@ const SOUND_URLS: Record<SoundType, SoundConfig> = {
 
   // Driver llegó con cliente
   arrivedAtClient: {
-    url: 'https://assets.mixkit.co/active_storage/sfx/1518/1518-preview.mp3', // Doorbell
+    url: 'https://cdn.pixabay.com/audio/2022/10/30/audio_db7e0a88f1.mp3', // Doorbell
     volume: 0.95,
     priority: 'critical',
     category: 'alert',
   },
 
   // =========================================================================
-  // CHAT (suave)
+  // CHAT (suave - 20-35%)
   // =========================================================================
 
   messageSent: {
-    url: 'https://assets.mixkit.co/active_storage/sfx/2358/2358-preview.mp3', // Soft pop
-    volume: 0.2,
+    url: 'https://cdn.pixabay.com/audio/2022/03/24/audio_71d86f891a.mp3', // Soft bubble
+    volume: 0.18,
     priority: 'low',
     category: 'subtle',
   },
   messageReceived: {
-    url: 'https://assets.mixkit.co/active_storage/sfx/2354/2354-preview.mp3', // Soft notification
-    volume: 0.35,
+    url: 'https://cdn.pixabay.com/audio/2022/11/21/audio_febc508520.mp3', // Soft chime
+    volume: 0.30,
     priority: 'medium',
     category: 'subtle',
   },
 
   // =========================================================================
-  // EMERGENCIA (máximo volumen, siempre suena)
+  // EMERGENCIA (100% - siempre suena)
   // =========================================================================
 
   panic: {
-    url: 'https://assets.mixkit.co/active_storage/sfx/1491/1491-preview.mp3', // Emergency alarm
+    url: 'https://cdn.pixabay.com/audio/2022/03/15/audio_c6797ed47c.mp3', // Emergency alarm
     volume: 1.0,
     priority: 'critical',
     category: 'emergency',
   },
   alert: {
-    url: 'https://assets.mixkit.co/active_storage/sfx/1490/1490-preview.mp3', // Critical alert
+    url: 'https://cdn.pixabay.com/audio/2021/08/04/audio_c6ccf3232f.mp3', // Critical alert
     volume: 0.95,
     priority: 'critical',
     category: 'emergency',
@@ -254,9 +262,9 @@ const STORAGE_KEY = '@yesswera_sound_preferences';
 
 interface SoundPreferences {
   enabled: boolean;
-  volume: number;           // Volumen global (0-1)
-  muteLowPriority: boolean; // Silenciar sonidos suaves
-  alertsOnly: boolean;      // Solo alertas importantes
+  volume: number;
+  muteLowPriority: boolean;
+  alertsOnly: boolean;
 }
 
 const DEFAULT_PREFERENCES: SoundPreferences = {
@@ -266,17 +274,12 @@ const DEFAULT_PREFERENCES: SoundPreferences = {
   alertsOnly: false,
 };
 
-// Cache de sonidos cargados
 const soundCache: Map<SoundType, Audio.Sound> = new Map();
-
-// Preferencias actuales
 let currentPreferences: SoundPreferences = { ...DEFAULT_PREFERENCES };
-
-// Estado de inicialización
 let isInitialized = false;
 
 // ============================================================================
-// FUNCIONES DE INICIALIZACIÓN
+// INICIALIZACIÓN
 // ============================================================================
 
 export async function initializeSounds(): Promise<void> {
@@ -300,8 +303,7 @@ export async function initializeSounds(): Promise<void> {
 }
 
 async function preloadCriticalSounds(): Promise<void> {
-  // Solo pre-cargar sonidos de alerta críticos
-  const criticalSounds: SoundType[] = ['newOrder', 'orderReady', 'driverArrived', 'panic'];
+  const criticalSounds: SoundType[] = ['newOrder', 'orderReady', 'driverArrived'];
 
   for (const soundType of criticalSounds) {
     try {
@@ -333,7 +335,7 @@ async function loadSound(type: SoundType): Promise<Audio.Sound | null> {
 }
 
 // ============================================================================
-// FUNCIONES DE REPRODUCCIÓN
+// REPRODUCCIÓN
 // ============================================================================
 
 export async function playSound(
@@ -342,17 +344,14 @@ export async function playSound(
 ): Promise<void> {
   const config = SOUND_URLS[type];
 
-  // Verificar preferencias
   if (!currentPreferences.enabled && !options?.force) {
     return;
   }
 
-  // Si solo alertas, ignorar sonidos suaves
   if (currentPreferences.alertsOnly && config.category === 'subtle') {
     return;
   }
 
-  // Si silenciar baja prioridad
   if (currentPreferences.muteLowPriority && config.priority === 'low') {
     return;
   }
@@ -364,11 +363,9 @@ export async function playSound(
       if (!sound) return;
     }
 
-    // Calcular volumen final
     const finalVolume = (options?.volume ?? config.volume) * currentPreferences.volume;
     await sound.setVolumeAsync(finalVolume);
 
-    // Rebobinar si necesario
     const status = await sound.getStatusAsync();
     if (status.isLoaded && status.positionMillis > 0) {
       await sound.setPositionAsync(0);
@@ -412,41 +409,22 @@ export const ChatSounds = {
 // ============================================================================
 
 export const OrderSounds = {
-  /** ¡NUEVA ORDEN! - Campanilla fuerte */
   newOrder: () => playSound('newOrder'),
-
-  /** Orden aceptada - Confirmación */
   accepted: () => playSound('orderAccepted'),
-
-  /** ¡LISTO PARA RECOGER! - Alerta fuerte */
   ready: () => playSound('orderReady'),
-
-  /** Orden recogida */
   pickedUp: () => playSound('orderPickedUp'),
-
-  /** ¡ENTREGADO! - Celebración */
   delivered: () => playSound('orderDelivered'),
-
-  /** Cancelado */
   cancelled: () => playSound('orderCancelled'),
 };
 
 export const ArrivalSounds = {
-  /** ¡LLEGÓ EL REPARTIDOR! - Para cliente */
   driverArrived: () => playSound('driverArrived'),
-
-  /** Driver llegó al negocio */
   atBusiness: () => playSound('arrivedAtBusiness'),
-
-  /** Driver llegó con cliente */
   atClient: () => playSound('arrivedAtClient'),
 };
 
 export const EmergencySounds = {
-  /** ¡EMERGENCIA! - Siempre suena */
   panic: () => playSound('panic', { force: true }),
-
-  /** Alerta crítica */
   alert: () => playSound('alert', { force: true }),
 };
 
@@ -488,9 +466,7 @@ export async function updateSoundPreferences(
       const config = SOUND_URLS[type];
       try {
         await sound.setVolumeAsync(config.volume * currentPreferences.volume);
-      } catch {
-        // Ignorar
-      }
+      } catch { }
     }
   }
 }
@@ -500,8 +476,7 @@ export async function setSoundsEnabled(enabled: boolean): Promise<void> {
 }
 
 export async function setGlobalVolume(volume: number): Promise<void> {
-  const clampedVolume = Math.max(0, Math.min(1, volume));
-  await updateSoundPreferences({ volume: clampedVolume });
+  await updateSoundPreferences({ volume: Math.max(0, Math.min(1, volume)) });
 }
 
 export async function setAlertsOnly(alertsOnly: boolean): Promise<void> {
@@ -516,9 +491,7 @@ export async function cleanupSounds(): Promise<void> {
   for (const sound of soundCache.values()) {
     try {
       await sound.unloadAsync();
-    } catch {
-      // Ignorar
-    }
+    } catch { }
   }
   soundCache.clear();
   isInitialized = false;
@@ -549,15 +522,4 @@ export async function playSoundDebounced(type: SoundType): Promise<void> {
 
 export async function testSound(type: SoundType): Promise<void> {
   await playSound(type, { force: true });
-}
-
-export async function testAllAlerts(): Promise<void> {
-  console.log('[Sounds] Probando alertas...');
-  const alerts: SoundType[] = ['newOrder', 'orderReady', 'driverArrived', 'orderDelivered'];
-
-  for (const type of alerts) {
-    console.log(`[Sounds] ${type}`);
-    await playSound(type, { force: true });
-    await new Promise(resolve => setTimeout(resolve, 2000));
-  }
 }
