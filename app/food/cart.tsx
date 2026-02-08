@@ -21,6 +21,7 @@ import { getBusinessLocation } from '@/services/products';
 import { calculateDistance, calculateDeliveryFee, formatDistance } from '@/utils/distance';
 import ScreenContainer from '@/components/ScreenContainer';
 import { OrderSounds, SoundFeedback } from '@/services/sounds';
+import { trackServiceUsage } from '@/services/user-preferences';
 
 // ============================================================================
 // COLORES EXPLÍCITOS PARA MODO OSCURO
@@ -211,6 +212,9 @@ export default function CartScreen() {
 
       // Play success sound for order creation
       OrderSounds.accepted();
+
+      // Track service usage for analytics/personalization
+      trackServiceUsage(user.id, 'food', finalTotal).catch(console.error);
 
       const orderId = order.id;
       const deliveryCode = order.deliveryCode;

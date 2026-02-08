@@ -44,6 +44,7 @@ import ScreenContainer from '@/components/ScreenContainer';
 import { createOrder } from '@/services/orders';
 import { calculateDeliveryFee } from '@/utils/distance';
 import { getUserAddresses } from '@/services/addresses';
+import { trackServiceUsage } from '@/services/user-preferences';
 
 const { width } = Dimensions.get('window');
 
@@ -447,6 +448,9 @@ export default function DeliveryCreateScreen() {
           } : undefined,
         },
       });
+
+      // Track service usage for analytics/personalization
+      trackServiceUsage(user.id, 'delivery', deliveryCost).catch(console.error);
 
       // Redirigir al Home donde vera el banner de orden activa
       Alert.alert(

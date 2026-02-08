@@ -18,6 +18,7 @@ import {
   Smartphone,
   Type,
   Volume2,
+  Sliders,
 } from 'lucide-react-native';
 import { useAuth } from '@/contexts/auth';
 import { useTheme } from '@/contexts/theme';
@@ -220,6 +221,21 @@ export default function ProfileScreen() {
             <History size={20} color={colors.accent} />
           </View>
           <ThemedText variant="body" bold>Historial de Órdenes</ThemedText>
+        </TouchableOpacity>
+
+        {/* Preferences */}
+        <TouchableOpacity
+          style={[styles.actionButton, { backgroundColor: theme.card, borderColor: theme.border }]}
+          onPress={() => {
+            HapticFeedback.light();
+            router.push('/profile/preferences' as any);
+          }}
+          activeOpacity={0.7}
+        >
+          <View style={[styles.actionIcon, { backgroundColor: colors.secondary + '15' }]}>
+            <Sliders size={20} color={colors.secondary} />
+          </View>
+          <ThemedText variant="body" bold>Personalizar App</ThemedText>
         </TouchableOpacity>
 
         {/* Theme Toggle */}

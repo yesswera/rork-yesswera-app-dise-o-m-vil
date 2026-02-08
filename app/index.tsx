@@ -4,7 +4,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter, useFocusEffect } from 'expo-router';
 import { UtensilsCrossed, ShoppingCart, Package, User, ChevronRight, ShoppingBag, RefreshCw, Clock, XCircle, AlertTriangle, Sparkles, TrendingUp, Zap } from 'lucide-react-native';
 import { StatusBar } from 'expo-status-bar';
-import { useState, useEffect, useRef, useCallback } from 'react';
+import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { BlurView } from 'expo-blur';
 import { useAuth } from '@/contexts/auth';
 import { useTheme } from '@/contexts/theme';
@@ -16,6 +16,7 @@ import { Order, OrderStatus } from '@/constants/types';
 import Colors from '@/constants/colors';
 import { Toast } from '@/utils/toast';
 import { supabase } from '@/constants/supabase';
+import { getUserPreferences, DisplayPreferences, ServiceType } from '@/services/user-preferences';
 
 // Colores para modo claro/oscuro
 const COLORS = {
@@ -87,6 +88,7 @@ export default function HomeScreen() {
   const [activeOrder, setActiveOrder] = useState<Order | null>(null);
   const [cancelledOrder, setCancelledOrder] = useState<Order | null>(null);
   const [recentOrders, setRecentOrders] = useState<Order[]>([]);
+  const [displayPrefs, setDisplayPrefs] = useState<DisplayPreferences | null>(null);
   const logoScale = useRef(new Animated.Value(0)).current;
   const logoOpacity = useRef(new Animated.Value(0)).current;
   const [serviceAnimations] = useState(() => 
@@ -261,6 +263,10 @@ export default function HomeScreen() {
     useCallback(() => {
       if (user && token) {
         loadOrderData();
+        // Load user display preferences
+        getUserPreferences(user.id).then(prefs => {
+          setDisplayPrefs(prefs.display);
+        }).catch(console.error);
       }
     }, [user, token, loadOrderData])
   );
@@ -338,6 +344,22 @@ export default function HomeScreen() {
     if (diffDays < 7) return `Hace ${diffDays} días`;
     return orderDate.toLocaleDateString();
   };
+
+  // Filter and sort services based on user preferences
+  const visibleServices = useMemo(() => {
+    if (!displayPrefs) return services;
+
+    // Filter out hidden services
+    const filtered = services.filter(s => !displayPrefs.hiddenServices.includes(s.id as ServiceType));
+
+    // Sort by user's preferred order
+    return filtered.sort((a, b) => {
+      const orderA = displayPrefs.serviceOrder.indexOf(a.id as ServiceType);
+      const orderB = displayPrefs.serviceOrder.indexOf(b.id as ServiceType);
+      // If not in the order list, put at the end
+      return (orderA === -1 ? 999 : orderA) - (orderB === -1 ? 999 : orderB);
+    });
+  }, [displayPrefs]);
 
   const handleReorder = (order: Order) => {
     Toast.success('¡Orden agregada al carrito!');
@@ -627,13 +649,13 @@ export default function HomeScreen() {
         )}
 
         <View style={styles.servicesContainer}>
-          {services.map((service, index) => (
+          {visibleServices.map((service, index) => (
             <Animated.View
               key={service.id}
               style={{
-                opacity: serviceAnimations[index].opacity,
-                transform: [{ scale: serviceAnimations[index].scale }],
-                marginBottom: index === services.length - 1 ? 0 : 20,
+                opacity: serviceAnimations[Math.min(index, serviceAnimations.length - 1)]?.opacity,
+                transform: [{ scale: serviceAnimations[Math.min(index, serviceAnimations.length - 1)]?.scale }],
+                marginBottom: index === visibleServices.length - 1 ? 0 : 20,
               }}
             >
               <TouchableOpacity

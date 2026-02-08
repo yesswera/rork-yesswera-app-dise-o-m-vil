@@ -21,6 +21,7 @@ import { SavedAddress, PaymentMethod } from '@/constants/types';
 import { createOrder } from '@/services/orders';
 import AddressSelector from '@/components/AddressSelector';
 import PaymentMethodSelector from '@/components/PaymentMethodSelector';
+import { trackServiceUsage } from '@/services/user-preferences';
 
 const COLORS = {
   light: { background: '#FFFFFF', card: '#FFFFFF', cardAlt: '#F5F5F4', border: '#E7E5E4', text: '#1C1917', textSecondary: '#57534E', textMuted: '#A8A29E' },
@@ -176,6 +177,9 @@ export default function GeneralListScreen() {
         paymentMethod: 'cash', // Solo efectivo para listas generales
         packageDetails,
       });
+
+      // Track service usage for analytics/personalization
+      trackServiceUsage(user.id, 'shopping', totalServiceCost).catch(console.error);
 
       Alert.alert(
         '¡Orden Creada!',

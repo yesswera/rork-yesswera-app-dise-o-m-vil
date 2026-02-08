@@ -11,6 +11,7 @@ import { createOrder } from '@/services/orders';
 import AddressSelector from '@/components/AddressSelector';
 import PaymentMethodSelector from '@/components/PaymentMethodSelector';
 import { calculateDistance, calculateDeliveryFee, formatDistance } from '@/utils/distance';
+import { trackServiceUsage } from '@/services/user-preferences';
 
 const COLORS = {
   light: { background: '#FFFFFF', card: '#FFFFFF', cardAlt: '#F5F5F4', border: '#E7E5E4', text: '#1C1917', textSecondary: '#57534E', textMuted: '#A8A29E' },
@@ -125,6 +126,10 @@ export default function ShoppingListScreen() {
         deliveryFee: deliveryCost,
         paymentMethod: paymentMethod === 'cash' ? 'cash' : paymentMethod === 'card' ? 'card' : 'wallet',
       });
+
+      // Track service usage for analytics/personalization
+      const totalCost = estimatedCost + deliveryCost;
+      trackServiceUsage(user.id, 'shopping', totalCost).catch(console.error);
 
       Alert.alert(
         '¡Orden Creada!',
