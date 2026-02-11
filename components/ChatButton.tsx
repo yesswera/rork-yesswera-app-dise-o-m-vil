@@ -4,7 +4,7 @@ import TouchableSound from '@/components/TouchableSound';
 import { useRouter } from 'expo-router';
 import { MessageCircle } from 'lucide-react-native';
 import Colors from '@/constants/colors';
-import { getUnreadCount, getConversation } from '@/services/messages';
+import { getUnreadCount, getConversation } from '@/services/chat';
 import { ConversationType } from '@/constants/types';
 import { useAuth } from '@/contexts/auth';
 

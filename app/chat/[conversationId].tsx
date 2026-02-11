@@ -20,7 +20,7 @@ import * as Haptics from 'expo-haptics';
 import { useAuth } from '@/contexts/auth';
 import { useTheme } from '@/contexts/theme';
 import { Message } from '@/constants/types';
-import { getMessages, sendMessage, markMessagesAsRead } from '@/services/messages';
+import { getMessages, sendMessage, markMessagesAsRead } from '@/services/chat';
 import ErrorState from '@/components/ErrorState';
 import ScreenContainer from '@/components/ScreenContainer';
 import { ThemedText } from '@/components/themed';
@@ -80,7 +80,7 @@ export default function ChatScreen() {
     if (!token || !conversationId) return;
 
     try {
-      const data = await getMessages(conversationId as string, token);
+      const data = await getMessages(conversationId as string);
       const reversedData = data.reverse();
 
       // Play sound if new messages received (not on initial load)
@@ -96,7 +96,7 @@ export default function ChatScreen() {
       setMessages(reversedData);
       setError(null);
 
-      await markMessagesAsRead(conversationId as string, token);
+      await markMessagesAsRead(conversationId as string, user?.id || '');
     } catch (err) {
       console.error('Error cargando mensajes:', err);
       if (isLoading) {
@@ -132,8 +132,12 @@ export default function ChatScreen() {
     setIsSending(true);
 
     try {
-      const newMessage = await sendMessage(conversationId as string, textToSend, token);
-      setMessages((prev) => [...prev, newMessage]);
+      const newMessage = await sendMessage(conversationId as string, {
+        senderId: user!.id,
+        senderType: (user!.userType || 'client') as any,
+        content: textToSend,
+      });
+      if (newMessage) setMessages((prev) => [...prev, newMessage as any]);
       previousMessageCountRef.current += 1;
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
       ChatSounds.sent();

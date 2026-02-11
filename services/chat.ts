@@ -472,6 +472,55 @@ export function subscribeToUserConversations(
 }
 
 // ============================================
+// COMPAT FUNCTIONS (used by ChatButton)
+// ============================================
+
+export async function getConversation(
+  orderId: string,
+  _type: string,
+  _token?: string
+): Promise<{ id: string; unreadCount: number }> {
+  try {
+    const { data, error } = await supabase
+      .from('chat_conversations')
+      .select('id, unread_count_1, unread_count_2')
+      .eq('order_id', orderId)
+      .limit(1)
+      .single();
+
+    if (error) throw error;
+
+    return {
+      id: data.id,
+      unreadCount: (data.unread_count_1 || 0) + (data.unread_count_2 || 0),
+    };
+  } catch (error) {
+    console.error('getConversation error:', error);
+    throw error;
+  }
+}
+
+export async function getUnreadCount(
+  conversationId: string,
+  _token?: string
+): Promise<number> {
+  try {
+    const { data, error } = await supabase
+      .from('chat_conversations')
+      .select('unread_count_1, unread_count_2')
+      .eq('id', conversationId)
+      .single();
+
+    if (error) throw error;
+
+    return (data.unread_count_1 || 0) + (data.unread_count_2 || 0);
+  } catch (error) {
+    console.error('getUnreadCount error:', error);
+    return 0;
+  }
+}
+
+// ============================================
 // HELPERS
 // ============================================
 
