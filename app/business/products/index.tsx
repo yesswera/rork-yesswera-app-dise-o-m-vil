@@ -75,7 +75,7 @@ export default function BusinessProductsScreen() {
     if (!businessId) return;
 
     try {
-      const data = await getBusinessProducts(businessId);
+      const data = await getBusinessProducts(businessId, true);
       setProducts(data);
     } catch (error) {
       console.error('Error loading products:', error);

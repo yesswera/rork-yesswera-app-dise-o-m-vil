@@ -12,7 +12,7 @@ import {
   StyleSheet,
 } from 'react-native';
 import { useRouter, useFocusEffect } from 'expo-router';
-import { DollarSign, Package, TrendingUp, LogOut, ShoppingBag, Monitor, Store } from 'lucide-react-native';
+import { DollarSign, Package, TrendingUp, LogOut, ShoppingBag, Monitor, Store, Settings, BarChart3 } from 'lucide-react-native';
 import { useAuth } from '@/contexts/auth';
 import { useTheme } from '@/contexts/theme';
 import { ThemedText } from '@/components/themed';
@@ -105,7 +105,7 @@ export default function BusinessDashboardScreen() {
         .from('products')
         .select('id')
         .eq('business_id', business.id)
-        .eq('available', true);
+        .eq('is_available', true);
 
       setStats({
         todayOrders: orders?.length || 0,
@@ -211,6 +211,32 @@ export default function BusinessDashboardScreen() {
             >
               <ShoppingBag size={22} color={colors.secondary} />
               <ThemedText variant="subtitle" style={{ color: colors.secondary, fontWeight: '700' }}>Gestionar Productos</ThemedText>
+            </TouchableSound>
+
+            <TouchableSound
+              style={[styles.secondaryButton, {
+                backgroundColor: theme.card,
+                borderColor: colors.success,
+                borderRadius: radius.md,
+                padding: space.md,
+              }]}
+              onPress={() => router.push('/business/earnings' as any)}
+            >
+              <BarChart3 size={22} color={colors.success} />
+              <ThemedText variant="subtitle" style={{ color: colors.success, fontWeight: '700' }}>Ganancias</ThemedText>
+            </TouchableSound>
+
+            <TouchableSound
+              style={[styles.secondaryButton, {
+                backgroundColor: theme.card,
+                borderColor: colors.warning,
+                borderRadius: radius.md,
+                padding: space.md,
+              }]}
+              onPress={() => router.push('/business/profile' as any)}
+            >
+              <Settings size={22} color={colors.warning} />
+              <ThemedText variant="subtitle" style={{ color: colors.warning, fontWeight: '700' }}>Perfil del Negocio</ThemedText>
             </TouchableSound>
 
             <TouchableSound

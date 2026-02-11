@@ -143,17 +143,21 @@ function mapCategory(dbCategory: any): ProductCategory {
   };
 }
 
-export async function getBusinessProducts(businessId: string): Promise<ProductFull[]> {
+export async function getBusinessProducts(businessId: string, includeAll = false): Promise<ProductFull[]> {
   try {
-    const { data, error } = await supabase
+    let query = supabase
       .from('products')
       .select(`
         *,
         product_variants (*)
       `)
-      .eq('business_id', businessId)
-      .eq('is_available', true)
-      .order('name');
+      .eq('business_id', businessId);
+
+    if (!includeAll) {
+      query = query.eq('is_available', true);
+    }
+
+    const { data, error } = await query.order('name');
 
     if (error) throw error;
 
