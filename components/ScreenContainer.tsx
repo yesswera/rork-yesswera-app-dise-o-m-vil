@@ -1,3 +1,4 @@
+import TouchableSound from '@/components/TouchableSound';
 // ============================================================================
 // YESSWERA: SCREEN CONTAINER
 // Componente base para todas las pantallas - Diseño unificado
@@ -421,11 +422,10 @@ export function ScreenCard({
   ];
 
   if (onPress) {
-    const { TouchableOpacity } = require('react-native');
     return (
-      <TouchableOpacity style={cardStyle} onPress={onPress} activeOpacity={0.8}>
+      <TouchableSound style={cardStyle} onPress={onPress} activeOpacity={0.8}>
         {children}
-      </TouchableOpacity>
+      </TouchableSound>
     );
   }
 

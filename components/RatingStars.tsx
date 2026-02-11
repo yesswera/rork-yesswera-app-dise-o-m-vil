@@ -1,4 +1,5 @@
-import { View, TouchableOpacity, StyleSheet } from 'react-native';
+import { View, StyleSheet } from 'react-native';
+import TouchableSound from '@/components/TouchableSound';
 import { Star } from 'lucide-react-native';
 import Colors from '@/constants/colors';
 
@@ -39,7 +40,7 @@ export default function RatingStars({
     <View style={[styles.container, { gap: spacing }]}>
       {[1, 2, 3, 4, 5].map((star) => {
         const isFilled = star <= rating;
-        const StarComponent = readonly ? View : TouchableOpacity;
+        const StarComponent = readonly ? View : TouchableSound;
         
         return (
           <StarComponent

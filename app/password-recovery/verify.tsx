@@ -1,3 +1,4 @@
+import TouchableSound from '@/components/TouchableSound';
 // ============================================================================
 // YESSWERA: RECUPERAR CONTRASENA - VERIFICAR CODIGO
 // Usa ScreenContainer para diseño unificado con soporte de tema oscuro
@@ -6,7 +7,6 @@
 import { useState, useRef, useEffect } from 'react';
 import {
   View,
-  TouchableOpacity,
   TextInput,
   StyleSheet,
 } from 'react-native';
@@ -116,12 +116,12 @@ export default function PasswordRecoveryVerifyScreen() {
   // Header content con boton de regreso
   const headerContent = (
     <View style={styles.headerControls}>
-      <TouchableOpacity
+      <TouchableSound
         style={styles.backButton}
         onPress={() => router.back()}
       >
         <ArrowLeft size={24} color="#FFFFFF" />
-      </TouchableOpacity>
+      </TouchableSound>
       <View style={styles.headerSpacer} />
     </View>
   );
@@ -176,7 +176,7 @@ export default function PasswordRecoveryVerifyScreen() {
       />
 
       <View style={styles.linksContainer}>
-        <TouchableOpacity
+        <TouchableSound
           onPress={handleResendCode}
           disabled={isLoading}
           style={styles.linkButton}
@@ -184,13 +184,13 @@ export default function PasswordRecoveryVerifyScreen() {
           <ThemedText variant="body" color="primary" bold>
             Reenviar codigo
           </ThemedText>
-        </TouchableOpacity>
+        </TouchableSound>
 
         <ThemedText variant="body" color="muted" style={styles.linkSeparator}>
           -
         </ThemedText>
 
-        <TouchableOpacity
+        <TouchableSound
           onPress={() => router.back()}
           disabled={isLoading}
           style={styles.linkButton}
@@ -198,7 +198,7 @@ export default function PasswordRecoveryVerifyScreen() {
           <ThemedText variant="body" color="primary" bold>
             Cambiar email
           </ThemedText>
-        </TouchableOpacity>
+        </TouchableSound>
       </View>
 
       <View style={{ height: 40 }} />

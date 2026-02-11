@@ -1,4 +1,9 @@
-import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
+import TouchableSound from '@/components/TouchableSound';
+import {
+  View,
+  Text,
+  StyleSheet,
+} from 'react-native';
 import { useRouter } from 'expo-router';
 import { UtensilsCrossed, ShoppingBag, Package, ChevronRight, Store } from 'lucide-react-native';
 import { useState, useEffect } from 'react';
@@ -146,7 +151,7 @@ export default function ActiveOrderBanner({ userType }: ActiveOrderBannerProps) 
   const Icon = getIcon();
 
   return (
-    <TouchableOpacity
+    <TouchableSound
       style={styles.banner}
       onPress={handlePress}
       activeOpacity={0.8}
@@ -166,7 +171,7 @@ export default function ActiveOrderBanner({ userType }: ActiveOrderBannerProps) 
       </View>
 
       <ChevronRight size={24} color={Colors.white} />
-    </TouchableOpacity>
+    </TouchableSound>
   );
 }
 

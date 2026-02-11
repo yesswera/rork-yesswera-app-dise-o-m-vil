@@ -1,3 +1,4 @@
+import TouchableSound from '@/components/TouchableSound';
 // ============================================================================
 // YESSWERA: CONTROLES DE ACCESIBILIDAD
 // Botones para cambiar tema (claro/oscuro) y tamaño de UI
@@ -8,7 +9,6 @@ import React from 'react';
 import {
   StyleSheet,
   View,
-  TouchableOpacity,
   Text,
 } from 'react-native';
 import { Sun, Moon, Type, Minus, Plus } from 'lucide-react-native';
@@ -84,7 +84,7 @@ export default function AccessibilityControls({
   if (variant === 'minimal') {
     return (
       <View style={styles.minimalContainer}>
-        <TouchableOpacity
+        <TouchableSound
           onPress={handleThemePress}
           style={[
             styles.minimalButton,
@@ -97,9 +97,9 @@ export default function AccessibilityControls({
           ) : (
             <Moon size={icons.sm} color={colors.primary} />
           )}
-        </TouchableOpacity>
+        </TouchableSound>
 
-        <TouchableOpacity
+        <TouchableSound
           onPress={handleSizePress}
           style={[
             styles.minimalButton,
@@ -108,7 +108,7 @@ export default function AccessibilityControls({
           hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
         >
           {getSizeIcon()}
-        </TouchableOpacity>
+        </TouchableSound>
       </View>
     );
   }
@@ -126,7 +126,7 @@ export default function AccessibilityControls({
         ]}
       >
         {/* Botón de tema */}
-        <TouchableOpacity
+        <TouchableSound
           onPress={handleThemePress}
           style={[
             styles.compactButton,
@@ -152,7 +152,7 @@ export default function AccessibilityControls({
               {isDark ? 'Oscuro' : 'Claro'}
             </Text>
           )}
-        </TouchableOpacity>
+        </TouchableSound>
 
         {/* Separador */}
         <View
@@ -160,7 +160,7 @@ export default function AccessibilityControls({
         />
 
         {/* Botón de tamaño */}
-        <TouchableOpacity
+        <TouchableSound
           onPress={handleSizePress}
           style={[
             styles.compactButton,
@@ -182,7 +182,7 @@ export default function AccessibilityControls({
               {sizeLevelLabel}
             </Text>
           )}
-        </TouchableOpacity>
+        </TouchableSound>
       </View>
     );
   }
@@ -210,7 +210,7 @@ export default function AccessibilityControls({
 
       <View style={styles.fullButtonsRow}>
         {/* Tema */}
-        <TouchableOpacity
+        <TouchableSound
           onPress={handleThemePress}
           style={[
             styles.fullButton,
@@ -250,10 +250,10 @@ export default function AccessibilityControls({
           >
             {isDark ? 'Oscuro' : 'Claro'}
           </Text>
-        </TouchableOpacity>
+        </TouchableSound>
 
         {/* Tamaño */}
-        <TouchableOpacity
+        <TouchableSound
           onPress={handleSizePress}
           style={[
             styles.fullButton,
@@ -289,7 +289,7 @@ export default function AccessibilityControls({
           >
             {sizeLevelLabel}
           </Text>
-        </TouchableOpacity>
+        </TouchableSound>
       </View>
 
       {/* Indicador visual de tamaño */}

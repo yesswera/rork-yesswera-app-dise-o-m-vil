@@ -1,3 +1,4 @@
+import TouchableSound from '@/components/TouchableSound';
 // ============================================================================
 // YESSWERA: PERSONALIZAR MI APP
 // Pantalla para que usuarios configuren su experiencia
@@ -6,7 +7,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import {
   View,
-  TouchableOpacity,
   StyleSheet,
   Switch,
   Alert,
@@ -21,8 +21,6 @@ import {
   ChevronDown,
   Bell,
   BellOff,
-  Volume2,
-  VolumeX,
   Utensils,
   ShoppingCart,
   Package,
@@ -226,25 +224,6 @@ export default function PreferencesScreen() {
     }
   };
 
-  const handleToggleSound = async (key: keyof typeof prefs.sounds) => {
-    if (!user || !prefs) return;
-
-    setIsSaving(true);
-    try {
-      const newSounds = {
-        ...prefs.sounds,
-        [key]: !prefs.sounds[key],
-      };
-      await updateUserPreferences(user.id, { sounds: newSounds });
-      setPrefs({ ...prefs, sounds: newSounds });
-      SoundFeedback.tap();
-    } catch (error) {
-      Toast.error('Error guardando preferencia');
-    } finally {
-      setIsSaving(false);
-    }
-  };
-
   const handleApplySuggestion = async () => {
     if (!user || !prefs || !insights) return;
 
@@ -371,7 +350,7 @@ export default function PreferencesScreen() {
           </View>
 
           {insights && insights.suggestedOrder.join() !== prefs.display.serviceOrder.join() && (
-            <TouchableOpacity
+            <TouchableSound
               style={[styles.suggestionButton, { backgroundColor: FIXED.primary, borderRadius: radius.sm }]}
               onPress={handleApplySuggestion}
             >
@@ -379,7 +358,7 @@ export default function PreferencesScreen() {
               <ThemedText variant="label" color="white" bold style={{ marginLeft: 6 }}>
                 Ordenar según mi uso
               </ThemedText>
-            </TouchableOpacity>
+            </TouchableSound>
           )}
         </View>
       )}
@@ -427,24 +406,24 @@ export default function PreferencesScreen() {
               <View style={styles.serviceActions}>
                 {/* Mover arriba/abajo */}
                 <View style={styles.orderButtons}>
-                  <TouchableOpacity
+                  <TouchableSound
                     style={[styles.orderButton, { opacity: index === 0 ? 0.3 : 1 }]}
                     onPress={() => handleMoveUp(service)}
                     disabled={index === 0}
                   >
                     <ChevronUp size={18} color={theme.textSecondary} />
-                  </TouchableOpacity>
-                  <TouchableOpacity
+                  </TouchableSound>
+                  <TouchableSound
                     style={[styles.orderButton, { opacity: index === prefs.display.serviceOrder.length - 1 ? 0.3 : 1 }]}
                     onPress={() => handleMoveDown(service)}
                     disabled={index === prefs.display.serviceOrder.length - 1}
                   >
                     <ChevronDown size={18} color={theme.textSecondary} />
-                  </TouchableOpacity>
+                  </TouchableSound>
                 </View>
 
                 {/* Ocultar/Mostrar */}
-                <TouchableOpacity
+                <TouchableSound
                   style={[
                     styles.visibilityButton,
                     { backgroundColor: isHidden ? theme.cardAlt : config.color + '20' },
@@ -456,7 +435,7 @@ export default function PreferencesScreen() {
                   ) : (
                     <Eye size={18} color={config.color} />
                   )}
-                </TouchableOpacity>
+                </TouchableSound>
               </View>
             </View>
           );
@@ -498,45 +477,8 @@ export default function PreferencesScreen() {
         </View>
       </View>
 
-      {/* Sounds Section */}
-      <View style={styles.section}>
-        <View style={styles.sectionHeader}>
-          <Volume2 size={20} color={FIXED.primary} />
-          <ThemedText variant="title" bold style={{ marginLeft: 8 }}>
-            Sonidos
-          </ThemedText>
-        </View>
-
-        <View style={[styles.settingsCard, { backgroundColor: theme.card, borderRadius: radius.md }]}>
-          {[
-            { key: 'enabled', label: 'Sonidos globales', desc: 'Activar/desactivar todos' },
-            { key: 'orderSounds', label: 'Sonidos de órdenes', desc: 'Nueva orden, lista, entregada' },
-            { key: 'arrivalSounds', label: 'Sonidos de llegada', desc: 'Cuando llegue el repartidor' },
-            { key: 'chatSounds', label: 'Sonidos de chat', desc: 'Mensajes nuevos' },
-            { key: 'feedbackSounds', label: 'Sonidos de interfaz', desc: 'Clicks, navegación' },
-          ].map((item, index) => (
-            <View key={item.key}>
-              {index > 0 && <View style={[styles.divider, { backgroundColor: theme.border }]} />}
-              <View style={styles.settingRow}>
-                <View style={styles.settingInfo}>
-                  <ThemedText variant="body" style={{ color: theme.text }}>{item.label}</ThemedText>
-                  <ThemedText variant="caption" color="muted">{item.desc}</ThemedText>
-                </View>
-                <Switch
-                  value={prefs.sounds[item.key as keyof typeof prefs.sounds]}
-                  onValueChange={() => handleToggleSound(item.key as keyof typeof prefs.sounds)}
-                  trackColor={{ false: theme.border, true: FIXED.primary + '60' }}
-                  thumbColor={prefs.sounds[item.key as keyof typeof prefs.sounds] ? FIXED.primary : theme.textMuted}
-                  disabled={item.key !== 'enabled' && !prefs.sounds.enabled}
-                />
-              </View>
-            </View>
-          ))}
-        </View>
-      </View>
-
       {/* Reset Button */}
-      <TouchableOpacity
+      <TouchableSound
         style={[styles.resetButton, { borderColor: FIXED.error, borderRadius: radius.md }]}
         onPress={handleReset}
       >
@@ -544,7 +486,7 @@ export default function PreferencesScreen() {
         <ThemedText variant="body" style={{ color: FIXED.error, marginLeft: 8 }}>
           Restablecer Preferencias
         </ThemedText>
-      </TouchableOpacity>
+      </TouchableSound>
 
       <View style={{ height: 40 }} />
     </ScreenContainer>

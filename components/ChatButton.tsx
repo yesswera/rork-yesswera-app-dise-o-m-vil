@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
-import { StyleSheet, Text, View, TouchableOpacity, ActivityIndicator } from 'react-native';
+import { StyleSheet, Text, View, ActivityIndicator } from 'react-native';
+import TouchableSound from '@/components/TouchableSound';
 import { useRouter } from 'expo-router';
 import { MessageCircle } from 'lucide-react-native';
 import Colors from '@/constants/colors';
@@ -74,7 +75,7 @@ export default function ChatButton({ orderId, type, otherPartyName, compact = fa
 
   if (compact) {
     return (
-      <TouchableOpacity
+      <TouchableSound
         style={styles.compactButton}
         onPress={handlePress}
         activeOpacity={0.7}
@@ -87,12 +88,12 @@ export default function ChatButton({ orderId, type, otherPartyName, compact = fa
             </Text>
           </View>
         )}
-      </TouchableOpacity>
+      </TouchableSound>
     );
   }
 
   return (
-    <TouchableOpacity
+    <TouchableSound
       style={styles.button}
       onPress={handlePress}
       activeOpacity={0.7}
@@ -108,7 +109,7 @@ export default function ChatButton({ orderId, type, otherPartyName, compact = fa
         )}
       </View>
       <Text style={styles.buttonText}>Chat</Text>
-    </TouchableOpacity>
+    </TouchableSound>
   );
 }
 

@@ -1,3 +1,4 @@
+import TouchableSound from '@/components/TouchableSound';
 // ============================================================================
 // YESSWERA: ADMIN SETTINGS
 // Configuracion del sistema para administradores - Actualizado con ScreenContainer
@@ -8,7 +9,6 @@ import {
   StyleSheet,
   Text,
   View,
-  TouchableOpacity,
   Switch,
   TextInput,
   Platform,
@@ -431,7 +431,7 @@ export default function AdminSettingsScreen() {
               </View>
             </View>
 
-            <TouchableOpacity
+            <TouchableSound
               style={[styles.actionButtonSmall, { backgroundColor: FIXED_COLORS.accent, marginTop: 12 }]}
               onPress={handleRunSupervision}
               disabled={aiRunning}
@@ -444,7 +444,7 @@ export default function AdminSettingsScreen() {
               <Text style={styles.actionButtonText}>
                 {aiRunning ? 'Ejecutando...' : 'Ejecutar Revision Ahora'}
               </Text>
-            </TouchableOpacity>
+            </TouchableSound>
 
             {/* Recent AI Decisions */}
             {aiDecisions.length > 0 && (
@@ -508,32 +508,32 @@ export default function AdminSettingsScreen() {
           <Text style={[styles.sectionTitle, { color: theme.text }]}>Base de Datos</Text>
         </View>
         <View style={[styles.card, { backgroundColor: theme.card }]}>
-          <TouchableOpacity style={styles.actionRow} onPress={handleExportData}>
+          <TouchableSound style={styles.actionRow} onPress={handleExportData}>
             <Download size={20} color={FIXED_COLORS.primary} />
             <Text style={[styles.actionText, { color: theme.text }]}>Exportar Datos</Text>
-          </TouchableOpacity>
+          </TouchableSound>
           <View style={[styles.divider, { backgroundColor: theme.border }]} />
-          <TouchableOpacity style={styles.actionRow} onPress={handleBackupDatabase}>
+          <TouchableSound style={styles.actionRow} onPress={handleBackupDatabase}>
             <Upload size={20} color={FIXED_COLORS.accent} />
             <Text style={[styles.actionText, { color: theme.text }]}>Backup Base de Datos</Text>
-          </TouchableOpacity>
+          </TouchableSound>
           <View style={[styles.divider, { backgroundColor: theme.border }]} />
-          <TouchableOpacity style={styles.actionRow} onPress={handleClearCache}>
+          <TouchableSound style={styles.actionRow} onPress={handleClearCache}>
             <Trash2 size={20} color={FIXED_COLORS.error} />
             <Text style={[styles.actionText, { color: FIXED_COLORS.error }]}>Limpiar Cache</Text>
-          </TouchableOpacity>
+          </TouchableSound>
         </View>
       </View>
 
-      <TouchableOpacity style={[styles.saveButton, { backgroundColor: FIXED_COLORS.primary }]} onPress={handleSaveSettings}>
+      <TouchableSound style={[styles.saveButton, { backgroundColor: FIXED_COLORS.primary }]} onPress={handleSaveSettings}>
         <RefreshCw size={20} color={FIXED_COLORS.white} />
         <Text style={styles.saveButtonText}>Guardar Configuracion</Text>
-      </TouchableOpacity>
+      </TouchableSound>
 
-      <TouchableOpacity style={[styles.logoutButton, { backgroundColor: theme.card, borderColor: FIXED_COLORS.error }]} onPress={handleLogout}>
+      <TouchableSound style={[styles.logoutButton, { backgroundColor: theme.card, borderColor: FIXED_COLORS.error }]} onPress={handleLogout}>
         <LogOut size={20} color={FIXED_COLORS.error} />
         <Text style={[styles.logoutButtonText, { color: FIXED_COLORS.error }]}>Cerrar Sesion Admin</Text>
-      </TouchableOpacity>
+      </TouchableSound>
 
       <View style={styles.versionInfo}>
         <Text style={[styles.versionText, { color: theme.textSecondary }]}>Yesswera Admin Panel v1.0.0</Text>

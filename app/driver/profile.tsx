@@ -1,10 +1,17 @@
+import TouchableSound from '@/components/TouchableSound';
 // ============================================================================
 // YESSWERA: PERFIL DEL REPARTIDOR
 // Usa ScreenContainer para diseño unificado con soporte de tema
 // ============================================================================
 
 import { useState, useEffect } from 'react';
-import { StyleSheet, View, TouchableOpacity, Image, Alert, ActivityIndicator } from 'react-native';
+import {
+  StyleSheet,
+  View,
+  Image,
+  Alert,
+  ActivityIndicator,
+} from 'react-native';
 import { useRouter } from 'expo-router';
 import { Camera, Edit2, Phone, Mail, FileText, Car, CreditCard, UserPlus, CheckCircle, Clock, TrendingUp, Package, MapPin, User } from 'lucide-react-native';
 import { useAuth } from '@/contexts/auth';
@@ -181,9 +188,9 @@ export default function DriverProfileScreen() {
       <View style={[styles.profileHeader, { backgroundColor: theme.card }]}>
         <View style={styles.avatarContainer}>
           <Image source={{ uri: displayAvatar }} style={[styles.avatar, { borderColor: colors.primary }]} />
-          <TouchableOpacity style={[styles.cameraButton, { backgroundColor: colors.primary }]} onPress={handleEditPhoto}>
+          <TouchableSound style={[styles.cameraButton, { backgroundColor: colors.primary }]} onPress={handleEditPhoto}>
             <Camera size={18} color="#FFFFFF" />
-          </TouchableOpacity>
+          </TouchableSound>
         </View>
         <ThemedText variant="h2" style={{ color: theme.text }}>{displayName}</ThemedText>
         <View style={styles.ratingContainer}>
@@ -191,10 +198,10 @@ export default function DriverProfileScreen() {
           <ThemedText variant="body" style={{ color: theme.textSecondary }}> ({displayRatingCount} calificaciones)</ThemedText>
         </View>
         <ThemedText variant="body" style={{ color: theme.textSecondary }}>Activo desde {displayMemberSince}</ThemedText>
-        <TouchableOpacity onPress={handleEditPersonalInfo} style={[styles.editProfileButton, { backgroundColor: theme.cardAlt }]}>
+        <TouchableSound onPress={handleEditPersonalInfo} style={[styles.editProfileButton, { backgroundColor: theme.cardAlt }]}>
           <Edit2 size={16} color={colors.primary} />
           <ThemedText variant="label" style={{ color: colors.primary }}>Editar Perfil</ThemedText>
-        </TouchableOpacity>
+        </TouchableSound>
       </View>
 
       {/* Personal Info */}
@@ -230,9 +237,9 @@ export default function DriverProfileScreen() {
           <ThemedText variant="body" style={{ color: theme.textSecondary }}>Marca y modelo: No registrado</ThemedText>
           <ThemedText variant="body" style={{ color: theme.textSecondary }}>Placas: No registrado</ThemedText>
         </View>
-        <TouchableOpacity style={[styles.updateButton, { backgroundColor: theme.cardAlt }]} onPress={handleEditVehicle}>
+        <TouchableSound style={[styles.updateButton, { backgroundColor: theme.cardAlt }]} onPress={handleEditVehicle}>
           <ThemedText variant="label" style={{ color: colors.primary }}>Registrar vehiculo</ThemedText>
-        </TouchableOpacity>
+        </TouchableSound>
       </ScreenCard>
 
       {/* Documents */}
@@ -264,9 +271,9 @@ export default function DriverProfileScreen() {
             <ThemedText variant="body" style={{ color: theme.textSecondary }}>Pendiente</ThemedText>
           </View>
         </View>
-        <TouchableOpacity style={styles.linkButton} onPress={handleUpdateDocuments}>
+        <TouchableSound style={styles.linkButton} onPress={handleUpdateDocuments}>
           <ThemedText variant="label" style={{ color: colors.primary }}>Subir documentos</ThemedText>
-        </TouchableOpacity>
+        </TouchableSound>
       </ScreenCard>
 
       {/* Bank Account */}
@@ -279,9 +286,9 @@ export default function DriverProfileScreen() {
           <ThemedText variant="label" style={{ color: theme.textSecondary }}>Estado:</ThemedText>
           <ThemedText variant="body" style={{ color: theme.text }}>No configurada</ThemedText>
         </View>
-        <TouchableOpacity style={styles.linkButton} onPress={handleEditBankAccount}>
+        <TouchableSound style={styles.linkButton} onPress={handleEditBankAccount}>
           <ThemedText variant="label" style={{ color: colors.primary }}>Configurar cuenta</ThemedText>
-        </TouchableOpacity>
+        </TouchableSound>
       </ScreenCard>
 
       {/* Emergency Contact */}
@@ -294,9 +301,9 @@ export default function DriverProfileScreen() {
           <ThemedText variant="label" style={{ color: theme.textSecondary }}>Estado:</ThemedText>
           <ThemedText variant="body" style={{ color: theme.text }}>No configurado</ThemedText>
         </View>
-        <TouchableOpacity style={styles.linkButton} onPress={handleEditEmergencyContact}>
+        <TouchableSound style={styles.linkButton} onPress={handleEditEmergencyContact}>
           <ThemedText variant="label" style={{ color: colors.primary }}>Agregar contacto</ThemedText>
-        </TouchableOpacity>
+        </TouchableSound>
       </ScreenCard>
 
       {/* Statistics */}

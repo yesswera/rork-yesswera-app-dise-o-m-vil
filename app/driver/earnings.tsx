@@ -1,3 +1,4 @@
+import TouchableSound from '@/components/TouchableSound';
 // ============================================================================
 // YESSWERA: GANANCIAS DEL REPARTIDOR
 // Usa ScreenContainer para diseño unificado con soporte de tema
@@ -5,7 +6,11 @@
 // ============================================================================
 
 import { useState, useEffect } from 'react';
-import { StyleSheet, View, ScrollView, TouchableOpacity } from 'react-native';
+import {
+  StyleSheet,
+  View,
+  ScrollView,
+} from 'react-native';
 import { useRouter } from 'expo-router';
 import { DollarSign, Package, TrendingUp, Clock } from 'lucide-react-native';
 import { useAuth } from '@/contexts/auth';
@@ -202,7 +207,7 @@ export default function EarningsScreen() {
   // Tab selector header content
   const headerContent = (
     <View style={[styles.tabsContainer, { backgroundColor: 'rgba(255,255,255,0.15)', borderRadius: radius.md }]}>
-      <TouchableOpacity
+      <TouchableSound
         style={[styles.tab, selectedPeriod === 'today' && styles.tabActive]}
         onPress={() => setSelectedPeriod('today')}
       >
@@ -213,8 +218,8 @@ export default function EarningsScreen() {
         >
           Hoy
         </ThemedText>
-      </TouchableOpacity>
-      <TouchableOpacity
+      </TouchableSound>
+      <TouchableSound
         style={[styles.tab, selectedPeriod === 'week' && styles.tabActive]}
         onPress={() => setSelectedPeriod('week')}
       >
@@ -225,8 +230,8 @@ export default function EarningsScreen() {
         >
           Esta Semana
         </ThemedText>
-      </TouchableOpacity>
-      <TouchableOpacity
+      </TouchableSound>
+      <TouchableSound
         style={[styles.tab, selectedPeriod === 'month' && styles.tabActive]}
         onPress={() => setSelectedPeriod('month')}
       >
@@ -237,7 +242,7 @@ export default function EarningsScreen() {
         >
           Este Mes
         </ThemedText>
-      </TouchableOpacity>
+      </TouchableSound>
     </View>
   );
 

@@ -1,4 +1,9 @@
-import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
+import TouchableSound from '@/components/TouchableSound';
+import {
+  View,
+  Text,
+  StyleSheet,
+} from 'react-native';
 import { CheckCircle, Clock, Copy } from 'lucide-react-native';
 import * as Clipboard from 'expo-clipboard';
 import Colors from '@/constants/colors';
@@ -54,13 +59,13 @@ export default function VerificationCodeDisplay({
       <View style={[styles.codeContainer, validated && styles.codeContainerValidated]}>
         <Text style={styles.code}>{code}</Text>
         {!validated && (
-          <TouchableOpacity 
+          <TouchableSound 
             style={styles.copyButton} 
             onPress={handleCopyCode}
             activeOpacity={0.7}
           >
             <Copy size={20} color={Colors.primary} />
-          </TouchableOpacity>
+          </TouchableSound>
         )}
       </View>
 

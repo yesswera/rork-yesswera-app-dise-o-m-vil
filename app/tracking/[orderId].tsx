@@ -1,3 +1,4 @@
+import TouchableSound from '@/components/TouchableSound';
 // ============================================================================
 // YESSWERA: TRACKING DE ORDEN
 // Pantalla de seguimiento en vivo con mapa
@@ -9,7 +10,6 @@ import {
   StyleSheet,
   Text,
   View,
-  TouchableOpacity,
   ScrollView,
   Dimensions,
   ActivityIndicator,
@@ -537,12 +537,12 @@ export default function TrackingScreen() {
                     Han pasado mas de 5 minutos sin respuesta. Puedes ver otros negocios similares o cancelar.
                   </Text>
                   <View style={styles.timeoutActions}>
-                    <TouchableOpacity
+                    <TouchableSound
                       style={[styles.timeoutAlternativesButton, { backgroundColor: colors.primary }]}
                       onPress={() => router.push(`/orders/cancel/${orderId}` as any)}
                     >
                       <Text style={styles.timeoutAlternativesText}>Ver Alternativas</Text>
-                    </TouchableOpacity>
+                    </TouchableSound>
                   </View>
                 </>
               ) : (
@@ -578,7 +578,7 @@ export default function TrackingScreen() {
                 <View style={styles.alternativesList}>
                   <Text style={[styles.alternativesTitle, { color: theme.text }]}>Prueba con estos negocios:</Text>
                   {alternatives.map((biz) => (
-                    <TouchableOpacity
+                    <TouchableSound
                       key={biz.id}
                       style={[styles.alternativeItem, { backgroundColor: theme.card, borderColor: theme.border }]}
                       onPress={() => router.replace(`/food/menu/${biz.id}` as any)}
@@ -592,7 +592,7 @@ export default function TrackingScreen() {
                       <View style={[styles.alternativeButton, { backgroundColor: colors.primary }]}>
                         <Text style={styles.alternativeButtonText}>Ver Menu</Text>
                       </View>
-                    </TouchableOpacity>
+                    </TouchableSound>
                   ))}
                 </View>
               ) : (
@@ -601,13 +601,13 @@ export default function TrackingScreen() {
                 </Text>
               )}
 
-              <TouchableOpacity
+              <TouchableSound
                 style={[styles.goHomeButton, { backgroundColor: colors.primary }]}
                 onPress={() => router.replace('/' as any)}
               >
                 <RefreshCw size={18} color="#FFFFFF" />
                 <Text style={styles.goHomeButtonText}>Buscar en Inicio</Text>
-              </TouchableOpacity>
+              </TouchableSound>
             </View>
           )}
 
@@ -631,24 +631,24 @@ export default function TrackingScreen() {
 
           {/* Cancel button */}
           {canCancel && (
-            <TouchableOpacity
+            <TouchableSound
               style={[styles.cancelButton, { borderColor: STATUS_COLORS.error }]}
               onPress={() => router.push(`/orders/cancel/${orderId}` as any)}
             >
               <X size={18} color={STATUS_COLORS.error} />
               <Text style={[styles.cancelButtonText, { color: STATUS_COLORS.error }]}>Cancelar Pedido</Text>
-            </TouchableOpacity>
+            </TouchableSound>
           )}
 
           {/* Request cancellation */}
           {canRequestCancel && (
-            <TouchableOpacity
+            <TouchableSound
               style={[styles.requestCancelButton, { borderColor: STATUS_COLORS.warning }]}
               onPress={() => router.push(`/orders/cancel-request/${orderId}` as any)}
             >
               <AlertCircle size={18} color={STATUS_COLORS.warning} />
               <Text style={[styles.requestCancelText, { color: STATUS_COLORS.warning }]}>Solicitar Cancelacion</Text>
-            </TouchableOpacity>
+            </TouchableSound>
           )}
 
           {/* Driver Card */}
@@ -670,9 +670,9 @@ export default function TrackingScreen() {
               </View>
             </View>
             <View style={styles.actionsRow}>
-              <TouchableOpacity style={[styles.actionButton, { backgroundColor: `${colors.primary}15` }]}>
+              <TouchableSound style={[styles.actionButton, { backgroundColor: `${colors.primary}15` }]}>
                 <Phone size={20} color={colors.primary} />
-              </TouchableOpacity>
+              </TouchableSound>
               {order.driverId && (
                 <ChatButton
                   orderId={orderId as string}
@@ -686,12 +686,12 @@ export default function TrackingScreen() {
 
           {/* Rate button */}
           {order.status === 'delivered' && !order.rated && (
-            <TouchableOpacity
+            <TouchableSound
               style={[styles.completeButton, { backgroundColor: colors.primary }]}
               onPress={handleCompleteDelivery}
             >
               <Text style={styles.completeButtonText}>Calificar Repartidor</Text>
-            </TouchableOpacity>
+            </TouchableSound>
           )}
 
           {/* Support */}
@@ -756,13 +756,13 @@ function RatingComponent({
 
       <View style={styles.starsContainer}>
         {[1, 2, 3, 4, 5].map((star) => (
-          <TouchableOpacity key={star} onPress={() => setRating(star)} style={styles.starButton}>
+          <TouchableSound key={star} onPress={() => setRating(star)} style={styles.starButton}>
             <Star
               size={40}
               color={star <= rating ? STATUS_COLORS.warning : theme.border}
               fill={star <= rating ? STATUS_COLORS.warning : 'transparent'}
             />
-          </TouchableOpacity>
+          </TouchableSound>
         ))}
       </View>
 
@@ -775,7 +775,7 @@ function RatingComponent({
         </View>
       </View>
 
-      <TouchableOpacity
+      <TouchableSound
         style={[
           styles.submitButton,
           { backgroundColor: colors.primary },
@@ -785,11 +785,11 @@ function RatingComponent({
         disabled={rating === 0}
       >
         <Text style={styles.submitButtonText}>Enviar Calificacion</Text>
-      </TouchableOpacity>
+      </TouchableSound>
 
-      <TouchableOpacity style={styles.skipButton} onPress={onComplete}>
+      <TouchableSound style={styles.skipButton} onPress={onComplete}>
         <Text style={[styles.skipButtonText, { color: theme.textSecondary }]}>Saltar</Text>
-      </TouchableOpacity>
+      </TouchableSound>
     </ScrollView>
   );
 }

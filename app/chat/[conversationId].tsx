@@ -1,3 +1,4 @@
+import TouchableSound from '@/components/TouchableSound';
 // ============================================================================
 // YESSWERA: CHAT - CONVERSACION
 // Pantalla de chat por conversationId
@@ -8,7 +9,6 @@ import { useState, useEffect, useRef, useCallback } from 'react';
 import {
   StyleSheet,
   View,
-  TouchableOpacity,
   FlatList,
   TextInput,
   ActivityIndicator,
@@ -282,7 +282,7 @@ export default function ChatScreen() {
         maxLength={500}
         editable={!isSending}
       />
-      <TouchableOpacity
+      <TouchableSound
         style={[
           styles.sendButton,
           { backgroundColor: colors.primary },
@@ -297,7 +297,7 @@ export default function ChatScreen() {
         ) : (
           <Send size={20} color="#FFFFFF" />
         )}
-      </TouchableOpacity>
+      </TouchableSound>
     </View>
   );
 
@@ -315,13 +315,13 @@ export default function ChatScreen() {
           headerTitle: (otherPartyName as string) || 'Chat',
           headerTitleStyle: { fontSize: 18, fontWeight: '700' },
           headerLeft: () => (
-            <TouchableOpacity
+            <TouchableSound
               style={styles.headerBackButton}
               onPress={() => router.back()}
               activeOpacity={0.7}
             >
               <ChevronLeft size={24} color="#FFFFFF" />
-            </TouchableOpacity>
+            </TouchableSound>
           ),
         }}
       />

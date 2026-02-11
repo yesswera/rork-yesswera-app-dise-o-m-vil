@@ -1,3 +1,4 @@
+import TouchableSound from '@/components/TouchableSound';
 // ============================================================================
 // YESSWERA: RECUPERAR CONTRASENA - SOLICITUD
 // Usa ScreenContainer para diseño unificado con soporte de tema oscuro
@@ -6,7 +7,6 @@
 import { useState } from 'react';
 import {
   View,
-  TouchableOpacity,
   StyleSheet,
   Image,
 } from 'react-native';
@@ -92,12 +92,12 @@ export default function PasswordRecoveryRequestScreen() {
   // Header content con boton de regreso
   const headerContent = (
     <View style={styles.headerControls}>
-      <TouchableOpacity
+      <TouchableSound
         style={styles.backButton}
         onPress={() => router.back()}
       >
         <ArrowLeft size={24} color="#FFFFFF" />
-      </TouchableOpacity>
+      </TouchableSound>
       <View style={styles.headerSpacer} />
     </View>
   );
@@ -146,7 +146,7 @@ export default function PasswordRecoveryRequestScreen() {
           variant="primary"
         />
 
-        <TouchableOpacity
+        <TouchableSound
           style={styles.backToLogin}
           onPress={() => router.push('/login' as any)}
           disabled={isLoading}
@@ -154,7 +154,7 @@ export default function PasswordRecoveryRequestScreen() {
           <ThemedText variant="body" color="primary" bold>
             Volver al inicio de sesion
           </ThemedText>
-        </TouchableOpacity>
+        </TouchableSound>
       </View>
 
       <View style={{ height: 40 }} />

@@ -1,3 +1,4 @@
+import TouchableSound from '@/components/TouchableSound';
 // ============================================================================
 // YESSWERA: PANTALLA DE LOGIN
 // Diseño unificado con ScreenContainer - Todo scrollea junto
@@ -7,7 +8,6 @@ import { useState } from 'react';
 import {
   View,
   TextInput,
-  TouchableOpacity,
   StyleSheet,
 } from 'react-native';
 import { useRouter } from 'expo-router';
@@ -169,7 +169,7 @@ export default function LoginScreen() {
       </View>
 
       {/* Olvidé contraseña */}
-      <TouchableOpacity
+      <TouchableSound
         style={styles.forgotPassword}
         onPress={() => router.push('/password-recovery/request' as any)}
         disabled={isLoading}
@@ -177,10 +177,10 @@ export default function LoginScreen() {
         <ThemedText variant="label" color="accent" bold>
           ¿Olvidaste tu contraseña?
         </ThemedText>
-      </TouchableOpacity>
+      </TouchableSound>
 
       {/* Botón Iniciar Sesión */}
-      <TouchableOpacity
+      <TouchableSound
         style={[styles.button, {
           backgroundColor: isLoading ? theme.border : colors.primary,
           borderRadius: radius.md,
@@ -193,7 +193,7 @@ export default function LoginScreen() {
         <ThemedText variant="subtitle" color="white" bold>
           {isLoading ? 'Iniciando...' : 'Iniciar Sesión'}
         </ThemedText>
-      </TouchableOpacity>
+      </TouchableSound>
 
       {/* Divider */}
       <View style={[styles.divider, { marginVertical: space.xl }]}>
@@ -205,7 +205,7 @@ export default function LoginScreen() {
       </View>
 
       {/* Link a registro */}
-      <TouchableOpacity
+      <TouchableSound
         style={styles.linkButton}
         onPress={() => router.push('/register' as any)}
         disabled={isLoading}
@@ -214,7 +214,7 @@ export default function LoginScreen() {
           ¿No tienes cuenta?{' '}
           <ThemedText variant="body" color="accent" bold>Regístrate</ThemedText>
         </ThemedText>
-      </TouchableOpacity>
+      </TouchableSound>
 
       <View style={{ height: 40 }} />
     </ScreenContainer>

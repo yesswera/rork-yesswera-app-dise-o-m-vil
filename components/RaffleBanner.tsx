@@ -1,3 +1,4 @@
+import TouchableSound from '@/components/TouchableSound';
 // ============================================================================
 // YESSWERA: BANNER DE SORTEO
 // Muestra información del sorteo activo y entradas del usuario
@@ -8,7 +9,6 @@ import {
   StyleSheet,
   Text,
   View,
-  TouchableOpacity,
   ActivityIndicator,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -100,7 +100,7 @@ export default function RaffleBanner({
 
   if (compact) {
     return (
-      <TouchableOpacity onPress={handlePress}>
+      <TouchableSound onPress={handlePress}>
         <LinearGradient
           colors={['#F59E0B', '#D97706']}
           start={{ x: 0, y: 0 }}
@@ -126,12 +126,12 @@ export default function RaffleBanner({
             <ChevronRight size={20} color={Colors.white} />
           </View>
         </LinearGradient>
-      </TouchableOpacity>
+      </TouchableSound>
     );
   }
 
   return (
-    <TouchableOpacity style={styles.container} onPress={handlePress}>
+    <TouchableSound style={styles.container} onPress={handlePress}>
       <LinearGradient
         colors={['#F59E0B', '#D97706', '#B45309']}
         start={{ x: 0, y: 0 }}
@@ -237,7 +237,7 @@ export default function RaffleBanner({
           <ChevronRight size={18} color={Colors.white} />
         </View>
       </LinearGradient>
-    </TouchableOpacity>
+    </TouchableSound>
   );
 }
 

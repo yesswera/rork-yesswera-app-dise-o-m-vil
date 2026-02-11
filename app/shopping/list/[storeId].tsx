@@ -1,5 +1,14 @@
+import TouchableSound from '@/components/TouchableSound';
 import { useState, useEffect, useCallback, useMemo } from 'react';
-import { StyleSheet, Text, View, TouchableOpacity, ScrollView, TextInput, Alert, ActivityIndicator } from 'react-native';
+import {
+  StyleSheet,
+  Text,
+  View,
+  ScrollView,
+  TextInput,
+  Alert,
+  ActivityIndicator,
+} from 'react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { ShoppingBag } from 'lucide-react-native';
 import Colors from '@/constants/colors';
@@ -212,7 +221,7 @@ export default function ShoppingListScreen() {
       </ScrollView>
 
       <View style={[styles.footer, { backgroundColor: theme.card, borderTopColor: theme.border }]}>
-        <TouchableOpacity
+        <TouchableSound
           style={[styles.submitButton, isProcessing && styles.submitButtonDisabled]}
           onPress={handleSubmit}
           disabled={isProcessing}
@@ -220,7 +229,7 @@ export default function ShoppingListScreen() {
           <Text style={styles.submitButtonText}>
             {isProcessing ? 'Creando Orden...' : 'Crear Orden'}
           </Text>
-        </TouchableOpacity>
+        </TouchableSound>
       </View>
     </View>
   );

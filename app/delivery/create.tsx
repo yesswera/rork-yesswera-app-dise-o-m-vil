@@ -1,9 +1,9 @@
+import TouchableSound from '@/components/TouchableSound';
 import { useState, useRef, useEffect } from 'react';
 import {
   StyleSheet,
   Text,
   View,
-  TouchableOpacity,
   ScrollView,
   TextInput,
   Alert,
@@ -475,7 +475,7 @@ export default function DeliveryCreateScreen() {
 
   // Footer component
   const FooterComponent = (
-    <TouchableOpacity
+    <TouchableSound
       style={[styles.submitButton, isProcessing && styles.submitButtonDisabled]}
       onPress={handleSubmit}
       disabled={isProcessing}
@@ -483,7 +483,7 @@ export default function DeliveryCreateScreen() {
       <Text style={styles.submitButtonText}>
         {isProcessing ? 'Creando Orden...' : `Crear Orden - $${deliveryCost}`}
       </Text>
-    </TouchableOpacity>
+    </TouchableSound>
   );
 
   return (
@@ -500,7 +500,7 @@ export default function DeliveryCreateScreen() {
         {/* Pickup Location */}
         <View style={styles.section}>
           <Text style={[styles.sectionTitle, { color: theme.text }]}>Punto de Recogida</Text>
-          <TouchableOpacity
+          <TouchableSound
             style={[
               styles.locationCard,
               { backgroundColor: theme.card, borderColor: theme.border },
@@ -526,20 +526,20 @@ export default function DeliveryCreateScreen() {
               )}
             </View>
             <ChevronRight size={20} color={theme.textLight} />
-          </TouchableOpacity>
+          </TouchableSound>
 
           {savedAddresses.length > 0 && !pickupLocation && (
             <View style={styles.savedAddressesRow}>
               <Text style={[styles.savedLabel, { color: theme.textSecondary }]}>O usar guardada:</Text>
               <ScrollView horizontal showsHorizontalScrollIndicator={false}>
                 {savedAddresses.slice(0, 3).map((addr) => (
-                  <TouchableOpacity
+                  <TouchableSound
                     key={addr.id}
                     style={[styles.savedAddressChip, { backgroundColor: theme.cardAlt }]}
                     onPress={() => selectSavedAddress(addr, 'pickup')}
                   >
                     <Text style={[styles.savedAddressText, { color: theme.text }]}>{addr.label}</Text>
-                  </TouchableOpacity>
+                  </TouchableSound>
                 ))}
               </ScrollView>
             </View>
@@ -559,7 +559,7 @@ export default function DeliveryCreateScreen() {
         {/* Delivery Location */}
         <View style={styles.section}>
           <Text style={[styles.sectionTitle, { color: theme.text }]}>Punto de Entrega</Text>
-          <TouchableOpacity
+          <TouchableSound
             style={[
               styles.locationCard,
               { backgroundColor: theme.card, borderColor: theme.border },
@@ -585,20 +585,20 @@ export default function DeliveryCreateScreen() {
               )}
             </View>
             <ChevronRight size={20} color={theme.textLight} />
-          </TouchableOpacity>
+          </TouchableSound>
 
           {savedAddresses.length > 0 && !deliveryLocation && (
             <View style={styles.savedAddressesRow}>
               <Text style={[styles.savedLabel, { color: theme.textSecondary }]}>O usar guardada:</Text>
               <ScrollView horizontal showsHorizontalScrollIndicator={false}>
                 {savedAddresses.slice(0, 3).map((addr) => (
-                  <TouchableOpacity
+                  <TouchableSound
                     key={addr.id}
                     style={[styles.savedAddressChip, { backgroundColor: theme.cardAlt }]}
                     onPress={() => selectSavedAddress(addr, 'delivery')}
                   >
                     <Text style={[styles.savedAddressText, { color: theme.text }]}>{addr.label}</Text>
-                  </TouchableOpacity>
+                  </TouchableSound>
                 ))}
               </ScrollView>
             </View>
@@ -623,7 +623,7 @@ export default function DeliveryCreateScreen() {
               const Icon = type.icon;
               const isSelected = packageType === type.id;
               return (
-                <TouchableOpacity
+                <TouchableSound
                   key={type.id}
                   style={[
                     styles.optionCard,
@@ -637,7 +637,7 @@ export default function DeliveryCreateScreen() {
                     {type.label}
                   </Text>
                   <Text style={[styles.optionDescription, { color: theme.textLight }]}>{type.description}</Text>
-                </TouchableOpacity>
+                </TouchableSound>
               );
             })}
           </View>
@@ -651,7 +651,7 @@ export default function DeliveryCreateScreen() {
           </View>
           <View style={styles.sizeRow}>
             {SIZE_OPTIONS.map((size) => (
-              <TouchableOpacity
+              <TouchableSound
                 key={size.id}
                 style={[
                   styles.sizeCard,
@@ -664,7 +664,7 @@ export default function DeliveryCreateScreen() {
                   {size.label}
                 </Text>
                 <Text style={[styles.sizeDescription, { color: theme.textLight }]}>{size.description}</Text>
-              </TouchableOpacity>
+              </TouchableSound>
             ))}
           </View>
         </View>
@@ -677,7 +677,7 @@ export default function DeliveryCreateScreen() {
           </View>
           <View style={styles.weightGrid}>
             {WEIGHT_OPTIONS.map((weight) => (
-              <TouchableOpacity
+              <TouchableSound
                 key={weight.id}
                 style={[
                   styles.weightCard,
@@ -690,7 +690,7 @@ export default function DeliveryCreateScreen() {
                   {weight.label}
                 </Text>
                 <Text style={[styles.weightDescription, { color: theme.textLight }]}>{weight.description}</Text>
-              </TouchableOpacity>
+              </TouchableSound>
             ))}
           </View>
         </View>
@@ -816,7 +816,7 @@ export default function DeliveryCreateScreen() {
                   <Text style={[styles.relationshipLabel, { color: theme.text }]}>Tu relacion con el menor:</Text>
                   <View style={styles.relationshipOptions}>
                     {RELATIONSHIPS.map((rel) => (
-                      <TouchableOpacity
+                      <TouchableSound
                         key={rel.id}
                         style={[
                           styles.relationshipChip,
@@ -832,11 +832,11 @@ export default function DeliveryCreateScreen() {
                         ]}>
                           {rel.label}
                         </Text>
-                      </TouchableOpacity>
+                      </TouchableSound>
                     ))}
                   </View>
 
-                  <TouchableOpacity
+                  <TouchableSound
                     style={styles.responsibilityCheck}
                     onPress={() => setAcceptMinorResponsibility(!acceptMinorResponsibility)}
                   >
@@ -850,7 +850,7 @@ export default function DeliveryCreateScreen() {
                     <Text style={[styles.responsibilityText, { color: theme.textSecondary }]}>
                       Soy responsable de este pedido y autorizo la entrega al menor indicado.
                     </Text>
-                  </TouchableOpacity>
+                  </TouchableSound>
                 </View>
               )}
             </View>
@@ -861,7 +861,7 @@ export default function DeliveryCreateScreen() {
         <View style={styles.section}>
           <Text style={[styles.sectionTitle, { color: theme.text }]}>Nivel de Urgencia</Text>
           <View style={styles.urgencyContainer}>
-            <TouchableOpacity
+            <TouchableSound
               style={[
                 styles.urgencyCard,
                 { backgroundColor: theme.card, borderColor: theme.border },
@@ -874,9 +874,9 @@ export default function DeliveryCreateScreen() {
                 Estandar
               </Text>
               <Text style={[styles.urgencyTime, { color: theme.textSecondary }]}>45-60 min</Text>
-            </TouchableOpacity>
+            </TouchableSound>
 
-            <TouchableOpacity
+            <TouchableSound
               style={[
                 styles.urgencyCard,
                 { backgroundColor: theme.card, borderColor: theme.border },
@@ -890,7 +890,7 @@ export default function DeliveryCreateScreen() {
               </Text>
               <Text style={[styles.urgencyTime, { color: theme.textSecondary }]}>20-30 min</Text>
               <Text style={styles.urgencyPrice}>+50%</Text>
-            </TouchableOpacity>
+            </TouchableSound>
           </View>
         </View>
 
@@ -957,13 +957,13 @@ export default function DeliveryCreateScreen() {
       >
         <View style={styles.mapContainer}>
           <View style={[styles.mapHeader, { backgroundColor: theme.card, borderBottomColor: theme.border }]}>
-            <TouchableOpacity onPress={() => setShowPickupMap(false)}>
+            <TouchableSound onPress={() => setShowPickupMap(false)}>
               <X size={24} color={theme.text} />
-            </TouchableOpacity>
+            </TouchableSound>
             <Text style={[styles.mapTitle, { color: theme.text }]}>Punto de Recogida</Text>
-            <TouchableOpacity onPress={() => confirmMapLocation('pickup')}>
+            <TouchableSound onPress={() => confirmMapLocation('pickup')}>
               <Text style={styles.mapConfirm}>Confirmar</Text>
-            </TouchableOpacity>
+            </TouchableSound>
           </View>
 
           {/* Search Bar */}
@@ -982,14 +982,14 @@ export default function DeliveryCreateScreen() {
               {isSearching ? (
                 <Loader size={20} color={Colors.primary} />
               ) : searchQuery.length > 0 ? (
-                <TouchableOpacity onPress={searchAddress}>
+                <TouchableSound onPress={searchAddress}>
                   <ChevronRight size={20} color={Colors.primary} />
-                </TouchableOpacity>
+                </TouchableSound>
               ) : null}
             </View>
-            <TouchableOpacity style={styles.myLocationButton} onPress={getCurrentLocation}>
+            <TouchableSound style={styles.myLocationButton} onPress={getCurrentLocation}>
               <Crosshair size={20} color={Colors.white} />
-            </TouchableOpacity>
+            </TouchableSound>
           </View>
 
           <MapView
@@ -1028,13 +1028,13 @@ export default function DeliveryCreateScreen() {
       >
         <View style={styles.mapContainer}>
           <View style={[styles.mapHeader, { backgroundColor: theme.card, borderBottomColor: theme.border }]}>
-            <TouchableOpacity onPress={() => setShowDeliveryMap(false)}>
+            <TouchableSound onPress={() => setShowDeliveryMap(false)}>
               <X size={24} color={theme.text} />
-            </TouchableOpacity>
+            </TouchableSound>
             <Text style={[styles.mapTitle, { color: theme.text }]}>Punto de Entrega</Text>
-            <TouchableOpacity onPress={() => confirmMapLocation('delivery')}>
+            <TouchableSound onPress={() => confirmMapLocation('delivery')}>
               <Text style={styles.mapConfirm}>Confirmar</Text>
-            </TouchableOpacity>
+            </TouchableSound>
           </View>
 
           {/* Search Bar */}
@@ -1053,14 +1053,14 @@ export default function DeliveryCreateScreen() {
               {isSearching ? (
                 <Loader size={20} color={Colors.primary} />
               ) : searchQuery.length > 0 ? (
-                <TouchableOpacity onPress={searchAddress}>
+                <TouchableSound onPress={searchAddress}>
                   <ChevronRight size={20} color={Colors.primary} />
-                </TouchableOpacity>
+                </TouchableSound>
               ) : null}
             </View>
-            <TouchableOpacity style={styles.myLocationButton} onPress={getCurrentLocation}>
+            <TouchableSound style={styles.myLocationButton} onPress={getCurrentLocation}>
               <Crosshair size={20} color={Colors.white} />
-            </TouchableOpacity>
+            </TouchableSound>
           </View>
 
           <MapView
@@ -1111,13 +1111,13 @@ export default function DeliveryCreateScreen() {
               - Yesswera no se responsabiliza por danos a articulos mal empacados
             </Text>
             <View style={styles.warningModalButtons}>
-              <TouchableOpacity
+              <TouchableSound
                 style={[styles.warningModalCancel, { borderColor: theme.border }]}
                 onPress={() => setShowFragileWarning(false)}
               >
                 <Text style={[styles.warningModalCancelText, { color: theme.textSecondary }]}>Volver</Text>
-              </TouchableOpacity>
-              <TouchableOpacity
+              </TouchableSound>
+              <TouchableSound
                 style={styles.warningModalAccept}
                 onPress={() => {
                   setShowFragileWarning(false);
@@ -1125,7 +1125,7 @@ export default function DeliveryCreateScreen() {
                 }}
               >
                 <Text style={styles.warningModalAcceptText}>Entendido, Continuar</Text>
-              </TouchableOpacity>
+              </TouchableSound>
             </View>
           </View>
         </View>

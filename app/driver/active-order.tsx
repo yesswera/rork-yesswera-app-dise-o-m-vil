@@ -1,3 +1,4 @@
+import TouchableSound from '@/components/TouchableSound';
 // ============================================================================
 // YESSWERA: ORDEN ACTIVA DEL REPARTIDOR
 // Usa ScreenContainer para diseño unificado con soporte de tema
@@ -7,7 +8,6 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import {
   StyleSheet,
   View,
-  TouchableOpacity,
   Alert,
   TextInput,
   ActivityIndicator,
@@ -343,13 +343,13 @@ export default function ActiveOrderScreen() {
           </View>
           <ThemedText variant="body" style={{ color: theme.textSecondary }}>{order.pickupAddress || 'N/A'}</ThemedText>
           {isGoingToBusiness && (
-            <TouchableOpacity
+            <TouchableSound
               style={[styles.navButtonSmall, { backgroundColor: theme.accent }]}
               onPress={() => openNavigation(order.pickupAddress || '', order.pickupLocation)}
             >
               <Navigation size={16} color="#fff" />
               <ThemedText variant="label" color="white">Ir al negocio</ThemedText>
-            </TouchableOpacity>
+            </TouchableSound>
           )}
         </View>
 
@@ -361,22 +361,22 @@ export default function ActiveOrderScreen() {
           </View>
           <ThemedText variant="body" style={{ color: theme.textSecondary }}>{order.deliveryAddress}</ThemedText>
           {(isInTransit || isAtClient) && (
-            <TouchableOpacity
+            <TouchableSound
               style={[styles.navButtonSmall, { backgroundColor: theme.success }]}
               onPress={() => openNavigation(order.deliveryAddress, order.deliveryLocation)}
             >
               <Navigation size={16} color="#fff" />
               <ThemedText variant="label" color="white">Ir al cliente</ThemedText>
-            </TouchableOpacity>
+            </TouchableSound>
           )}
         </View>
 
         {/* Contact Actions */}
         <View style={styles.contactActions}>
-          <TouchableOpacity style={[styles.contactButton, { borderColor: theme.border, backgroundColor: theme.card }]} onPress={callClient}>
+          <TouchableSound style={[styles.contactButton, { borderColor: theme.border, backgroundColor: theme.card }]} onPress={callClient}>
             <Phone size={18} color={colors.primary} />
             <ThemedText variant="label" style={{ color: theme.text }}>Llamar</ThemedText>
-          </TouchableOpacity>
+          </TouchableSound>
           <OrderChatButton
             orderId={order.id.toString()}
             targetType="client"
@@ -448,13 +448,13 @@ export default function ActiveOrderScreen() {
               </View>
               <ThemedText variant="subtitle" bold style={{ color: theme.text }}>{order.packageDetails.recipientName}</ThemedText>
               {order.packageDetails.recipientPhone && (
-                <TouchableOpacity
+                <TouchableSound
                   style={styles.recipientPhone}
                   onPress={() => Linking.openURL(`tel:${order.packageDetails!.recipientPhone}`)}
                 >
                   <Phone size={14} color={colors.primary} />
                   <ThemedText variant="body" style={{ color: colors.primary }}>{order.packageDetails.recipientPhone}</ThemedText>
-                </TouchableOpacity>
+                </TouchableSound>
               )}
             </View>
           )}
@@ -495,7 +495,7 @@ export default function ActiveOrderScreen() {
           <ThemedText variant="body" style={[styles.stepInstruction, { color: theme.textSecondary }]}>
             Dirigete al negocio. Cuando llegues, presiona el boton para confirmar tu llegada.
           </ThemedText>
-          <TouchableOpacity
+          <TouchableSound
             style={[styles.validateButton, { backgroundColor: colors.primary }, validating && styles.validateButtonDisabled]}
             onPress={handleArrivedAtBusiness}
             disabled={validating}
@@ -508,7 +508,7 @@ export default function ActiveOrderScreen() {
                 <ThemedText variant="label" bold color="white">Ya Llegue al Negocio</ThemedText>
               </>
             )}
-          </TouchableOpacity>
+          </TouchableSound>
         </ScreenCard>
       )}
 
@@ -560,7 +560,7 @@ export default function ActiveOrderScreen() {
           <ThemedText variant="body" style={[styles.stepInstruction, { color: theme.textSecondary }]}>
             El negocio te entrego el pedido? Confirma para iniciar el viaje al cliente.
           </ThemedText>
-          <TouchableOpacity
+          <TouchableSound
             style={[styles.validateButton, { backgroundColor: theme.success }, validating && styles.validateButtonDisabled]}
             onPress={handleOrderReceived}
             disabled={validating}
@@ -573,7 +573,7 @@ export default function ActiveOrderScreen() {
                 <ThemedText variant="label" bold color="white">Recibi la Orden</ThemedText>
               </>
             )}
-          </TouchableOpacity>
+          </TouchableSound>
         </ScreenCard>
       )}
 
@@ -592,7 +592,7 @@ export default function ActiveOrderScreen() {
             <ThemedText variant="body" style={[styles.stepInstruction, { color: theme.textSecondary }]}>
               Cuando estes en el domicilio del cliente, confirma tu llegada.
             </ThemedText>
-            <TouchableOpacity
+            <TouchableSound
               style={[styles.validateButton, { backgroundColor: theme.accent }, validating && styles.validateButtonDisabled]}
               onPress={handleArrivedAtClient}
               disabled={validating}
@@ -605,7 +605,7 @@ export default function ActiveOrderScreen() {
                   <ThemedText variant="label" bold color="white">Ya Llegue</ThemedText>
                 </>
               )}
-            </TouchableOpacity>
+            </TouchableSound>
           </ScreenCard>
         </>
       )}
@@ -646,7 +646,7 @@ export default function ActiveOrderScreen() {
               onSubmitEditing={() => Keyboard.dismiss()}
               selectTextOnFocus={true}
             />
-            <TouchableOpacity
+            <TouchableSound
               style={[
                 styles.validateButton,
                 { backgroundColor: theme.success },
@@ -663,7 +663,7 @@ export default function ActiveOrderScreen() {
                   <ThemedText variant="label" bold color="white">Completar Entrega</ThemedText>
                 </>
               )}
-            </TouchableOpacity>
+            </TouchableSound>
           </ScreenCard>
         </>
       )}

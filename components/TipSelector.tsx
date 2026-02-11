@@ -1,4 +1,5 @@
-import { StyleSheet, Text, View, TouchableOpacity } from 'react-native';
+import { StyleSheet, Text, View } from 'react-native';
+import TouchableSound from '@/components/TouchableSound';
 import { DollarSign } from 'lucide-react-native';
 import * as Haptics from 'expo-haptics';
 import Colors from '@/constants/colors';
@@ -34,7 +35,7 @@ export default function TipSelector({ selectedTip, onTipSelect, orderTotal }: Ti
         {tipOptions.map((option) => {
           const isSelected = selectedTip === option.value;
           return (
-            <TouchableOpacity
+            <TouchableSound
               key={option.label}
               style={[
                 styles.optionButton,
@@ -57,7 +58,7 @@ export default function TipSelector({ selectedTip, onTipSelect, orderTotal }: Ti
                   ${option.value.toFixed(2)}
                 </Text>
               )}
-            </TouchableOpacity>
+            </TouchableSound>
           );
         })}
       </View>

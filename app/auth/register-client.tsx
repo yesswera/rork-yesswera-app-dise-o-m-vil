@@ -1,3 +1,4 @@
+import TouchableSound from '@/components/TouchableSound';
 // ============================================================================
 // YESSWERA: REGISTRO DE CLIENTE
 // Usa ScreenContainer para diseño unificado con soporte de tema oscuro
@@ -8,7 +9,6 @@ import { useState, useEffect } from 'react';
 import {
   View,
   TextInput,
-  TouchableOpacity,
   Alert,
   StyleSheet,
 } from 'react-native';
@@ -191,12 +191,12 @@ export default function RegisterClientScreen() {
   // Header content con boton de regreso y controles de accesibilidad
   const headerContent = (
     <View style={styles.headerControls}>
-      <TouchableOpacity
+      <TouchableSound
         style={styles.backButton}
         onPress={() => router.back()}
       >
         <ArrowLeft size={24} color="#FFFFFF" />
-      </TouchableOpacity>
+      </TouchableSound>
       <AccessibilityControls variant="minimal" />
     </View>
   );
@@ -367,7 +367,7 @@ export default function RegisterClientScreen() {
       </View>
 
       {/* Boton Crear Cuenta */}
-      <TouchableOpacity
+      <TouchableSound
         style={[styles.button, {
           backgroundColor: isLoading ? theme.borderMedium : colors.primary,
         }]}
@@ -377,10 +377,10 @@ export default function RegisterClientScreen() {
         <ThemedText variant="subtitle" color="white" bold>
           {isLoading ? 'Creando cuenta...' : 'Crear Cuenta'}
         </ThemedText>
-      </TouchableOpacity>
+      </TouchableSound>
 
       {/* Link a login */}
-      <TouchableOpacity
+      <TouchableSound
         style={styles.linkButton}
         onPress={() => router.push('/login' as any)}
         disabled={isLoading}
@@ -389,7 +389,7 @@ export default function RegisterClientScreen() {
           Ya tienes cuenta?{' '}
           <ThemedText variant="body" color="accent" bold>Inicia Sesion</ThemedText>
         </ThemedText>
-      </TouchableOpacity>
+      </TouchableSound>
 
       <View style={{ height: 40 }} />
     </ScreenContainer>

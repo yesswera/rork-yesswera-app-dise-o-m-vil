@@ -1,3 +1,4 @@
+import TouchableSound from '@/components/TouchableSound';
 // ============================================================================
 // YESSWERA: COMPONENTE QR DE REFERIDO
 // Tarjeta con código QR personal para compartir
@@ -8,7 +9,6 @@ import {
   StyleSheet,
   Text,
   View,
-  TouchableOpacity,
   Share,
   Alert,
   Clipboard,
@@ -109,7 +109,7 @@ export default function ReferralQRCard({ compact = false, onShare }: ReferralQRC
 
   if (compact) {
     return (
-      <TouchableOpacity style={styles.compactCard} onPress={handleShare}>
+      <TouchableSound style={styles.compactCard} onPress={handleShare}>
         <LinearGradient
           colors={[Colors.primary, Colors.primaryDark]}
           start={{ x: 0, y: 0 }}
@@ -125,7 +125,7 @@ export default function ReferralQRCard({ compact = false, onShare }: ReferralQRC
             <Share2 size={20} color={Colors.white} />
           </View>
         </LinearGradient>
-      </TouchableOpacity>
+      </TouchableSound>
     );
   }
 
@@ -158,14 +158,14 @@ export default function ReferralQRCard({ compact = false, onShare }: ReferralQRC
         {/* Código */}
         <View style={styles.codeSection}>
           <Text style={styles.codeLabel}>Tu código:</Text>
-          <TouchableOpacity style={styles.codeBox} onPress={handleCopyCode}>
+          <TouchableSound style={styles.codeBox} onPress={handleCopyCode}>
             <Text style={styles.codeText}>{referralCode.code}</Text>
             {copied ? (
               <CheckCircle size={20} color={Colors.success} />
             ) : (
               <Copy size={20} color={Colors.primary} />
             )}
-          </TouchableOpacity>
+          </TouchableSound>
         </View>
 
         {/* Stats */}
@@ -192,10 +192,10 @@ export default function ReferralQRCard({ compact = false, onShare }: ReferralQRC
         )}
 
         {/* Botón compartir */}
-        <TouchableOpacity style={styles.shareButton} onPress={handleShare}>
+        <TouchableSound style={styles.shareButton} onPress={handleShare}>
           <Share2 size={20} color={Colors.primary} />
           <Text style={styles.shareButtonText}>Compartir Invitación</Text>
-        </TouchableOpacity>
+        </TouchableSound>
 
         {/* Recompensas */}
         <View style={styles.rewardsInfo}>

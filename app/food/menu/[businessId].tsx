@@ -1,9 +1,15 @@
+import TouchableSound from '@/components/TouchableSound';
 // ============================================================================
 // YESSWERA: MENU DE NEGOCIO
 // Usa ScreenContainer para diseño unificado con gradiente verde
 // ============================================================================
 
-import { StyleSheet, View, TouchableOpacity, Alert, ActivityIndicator } from 'react-native';
+import {
+  StyleSheet,
+  View,
+  Alert,
+  ActivityIndicator,
+} from 'react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { ShoppingCart, Plus, Minus, Store } from 'lucide-react-native';
 import { Image } from 'expo-image';
@@ -120,7 +126,7 @@ export default function MenuScreen() {
 
   // Floating cart button
   const cartButton = itemCount > 0 ? (
-    <TouchableOpacity
+    <TouchableSound
       style={[styles.cartButton, { backgroundColor: colors.primary }]}
       onPress={handleGoToCart}
     >
@@ -129,7 +135,7 @@ export default function MenuScreen() {
       </View>
       <ThemedText variant="body" style={styles.cartButtonText}>Ver Carrito</ThemedText>
       <ShoppingCart size={20} color="#FFFFFF" />
-    </TouchableOpacity>
+    </TouchableSound>
   ) : null;
 
   return (
@@ -206,27 +212,27 @@ export default function MenuScreen() {
 
                       {quantity > 0 ? (
                         <View style={[styles.quantityControls, { gap: space.xs }]}>
-                          <TouchableOpacity
+                          <TouchableSound
                             style={[styles.quantityButton, { backgroundColor: colors.primary + '15' }]}
                             onPress={() => updateQuantity(product.id, quantity - 1)}
                           >
                             <Minus size={16} color={colors.primary} strokeWidth={3} />
-                          </TouchableOpacity>
+                          </TouchableSound>
                           <ThemedText variant="body" bold style={styles.quantityText}>{quantity}</ThemedText>
-                          <TouchableOpacity
+                          <TouchableSound
                             style={[styles.quantityButton, { backgroundColor: colors.primary + '15' }]}
                             onPress={() => updateQuantity(product.id, quantity + 1)}
                           >
                             <Plus size={16} color={colors.primary} strokeWidth={3} />
-                          </TouchableOpacity>
+                          </TouchableSound>
                         </View>
                       ) : (
-                        <TouchableOpacity
+                        <TouchableSound
                           style={[styles.addButton, { backgroundColor: colors.primary }]}
                           onPress={() => handleAddToCart(product)}
                         >
                           <Plus size={18} color="#FFFFFF" strokeWidth={3} />
-                        </TouchableOpacity>
+                        </TouchableSound>
                       )}
                     </View>
                   </View>

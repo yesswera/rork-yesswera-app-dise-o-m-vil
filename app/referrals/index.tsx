@@ -1,3 +1,4 @@
+import TouchableSound from '@/components/TouchableSound';
 // ============================================================================
 // YESSWERA: PANTALLA MIS REFERIDOS
 // Usa ScreenContainer para diseño unificado
@@ -8,7 +9,6 @@ import {
   StyleSheet,
   Text,
   View,
-  TouchableOpacity,
   Share,
 } from 'react-native';
 import { useRouter } from 'expo-router';
@@ -213,7 +213,7 @@ export default function ReferralsScreen() {
 
       {/* Tabs */}
       <View style={[styles.tabsContainer, { backgroundColor: theme.cardAlt }]}>
-        <TouchableOpacity
+        <TouchableSound
           style={[styles.tab, activeTab === 'referrals' && [styles.tabActive, { backgroundColor: theme.card }]]}
           onPress={() => setActiveTab('referrals')}
         >
@@ -221,8 +221,8 @@ export default function ReferralsScreen() {
           <Text style={[styles.tabText, { color: theme.textSecondary }, activeTab === 'referrals' && { color: colors.primary }]}>
             Referidos ({referrals.length})
           </Text>
-        </TouchableOpacity>
-        <TouchableOpacity
+        </TouchableSound>
+        <TouchableSound
           style={[styles.tab, activeTab === 'credits' && [styles.tabActive, { backgroundColor: theme.card }]]}
           onPress={() => setActiveTab('credits')}
         >
@@ -230,7 +230,7 @@ export default function ReferralsScreen() {
           <Text style={[styles.tabText, { color: theme.textSecondary }, activeTab === 'credits' && { color: colors.primary }]}>
             Créditos ({credits.length})
           </Text>
-        </TouchableOpacity>
+        </TouchableSound>
       </View>
 
       {/* Content based on tab */}
@@ -243,10 +243,10 @@ export default function ReferralsScreen() {
               <Text style={[styles.emptyText, { color: theme.textSecondary }]}>
                 Comparte tu código y gana $20 por cada amigo que se registre
               </Text>
-              <TouchableOpacity style={[styles.emptyButton, { backgroundColor: colors.primary }]} onPress={handleShare}>
+              <TouchableSound style={[styles.emptyButton, { backgroundColor: colors.primary }]} onPress={handleShare}>
                 <Share2 size={18} color="#FFFFFF" />
                 <Text style={styles.emptyButtonText}>Compartir Código</Text>
-              </TouchableOpacity>
+              </TouchableSound>
             </View>
           ) : (
             referrals.map((referral, index) => (

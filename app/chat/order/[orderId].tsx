@@ -1,3 +1,4 @@
+import TouchableSound from '@/components/TouchableSound';
 // ============================================================================
 // YESSWERA: CHAT - ORDEN
 // Pantalla de chat asociada a una orden especifica
@@ -9,7 +10,6 @@ import {
   StyleSheet,
   View,
   ScrollView,
-  TouchableOpacity,
   TextInput,
   ActivityIndicator,
 } from 'react-native';
@@ -326,12 +326,12 @@ export default function OrderChatScreen() {
           <ThemedText color="secondary" style={styles.errorText}>
             No se pudo iniciar el chat
           </ThemedText>
-          <TouchableOpacity
+          <TouchableSound
             style={[styles.backButton, { backgroundColor: colors.primary }]}
             onPress={() => router.back()}
           >
             <ThemedText style={styles.backButtonText}>Volver</ThemedText>
-          </TouchableOpacity>
+          </TouchableSound>
         </View>
       </ScreenContainer>
     );
@@ -360,7 +360,7 @@ export default function OrderChatScreen() {
           contentContainerStyle={styles.quickMessagesContent}
         >
           {quickMessages.map((qm, index) => (
-            <TouchableOpacity
+            <TouchableSound
               key={index}
               style={[styles.quickMessageChip, { backgroundColor: theme.cardAlt }]}
               onPress={() => handleQuickMessage(qm)}
@@ -368,7 +368,7 @@ export default function OrderChatScreen() {
               <ThemedText variant="caption" color="secondary">
                 {qm}
               </ThemedText>
-            </TouchableOpacity>
+            </TouchableSound>
           ))}
         </ScrollView>
       )}
@@ -391,7 +391,7 @@ export default function OrderChatScreen() {
           multiline
           maxLength={500}
         />
-        <TouchableOpacity
+        <TouchableSound
           style={[
             styles.sendButton,
             { backgroundColor: colors.primary },
@@ -405,7 +405,7 @@ export default function OrderChatScreen() {
           ) : (
             <Send size={20} color="#FFFFFF" />
           )}
-        </TouchableOpacity>
+        </TouchableSound>
       </View>
     </View>
   );

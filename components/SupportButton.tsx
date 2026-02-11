@@ -1,4 +1,5 @@
-import { TouchableOpacity, StyleSheet, Text, View } from 'react-native';
+import { StyleSheet, Text, View } from 'react-native';
+import TouchableSound from '@/components/TouchableSound';
 import { useRouter } from 'expo-router';
 import { HelpCircle, MessageSquare } from 'lucide-react-native';
 import Colors from '@/constants/colors';
@@ -26,15 +27,15 @@ export default function SupportButton({
 
   if (variant === 'floating') {
     return (
-      <TouchableOpacity style={styles.floatingButton} onPress={handlePress}>
+      <TouchableSound style={styles.floatingButton} onPress={handlePress}>
         <HelpCircle size={24} color={Colors.white} />
-      </TouchableOpacity>
+      </TouchableSound>
     );
   }
 
   if (variant === 'banner') {
     return (
-      <TouchableOpacity style={styles.banner} onPress={handlePress}>
+      <TouchableSound style={styles.banner} onPress={handlePress}>
         <View style={styles.bannerContent}>
           <MessageSquare size={20} color={Colors.primary} />
           <View style={styles.bannerText}>
@@ -43,16 +44,16 @@ export default function SupportButton({
           </View>
         </View>
         <Text style={styles.bannerAction}>Ayuda →</Text>
-      </TouchableOpacity>
+      </TouchableSound>
     );
   }
 
   // Default: inline
   return (
-    <TouchableOpacity style={styles.inlineButton} onPress={handlePress}>
+    <TouchableSound style={styles.inlineButton} onPress={handlePress}>
       <HelpCircle size={18} color={Colors.primary} />
       <Text style={styles.inlineText}>{label}</Text>
-    </TouchableOpacity>
+    </TouchableSound>
   );
 }
 

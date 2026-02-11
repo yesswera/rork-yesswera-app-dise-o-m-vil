@@ -1,3 +1,4 @@
+import TouchableSound from '@/components/TouchableSound';
 // ============================================================================
 // YESSWERA: INPUT TEMATICO
 // Campo de texto que responde automaticamente al tema y tamaño
@@ -9,7 +10,6 @@ import {
   TextInputProps,
   View,
   Text,
-  TouchableOpacity,
   StyleSheet,
 } from 'react-native';
 import { Eye, EyeOff } from 'lucide-react-native';
@@ -93,7 +93,7 @@ export default function ThemedInput({
         />
 
         {isPassword && (
-          <TouchableOpacity
+          <TouchableSound
             onPress={() => setShowPassword(!showPassword)}
             hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
           >
@@ -102,7 +102,7 @@ export default function ThemedInput({
             ) : (
               <Eye size={20} color={colors.text.muted} />
             )}
-          </TouchableOpacity>
+          </TouchableSound>
         )}
       </View>
 

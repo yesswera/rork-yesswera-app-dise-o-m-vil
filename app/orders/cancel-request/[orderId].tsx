@@ -1,3 +1,4 @@
+import TouchableSound from '@/components/TouchableSound';
 // ============================================================================
 // YESSWERA: SOLICITAR CANCELACION
 // Pantalla para solicitar cancelacion de pedidos ya aceptados
@@ -9,7 +10,6 @@ import {
   StyleSheet,
   Text,
   View,
-  TouchableOpacity,
   Alert,
   ActivityIndicator,
 } from 'react-native';
@@ -167,9 +167,9 @@ export default function CancelRequestScreen() {
           <Text style={[styles.errorText, { color: STATUS_COLORS.error }]}>
             Orden no encontrada
           </Text>
-          <TouchableOpacity onPress={() => router.back()}>
+          <TouchableSound onPress={() => router.back()}>
             <Text style={[styles.backLink, { color: colors.primary }]}>Volver</Text>
-          </TouchableOpacity>
+          </TouchableSound>
         </View>
       </ScreenContainer>
     );
@@ -225,12 +225,12 @@ export default function CancelRequestScreen() {
             </Text>
           </View>
 
-          <TouchableOpacity
+          <TouchableSound
             style={[styles.doneButton, { backgroundColor: colors.primary }]}
             onPress={() => router.replace('/orders/history')}
           >
             <Text style={styles.doneButtonText}>Ver Historial</Text>
-          </TouchableOpacity>
+          </TouchableSound>
         </View>
       </ScreenContainer>
     );
@@ -281,13 +281,13 @@ export default function CancelRequestScreen() {
       </View>
 
       {/* Main Action: Open Chat */}
-      <TouchableOpacity
+      <TouchableSound
         style={[styles.chatButton, { backgroundColor: STATUS_COLORS.accent }]}
         onPress={handleOpenChat}
       >
         <MessageCircle size={24} color="#FFFFFF" />
         <Text style={styles.chatButtonText}>Abrir Chat con el Negocio</Text>
-      </TouchableOpacity>
+      </TouchableSound>
 
       {/* Driver Compensation Warning */}
       {order.driverId && compensation && (
@@ -345,12 +345,12 @@ export default function CancelRequestScreen() {
       </View>
 
       {/* Back Button */}
-      <TouchableOpacity
+      <TouchableSound
         style={styles.backToOrderButton}
         onPress={() => router.back()}
       >
         <Text style={[styles.backToOrderText, { color: theme.textSecondary }]}>Volver al Pedido</Text>
-      </TouchableOpacity>
+      </TouchableSound>
     </ScreenContainer>
   );
 }

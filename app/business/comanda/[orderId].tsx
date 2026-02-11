@@ -1,10 +1,17 @@
+import TouchableSound from '@/components/TouchableSound';
 // ============================================================================
 // YESSWERA: COMANDA - DETALLE DE ORDEN
 // Usa ScreenContainer para diseno unificado
 // ============================================================================
 
 import { useState, useEffect } from 'react';
-import { StyleSheet, Text, View, TouchableOpacity, Alert, Modal } from 'react-native';
+import {
+  StyleSheet,
+  Text,
+  View,
+  Alert,
+  Modal,
+} from 'react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { CheckCircle, AlertTriangle, Package, Receipt } from 'lucide-react-native';
 import { useTheme } from '@/contexts/theme';
@@ -136,18 +143,18 @@ export default function ComandaScreen() {
   // Footer con botones de accion
   const footer = (
     <View style={styles.footerContent}>
-      <TouchableOpacity
+      <TouchableSound
         style={[styles.reportButton, { backgroundColor: theme.cardAlt, borderColor: colors.warning }]}
         onPress={() => setShowProblemModal(true)}
       >
         <AlertTriangle size={20} color={colors.warning} />
         <Text style={[styles.reportButtonText, { color: colors.warning }]}>Reportar Problema</Text>
-      </TouchableOpacity>
+      </TouchableSound>
 
-      <TouchableOpacity style={[styles.readyButton, { backgroundColor: colors.success }]} onPress={handleMarkReady}>
+      <TouchableSound style={[styles.readyButton, { backgroundColor: colors.success }]} onPress={handleMarkReady}>
         <CheckCircle size={24} color="#FFFFFF" />
         <Text style={styles.readyButtonText}>Marcar como Lista</Text>
-      </TouchableOpacity>
+      </TouchableSound>
     </View>
   );
 
@@ -227,40 +234,40 @@ export default function ComandaScreen() {
             <Text style={[styles.modalTitle, { color: theme.text }]}>Reportar Problema</Text>
             <Text style={[styles.modalSubtitle, { color: theme.textSecondary }]}>Selecciona el motivo:</Text>
 
-            <TouchableOpacity
+            <TouchableSound
               style={[styles.reasonButton, { backgroundColor: theme.cardAlt, borderColor: theme.border }]}
               onPress={() => handleReportProblem('Demasiadas ordenes')}
             >
               <Text style={[styles.reasonButtonText, { color: theme.text }]}>Demasiadas ordenes</Text>
-            </TouchableOpacity>
+            </TouchableSound>
 
-            <TouchableOpacity
+            <TouchableSound
               style={[styles.reasonButton, { backgroundColor: theme.cardAlt, borderColor: theme.border }]}
               onPress={() => handleReportProblem('Producto no disponible')}
             >
               <Text style={[styles.reasonButtonText, { color: theme.text }]}>Producto no disponible</Text>
-            </TouchableOpacity>
+            </TouchableSound>
 
-            <TouchableOpacity
+            <TouchableSound
               style={[styles.reasonButton, { backgroundColor: theme.cardAlt, borderColor: theme.border }]}
               onPress={() => handleReportProblem('Clientes presenciales')}
             >
               <Text style={[styles.reasonButtonText, { color: theme.text }]}>Clientes presenciales</Text>
-            </TouchableOpacity>
+            </TouchableSound>
 
-            <TouchableOpacity
+            <TouchableSound
               style={[styles.reasonButton, { backgroundColor: theme.cardAlt, borderColor: theme.border }]}
               onPress={() => handleReportProblem('Otro motivo')}
             >
               <Text style={[styles.reasonButtonText, { color: theme.text }]}>Otro motivo</Text>
-            </TouchableOpacity>
+            </TouchableSound>
 
-            <TouchableOpacity
+            <TouchableSound
               style={[styles.cancelModalButton, { backgroundColor: theme.card, borderColor: theme.border }]}
               onPress={() => setShowProblemModal(false)}
             >
               <Text style={[styles.cancelModalButtonText, { color: theme.textSecondary }]}>Cancelar</Text>
-            </TouchableOpacity>
+            </TouchableSound>
           </View>
         </View>
       </Modal>

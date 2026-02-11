@@ -1,3 +1,4 @@
+import TouchableSound from '@/components/TouchableSound';
 // PanicModal Component - Fase 2B
 // Emergency options for drivers
 
@@ -7,7 +8,6 @@ import {
   Text,
   StyleSheet,
   Modal,
-  TouchableOpacity,
   ActivityIndicator,
   Linking,
   Platform,
@@ -179,9 +179,9 @@ export default function PanicModal({
             <Text style={styles.headerTitle}>
               {showActions ? 'Ayuda en Camino' : 'Necesito Ayuda'}
             </Text>
-            <TouchableOpacity onPress={handleClose} style={styles.closeButton}>
+            <TouchableSound onPress={handleClose} style={styles.closeButton}>
               <Ionicons name="close" size={24} color={Colors.text.secondary} />
-            </TouchableOpacity>
+            </TouchableSound>
           </View>
 
           {gettingLocation ? (
@@ -195,7 +195,7 @@ export default function PanicModal({
               <Text style={styles.subtitle}>Selecciona que esta pasando:</Text>
               <View style={styles.optionsGrid}>
                 {PANIC_OPTIONS.map((option) => (
-                  <TouchableOpacity
+                  <TouchableSound
                     key={option.reason}
                     style={[
                       styles.optionButton,
@@ -218,7 +218,7 @@ export default function PanicModal({
                     <Text style={styles.optionText}>
                       {PANIC_REASONS[option.reason]}
                     </Text>
-                  </TouchableOpacity>
+                  </TouchableSound>
                 ))}
               </View>
             </>
@@ -242,17 +242,17 @@ export default function PanicModal({
 
               <View style={styles.actionsContainer}>
                 {/* Call 911 */}
-                <TouchableOpacity
+                <TouchableSound
                   style={[styles.actionButton, styles.actionButton911]}
                   onPress={handleCall911}
                 >
                   <Ionicons name="call" size={24} color="#fff" />
                   <Text style={styles.actionButtonText911}>Llamar al 911</Text>
-                </TouchableOpacity>
+                </TouchableSound>
 
                 {/* Transfer Order */}
                 {orderId && (
-                  <TouchableOpacity
+                  <TouchableSound
                     style={[styles.actionButton, styles.actionButtonTransfer]}
                     onPress={handleTransferOrder}
                     disabled={isSubmitting}
@@ -271,17 +271,17 @@ export default function PanicModal({
                         </Text>
                       </>
                     )}
-                  </TouchableOpacity>
+                  </TouchableSound>
                 )}
 
                 {/* I'm OK - Close */}
-                <TouchableOpacity
+                <TouchableSound
                   style={[styles.actionButton, styles.actionButtonOk]}
                   onPress={handleClose}
                 >
                   <Ionicons name="checkmark-circle" size={24} color="#16A34A" />
                   <Text style={styles.actionButtonTextOk}>Estoy Bien</Text>
-                </TouchableOpacity>
+                </TouchableSound>
               </View>
 
               {/* Help coming message */}

@@ -1,4 +1,13 @@
-import { StyleSheet, Text, View, TouchableOpacity, ScrollView, Animated, Dimensions, Platform } from 'react-native';
+import TouchableSound from '@/components/TouchableSound';
+import {
+  StyleSheet,
+  Text,
+  View,
+  ScrollView,
+  Animated,
+  Dimensions,
+  Platform,
+} from 'react-native';
 import { Image } from 'expo-image';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter, useFocusEffect } from 'expo-router';
@@ -459,12 +468,12 @@ export default function HomeScreen() {
         <View style={styles.headerRow}>
           <AccessibilityControls variant="minimal" />
           {user && (
-            <TouchableOpacity
+            <TouchableSound
               style={[styles.userButton, { backgroundColor: theme.card, borderColor: theme.border, borderWidth: isDark ? 1 : 0 }]}
               onPress={() => router.push('/profile' as any)}
             >
               <User size={24} color={theme.text} />
-            </TouchableOpacity>
+            </TouchableSound>
           )}
         </View>
 
@@ -531,41 +540,41 @@ export default function HomeScreen() {
               {/* If food order with businessId, offer to reorder at same place */}
               {cancelledOrder.type === 'food' && cancelledOrder.businessId ? (
                 <>
-                  <TouchableOpacity
+                  <TouchableSound
                     style={styles.reorderSameButton}
                     onPress={handleReorderSameBusiness}
                   >
                     <RefreshCw size={16} color={Colors.white} />
                     <Text style={styles.findAlternativeText}>Reintentar</Text>
-                  </TouchableOpacity>
-                  <TouchableOpacity
+                  </TouchableSound>
+                  <TouchableSound
                     style={styles.findOtherButton}
                     onPress={handleFindAlternative}
                   >
                     <Text style={styles.findOtherText}>Ver Otros</Text>
-                  </TouchableOpacity>
+                  </TouchableSound>
                 </>
               ) : (
-                <TouchableOpacity
+                <TouchableSound
                   style={styles.findAlternativeButton}
                   onPress={handleFindAlternative}
                 >
                   <RefreshCw size={16} color={Colors.white} />
                   <Text style={styles.findAlternativeText}>Buscar Alternativa</Text>
-                </TouchableOpacity>
+                </TouchableSound>
               )}
-              <TouchableOpacity
+              <TouchableSound
                 style={[styles.dismissButton, { backgroundColor: theme.cardAlt }]}
                 onPress={handleDismissCancelled}
               >
                 <Text style={[styles.dismissButtonText, { color: theme.textSecondary }]}>Cerrar</Text>
-              </TouchableOpacity>
+              </TouchableSound>
             </View>
           </View>
         )}
 
         {activeOrder && user && (
-          <TouchableOpacity
+          <TouchableSound
             style={styles.activeOrderBanner}
             onPress={() => router.push(`/tracking/${activeOrder.id}` as any)}
             activeOpacity={0.9}
@@ -593,7 +602,7 @@ export default function HomeScreen() {
                 <ChevronRight size={20} color={Colors.white} />
               </View>
             </LinearGradient>
-          </TouchableOpacity>
+          </TouchableSound>
         )}
 
         {user && recentOrders.length > 0 && (
@@ -608,7 +617,7 @@ export default function HomeScreen() {
               contentContainerStyle={styles.reorderScrollContent}
             >
               {recentOrders.map((order) => (
-                <TouchableOpacity
+                <TouchableSound
                   key={order.id}
                   style={[styles.reorderCard, { backgroundColor: theme.card, borderColor: theme.border, borderWidth: isDark ? 1 : 0 }]}
                   onPress={() => handleReorder(order)}
@@ -642,7 +651,7 @@ export default function HomeScreen() {
                       <Text style={styles.reorderButtonText}>Repetir</Text>
                     </View>
                   </View>
-                </TouchableOpacity>
+                </TouchableSound>
               ))}
             </ScrollView>
           </View>
@@ -658,7 +667,7 @@ export default function HomeScreen() {
                 marginBottom: index === visibleServices.length - 1 ? 0 : 20,
               }}
             >
-              <TouchableOpacity
+              <TouchableSound
                 activeOpacity={0.8}
                 onPress={() => router.push(service.route as any)}
                 style={styles.serviceCard}
@@ -705,7 +714,7 @@ export default function HomeScreen() {
                     <View style={[styles.sparkle, styles.sparkle3]} />
                   </View>
                 </LinearGradient>
-              </TouchableOpacity>
+              </TouchableSound>
             </Animated.View>
           ))}
         </View>
@@ -716,18 +725,18 @@ export default function HomeScreen() {
           <View style={styles.authPrompt}>
             <Text style={[styles.authPromptText, { fontSize: fonts.base, color: theme.text }]}>¿Listo para ordenar?</Text>
             <View style={styles.authButtonsRow}>
-              <TouchableOpacity
+              <TouchableSound
                 onPress={() => router.push('/register' as any)}
                 style={[styles.registerButton, { padding: space.md, borderRadius: radius.md }]}
               >
                 <Text style={[styles.registerButtonText, { fontSize: fonts.sm }]}>Crear Cuenta</Text>
-              </TouchableOpacity>
-              <TouchableOpacity
+              </TouchableSound>
+              <TouchableSound
                 onPress={() => router.push('/login' as any)}
                 style={[styles.authPromptButton, { padding: space.md, borderRadius: radius.md, backgroundColor: theme.card, borderColor: Colors.primary }]}
               >
                 <Text style={[styles.authPromptButtonText, { fontSize: fonts.sm }]}>Iniciar Sesion</Text>
-              </TouchableOpacity>
+              </TouchableSound>
             </View>
           </View>
         )}

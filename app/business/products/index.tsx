@@ -1,9 +1,17 @@
+import TouchableSound from '@/components/TouchableSound';
 // ============================================================================
 // YESSWERA: PRODUCTOS DEL NEGOCIO
 // Usa ScreenContainer para diseno unificado
 // ============================================================================
 
-import { View, Text, StyleSheet, FlatList, TouchableOpacity, Switch, Alert } from 'react-native';
+import {
+  View,
+  Text,
+  StyleSheet,
+  FlatList,
+  Switch,
+  Alert,
+} from 'react-native';
 import { useRouter } from 'expo-router';
 import { useState, useEffect, useCallback } from 'react';
 import { Plus, Edit, Trash2, Package } from 'lucide-react-native';
@@ -152,23 +160,23 @@ export default function BusinessProductsScreen() {
       </View>
 
       <View style={styles.productActions}>
-        <TouchableOpacity
+        <TouchableSound
           style={[styles.actionButton, styles.editButton, { backgroundColor: `${colors.primary}15` }]}
           onPress={() => router.push(`/business/products/edit/${item.id}` as any)}
           activeOpacity={0.7}
         >
           <Edit size={16} color={colors.primary} />
           <Text style={[styles.editButtonText, { color: colors.primary }]}>Editar</Text>
-        </TouchableOpacity>
+        </TouchableSound>
 
-        <TouchableOpacity
+        <TouchableSound
           style={[styles.actionButton, styles.deleteButton, { backgroundColor: `${colors.error}15` }]}
           onPress={() => handleDeleteProduct(item.id, item.name)}
           activeOpacity={0.7}
         >
           <Trash2 size={16} color={colors.error} />
           <Text style={[styles.deleteButtonText, { color: colors.error }]}>Eliminar</Text>
-        </TouchableOpacity>
+        </TouchableSound>
       </View>
 
       {!item.available && (
@@ -181,14 +189,14 @@ export default function BusinessProductsScreen() {
 
   // Header content con boton de agregar
   const headerContent = (
-    <TouchableOpacity
+    <TouchableSound
       style={[styles.addButton, { backgroundColor: '#FFFFFF' }]}
       onPress={() => router.push('/business/products/add' as any)}
       activeOpacity={0.7}
     >
       <Plus size={20} color={colors.primary} />
       <Text style={[styles.addButtonText, { color: colors.primary }]}>Agregar Producto</Text>
-    </TouchableOpacity>
+    </TouchableSound>
   );
 
   return (

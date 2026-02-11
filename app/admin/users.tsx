@@ -1,3 +1,4 @@
+import TouchableSound from '@/components/TouchableSound';
 // ============================================================================
 // YESSWERA: ADMIN USERS
 // Gestion de usuarios para administradores - Actualizado con ScreenContainer
@@ -9,7 +10,6 @@ import {
   Text,
   View,
   ScrollView,
-  TouchableOpacity,
   TextInput,
   ActivityIndicator,
   Alert,
@@ -208,6 +208,10 @@ export default function AdminUsersScreen() {
   };
 
   const handleToggleUserStatus = async (user: AdminUser) => {
+    if (user.userType === 'admin') {
+      Alert.alert('Accion no permitida', 'No se puede modificar una cuenta de administrador.');
+      return;
+    }
     const action = user.isActive ? 'pausar' : 'reactivar';
     const actionPast = user.isActive ? 'pausado' : 'reactivado';
 
@@ -242,6 +246,10 @@ export default function AdminUsersScreen() {
   };
 
   const handleHardDeleteUser = (user: AdminUser) => {
+    if (user.userType === 'admin') {
+      Alert.alert('Accion no permitida', 'No se puede eliminar una cuenta de administrador. Es una cuenta maestra protegida.');
+      return;
+    }
     Alert.alert(
       'ELIMINAR PERMANENTEMENTE',
       `ATENCION: Esta accion NO se puede deshacer.\n\n¿Estas seguro de que deseas ELIMINAR PERMANENTEMENTE a ${user.name}?`,
@@ -309,6 +317,9 @@ export default function AdminUsersScreen() {
   };
 
   const filteredUsers = users.filter((user) => {
+    // Ocultar cuentas admin de la lista - son cuentas maestras protegidas
+    if (user.userType === 'admin') return false;
+
     if (searchQuery) {
       const search = searchQuery.toLowerCase();
       const matchesSearch =
@@ -377,58 +388,51 @@ export default function AdminUsersScreen() {
           returnKeyType="search"
         />
         {searchQuery.length > 0 && (
-          <TouchableOpacity onPress={() => setSearchQuery('')}>
+          <TouchableSound onPress={() => setSearchQuery('')}>
             <X size={18} color={theme.textSecondary} />
-          </TouchableOpacity>
+          </TouchableSound>
         )}
       </View>
 
       {/* Filters */}
       <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.filterContainer}>
-        <TouchableOpacity
+        <TouchableSound
           style={[styles.filterButton, { backgroundColor: theme.card, borderColor: theme.border }, selectedFilter === 'all' && styles.filterButtonActive]}
           onPress={() => handleFilterChange('all')}
         >
           <Text style={[styles.filterText, { color: theme.textSecondary }, selectedFilter === 'all' && styles.filterTextActive]}>
             Todos ({stats?.totalUsers || 0})
           </Text>
-        </TouchableOpacity>
+        </TouchableSound>
 
-        <TouchableOpacity
+        <TouchableSound
           style={[styles.filterButton, { backgroundColor: theme.card, borderColor: theme.border }, selectedFilter === 'client' && styles.filterButtonActive]}
           onPress={() => handleFilterChange('client')}
         >
           <Text style={[styles.filterText, { color: theme.textSecondary }, selectedFilter === 'client' && styles.filterTextActive]}>
             Clientes
           </Text>
-        </TouchableOpacity>
+        </TouchableSound>
 
-        <TouchableOpacity
+        <TouchableSound
           style={[styles.filterButton, { backgroundColor: theme.card, borderColor: theme.border }, selectedFilter === 'driver' && styles.filterButtonActive]}
           onPress={() => handleFilterChange('driver')}
         >
           <Text style={[styles.filterText, { color: theme.textSecondary }, selectedFilter === 'driver' && styles.filterTextActive]}>
             Repartidores
           </Text>
-        </TouchableOpacity>
+        </TouchableSound>
 
-        <TouchableOpacity
+        <TouchableSound
           style={[styles.filterButton, { backgroundColor: theme.card, borderColor: theme.border }, selectedFilter === 'business' && styles.filterButtonActive]}
           onPress={() => handleFilterChange('business')}
         >
           <Text style={[styles.filterText, { color: theme.textSecondary }, selectedFilter === 'business' && styles.filterTextActive]}>
             Negocios
           </Text>
-        </TouchableOpacity>
+        </TouchableSound>
 
-        <TouchableOpacity
-          style={[styles.filterButton, { backgroundColor: theme.card, borderColor: theme.border }, selectedFilter === 'admin' && styles.filterButtonActive]}
-          onPress={() => handleFilterChange('admin')}
-        >
-          <Text style={[styles.filterText, { color: theme.textSecondary }, selectedFilter === 'admin' && styles.filterTextActive]}>
-            Admins
-          </Text>
-        </TouchableOpacity>
+{/* Admin filter oculto - cuenta maestra protegida */}
       </ScrollView>
 
       {/* Users List */}
@@ -489,7 +493,7 @@ export default function AdminUsersScreen() {
 
               {/* Action Buttons */}
               <View style={[styles.userActions, { borderTopColor: theme.border }]}>
-                <TouchableOpacity
+                <TouchableSound
                   style={[styles.actionButtonWide, user.isActive ? styles.pauseButton : styles.activateButton]}
                   onPress={() => handleToggleUserStatus(user)}
                   disabled={actionLoading === user.id}
@@ -505,22 +509,22 @@ export default function AdminUsersScreen() {
                       <Text style={styles.actionButtonText}>Activar</Text>
                     </>
                   )}
-                </TouchableOpacity>
+                </TouchableSound>
 
-                <TouchableOpacity
+                <TouchableSound
                   style={[styles.actionButtonWide, styles.editButton]}
                   onPress={() => handleEditUser(user)}
                 >
                   <Edit3 size={16} color={FIXED_COLORS.white} />
                   <Text style={styles.actionButtonText}>Editar</Text>
-                </TouchableOpacity>
+                </TouchableSound>
 
-                <TouchableOpacity
+                <TouchableSound
                   style={[styles.actionButtonSmall, { backgroundColor: FIXED_COLORS.error + '15' }]}
                   onPress={() => handleHardDeleteUser(user)}
                 >
                   <Trash2 size={16} color={FIXED_COLORS.error} />
-                </TouchableOpacity>
+                </TouchableSound>
               </View>
             </View>
           ))
@@ -536,17 +540,17 @@ export default function AdminUsersScreen() {
       >
         <View style={[styles.modalContainer, { backgroundColor: isDark ? COLORS.dark.cardAlt : '#F5F5F4' }]}>
           <View style={[styles.modalHeader, { backgroundColor: theme.card, borderBottomColor: theme.border }]}>
-            <TouchableOpacity onPress={() => setEditModalVisible(false)}>
+            <TouchableSound onPress={() => setEditModalVisible(false)}>
               <X size={24} color={theme.text} />
-            </TouchableOpacity>
+            </TouchableSound>
             <Text style={[styles.modalTitle, { color: theme.text }]}>Editar Usuario</Text>
-            <TouchableOpacity onPress={handleSaveUser} disabled={saving}>
+            <TouchableSound onPress={handleSaveUser} disabled={saving}>
               {saving ? (
                 <ActivityIndicator size="small" color={FIXED_COLORS.primary} />
               ) : (
                 <Save size={24} color={FIXED_COLORS.primary} />
               )}
-            </TouchableOpacity>
+            </TouchableSound>
           </View>
 
           <ScrollView style={styles.modalContent} showsVerticalScrollIndicator={false}>
@@ -572,7 +576,7 @@ export default function AdminUsersScreen() {
                   <Text style={[styles.sectionLabel, { color: theme.textSecondary }]}>Tipo de Usuario</Text>
                   <View style={styles.userTypeSelector}>
                     {(['client', 'driver', 'business', 'admin'] as UserType[]).map((type) => (
-                      <TouchableOpacity
+                      <TouchableSound
                         key={type}
                         style={[
                           styles.userTypeOption,
@@ -594,7 +598,7 @@ export default function AdminUsersScreen() {
                         ]}>
                           {getUserTypeLabel(type)}
                         </Text>
-                      </TouchableOpacity>
+                      </TouchableSound>
                     ))}
                   </View>
                   {editForm.userType !== selectedUser.userType && (
@@ -674,13 +678,13 @@ export default function AdminUsersScreen() {
                         placeholderTextColor={theme.textMuted}
                         secureTextEntry={!showPassword}
                       />
-                      <TouchableOpacity onPress={() => setShowPassword(!showPassword)}>
+                      <TouchableSound onPress={() => setShowPassword(!showPassword)}>
                         {showPassword ? (
                           <EyeOff size={18} color={theme.textSecondary} />
                         ) : (
                           <Eye size={18} color={theme.textSecondary} />
                         )}
-                      </TouchableOpacity>
+                      </TouchableSound>
                     </View>
                   </View>
                   {editForm.newPassword.length > 0 && editForm.newPassword.length < 6 && (
@@ -754,17 +758,17 @@ export default function AdminUsersScreen() {
                 {/* User ID */}
                 <View style={styles.modalSection}>
                   <Text style={[styles.sectionLabel, { color: theme.textSecondary }]}>ID de Usuario (UUID)</Text>
-                  <TouchableOpacity
+                  <TouchableSound
                     style={[styles.userIdContainer, { backgroundColor: theme.cardAlt }]}
                     onPress={() => copyToClipboard(selectedUser.id)}
                   >
                     <Text style={[styles.userId, { color: theme.textMuted }]}>{selectedUser.id}</Text>
                     <Copy size={16} color={theme.textSecondary} />
-                  </TouchableOpacity>
+                  </TouchableSound>
                 </View>
 
                 {/* Save Button */}
-                <TouchableOpacity
+                <TouchableSound
                   style={[styles.saveButton, saving && styles.saveButtonDisabled]}
                   onPress={handleSaveUser}
                   disabled={saving}
@@ -777,7 +781,7 @@ export default function AdminUsersScreen() {
                       <Text style={styles.saveButtonText}>Guardar Cambios</Text>
                     </>
                   )}
-                </TouchableOpacity>
+                </TouchableSound>
 
                 <View style={{ height: 40 }} />
               </>

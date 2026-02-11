@@ -13,6 +13,7 @@ import {
   StyleSheet,
 } from 'react-native';
 import { useTheme } from '@/contexts/theme';
+import { playUiTap } from '@/services/sounds';
 
 type ButtonVariant =
   | 'primary'   // Botón principal (fondo naranja)
@@ -150,6 +151,10 @@ export default function ThemedButton({
       disabled={disabled || loading}
       activeOpacity={0.7}
       {...props}
+      onPress={(e) => {
+        playUiTap();
+        props.onPress?.(e);
+      }}
     >
       <View style={[styles.content, { gap: buttonSizes.gap }]}>
         {loading ? (

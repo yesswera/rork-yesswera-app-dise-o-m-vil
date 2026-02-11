@@ -1,5 +1,14 @@
+import TouchableSound from '@/components/TouchableSound';
 import { useEffect, useState, useRef } from 'react';
-import { StyleSheet, Text, View, Modal, TouchableOpacity, Animated, Vibration, Platform } from 'react-native';
+import {
+  StyleSheet,
+  Text,
+  View,
+  Modal,
+  Animated,
+  Vibration,
+  Platform,
+} from 'react-native';
 import { MapPin, Clock, DollarSign, X, Navigation } from 'lucide-react-native';
 import * as Haptics from 'expo-haptics';
 import Colors from '@/constants/colors';
@@ -226,22 +235,22 @@ export default function OrderTimer({
           </View>
 
           <View style={styles.actions}>
-            <TouchableOpacity
+            <TouchableSound
               style={styles.rejectButton}
               onPress={handleReject}
               activeOpacity={0.7}
             >
               <X size={24} color={Colors.white} />
               <Text style={styles.rejectButtonText}>Rechazar</Text>
-            </TouchableOpacity>
-            <TouchableOpacity
+            </TouchableSound>
+            <TouchableSound
               style={styles.acceptButton}
               onPress={handleAccept}
               activeOpacity={0.7}
             >
               <Navigation size={24} color={Colors.white} />
               <Text style={styles.acceptButtonText}>Aceptar</Text>
-            </TouchableOpacity>
+            </TouchableSound>
           </View>
 
           <Text style={styles.warningText}>

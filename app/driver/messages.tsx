@@ -1,10 +1,16 @@
+import TouchableSound from '@/components/TouchableSound';
 // ============================================================================
 // YESSWERA: MENSAJES DEL REPARTIDOR
 // Usa ScreenContainer para diseño unificado con soporte de tema
 // ============================================================================
 
 import { useState, useMemo, useEffect, useCallback } from 'react';
-import { StyleSheet, View, TouchableOpacity, TextInput, ActivityIndicator } from 'react-native';
+import {
+  StyleSheet,
+  View,
+  TextInput,
+  ActivityIndicator,
+} from 'react-native';
 import { useRouter } from 'expo-router';
 import { Search, MessageCircle, User, Store, ShieldCheck, MessageSquare } from 'lucide-react-native';
 import { useTheme } from '@/contexts/theme';
@@ -298,7 +304,7 @@ export default function DriverMessagesScreen() {
               {activeConversations.map((conversation) => {
                 const Icon = getTypeIcon(conversation.type);
                 return (
-                  <TouchableOpacity
+                  <TouchableSound
                     key={conversation.id}
                     style={[styles.conversationCard, { backgroundColor: theme.card, borderBottomColor: theme.border }]}
                     onPress={() => handleOpenConversation(conversation.id)}
@@ -338,7 +344,7 @@ export default function DriverMessagesScreen() {
                         {conversation.lastMessage}
                       </ThemedText>
                     </View>
-                  </TouchableOpacity>
+                  </TouchableSound>
                 );
               })}
             </View>
@@ -352,7 +358,7 @@ export default function DriverMessagesScreen() {
               {closedConversations.map((conversation) => {
                 const Icon = getTypeIcon(conversation.type);
                 return (
-                  <TouchableOpacity
+                  <TouchableSound
                     key={conversation.id}
                     style={[
                       styles.conversationCard,
@@ -382,7 +388,7 @@ export default function DriverMessagesScreen() {
                         {conversation.lastMessage}
                       </ThemedText>
                     </View>
-                  </TouchableOpacity>
+                  </TouchableSound>
                 );
               })}
             </View>

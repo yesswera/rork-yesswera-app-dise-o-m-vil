@@ -1,4 +1,5 @@
-import { TouchableOpacity, Text, StyleSheet } from 'react-native';
+import { Text, StyleSheet } from 'react-native';
+import TouchableSound from '@/components/TouchableSound';
 import { X } from 'lucide-react-native';
 import Colors from '@/constants/colors';
 
@@ -12,7 +13,7 @@ interface ChipProps {
 
 export default function Chip({ label, onPress, onRemove, selected = false, disabled = false }: ChipProps) {
   return (
-    <TouchableOpacity
+    <TouchableSound
       style={[
         styles.chip,
         selected && styles.chipSelected,
@@ -24,15 +25,15 @@ export default function Chip({ label, onPress, onRemove, selected = false, disab
     >
       <Text style={[styles.text, selected && styles.textSelected]}>{label}</Text>
       {onRemove && (
-        <TouchableOpacity
+        <TouchableSound
           style={styles.removeButton}
           onPress={onRemove}
           hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
         >
           <X size={14} color={selected ? Colors.white : Colors.text.secondary} />
-        </TouchableOpacity>
+        </TouchableSound>
       )}
-    </TouchableOpacity>
+    </TouchableSound>
   );
 }
 

@@ -1,3 +1,4 @@
+import TouchableSound from '@/components/TouchableSound';
 // ============================================================================
 // YESSWERA: CANCELAR PEDIDO PENDIENTE
 // Pantalla para cancelar pedidos que aun no han sido aceptados
@@ -9,7 +10,6 @@ import {
   StyleSheet,
   Text,
   View,
-  TouchableOpacity,
   TextInput,
   Alert,
   ActivityIndicator,
@@ -212,9 +212,9 @@ export default function CancelPendingOrderScreen() {
           <Text style={[styles.errorText, { color: STATUS_COLORS.error }]}>
             Orden no encontrada
           </Text>
-          <TouchableOpacity onPress={() => router.back()}>
+          <TouchableSound onPress={() => router.back()}>
             <Text style={[styles.backLink, { color: colors.primary }]}>Volver</Text>
-          </TouchableOpacity>
+          </TouchableSound>
         </View>
       </ScreenContainer>
     );
@@ -223,7 +223,7 @@ export default function CancelPendingOrderScreen() {
   // Footer con botones
   const renderFooter = () => (
     <View style={styles.footerButtons}>
-      <TouchableOpacity
+      <TouchableSound
         style={[
           styles.cancelButton,
           { backgroundColor: STATUS_COLORS.error },
@@ -239,16 +239,16 @@ export default function CancelPendingOrderScreen() {
             {showAlternatives ? 'Cancelar Pedido' : 'Continuar'}
           </Text>
         )}
-      </TouchableOpacity>
+      </TouchableSound>
 
-      <TouchableOpacity
+      <TouchableSound
         style={styles.backToOrderButton}
         onPress={() => router.back()}
       >
         <Text style={[styles.backToOrderText, { color: theme.textSecondary }]}>
           Volver al Pedido
         </Text>
-      </TouchableOpacity>
+      </TouchableSound>
     </View>
   );
 
@@ -315,7 +315,7 @@ export default function CancelPendingOrderScreen() {
             Puedes cambiar tu pedido a uno de estos negocios:
           </Text>
           {alternatives.map((biz) => (
-            <TouchableOpacity
+            <TouchableSound
               key={biz.id}
               style={[styles.alternativeCard, { backgroundColor: theme.card, borderColor: theme.border }]}
               onPress={() => handleSelectAlternative(biz)}
@@ -334,7 +334,7 @@ export default function CancelPendingOrderScreen() {
               <View style={[styles.changeButton, { backgroundColor: colors.primary }]}>
                 <Text style={styles.changeButtonText}>Cambiar</Text>
               </View>
-            </TouchableOpacity>
+            </TouchableSound>
           ))}
         </View>
       )}
@@ -352,7 +352,7 @@ export default function CancelPendingOrderScreen() {
       <View style={styles.reasonSection}>
         <Text style={[styles.sectionTitle, { color: theme.text }]}>Por que cancelas?</Text>
         {CANCEL_REASONS.map((reason) => (
-          <TouchableOpacity
+          <TouchableSound
             key={reason.id}
             style={[
               styles.reasonOption,
@@ -377,7 +377,7 @@ export default function CancelPendingOrderScreen() {
             ]}>
               {reason.label}
             </Text>
-          </TouchableOpacity>
+          </TouchableSound>
         ))}
       </View>
 

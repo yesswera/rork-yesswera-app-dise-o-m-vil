@@ -1,10 +1,20 @@
+import TouchableSound from '@/components/TouchableSound';
 // ============================================================================
 // YESSWERA: HISTORIAL DE ENTREGAS DEL REPARTIDOR
 // Usa ScreenContainer para diseño unificado con soporte de tema
 // ============================================================================
 
 import { useState, useMemo, useEffect, useCallback } from 'react';
-import { StyleSheet, View, TouchableOpacity, TextInput, Modal, Alert, ActivityIndicator, RefreshControl, ScrollView } from 'react-native';
+import {
+  StyleSheet,
+  View,
+  TextInput,
+  Modal,
+  Alert,
+  ActivityIndicator,
+  RefreshControl,
+  ScrollView,
+} from 'react-native';
 import { useRouter } from 'expo-router';
 import { Search, SlidersHorizontal, Calendar, Package, X, Download, Star, Clock, MapPin, History } from 'lucide-react-native';
 import { useTheme } from '@/contexts/theme';
@@ -300,9 +310,9 @@ export default function DriverHistoryScreen() {
         onChangeText={setSearchQuery}
         placeholderTextColor="rgba(255,255,255,0.6)"
       />
-      <TouchableOpacity onPress={() => setShowFilters(true)}>
+      <TouchableSound onPress={() => setShowFilters(true)}>
         <SlidersHorizontal size={20} color="#FFFFFF" />
-      </TouchableOpacity>
+      </TouchableSound>
     </View>
   );
 
@@ -349,7 +359,7 @@ export default function DriverHistoryScreen() {
                 </View>
 
                 {items.map((item) => (
-                  <TouchableOpacity key={item.id} style={[styles.historyCard, { backgroundColor: theme.card }]}>
+                  <TouchableSound key={item.id} style={[styles.historyCard, { backgroundColor: theme.card }]}>
                     <View style={styles.cardHeader}>
                       <View style={[styles.typeTag, { backgroundColor: theme.cardAlt }]}>
                         <ThemedText variant="caption" bold style={{ color: theme.text }}>
@@ -396,7 +406,7 @@ export default function DriverHistoryScreen() {
                         {item.status === 'completed' ? 'Completada' : 'Cancelada'} {format(item.completedAt, 'h:mm a', { locale: es })}
                       </ThemedText>
                     </View>
-                  </TouchableOpacity>
+                  </TouchableSound>
                 ))}
               </View>
             );
@@ -427,13 +437,13 @@ export default function DriverHistoryScreen() {
             </View>
           </ScreenCard>
 
-          <TouchableOpacity
+          <TouchableSound
             style={[styles.exportButton, { backgroundColor: colors.accent, borderRadius: radius.md }]}
             onPress={handleExportPDF}
           >
             <Download size={20} color="#FFFFFF" />
             <ThemedText variant="label" bold color="white">Exportar PDF para Impuestos</ThemedText>
-          </TouchableOpacity>
+          </TouchableSound>
         </>
       )}
 
@@ -442,9 +452,9 @@ export default function DriverHistoryScreen() {
           <View style={[styles.modalContent, { backgroundColor: theme.card }]}>
             <View style={[styles.modalHeader, { borderBottomColor: theme.border }]}>
               <ThemedText variant="h3" style={{ color: theme.text }}>Filtros</ThemedText>
-              <TouchableOpacity onPress={() => setShowFilters(false)}>
+              <TouchableSound onPress={() => setShowFilters(false)}>
                 <X size={24} color={theme.text} />
-              </TouchableOpacity>
+              </TouchableSound>
             </View>
 
             <ScrollView style={styles.modalScroll}>
@@ -458,7 +468,7 @@ export default function DriverHistoryScreen() {
                     { value: 'week', label: 'Esta Semana' },
                     { value: 'month', label: 'Este Mes' },
                   ].map((option) => (
-                    <TouchableOpacity
+                    <TouchableSound
                       key={option.value}
                       style={[
                         styles.filterOption,
@@ -473,7 +483,7 @@ export default function DriverHistoryScreen() {
                       >
                         {option.label}
                       </ThemedText>
-                    </TouchableOpacity>
+                    </TouchableSound>
                   ))}
                 </View>
               </View>
@@ -487,7 +497,7 @@ export default function DriverHistoryScreen() {
                     { value: 'shopping', label: 'Compras' },
                     { value: 'delivery', label: 'Envios' },
                   ].map((option) => (
-                    <TouchableOpacity
+                    <TouchableSound
                       key={option.value}
                       style={[
                         styles.filterOption,
@@ -502,7 +512,7 @@ export default function DriverHistoryScreen() {
                       >
                         {option.label}
                       </ThemedText>
-                    </TouchableOpacity>
+                    </TouchableSound>
                   ))}
                 </View>
               </View>
@@ -515,7 +525,7 @@ export default function DriverHistoryScreen() {
                     { value: 'completed', label: 'Completadas' },
                     { value: 'cancelled', label: 'Canceladas' },
                   ].map((option) => (
-                    <TouchableOpacity
+                    <TouchableSound
                       key={option.value}
                       style={[
                         styles.filterOption,
@@ -530,25 +540,25 @@ export default function DriverHistoryScreen() {
                       >
                         {option.label}
                       </ThemedText>
-                    </TouchableOpacity>
+                    </TouchableSound>
                   ))}
                 </View>
               </View>
             </ScrollView>
 
             <View style={[styles.modalActions, { borderTopColor: theme.border }]}>
-              <TouchableOpacity
+              <TouchableSound
                 style={[styles.resetButton, { backgroundColor: theme.cardAlt }]}
                 onPress={resetFilters}
               >
                 <ThemedText variant="label" bold style={{ color: theme.text }}>Resetear</ThemedText>
-              </TouchableOpacity>
-              <TouchableOpacity
+              </TouchableSound>
+              <TouchableSound
                 style={[styles.applyButton, { backgroundColor: colors.primary }]}
                 onPress={applyFilters}
               >
                 <ThemedText variant="label" bold color="white">Aplicar</ThemedText>
-              </TouchableOpacity>
+              </TouchableSound>
             </View>
           </View>
         </View>

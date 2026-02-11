@@ -1,4 +1,10 @@
-import { Modal, View, Text, StyleSheet, TouchableOpacity } from 'react-native';
+import TouchableSound from '@/components/TouchableSound';
+import {
+  Modal,
+  View,
+  Text,
+  StyleSheet,
+} from 'react-native';
 import { AlertTriangle } from 'lucide-react-native';
 import Colors from '@/constants/colors';
 import { HapticFeedback } from '@/utils/haptics';
@@ -54,15 +60,15 @@ export default function ConfirmModal({
           <Text style={styles.message}>{message}</Text>
 
           <View style={styles.buttons}>
-            <TouchableOpacity
+            <TouchableSound
               style={[styles.button, styles.cancelButton]}
               onPress={handleCancel}
               activeOpacity={0.8}
             >
               <Text style={styles.cancelButtonText}>{cancelText}</Text>
-            </TouchableOpacity>
+            </TouchableSound>
 
-            <TouchableOpacity
+            <TouchableSound
               style={[
                 styles.button, 
                 styles.confirmButton,
@@ -72,7 +78,7 @@ export default function ConfirmModal({
               activeOpacity={0.8}
             >
               <Text style={styles.confirmButtonText}>{confirmText}</Text>
-            </TouchableOpacity>
+            </TouchableSound>
           </View>
         </View>
       </View>

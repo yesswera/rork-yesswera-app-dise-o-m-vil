@@ -1,5 +1,13 @@
+import TouchableSound from '@/components/TouchableSound';
 // Stores - Lista de tiendas con filtro por categoría
-import { StyleSheet, Text, View, TouchableOpacity, ScrollView, ActivityIndicator, RefreshControl } from 'react-native';
+import {
+  StyleSheet,
+  Text,
+  View,
+  ScrollView,
+  ActivityIndicator,
+  RefreshControl,
+} from 'react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { Store, Star, ArrowLeft, Filter, ShoppingBag } from 'lucide-react-native';
 import { Image } from 'expo-image';
@@ -74,9 +82,9 @@ export default function StoresScreen() {
     <View style={[styles.container, { backgroundColor: theme.background }]}>
       {/* Header con categoría */}
       <View style={[styles.header, { backgroundColor: theme.card, borderBottomColor: theme.border }]}>
-        <TouchableOpacity style={[styles.backButton, { backgroundColor: theme.cardAlt }]} onPress={handleGoBack}>
+        <TouchableSound style={[styles.backButton, { backgroundColor: theme.cardAlt }]} onPress={handleGoBack}>
           <ArrowLeft size={24} color={theme.text} />
-        </TouchableOpacity>
+        </TouchableSound>
         <View style={styles.headerContent}>
           <Text style={[styles.headerTitle, { color: theme.text }]}>{categoryTitle}</Text>
           <Text style={[styles.headerSubtitle, { color: theme.textSecondary }]}>
@@ -113,7 +121,7 @@ export default function StoresScreen() {
               />
             ) : (
               stores.map((store) => (
-                <TouchableOpacity
+                <TouchableSound
                   key={store.id}
                   style={[styles.storeCard, { backgroundColor: theme.card }]}
                   activeOpacity={0.8}
@@ -149,7 +157,7 @@ export default function StoresScreen() {
                       <Text style={styles.selectText}>Seleccionar</Text>
                     </View>
                   </View>
-                </TouchableOpacity>
+                </TouchableSound>
               ))
             )}
 

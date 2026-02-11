@@ -1,4 +1,15 @@
-import { View, Text, TouchableOpacity, StyleSheet, Modal, ScrollView, ActivityIndicator, Alert, TextInput, Dimensions } from 'react-native';
+import TouchableSound from '@/components/TouchableSound';
+import {
+  View,
+  Text,
+  StyleSheet,
+  Modal,
+  ScrollView,
+  ActivityIndicator,
+  Alert,
+  TextInput,
+  Dimensions,
+} from 'react-native';
 import { MapPin, Plus, X, Home, Briefcase, MapPinned, Star, Navigation, Search, ChevronRight, Loader, Crosshair } from 'lucide-react-native';
 import { useState, useEffect, useCallback, useRef } from 'react';
 import MapView, { Marker, Region } from 'react-native-maps';
@@ -204,7 +215,7 @@ export default function AddressSelector({ selectedAddress, onAddressSelect, onAd
     <View style={styles.container}>
       <Text style={styles.title}>Dirección de Entrega</Text>
       
-      <TouchableOpacity
+      <TouchableSound
         style={styles.selectorButton}
         onPress={() => setModalVisible(true)}
         activeOpacity={0.7}
@@ -223,7 +234,7 @@ export default function AddressSelector({ selectedAddress, onAddressSelect, onAd
           )}
         </View>
         <Text style={styles.changeText}>Cambiar</Text>
-      </TouchableOpacity>
+      </TouchableSound>
 
       <Modal
         visible={modalVisible}
@@ -235,9 +246,9 @@ export default function AddressSelector({ selectedAddress, onAddressSelect, onAd
           <View style={styles.modalContent}>
             <View style={styles.modalHeader}>
               <Text style={styles.modalTitle}>Mis Direcciones</Text>
-              <TouchableOpacity onPress={() => setModalVisible(false)}>
+              <TouchableSound onPress={() => setModalVisible(false)}>
                 <X size={24} color={Colors.text.primary} />
-              </TouchableOpacity>
+              </TouchableSound>
             </View>
 
             {isLoading ? (
@@ -251,7 +262,7 @@ export default function AddressSelector({ selectedAddress, onAddressSelect, onAd
                   const isSelected = selectedAddress?.id === address.id;
 
                   return (
-                    <TouchableOpacity
+                    <TouchableSound
                       key={address.id}
                       style={[
                         styles.addressCard,
@@ -286,7 +297,7 @@ export default function AddressSelector({ selectedAddress, onAddressSelect, onAd
                       </View>
 
                       {!address.isDefault && (
-                        <TouchableOpacity
+                        <TouchableSound
                           style={styles.setDefaultButton}
                           onPress={(e) => {
                             e.stopPropagation();
@@ -294,9 +305,9 @@ export default function AddressSelector({ selectedAddress, onAddressSelect, onAd
                           }}
                         >
                           <Text style={styles.setDefaultText}>Predeterminada</Text>
-                        </TouchableOpacity>
+                        </TouchableSound>
                       )}
-                    </TouchableOpacity>
+                    </TouchableSound>
                   );
                 }) : (
                   <View style={styles.emptyContainer}>
@@ -307,7 +318,7 @@ export default function AddressSelector({ selectedAddress, onAddressSelect, onAd
                 )}
 
                 {/* Select on map option */}
-                <TouchableOpacity
+                <TouchableSound
                   style={styles.selectOnMapButton}
                   onPress={handleSelectOnMap}
                   activeOpacity={0.7}
@@ -318,16 +329,16 @@ export default function AddressSelector({ selectedAddress, onAddressSelect, onAd
                     <Text style={styles.selectOnMapSubtitle}>Elige una ubicación sin guardarla</Text>
                   </View>
                   <ChevronRight size={20} color={Colors.text.light} />
-                </TouchableOpacity>
+                </TouchableSound>
 
-                <TouchableOpacity
+                <TouchableSound
                   style={styles.addNewButton}
                   onPress={handleAddNewAddress}
                   activeOpacity={0.7}
                 >
                   <Plus size={24} color={Colors.primary} />
                   <Text style={styles.addNewText}>Agregar Nueva Dirección</Text>
-                </TouchableOpacity>
+                </TouchableSound>
               </ScrollView>
             )}
           </View>
@@ -342,13 +353,13 @@ export default function AddressSelector({ selectedAddress, onAddressSelect, onAd
       >
         <View style={styles.mapModalContainer}>
           <View style={styles.mapHeader}>
-            <TouchableOpacity onPress={() => setShowMapModal(false)}>
+            <TouchableSound onPress={() => setShowMapModal(false)}>
               <X size={24} color={Colors.text.primary} />
-            </TouchableOpacity>
+            </TouchableSound>
             <Text style={styles.mapTitle}>Seleccionar Ubicación</Text>
-            <TouchableOpacity onPress={confirmMapLocation}>
+            <TouchableSound onPress={confirmMapLocation}>
               <Text style={styles.mapConfirm}>Confirmar</Text>
-            </TouchableOpacity>
+            </TouchableSound>
           </View>
 
           {/* Search Bar */}
@@ -367,14 +378,14 @@ export default function AddressSelector({ selectedAddress, onAddressSelect, onAd
               {isSearching ? (
                 <Loader size={20} color={Colors.primary} />
               ) : searchQuery.length > 0 ? (
-                <TouchableOpacity onPress={searchAddress}>
+                <TouchableSound onPress={searchAddress}>
                   <ChevronRight size={20} color={Colors.primary} />
-                </TouchableOpacity>
+                </TouchableSound>
               ) : null}
             </View>
-            <TouchableOpacity style={styles.myLocationButton} onPress={getCurrentLocation}>
+            <TouchableSound style={styles.myLocationButton} onPress={getCurrentLocation}>
               <Crosshair size={20} color={Colors.white} />
-            </TouchableOpacity>
+            </TouchableSound>
           </View>
 
           <MapView

@@ -1,3 +1,4 @@
+import TouchableSound from '@/components/TouchableSound';
 // ============================================================================
 // YESSWERA: MODAL DE VERIFICACIÓN DE ESTADO DEL DRIVER
 // Pregunta fija que aparece cuando el sistema detecta anomalías
@@ -10,7 +11,6 @@ import {
   Text,
   View,
   Modal,
-  TouchableOpacity,
   ActivityIndicator,
 } from 'react-native';
 import {
@@ -218,7 +218,7 @@ export default function DriverHealthCheckModal({
           {/* Opciones */}
           <View style={styles.optionsContainer}>
             {HEALTH_CHECK_OPTIONS.map((option) => (
-              <TouchableOpacity
+              <TouchableSound
                 key={option.id}
                 style={[
                   styles.optionButton,
@@ -234,7 +234,7 @@ export default function DriverHealthCheckModal({
                 {isSubmitting && selectedOption === option.id && (
                   <ActivityIndicator size="small" color={Colors.primary} />
                 )}
-              </TouchableOpacity>
+              </TouchableSound>
             ))}
           </View>
 

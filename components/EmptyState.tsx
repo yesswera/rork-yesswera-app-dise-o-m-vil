@@ -1,4 +1,9 @@
-import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
+import TouchableSound from '@/components/TouchableSound';
+import {
+  View,
+  Text,
+  StyleSheet,
+} from 'react-native';
 import { LucideIcon } from 'lucide-react-native';
 import Colors from '@/constants/colors';
 
@@ -25,13 +30,13 @@ export default function EmptyState({
       <Text style={styles.title}>{title}</Text>
       <Text style={styles.message}>{message}</Text>
       {actionLabel && onActionPress && (
-        <TouchableOpacity
+        <TouchableSound
           style={styles.button}
           onPress={onActionPress}
           activeOpacity={0.8}
         >
           <Text style={styles.buttonText}>{actionLabel}</Text>
-        </TouchableOpacity>
+        </TouchableSound>
       )}
     </View>
   );

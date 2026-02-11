@@ -1,5 +1,11 @@
+import TouchableSound from '@/components/TouchableSound';
 import { useState } from 'react';
-import { StyleSheet, Text, TouchableOpacity, Alert, Vibration } from 'react-native';
+import {
+  StyleSheet,
+  Text,
+  Alert,
+  Vibration,
+} from 'react-native';
 import { AlertOctagon } from 'lucide-react-native';
 import Colors from '@/constants/colors';
 import { useAuth } from '@/contexts/auth';
@@ -122,7 +128,7 @@ export default function PanicButton({ orderId }: PanicButtonProps) {
   };
 
   return (
-    <TouchableOpacity
+    <TouchableSound
       style={[styles.button, isPressed && styles.buttonPressed]}
       onLongPress={handleLongPress}
       onPressOut={handlePressOut}
@@ -132,7 +138,7 @@ export default function PanicButton({ orderId }: PanicButtonProps) {
       <AlertOctagon size={32} color={Colors.white} strokeWidth={3} />
       <Text style={styles.buttonText}>EMERGENCIA</Text>
       <Text style={styles.helperText}>Mantén presionado 3 seg</Text>
-    </TouchableOpacity>
+    </TouchableSound>
   );
 }
 

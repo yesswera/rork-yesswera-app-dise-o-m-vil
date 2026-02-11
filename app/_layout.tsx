@@ -15,7 +15,7 @@ import {
   registerForPushNotifications,
   addNotificationResponseReceivedListener,
 } from "@/services/notifications";
-import { initializeSounds, cleanupSounds } from "@/services/sounds";
+import { initializeSounds, cleanupSounds, playStartupChime } from "@/services/sounds";
 import { startAISupervision, stopAISupervision } from "@/services/ai-supervisor";
 
 SplashScreen.preventAutoHideAsync();
@@ -104,8 +104,10 @@ function ThemedApp() {
 
 export default function RootLayout() {
   useEffect(() => {
-    // Inicializar sistema de sonidos
-    initializeSounds().catch(console.error);
+    // Inicializar sistema de sonidos y reproducir chime de inicio
+    initializeSounds()
+      .then(() => playStartupChime())
+      .catch(console.error);
 
     // Iniciar IA Supervisor (supervisa capacidad de drivers, etc.)
     startAISupervision().catch(console.error);

@@ -1,10 +1,10 @@
+import TouchableSound from '@/components/TouchableSound';
 import React, { useState } from 'react';
 import {
   View,
   Text,
   StyleSheet,
   Modal,
-  TouchableOpacity,
   TextInput,
   ScrollView,
   Dimensions,
@@ -69,7 +69,7 @@ export default function SurveyPopup({ survey, visible, onClose, onSubmit }: Surv
         return (
           <View style={styles.ratingContainer}>
             {[1, 2, 3, 4, 5].map((star) => (
-              <TouchableOpacity
+              <TouchableSound
                 key={star}
                 onPress={() => handleAnswer(question.id, star)}
                 style={styles.starButton}
@@ -79,7 +79,7 @@ export default function SurveyPopup({ survey, visible, onClose, onSubmit }: Surv
                   fill={typeof responses[question.id] === 'number' && (responses[question.id] as number) >= star ? Colors.primary : 'transparent'}
                   color={typeof responses[question.id] === 'number' && (responses[question.id] as number) >= star ? Colors.primary : '#CBD5E0'}
                 />
-              </TouchableOpacity>
+              </TouchableSound>
             ))}
           </View>
         );
@@ -88,7 +88,7 @@ export default function SurveyPopup({ survey, visible, onClose, onSubmit }: Surv
         return (
           <View style={styles.optionsContainer}>
             {question.options?.map((option, index) => (
-              <TouchableOpacity
+              <TouchableSound
                 key={index}
                 onPress={() => handleAnswer(question.id, option)}
                 style={[
@@ -104,7 +104,7 @@ export default function SurveyPopup({ survey, visible, onClose, onSubmit }: Surv
                 >
                   {option}
                 </Text>
-              </TouchableOpacity>
+              </TouchableSound>
             ))}
           </View>
         );
@@ -112,7 +112,7 @@ export default function SurveyPopup({ survey, visible, onClose, onSubmit }: Surv
       case 'yes_no':
         return (
           <View style={styles.yesNoContainer}>
-            <TouchableOpacity
+            <TouchableSound
               onPress={() => handleAnswer(question.id, 'yes')}
               style={[
                 styles.yesNoButton,
@@ -128,8 +128,8 @@ export default function SurveyPopup({ survey, visible, onClose, onSubmit }: Surv
               >
                 Sí
               </Text>
-            </TouchableOpacity>
-            <TouchableOpacity
+            </TouchableSound>
+            <TouchableSound
               onPress={() => handleAnswer(question.id, 'no')}
               style={[
                 styles.yesNoButton,
@@ -145,7 +145,7 @@ export default function SurveyPopup({ survey, visible, onClose, onSubmit }: Surv
               >
                 No
               </Text>
-            </TouchableOpacity>
+            </TouchableSound>
           </View>
         );
 
@@ -161,7 +161,7 @@ export default function SurveyPopup({ survey, visible, onClose, onSubmit }: Surv
                 { length: (question.scaleMax || 10) - (question.scaleMin || 0) + 1 },
                 (_, i) => (question.scaleMin || 0) + i
               ).map((value) => (
-                <TouchableOpacity
+                <TouchableSound
                   key={value}
                   onPress={() => handleAnswer(question.id, value)}
                   style={[
@@ -177,7 +177,7 @@ export default function SurveyPopup({ survey, visible, onClose, onSubmit }: Surv
                   >
                     {value}
                   </Text>
-                </TouchableOpacity>
+                </TouchableSound>
               ))}
             </View>
           </View>
@@ -196,7 +196,7 @@ export default function SurveyPopup({ survey, visible, onClose, onSubmit }: Surv
               numberOfLines={4}
               textAlignVertical="top"
             />
-            <TouchableOpacity
+            <TouchableSound
               onPress={handleTextSubmit}
               style={[
                 styles.submitButton,
@@ -207,7 +207,7 @@ export default function SurveyPopup({ survey, visible, onClose, onSubmit }: Surv
               <Text style={styles.submitButtonText}>
                 {isLastQuestion ? 'Enviar' : 'Siguiente'}
               </Text>
-            </TouchableOpacity>
+            </TouchableSound>
           </View>
         );
 
@@ -220,9 +220,9 @@ export default function SurveyPopup({ survey, visible, onClose, onSubmit }: Surv
     <Modal visible={visible} transparent animationType="fade" onRequestClose={handleClose}>
       <View style={styles.overlay}>
         <View style={styles.container}>
-          <TouchableOpacity onPress={handleClose} style={styles.closeButton}>
+          <TouchableSound onPress={handleClose} style={styles.closeButton}>
             <X size={24} color="#64748B" />
-          </TouchableOpacity>
+          </TouchableSound>
 
           <View style={styles.progressBarContainer}>
             <View style={[styles.progressBar, { width: `${progress}%` }]} />

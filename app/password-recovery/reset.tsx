@@ -1,3 +1,4 @@
+import TouchableSound from '@/components/TouchableSound';
 // ============================================================================
 // YESSWERA: RECUPERAR CONTRASENA - NUEVA CONTRASENA
 // Usa ScreenContainer para diseño unificado con soporte de tema oscuro
@@ -6,7 +7,6 @@
 import { useState } from 'react';
 import {
   View,
-  TouchableOpacity,
   StyleSheet,
 } from 'react-native';
 import { useRouter } from 'expo-router';
@@ -100,12 +100,12 @@ export default function PasswordRecoveryResetScreen() {
   // Header content con boton de regreso
   const headerContent = (
     <View style={styles.headerControls}>
-      <TouchableOpacity
+      <TouchableSound
         style={styles.backButton}
         onPress={() => router.back()}
       >
         <ArrowLeft size={24} color="#FFFFFF" />
-      </TouchableOpacity>
+      </TouchableSound>
       <View style={styles.headerSpacer} />
     </View>
   );

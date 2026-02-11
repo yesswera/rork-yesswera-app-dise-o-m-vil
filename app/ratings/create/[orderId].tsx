@@ -1,3 +1,4 @@
+import TouchableSound from '@/components/TouchableSound';
 // ============================================================================
 // YESSWERA: CREAR CALIFICACION
 // Pantalla para calificar al repartidor despues de una entrega
@@ -9,7 +10,6 @@ import {
   StyleSheet,
   Text,
   View,
-  TouchableOpacity,
   TextInput,
   ActivityIndicator,
 } from 'react-native';
@@ -205,14 +205,14 @@ export default function CreateRatingScreen() {
         disabled={rating === 0}
       />
 
-      <TouchableOpacity
+      <TouchableSound
         style={[styles.skipButton, { backgroundColor: theme.cardAlt }]}
         onPress={handleSkip}
         disabled={isSubmitting}
         activeOpacity={0.8}
       >
         <Text style={[styles.skipButtonText, { color: theme.text }]}>Omitir</Text>
-      </TouchableOpacity>
+      </TouchableSound>
     </View>
   );
 
@@ -241,7 +241,7 @@ export default function CreateRatingScreen() {
         {/* Stars */}
         <View style={styles.starsContainer}>
           {[1, 2, 3, 4, 5].map((star) => (
-            <TouchableOpacity
+            <TouchableSound
               key={star}
               onPress={() => handleRatingPress(star)}
               activeOpacity={0.8}
@@ -253,7 +253,7 @@ export default function CreateRatingScreen() {
                 fill={star <= rating ? STATUS_COLORS.gold : 'transparent'}
                 strokeWidth={2}
               />
-            </TouchableOpacity>
+            </TouchableSound>
           ))}
         </View>
 

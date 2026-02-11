@@ -355,6 +355,17 @@ export async function updateUserType(userId: string, userType: UserType): Promis
 
 export async function hardDeleteUser(userId: string): Promise<void> {
   try {
+    // Proteccion: verificar que no sea admin
+    const { data: userData } = await supabase
+      .from('users')
+      .select('user_type')
+      .eq('id', userId)
+      .single();
+
+    if (userData?.user_type === 'admin') {
+      throw new Error('No se puede eliminar una cuenta de administrador');
+    }
+
     // First delete related records
     await supabase.from('addresses').delete().eq('user_id', userId);
     await supabase.from('push_tokens').delete().eq('user_id', userId);

@@ -1,10 +1,19 @@
+import TouchableSound from '@/components/TouchableSound';
 // ============================================================================
 // YESSWERA: DASHBOARD DEL REPARTIDOR
 // Usa ScreenContainer para diseño unificado con soporte de tema
 // ============================================================================
 
 import { useState, useEffect, useCallback } from 'react';
-import { View, TouchableOpacity, Alert, Linking, Platform, BackHandler, StyleSheet, useColorScheme } from 'react-native';
+import {
+  View,
+  Alert,
+  Linking,
+  Platform,
+  BackHandler,
+  StyleSheet,
+  useColorScheme,
+} from 'react-native';
 import { useRouter, useFocusEffect } from 'expo-router';
 import { Package, DollarSign, Star, Power, MessageCircle, History, User, HelpCircle, AlertTriangle, Truck } from 'lucide-react-native';
 import { useAuth } from '@/contexts/auth';
@@ -310,7 +319,7 @@ export default function DriverDashboardScreen() {
               : 'Desconectado'}
           </ThemedText>
         </View>
-        <TouchableOpacity
+        <TouchableSound
           style={[
             styles.onlineToggle,
             {
@@ -328,7 +337,7 @@ export default function DriverDashboardScreen() {
           >
             {isOnline ? 'EN LINEA' : 'OFFLINE'}
           </ThemedText>
-        </TouchableOpacity>
+        </TouchableSound>
       </View>
     </View>
   );
@@ -385,7 +394,7 @@ export default function DriverDashboardScreen() {
 
       {/* Action Buttons */}
       <View style={[styles.actionButtonsRow, { gap: space.sm, marginBottom: space.lg }]}>
-        <TouchableOpacity
+        <TouchableSound
           style={[styles.actionBtn, { backgroundColor: colors.primary, borderRadius: radius.md, padding: space.md }]}
           onPress={() => router.push('/driver/active-order')}
         >
@@ -393,9 +402,9 @@ export default function DriverDashboardScreen() {
           <ThemedText variant="label" color="white" bold style={{ marginTop: space.xs }}>
             Orden Activa
           </ThemedText>
-        </TouchableOpacity>
+        </TouchableSound>
 
-        <TouchableOpacity
+        <TouchableSound
           style={[styles.actionBtn, { backgroundColor: colors.success, borderRadius: radius.md, padding: space.md }]}
           onPress={() => router.push('/driver/earnings' as any)}
         >
@@ -403,17 +412,17 @@ export default function DriverDashboardScreen() {
           <ThemedText variant="label" color="white" bold style={{ marginTop: space.xs }}>
             Ganancias
           </ThemedText>
-        </TouchableOpacity>
+        </TouchableSound>
       </View>
 
       {/* Panic Button */}
-      <TouchableOpacity
+      <TouchableSound
         style={[styles.panicButton, { borderRadius: radius.md, padding: space.md, marginBottom: space.lg }]}
         onPress={() => setShowPanicModal(true)}
       >
         <AlertTriangle size={20} color="#fff" />
         <ThemedText variant="label" color="white" bold>Necesito Ayuda</ThemedText>
-      </TouchableOpacity>
+      </TouchableSound>
 
       {/* Quick Actions */}
       <ThemedText variant="title" style={[styles.sectionTitle, { color: theme.text, marginBottom: space.sm }]}>Acciones Rapidas</ThemedText>
@@ -424,7 +433,7 @@ export default function DriverDashboardScreen() {
           { icon: MessageCircle, label: 'Mensajes', color: colors.success, route: '/driver/messages' },
           { icon: HelpCircle, label: 'Ayuda', color: colors.warning, route: null },
         ].map((action, index) => (
-          <TouchableOpacity
+          <TouchableSound
             key={index}
             style={[styles.quickActionCard, {
               backgroundColor: theme.card,
@@ -438,7 +447,7 @@ export default function DriverDashboardScreen() {
           >
             <action.icon size={24} color={action.color} />
             <ThemedText variant="caption" bold style={[styles.quickActionLabel, { color: theme.text }]}>{action.label}</ThemedText>
-          </TouchableOpacity>
+          </TouchableSound>
         ))}
       </View>
 
@@ -502,17 +511,17 @@ export default function DriverDashboardScreen() {
             Total: ${order.total?.toFixed(2)} MXN
           </ThemedText>
 
-          <TouchableOpacity
+          <TouchableSound
             style={[styles.acceptButton, { backgroundColor: colors.primary, borderRadius: radius.md, padding: space.md }]}
             onPress={() => handleAcceptOrder(order.id.toString())}
           >
             <ThemedText variant="label" color="white" bold center>Aceptar Orden</ThemedText>
-          </TouchableOpacity>
+          </TouchableSound>
         </View>
       ))}
 
       {/* Logout */}
-      <TouchableOpacity
+      <TouchableSound
         style={[styles.logoutButton, {
           borderColor: colors.error,
           borderRadius: radius.md,
@@ -522,7 +531,7 @@ export default function DriverDashboardScreen() {
         onPress={handleLogout}
       >
         <ThemedText variant="body" color="error" bold center>Cerrar Sesion</ThemedText>
-      </TouchableOpacity>
+      </TouchableSound>
     </ScreenContainer>
   );
 }

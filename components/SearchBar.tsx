@@ -1,5 +1,10 @@
+import TouchableSound from '@/components/TouchableSound';
 import { useState } from 'react';
-import { View, TextInput, StyleSheet, TouchableOpacity } from 'react-native';
+import {
+  View,
+  TextInput,
+  StyleSheet,
+} from 'react-native';
 import { Search, X } from 'lucide-react-native';
 import Colors from '@/constants/colors';
 
@@ -38,9 +43,9 @@ export default function SearchBar({
         autoCorrect={false}
       />
       {value.length > 0 && (
-        <TouchableOpacity onPress={handleClear} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+        <TouchableSound onPress={handleClear} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
           <X size={20} color={Colors.text.secondary} />
-        </TouchableOpacity>
+        </TouchableSound>
       )}
     </View>
   );

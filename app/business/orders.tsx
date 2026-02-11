@@ -1,3 +1,4 @@
+import TouchableSound from '@/components/TouchableSound';
 // ============================================================================
 // YESSWERA: ORDENES DEL NEGOCIO
 // Usa ScreenContainer para diseno unificado
@@ -9,7 +10,6 @@ import {
   Text,
   View,
   ScrollView,
-  TouchableOpacity,
   Alert,
   TextInput,
 } from 'react-native';
@@ -263,7 +263,7 @@ export default function BusinessOrdersScreen() {
     const isPending = order.status === 'pending';
 
     return (
-      <TouchableOpacity
+      <TouchableSound
         key={order.id}
         style={[styles.orderCard, { backgroundColor: theme.card, borderColor: theme.border }]}
         onPress={() => router.push(`/business/comanda/${order.id}` as any)}
@@ -327,24 +327,24 @@ export default function BusinessOrdersScreen() {
 
         {/* Boton: Comenzar preparacion (accepted -> preparing) */}
         {order.status === 'accepted' && (
-          <TouchableOpacity
+          <TouchableSound
             style={[styles.acceptButton, { backgroundColor: colors.accent }]}
             onPress={() => handleStartPreparing(order.id.toString())}
           >
             <CookingPot size={20} color="#fff" />
             <Text style={styles.acceptButtonText}>Comenzar Preparacion</Text>
-          </TouchableOpacity>
+          </TouchableSound>
         )}
 
         {/* Boton: Marcar como lista (preparing -> ready) */}
         {order.status === 'preparing' && (
-          <TouchableOpacity
+          <TouchableSound
             style={[styles.acceptButton, { backgroundColor: colors.primary }]}
             onPress={() => handleMarkReady(order.id.toString())}
           >
             <Package size={20} color="#fff" />
             <Text style={styles.acceptButtonText}>Marcar como Lista</Text>
-          </TouchableOpacity>
+          </TouchableSound>
         )}
 
         {/* Repartidor asignado pero no ha llegado al negocio */}
@@ -391,7 +391,7 @@ export default function BusinessOrdersScreen() {
               maxLength={4}
               autoCapitalize="characters"
             />
-            <TouchableOpacity
+            <TouchableSound
               style={[
                 styles.acceptButton,
                 { backgroundColor: colors.success },
@@ -404,7 +404,7 @@ export default function BusinessOrdersScreen() {
               <Text style={styles.acceptButtonText}>
                 {validatingPickup === order.id.toString() ? 'Validando...' : 'Entregar Pedido'}
               </Text>
-            </TouchableOpacity>
+            </TouchableSound>
           </View>
         )}
 
@@ -441,20 +441,20 @@ export default function BusinessOrdersScreen() {
         {/* Botones Aceptar/Rechazar para ordenes pendientes */}
         {isPending && showPrepTimeFor !== order.id.toString() && showRejectFor !== order.id.toString() && (
           <View style={styles.pendingActionsRow}>
-            <TouchableOpacity
+            <TouchableSound
               style={[styles.acceptButton, { flex: 1 }]}
               onPress={() => setShowPrepTimeFor(order.id.toString())}
             >
               <CheckCircle size={20} color="#fff" />
               <Text style={styles.acceptButtonText}>Aceptar</Text>
-            </TouchableOpacity>
-            <TouchableOpacity
+            </TouchableSound>
+            <TouchableSound
               style={[styles.rejectButton, { backgroundColor: colors.error }]}
               onPress={() => setShowRejectFor(order.id.toString())}
             >
               <XCircle size={20} color="#fff" />
               <Text style={styles.rejectButtonText}>Rechazar</Text>
-            </TouchableOpacity>
+            </TouchableSound>
           </View>
         )}
 
@@ -464,7 +464,7 @@ export default function BusinessOrdersScreen() {
             <Text style={[styles.prepTimeTitle, { color: theme.text }]}>Tiempo de preparacion:</Text>
             <View style={styles.prepTimeRow}>
               {[10, 15, 20, 30, 45].map((min) => (
-                <TouchableOpacity
+                <TouchableSound
                   key={min}
                   style={[
                     styles.prepTimeButton,
@@ -482,15 +482,15 @@ export default function BusinessOrdersScreen() {
                   >
                     {min} min
                   </Text>
-                </TouchableOpacity>
+                </TouchableSound>
               ))}
             </View>
-            <TouchableOpacity
+            <TouchableSound
               style={styles.prepTimeCancelButton}
               onPress={() => setShowPrepTimeFor(null)}
             >
               <Text style={[styles.prepTimeCancelText, { color: theme.textSecondary }]}>Volver</Text>
-            </TouchableOpacity>
+            </TouchableSound>
           </View>
         )}
 
@@ -499,7 +499,7 @@ export default function BusinessOrdersScreen() {
           <View style={[styles.rejectContainer, { backgroundColor: colors.error + '10', borderColor: colors.error + '30' }]}>
             <Text style={[styles.rejectTitle, { color: theme.text }]}>Motivo del rechazo:</Text>
             {(Object.keys(REJECTION_REASONS) as RejectionReason[]).map((key) => (
-              <TouchableOpacity
+              <TouchableSound
                 key={key}
                 style={[
                   styles.rejectReasonButton,
@@ -512,17 +512,17 @@ export default function BusinessOrdersScreen() {
                 <Text style={[styles.rejectReasonText, { color: colors.error }]}>
                   {REJECTION_REASONS[key]}
                 </Text>
-              </TouchableOpacity>
+              </TouchableSound>
             ))}
-            <TouchableOpacity
+            <TouchableSound
               style={styles.prepTimeCancelButton}
               onPress={() => setShowRejectFor(null)}
             >
               <Text style={[styles.prepTimeCancelText, { color: theme.textSecondary }]}>Volver</Text>
-            </TouchableOpacity>
+            </TouchableSound>
           </View>
         )}
-      </TouchableOpacity>
+      </TouchableSound>
     );
   };
 
@@ -534,7 +534,7 @@ export default function BusinessOrdersScreen() {
         { key: 'active' as const, label: 'Activas', count: orders.filter(o => ['accepted', 'preparing', 'ready', 'assigned', 'handed_to_driver', 'in_transit', 'arrived'].includes(o.status)).length },
         { key: 'done' as const, label: 'Completadas', count: orders.filter(o => ['delivered', 'cancelled'].includes(o.status)).length },
       ]).map(tab => (
-        <TouchableOpacity
+        <TouchableSound
           key={tab.key}
           style={[
             styles.tab,
@@ -565,7 +565,7 @@ export default function BusinessOrdersScreen() {
               </Text>
             </View>
           )}
-        </TouchableOpacity>
+        </TouchableSound>
       ))}
     </View>
   );

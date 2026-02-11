@@ -1,3 +1,4 @@
+import TouchableSound from '@/components/TouchableSound';
 // ============================================================================
 // YESSWERA: ADMIN SUPPORT
 // Sistema de soporte para administradores - Actualizado con ScreenContainer
@@ -9,7 +10,6 @@ import {
   Text,
   View,
   ScrollView,
-  TouchableOpacity,
   TextInput,
   ActivityIndicator,
   Alert,
@@ -310,7 +310,7 @@ export default function AdminSupportScreen() {
             maxLength={6}
             onSubmitEditing={handleSearch}
           />
-          <TouchableOpacity
+          <TouchableSound
             style={[styles.searchButton, { backgroundColor: FIXED_COLORS.primary }]}
             onPress={handleSearch}
             disabled={searching}
@@ -320,7 +320,7 @@ export default function AdminSupportScreen() {
             ) : (
               <Search size={20} color={FIXED_COLORS.white} />
             )}
-          </TouchableOpacity>
+          </TouchableSound>
         </View>
         <Text style={[styles.searchHint, { color: theme.textMuted }]}>
           Ingresa el ID de caso de 6 caracteres que el usuario te proporcione
@@ -332,7 +332,7 @@ export default function AdminSupportScreen() {
         <View style={styles.resultsSection}>
           <Text style={[styles.sectionTitle, { color: theme.text }]}>Resultados ({searchResults.length})</Text>
           {searchResults.map((result) => (
-            <TouchableOpacity
+            <TouchableSound
               key={result.caseNumber}
               style={[styles.resultCard, { backgroundColor: theme.card }]}
               onPress={() => handleOpenCase(result.caseNumber)}
@@ -345,7 +345,7 @@ export default function AdminSupportScreen() {
                 {result.participant1Name} - {result.participant2Name}
               </Text>
               <Text style={[styles.resultDate, { color: theme.textMuted }]}>{formatTime(result.createdAt)}</Text>
-            </TouchableOpacity>
+            </TouchableSound>
           ))}
         </View>
       )}
@@ -372,9 +372,9 @@ export default function AdminSupportScreen() {
         <View style={[styles.modalContainer, { backgroundColor: isDark ? COLORS.dark.cardAlt : '#F5F5F4' }]}>
           {/* Header */}
           <View style={[styles.modalHeader, { backgroundColor: theme.card, borderBottomColor: theme.border }]}>
-            <TouchableOpacity onPress={() => setCaseModalVisible(false)}>
+            <TouchableSound onPress={() => setCaseModalVisible(false)}>
               <X size={24} color={theme.text} />
-            </TouchableOpacity>
+            </TouchableSound>
             <View style={styles.modalTitleContainer}>
               <Text style={[styles.modalTitle, { color: FIXED_COLORS.primary }]}>
                 {selectedCase?.caseNumber || 'Cargando...'}
@@ -393,9 +393,9 @@ export default function AdminSupportScreen() {
                 </View>
               )}
             </View>
-            <TouchableOpacity onPress={handleGenerateReport}>
+            <TouchableSound onPress={handleGenerateReport}>
               <FileText size={24} color={FIXED_COLORS.primary} />
-            </TouchableOpacity>
+            </TouchableSound>
           </View>
 
           {loadingCase ? (
@@ -441,7 +441,7 @@ export default function AdminSupportScreen() {
               {/* Order Details */}
               {selectedCase.order && (
                 <View style={[styles.section, { backgroundColor: theme.card }]}>
-                  <TouchableOpacity
+                  <TouchableSound
                     style={[styles.sectionHeader, { backgroundColor: theme.cardAlt }]}
                     onPress={() => toggleSection('order')}
                   >
@@ -450,7 +450,7 @@ export default function AdminSupportScreen() {
                       <Text style={[styles.sectionHeaderTitle, { color: theme.text }]}>Orden</Text>
                     </View>
                     {expandedSections.order ? <ChevronUp size={20} color={theme.textSecondary} /> : <ChevronDown size={20} color={theme.textSecondary} />}
-                  </TouchableOpacity>
+                  </TouchableSound>
                   {expandedSections.order && (
                     <View style={styles.sectionContent}>
                       <View style={styles.orderRow}>
@@ -488,7 +488,7 @@ export default function AdminSupportScreen() {
 
               {/* Timeline */}
               <View style={[styles.section, { backgroundColor: theme.card }]}>
-                <TouchableOpacity
+                <TouchableSound
                   style={[styles.sectionHeader, { backgroundColor: theme.cardAlt }]}
                   onPress={() => toggleSection('timeline')}
                 >
@@ -499,7 +499,7 @@ export default function AdminSupportScreen() {
                     </Text>
                   </View>
                   {expandedSections.timeline ? <ChevronUp size={20} color={theme.textSecondary} /> : <ChevronDown size={20} color={theme.textSecondary} />}
-                </TouchableOpacity>
+                </TouchableSound>
                 {expandedSections.timeline && (
                   <View style={styles.sectionContent}>
                     {selectedCase.timeline.length === 0 ? (
@@ -529,7 +529,7 @@ export default function AdminSupportScreen() {
 
               {/* Chat Transcript */}
               <View style={[styles.section, { backgroundColor: theme.card }]}>
-                <TouchableOpacity
+                <TouchableSound
                   style={[styles.sectionHeader, { backgroundColor: theme.cardAlt }]}
                   onPress={() => toggleSection('chat')}
                 >
@@ -540,7 +540,7 @@ export default function AdminSupportScreen() {
                     </Text>
                   </View>
                   {expandedSections.chat ? <ChevronUp size={20} color={theme.textSecondary} /> : <ChevronDown size={20} color={theme.textSecondary} />}
-                </TouchableOpacity>
+                </TouchableSound>
                 {expandedSections.chat && (
                   <View style={styles.sectionContent}>
                     {selectedCase.messages.length === 0 ? (
@@ -563,7 +563,7 @@ export default function AdminSupportScreen() {
               {/* Actions Taken */}
               {selectedCase.actions.length > 0 && (
                 <View style={[styles.section, { backgroundColor: theme.card }]}>
-                  <TouchableOpacity
+                  <TouchableSound
                     style={[styles.sectionHeader, { backgroundColor: theme.cardAlt }]}
                     onPress={() => toggleSection('actions')}
                   >
@@ -574,7 +574,7 @@ export default function AdminSupportScreen() {
                       </Text>
                     </View>
                     {expandedSections.actions ? <ChevronUp size={20} color={theme.textSecondary} /> : <ChevronDown size={20} color={theme.textSecondary} />}
-                  </TouchableOpacity>
+                  </TouchableSound>
                   {expandedSections.actions && (
                     <View style={styles.sectionContent}>
                       {selectedCase.actions.map((action) => (
@@ -603,14 +603,14 @@ export default function AdminSupportScreen() {
                 <Text style={[styles.actionCategoryTitle, { color: theme.textSecondary }]}>Resoluciones</Text>
                 <View style={styles.actionsGrid}>
                   {actionTemplates.filter(t => t.category === 'resolution').map((template) => (
-                    <TouchableOpacity
+                    <TouchableSound
                       key={template.code}
                       style={[styles.actionCard, { backgroundColor: theme.cardAlt }]}
                       onPress={() => handleExecuteAction(template)}
                     >
                       {getActionIcon(template.icon)}
                       <Text style={[styles.actionCardTitle, { color: theme.textSecondary }]}>{template.title}</Text>
-                    </TouchableOpacity>
+                    </TouchableSound>
                   ))}
                 </View>
 
@@ -618,14 +618,14 @@ export default function AdminSupportScreen() {
                 <Text style={[styles.actionCategoryTitle, { color: theme.textSecondary }]}>Informacion</Text>
                 <View style={styles.actionsGrid}>
                   {actionTemplates.filter(t => t.category === 'information').map((template) => (
-                    <TouchableOpacity
+                    <TouchableSound
                       key={template.code}
                       style={[styles.actionCard, { backgroundColor: theme.cardAlt }]}
                       onPress={() => handleExecuteAction(template)}
                     >
                       {getActionIcon(template.icon)}
                       <Text style={[styles.actionCardTitle, { color: theme.textSecondary }]}>{template.title}</Text>
-                    </TouchableOpacity>
+                    </TouchableSound>
                   ))}
                 </View>
 
@@ -633,7 +633,7 @@ export default function AdminSupportScreen() {
                 <Text style={[styles.actionCategoryTitle, { color: theme.textSecondary }]}>Escalaciones</Text>
                 <View style={styles.actionsGrid}>
                   {actionTemplates.filter(t => t.category === 'escalation').map((template) => (
-                    <TouchableOpacity
+                    <TouchableSound
                       key={template.code}
                       style={[styles.actionCard, styles.actionCardDanger, { backgroundColor: FIXED_COLORS.error + '10' }]}
                       onPress={() => handleExecuteAction(template)}
@@ -642,16 +642,16 @@ export default function AdminSupportScreen() {
                       <Text style={[styles.actionCardTitle, styles.actionCardTitleDanger, { color: FIXED_COLORS.error }]}>
                         {template.title}
                       </Text>
-                    </TouchableOpacity>
+                    </TouchableSound>
                   ))}
                 </View>
               </View>
 
               {/* Generate Report Button */}
-              <TouchableOpacity style={[styles.reportButton, { backgroundColor: theme.text }]} onPress={handleGenerateReport}>
+              <TouchableSound style={[styles.reportButton, { backgroundColor: theme.text }]} onPress={handleGenerateReport}>
                 <FileText size={20} color={isDark ? COLORS.dark.cardAlt : COLORS.light.card} />
                 <Text style={[styles.reportButtonText, { color: isDark ? COLORS.dark.cardAlt : COLORS.light.card }]}>Generar Expediente del Caso</Text>
-              </TouchableOpacity>
+              </TouchableSound>
 
               <View style={{ height: 40 }} />
             </ScrollView>

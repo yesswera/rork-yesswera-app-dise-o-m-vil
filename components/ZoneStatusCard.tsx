@@ -1,3 +1,4 @@
+import TouchableSound from '@/components/TouchableSound';
 // ============================================================================
 // YESSWERA: COMPONENTE ESTADO DE ZONA
 // Muestra el estado de la zona para negocios en desarrollo
@@ -8,7 +9,6 @@ import {
   StyleSheet,
   Text,
   View,
-  TouchableOpacity,
   Share,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -187,13 +187,13 @@ export default function ZoneStatusCard({
               ¿Conoces repartidores en la zona?{'\n'}
               Ayúdanos a activarla más rápido.
             </Text>
-            <TouchableOpacity
+            <TouchableSound
               style={styles.recruitButton}
               onPress={handleShareDriverLink}
             >
               <Share2 size={18} color={Colors.white} />
               <Text style={styles.recruitButtonText}>Invitar Repartidores</Text>
-            </TouchableOpacity>
+            </TouchableSound>
 
             {driversRecruited > 0 && (
               <Text style={styles.recruitedCount}>

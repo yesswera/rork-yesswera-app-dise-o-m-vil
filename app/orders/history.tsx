@@ -1,10 +1,17 @@
+import TouchableSound from '@/components/TouchableSound';
 // ============================================================================
 // YESSWERA: HISTORIAL DE ORDENES
 // Pantalla para ver el historial de ordenes del usuario
 // Actualizado para usar ScreenContainer
 // ============================================================================
 
-import { View, Text, StyleSheet, TouchableOpacity, ActivityIndicator, Alert } from 'react-native';
+import {
+  View,
+  Text,
+  StyleSheet,
+  ActivityIndicator,
+  Alert,
+} from 'react-native';
 import { useRouter } from 'expo-router';
 import { Package, PackageX } from 'lucide-react-native';
 import { useAuth } from '@/contexts/auth';
@@ -173,7 +180,7 @@ export default function OrderHistoryScreen() {
       {/* Tabs de filtro */}
       <View style={[styles.tabsContainer, { backgroundColor: theme.card }]}>
         {tabs.map((tab) => (
-          <TouchableOpacity
+          <TouchableSound
             key={tab.id}
             style={[
               styles.tab,
@@ -192,7 +199,7 @@ export default function OrderHistoryScreen() {
             >
               {tab.label}
             </Text>
-          </TouchableOpacity>
+          </TouchableSound>
         ))}
       </View>
 

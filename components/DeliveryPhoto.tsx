@@ -1,9 +1,9 @@
+import TouchableSound from '@/components/TouchableSound';
 import { useState, useRef, useEffect } from 'react';
 import {
   StyleSheet,
   Text,
   View,
-  TouchableOpacity,
   Modal,
   Image,
   Platform,
@@ -215,12 +215,12 @@ export default function DeliveryPhoto({
               Necesitamos acceso a la camara para tomar la foto de entrega.
             </Text>
             <View style={styles.permissionButtons}>
-              <TouchableOpacity style={styles.cancelBtn} onPress={handleClose}>
+              <TouchableSound style={styles.cancelBtn} onPress={handleClose}>
                 <Text style={styles.cancelBtnText}>Cancelar</Text>
-              </TouchableOpacity>
-              <TouchableOpacity style={styles.grantBtn} onPress={requestPermission}>
+              </TouchableSound>
+              <TouchableSound style={styles.grantBtn} onPress={requestPermission}>
                 <Text style={styles.grantBtnText}>Dar Permiso</Text>
-              </TouchableOpacity>
+              </TouchableSound>
             </View>
           </View>
         </View>
@@ -233,9 +233,9 @@ export default function DeliveryPhoto({
       <View style={styles.container}>
         {/* Header */}
         <View style={styles.header}>
-          <TouchableOpacity style={styles.closeButton} onPress={handleClose}>
+          <TouchableSound style={styles.closeButton} onPress={handleClose}>
             <X size={24} color={Colors.white} />
-          </TouchableOpacity>
+          </TouchableSound>
           <Text style={styles.headerTitle}>Foto de Entrega</Text>
           <View style={styles.headerSpacer} />
         </View>
@@ -271,11 +271,11 @@ export default function DeliveryPhoto({
 
               {/* Camera Controls */}
               <View style={styles.cameraControls}>
-                <TouchableOpacity style={styles.flipButton} onPress={toggleFacing}>
+                <TouchableSound style={styles.flipButton} onPress={toggleFacing}>
                   <RotateCcw size={24} color={Colors.white} />
-                </TouchableOpacity>
+                </TouchableSound>
 
-                <TouchableOpacity
+                <TouchableSound
                   style={[styles.captureButton, isCapturing && styles.captureButtonDisabled]}
                   onPress={handleTakePhoto}
                   disabled={isCapturing}
@@ -285,7 +285,7 @@ export default function DeliveryPhoto({
                   ) : (
                     <Camera size={32} color={Colors.primary} />
                   )}
-                </TouchableOpacity>
+                </TouchableSound>
 
                 <View style={styles.flipButton} />
               </View>
@@ -349,12 +349,12 @@ export default function DeliveryPhoto({
 
             {/* Preview Actions */}
             <View style={styles.previewActions}>
-              <TouchableOpacity style={styles.retakeButton} onPress={handleRetake}>
+              <TouchableSound style={styles.retakeButton} onPress={handleRetake}>
                 <RotateCcw size={20} color={Colors.text.primary} />
                 <Text style={styles.retakeButtonText}>Retomar</Text>
-              </TouchableOpacity>
+              </TouchableSound>
 
-              <TouchableOpacity
+              <TouchableSound
                 style={[styles.confirmButton, isProcessing && styles.confirmButtonDisabled]}
                 onPress={handleConfirm}
                 disabled={isProcessing}
@@ -367,7 +367,7 @@ export default function DeliveryPhoto({
                     <Text style={styles.confirmButtonText}>Confirmar Entrega</Text>
                   </>
                 )}
-              </TouchableOpacity>
+              </TouchableSound>
             </View>
           </View>
         )}

@@ -1,3 +1,4 @@
+import TouchableSound from '@/components/TouchableSound';
 // ============================================================================
 // YESSWERA: CONFIGURACIÓN DE SONIDOS
 // Controles de preferencias de sonido
@@ -6,12 +7,11 @@
 import React, { useState, useEffect } from 'react';
 import {
   View,
-  TouchableOpacity,
   StyleSheet,
   Switch,
 } from 'react-native';
 import Slider from '@react-native-community/slider';
-import { Volume2, VolumeX, Bell, BellOff, AlertTriangle } from 'lucide-react-native';
+import { Volume2, VolumeX, Bell, BellOff, AlertTriangle, MousePointerClick } from 'lucide-react-native';
 import { useTheme } from '@/contexts/theme';
 import { ThemedText } from '@/components/themed';
 import {
@@ -20,6 +20,7 @@ import {
   setSoundsEnabled,
   setGlobalVolume,
   setAlertsOnly,
+  setTapSoundEnabled,
   playSound,
   testSound,
 } from '@/services/sounds';
@@ -48,19 +49,21 @@ export default function SoundSettings({ variant = 'full' }: SoundSettingsProps) 
   const [enabled, setEnabled] = useState(true);
   const [volume, setVolume] = useState(0.8);
   const [alertsOnly, setAlertsOnlyState] = useState(false);
+  const [tapEnabled, setTapEnabled] = useState(true);
 
   useEffect(() => {
     const prefs = getSoundPreferences();
     setEnabled(prefs.enabled);
     setVolume(prefs.volume);
     setAlertsOnlyState(prefs.alertsOnly);
+    setTapEnabled(prefs.tapSoundEnabled);
   }, []);
 
   const handleEnabledChange = async (value: boolean) => {
     setEnabled(value);
     await setSoundsEnabled(value);
     if (value) {
-      testSound('success');
+      testSound('info');
     }
   };
 
@@ -81,10 +84,18 @@ export default function SoundSettings({ variant = 'full' }: SoundSettingsProps) 
     }
   };
 
+  const handleTapEnabledChange = async (value: boolean) => {
+    setTapEnabled(value);
+    await setTapSoundEnabled(value);
+    if (value) {
+      testSound('uiTap');
+    }
+  };
+
   // Versión compacta
   if (variant === 'compact') {
     return (
-      <TouchableOpacity
+      <TouchableSound
         style={[styles.compactContainer, {
           backgroundColor: theme.cardAlt,
           borderRadius: radius.md,
@@ -101,7 +112,7 @@ export default function SoundSettings({ variant = 'full' }: SoundSettingsProps) 
         <ThemedText variant="caption" color={enabled ? 'primary' : 'muted'}>
           {enabled ? 'Sonidos' : 'Silencio'}
         </ThemedText>
-      </TouchableOpacity>
+      </TouchableSound>
     );
   }
 
@@ -193,13 +204,34 @@ export default function SoundSettings({ variant = 'full' }: SoundSettingsProps) 
             />
           </View>
 
+          {/* Sonido de interacción */}
+          <View style={[styles.row, { marginTop: space.md }]}>
+            <View style={styles.rowLeft}>
+              <MousePointerClick size={20} color={colors.primary} />
+              <View style={{ marginLeft: space.sm }}>
+                <ThemedText variant="body">
+                  Sonido de interacción
+                </ThemedText>
+                <ThemedText variant="caption" color="muted">
+                  Clic al tocar botones
+                </ThemedText>
+              </View>
+            </View>
+            <Switch
+              value={tapEnabled}
+              onValueChange={handleTapEnabledChange}
+              trackColor={{ false: theme.border, true: colors.primary + '60' }}
+              thumbColor={tapEnabled ? colors.primary : '#f4f3f4'}
+            />
+          </View>
+
           {/* Botones de prueba */}
           <View style={[styles.testSection, { marginTop: space.lg }]}>
             <ThemedText variant="label" bold style={{ marginBottom: space.sm }}>
               Probar sonidos
             </ThemedText>
             <View style={styles.testButtons}>
-              <TouchableOpacity
+              <TouchableSound
                 style={[styles.testButton, {
                   backgroundColor: colors.success + '15',
                   borderRadius: radius.sm,
@@ -207,8 +239,8 @@ export default function SoundSettings({ variant = 'full' }: SoundSettingsProps) 
                 onPress={() => testSound('success')}
               >
                 <ThemedText variant="caption" color="success">Suave</ThemedText>
-              </TouchableOpacity>
-              <TouchableOpacity
+              </TouchableSound>
+              <TouchableSound
                 style={[styles.testButton, {
                   backgroundColor: colors.warning + '15',
                   borderRadius: radius.sm,
@@ -216,8 +248,8 @@ export default function SoundSettings({ variant = 'full' }: SoundSettingsProps) 
                 onPress={() => testSound('newOrder')}
               >
                 <ThemedText variant="caption" style={{ color: colors.warning }}>Nueva Orden</ThemedText>
-              </TouchableOpacity>
-              <TouchableOpacity
+              </TouchableSound>
+              <TouchableSound
                 style={[styles.testButton, {
                   backgroundColor: colors.error + '15',
                   borderRadius: radius.sm,
@@ -225,7 +257,7 @@ export default function SoundSettings({ variant = 'full' }: SoundSettingsProps) 
                 onPress={() => testSound('driverArrived')}
               >
                 <ThemedText variant="caption" color="error">Llegó</ThemedText>
-              </TouchableOpacity>
+              </TouchableSound>
             </View>
           </View>
         </>

@@ -1,4 +1,5 @@
-import { View, StyleSheet, TouchableOpacity, ViewStyle } from 'react-native';
+import { View, StyleSheet, ViewStyle } from 'react-native';
+import TouchableSound from '@/components/TouchableSound';
 import Colors from '@/constants/colors';
 import React from "react";
 
@@ -20,9 +21,9 @@ export default function Card({ children, onPress, style, variant = 'elevated' }:
 
   if (onPress) {
     return (
-      <TouchableOpacity style={cardStyle} onPress={onPress} activeOpacity={0.7}>
+      <TouchableSound style={cardStyle} onPress={onPress} activeOpacity={0.7}>
         {children}
-      </TouchableOpacity>
+      </TouchableSound>
     );
   }
 

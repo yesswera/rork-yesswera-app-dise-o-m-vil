@@ -1,3 +1,4 @@
+import TouchableSound from '@/components/TouchableSound';
 // ============================================================================
 // YESSWERA: ADMIN ORDERS
 // Gestion de ordenes para administradores - Actualizado con ScreenContainer
@@ -9,7 +10,6 @@ import {
   Text,
   View,
   ScrollView,
-  TouchableOpacity,
   TextInput,
   ActivityIndicator,
   RefreshControl,
@@ -290,16 +290,16 @@ export default function AdminOrdersScreen() {
           returnKeyType="search"
         />
         {searchQuery.length > 0 && (
-          <TouchableOpacity onPress={() => setSearchQuery('')}>
+          <TouchableSound onPress={() => setSearchQuery('')}>
             <X size={18} color={theme.textSecondary} />
-          </TouchableOpacity>
+          </TouchableSound>
         )}
       </View>
 
       {/* Status Filter */}
       <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.filterContainer}>
         {ORDER_STATUSES.map((status) => (
-          <TouchableOpacity
+          <TouchableSound
             key={status.value}
             style={[
               styles.filterButton,
@@ -317,7 +317,7 @@ export default function AdminOrdersScreen() {
             >
               {status.label}
             </Text>
-          </TouchableOpacity>
+          </TouchableSound>
         ))}
       </ScrollView>
 
@@ -325,7 +325,7 @@ export default function AdminOrdersScreen() {
       <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.filterContainer}>
         <Filter size={16} color={theme.textSecondary} style={{ marginRight: 8, alignSelf: 'center' }} />
         {SERVICE_TYPES.map((service) => (
-          <TouchableOpacity
+          <TouchableSound
             key={service.value}
             style={[
               styles.serviceFilterButton,
@@ -343,7 +343,7 @@ export default function AdminOrdersScreen() {
             >
               {service.label}
             </Text>
-          </TouchableOpacity>
+          </TouchableSound>
         ))}
       </ScrollView>
 
@@ -356,7 +356,7 @@ export default function AdminOrdersScreen() {
           </View>
         ) : (
           orders.map((order) => (
-            <TouchableOpacity
+            <TouchableSound
               key={order.id}
               style={[styles.orderCard, { backgroundColor: theme.card }]}
               onPress={() => handleViewOrder(order)}
@@ -404,7 +404,7 @@ export default function AdminOrdersScreen() {
                   <ChevronRight size={16} color={theme.textMuted} />
                 </View>
               </View>
-            </TouchableOpacity>
+            </TouchableSound>
           ))
         )}
       </View>
@@ -418,9 +418,9 @@ export default function AdminOrdersScreen() {
       >
         <View style={[styles.modalContainer, { backgroundColor: isDark ? COLORS.dark.cardAlt : '#F5F5F4' }]}>
           <View style={[styles.modalHeader, { backgroundColor: theme.card, borderBottomColor: theme.border }]}>
-            <TouchableOpacity onPress={() => setDetailModalVisible(false)}>
+            <TouchableSound onPress={() => setDetailModalVisible(false)}>
               <X size={24} color={theme.text} />
-            </TouchableOpacity>
+            </TouchableSound>
             <Text style={[styles.modalTitle, { color: theme.text }]}>Detalle de Orden</Text>
             <View style={{ width: 24 }} />
           </View>
@@ -542,48 +542,48 @@ export default function AdminOrdersScreen() {
                   <Text style={[styles.sectionLabel, { color: theme.textSecondary }]}>Acciones</Text>
                   <View style={styles.actionsGrid}>
                     {selectedOrder.status === 'pending' && (
-                      <TouchableOpacity
+                      <TouchableSound
                         style={[styles.actionBtn, { backgroundColor: FIXED_COLORS.primary }]}
                         onPress={() => handleStatusChange(selectedOrder.id, 'accepted')}
                       >
                         <CheckCircle size={18} color={FIXED_COLORS.white} />
                         <Text style={styles.actionBtnText}>Aceptar</Text>
-                      </TouchableOpacity>
+                      </TouchableSound>
                     )}
                     {selectedOrder.status === 'accepted' && (
-                      <TouchableOpacity
+                      <TouchableSound
                         style={[styles.actionBtn, { backgroundColor: FIXED_COLORS.primary }]}
                         onPress={() => handleStatusChange(selectedOrder.id, 'preparing')}
                       >
                         <Package size={18} color={FIXED_COLORS.white} />
                         <Text style={styles.actionBtnText}>Preparando</Text>
-                      </TouchableOpacity>
+                      </TouchableSound>
                     )}
                     {selectedOrder.status === 'preparing' && (
-                      <TouchableOpacity
+                      <TouchableSound
                         style={[styles.actionBtn, { backgroundColor: FIXED_COLORS.accent }]}
                         onPress={() => handleStatusChange(selectedOrder.id, 'ready')}
                       >
                         <CheckCircle size={18} color={FIXED_COLORS.white} />
                         <Text style={styles.actionBtnText}>Lista</Text>
-                      </TouchableOpacity>
+                      </TouchableSound>
                     )}
                     {['ready', 'picked_up', 'in_transit'].includes(selectedOrder.status) && (
-                      <TouchableOpacity
+                      <TouchableSound
                         style={[styles.actionBtn, { backgroundColor: FIXED_COLORS.success }]}
                         onPress={() => handleStatusChange(selectedOrder.id, 'delivered')}
                       >
                         <CheckCircle size={18} color={FIXED_COLORS.white} />
                         <Text style={styles.actionBtnText}>Entregada</Text>
-                      </TouchableOpacity>
+                      </TouchableSound>
                     )}
-                    <TouchableOpacity
+                    <TouchableSound
                       style={[styles.actionBtn, { backgroundColor: FIXED_COLORS.error }]}
                       onPress={() => handleCancelOrder(selectedOrder.id)}
                     >
                       <XCircle size={18} color={FIXED_COLORS.white} />
                       <Text style={styles.actionBtnText}>Cancelar</Text>
-                    </TouchableOpacity>
+                    </TouchableSound>
                   </View>
                 </View>
               )}

@@ -1,9 +1,14 @@
+import TouchableSound from '@/components/TouchableSound';
 // ============================================================================
 // YESSWERA: PANTALLA DE PERFIL
 // Usa ScreenContainer para diseño unificado
 // ============================================================================
 
-import { View, TouchableOpacity, Alert, StyleSheet } from 'react-native';
+import {
+  View,
+  Alert,
+  StyleSheet,
+} from 'react-native';
 import { useRouter } from 'expo-router';
 import {
   Edit2,
@@ -106,9 +111,9 @@ export default function ProfileScreen() {
         {
           text: 'Salir',
           style: 'destructive',
-          onPress: () => {
+          onPress: async () => {
             HapticFeedback.success();
-            logout();
+            await logout();
             router.replace('/' as any);
           },
         },
@@ -194,7 +199,7 @@ export default function ProfileScreen() {
         </ThemedText>
 
         {/* Edit Profile */}
-        <TouchableOpacity
+        <TouchableSound
           style={[styles.actionButton, { backgroundColor: theme.card, borderColor: theme.border }]}
           onPress={() => {
             HapticFeedback.light();
@@ -206,10 +211,10 @@ export default function ProfileScreen() {
             <Edit2 size={20} color={colors.primary} />
           </View>
           <ThemedText variant="body" bold>Editar Perfil</ThemedText>
-        </TouchableOpacity>
+        </TouchableSound>
 
         {/* Order History */}
-        <TouchableOpacity
+        <TouchableSound
           style={[styles.actionButton, { backgroundColor: theme.card, borderColor: theme.border }]}
           onPress={() => {
             HapticFeedback.light();
@@ -221,10 +226,10 @@ export default function ProfileScreen() {
             <History size={20} color={colors.accent} />
           </View>
           <ThemedText variant="body" bold>Historial de Órdenes</ThemedText>
-        </TouchableOpacity>
+        </TouchableSound>
 
         {/* Preferences */}
-        <TouchableOpacity
+        <TouchableSound
           style={[styles.actionButton, { backgroundColor: theme.card, borderColor: theme.border }]}
           onPress={() => {
             HapticFeedback.light();
@@ -236,10 +241,10 @@ export default function ProfileScreen() {
             <Sliders size={20} color={colors.secondary} />
           </View>
           <ThemedText variant="body" bold>Personalizar App</ThemedText>
-        </TouchableOpacity>
+        </TouchableSound>
 
         {/* Theme Toggle */}
-        <TouchableOpacity
+        <TouchableSound
           style={[styles.actionButton, { backgroundColor: theme.card, borderColor: theme.border }]}
           onPress={cycleTheme}
           activeOpacity={0.7}
@@ -251,10 +256,10 @@ export default function ProfileScreen() {
             <ThemedText variant="body" bold>Tema</ThemedText>
             <ThemedText variant="label" color="secondary">{getThemeModeLabel()}</ThemedText>
           </View>
-        </TouchableOpacity>
+        </TouchableSound>
 
         {/* Size Toggle */}
-        <TouchableOpacity
+        <TouchableSound
           style={[styles.actionButton, { backgroundColor: theme.card, borderColor: theme.border }]}
           onPress={handleSizeChange}
           activeOpacity={0.7}
@@ -266,13 +271,13 @@ export default function ProfileScreen() {
             <ThemedText variant="body" bold>Tamaño de Texto</ThemedText>
             <ThemedText variant="label" color="secondary">{sizeLevelLabel}</ThemedText>
           </View>
-        </TouchableOpacity>
+        </TouchableSound>
 
         {/* Sound Settings */}
         <SoundSettings />
 
         {/* Logout */}
-        <TouchableOpacity
+        <TouchableSound
           style={[styles.actionButton, styles.logoutButton, { backgroundColor: theme.card, borderColor: colors.error }]}
           onPress={handleLogout}
           activeOpacity={0.7}
@@ -281,7 +286,7 @@ export default function ProfileScreen() {
             <LogOut size={20} color={colors.error} />
           </View>
           <ThemedText variant="body" color="error" bold>Cerrar Sesión</ThemedText>
-        </TouchableOpacity>
+        </TouchableSound>
       </View>
 
       <View style={styles.bottomSpacer} />

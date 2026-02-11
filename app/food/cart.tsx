@@ -1,9 +1,16 @@
+import TouchableSound from '@/components/TouchableSound';
 // ============================================================================
 // YESSWERA: CARRITO DE COMPRAS
 // Usa ScreenContainer para diseño unificado con gradiente verde
 // ============================================================================
 
-import { StyleSheet, View, TouchableOpacity, Alert, Switch, TextInput } from 'react-native';
+import {
+  StyleSheet,
+  View,
+  Alert,
+  Switch,
+  TextInput,
+} from 'react-native';
 import { useRouter } from 'expo-router';
 import { Trash2, Plus, Minus, Users, Shield, Check, ShoppingCart } from 'lucide-react-native';
 import { Image } from 'expo-image';
@@ -269,12 +276,12 @@ export default function CartScreen() {
         headerSubtitle="Agrega productos de tu restaurante favorito"
       >
         <View style={styles.emptyContainer}>
-          <TouchableOpacity
+          <TouchableSound
             style={[styles.emptyButton, { backgroundColor: colors.primary, borderRadius: radius.md }]}
             onPress={() => router.back()}
           >
             <ThemedText variant="body" style={styles.emptyButtonText}>Ver Restaurantes</ThemedText>
-          </TouchableOpacity>
+          </TouchableSound>
         </View>
       </ScreenContainer>
     );
@@ -282,7 +289,7 @@ export default function CartScreen() {
 
   // Footer with checkout button
   const checkoutFooter = (
-    <TouchableOpacity
+    <TouchableSound
       style={[
         styles.checkoutButton,
         { backgroundColor: colors.primary, borderRadius: radius.md },
@@ -294,7 +301,7 @@ export default function CartScreen() {
       <ThemedText variant="body" style={styles.checkoutButtonText}>
         {isProcessing ? 'Procesando...' : 'Confirmar Orden'}
       </ThemedText>
-    </TouchableOpacity>
+    </TouchableSound>
   );
 
   return (
@@ -328,27 +335,27 @@ export default function CartScreen() {
               <ThemedText variant="subtitle" bold>{item.name}</ThemedText>
               <ThemedText variant="body" style={{ color: colors.primary }}>${item.price.toFixed(2)}</ThemedText>
               <View style={[styles.itemControls, { gap: space.xs }]}>
-                <TouchableOpacity
+                <TouchableSound
                   style={[styles.controlButton, { backgroundColor: colors.primary + '15' }]}
                   onPress={() => updateQuantity(item.id, item.quantity - 1)}
                 >
                   <Minus size={16} color={colors.primary} strokeWidth={3} />
-                </TouchableOpacity>
+                </TouchableSound>
                 <ThemedText variant="body" bold style={styles.quantityText}>{item.quantity}</ThemedText>
-                <TouchableOpacity
+                <TouchableSound
                   style={[styles.controlButton, { backgroundColor: colors.primary + '15' }]}
                   onPress={() => updateQuantity(item.id, item.quantity + 1)}
                 >
                   <Plus size={16} color={colors.primary} strokeWidth={3} />
-                </TouchableOpacity>
+                </TouchableSound>
               </View>
             </View>
-            <TouchableOpacity
+            <TouchableSound
               style={styles.deleteButton}
               onPress={() => removeItem(item.id)}
             >
               <Trash2 size={20} color={colors.error} />
-            </TouchableOpacity>
+            </TouchableSound>
           </View>
         ))}
       </View>
@@ -475,7 +482,7 @@ export default function CartScreen() {
                   <ThemedText variant="body" bold style={{ marginBottom: space.xs }}>Tu relacion con el menor:</ThemedText>
                   <View style={[styles.relationshipRow, { gap: space.xs, marginBottom: space.md }]}>
                     {RELATIONSHIPS.map((rel) => (
-                      <TouchableOpacity
+                      <TouchableSound
                         key={rel.id}
                         style={[
                           styles.relationshipChip,
@@ -493,11 +500,11 @@ export default function CartScreen() {
                         >
                           {rel.label}
                         </ThemedText>
-                      </TouchableOpacity>
+                      </TouchableSound>
                     ))}
                   </View>
 
-                  <TouchableOpacity
+                  <TouchableSound
                     style={[styles.responsibilityRow, { gap: space.sm }]}
                     onPress={() => setAcceptMinorResponsibility(!acceptMinorResponsibility)}
                   >
@@ -513,7 +520,7 @@ export default function CartScreen() {
                     <ThemedText variant="caption" color="secondary" style={{ flex: 1 }}>
                       Soy responsable y autorizo la entrega al menor indicado.
                     </ThemedText>
-                  </TouchableOpacity>
+                  </TouchableSound>
                 </View>
               )}
             </View>

@@ -1,4 +1,5 @@
-import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
+import { View, Text, StyleSheet } from 'react-native';
+import TouchableSound from '@/components/TouchableSound';
 import { Banknote, CreditCard, Smartphone } from 'lucide-react-native';
 import Colors from '@/constants/colors';
 import { PaymentMethod } from '@/constants/types';
@@ -25,7 +26,7 @@ export default function PaymentMethodSelector({ selectedMethod, onSelectMethod }
           const isAvailable = method.available;
 
           return (
-            <TouchableOpacity
+            <TouchableSound
               key={method.id}
               style={[
                 styles.methodButton,
@@ -56,7 +57,7 @@ export default function PaymentMethodSelector({ selectedMethod, onSelectMethod }
               {!isAvailable && (
                 <Text style={styles.comingSoon}>Próximamente</Text>
               )}
-            </TouchableOpacity>
+            </TouchableSound>
           );
         })}
       </View>

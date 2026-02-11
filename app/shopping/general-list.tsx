@@ -1,16 +1,16 @@
+import TouchableSound from '@/components/TouchableSound';
 // Lista General - Cliente escribe lista, driver compra donde encuentre
 import { useState, useCallback } from 'react';
 import {
   StyleSheet,
   Text,
   View,
-  TouchableOpacity,
   ScrollView,
   TextInput,
   Alert,
   KeyboardAvoidingView,
   Platform,
-  Switch
+  Switch,
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { ClipboardList, MapPin, Info, Users, Shield, Check } from 'lucide-react-native';
@@ -352,7 +352,7 @@ export default function GeneralListScreen() {
                     <Text style={[styles.relationshipLabel, { color: theme.text }]}>Tu relacion:</Text>
                     <View style={styles.relationshipRow}>
                       {RELATIONSHIPS.map((rel) => (
-                        <TouchableOpacity
+                        <TouchableSound
                           key={rel.id}
                           style={[
                             styles.relationshipChip,
@@ -368,10 +368,10 @@ export default function GeneralListScreen() {
                           ]}>
                             {rel.label}
                           </Text>
-                        </TouchableOpacity>
+                        </TouchableSound>
                       ))}
                     </View>
-                    <TouchableOpacity
+                    <TouchableSound
                       style={styles.responsibilityRow}
                       onPress={() => setAcceptMinorResponsibility(!acceptMinorResponsibility)}
                     >
@@ -381,7 +381,7 @@ export default function GeneralListScreen() {
                       <Text style={[styles.responsibilityText, { color: theme.textSecondary }]}>
                         Soy responsable y autorizo la entrega al menor.
                       </Text>
-                    </TouchableOpacity>
+                    </TouchableSound>
                   </View>
                 )}
               </View>
@@ -422,7 +422,7 @@ export default function GeneralListScreen() {
 
       {/* Footer con botón */}
       <View style={[styles.footer, { backgroundColor: theme.card, borderTopColor: theme.border }]}>
-        <TouchableOpacity
+        <TouchableSound
           style={[styles.submitButton, isProcessing && styles.submitButtonDisabled]}
           onPress={handleSubmit}
           disabled={isProcessing}
@@ -430,7 +430,7 @@ export default function GeneralListScreen() {
           <Text style={styles.submitButtonText}>
             {isProcessing ? 'Creando Orden...' : 'Enviar Lista'}
           </Text>
-        </TouchableOpacity>
+        </TouchableSound>
       </View>
     </KeyboardAvoidingView>
   );

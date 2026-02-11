@@ -211,13 +211,19 @@ export const [AuthProvider, useAuth] = createContextHook<AuthState>(() => {
 
   const logout = async () => {
     try {
-      AuthSounds.logout();
+      // Intentar sonido de despedida, pero no bloquear si falla
+      try {
+        await AuthSounds.logout();
+        await new Promise(resolve => setTimeout(resolve, 400));
+      } catch {}
+
       await supabase.auth.signOut();
-      setUser(null);
-      setToken(null);
     } catch (error) {
       console.error('Logout error:', error);
-      throw error;
+    } finally {
+      // Siempre limpiar estado, aunque falle Supabase
+      setUser(null);
+      setToken(null);
     }
   };
 

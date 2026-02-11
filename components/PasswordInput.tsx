@@ -1,5 +1,12 @@
+import TouchableSound from '@/components/TouchableSound';
 import { useState } from 'react';
-import { View, Text, TextInput, StyleSheet, TouchableOpacity, TextInputProps } from 'react-native';
+import {
+  View,
+  Text,
+  TextInput,
+  StyleSheet,
+  TextInputProps,
+} from 'react-native';
 import { AlertCircle, Eye, EyeOff } from 'lucide-react-native';
 import Colors from '@/constants/colors';
 
@@ -76,7 +83,7 @@ export default function PasswordInput({
           autoCapitalize="none"
           {...props}
         />
-        <TouchableOpacity
+        <TouchableSound
           onPress={() => setIsVisible(!isVisible)}
           style={styles.iconButton}
           hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
@@ -86,7 +93,7 @@ export default function PasswordInput({
           ) : (
             <Eye size={20} color={Colors.text.secondary} />
           )}
-        </TouchableOpacity>
+        </TouchableSound>
         {error && (
           <View style={styles.errorIcon}>
             <AlertCircle size={20} color={Colors.error} />

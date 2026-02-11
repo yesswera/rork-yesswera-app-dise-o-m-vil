@@ -1,6 +1,13 @@
+import TouchableSound from '@/components/TouchableSound';
 // Shopping Index - Dos opciones: Lista General o Buscar por Categoría
 import { useState, useMemo } from 'react';
-import { StyleSheet, Text, View, TouchableOpacity, ScrollView, TextInput } from 'react-native';
+import {
+  StyleSheet,
+  Text,
+  View,
+  ScrollView,
+  TextInput,
+} from 'react-native';
 import { useRouter } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
 import {
@@ -109,9 +116,9 @@ export default function ShoppingIndexScreen() {
                 returnKeyType="search"
               />
               {searchText.length > 0 && (
-                <TouchableOpacity onPress={() => { setSearchText(''); setShowSuggestions(false); }}>
+                <TouchableSound onPress={() => { setSearchText(''); setShowSuggestions(false); }}>
                   <X size={18} color={theme.textSecondary} />
-                </TouchableOpacity>
+                </TouchableSound>
               )}
             </View>
 
@@ -121,7 +128,7 @@ export default function ShoppingIndexScreen() {
                 {suggestions.map((suggestion) => {
                   const IconComponent = suggestion.icon;
                   return (
-                    <TouchableOpacity
+                    <TouchableSound
                       key={suggestion.id}
                       style={[styles.suggestionItem, { borderBottomColor: theme.border }]}
                       onPress={() => handleCategorySearch(suggestion.id)}
@@ -131,7 +138,7 @@ export default function ShoppingIndexScreen() {
                       </View>
                       <Text style={[styles.suggestionText, { color: theme.text }]}>{suggestion.name}</Text>
                       <ChevronRight size={16} color={theme.textMuted} />
-                    </TouchableOpacity>
+                    </TouchableSound>
                   );
                 })}
               </View>
@@ -141,7 +148,7 @@ export default function ShoppingIndexScreen() {
 
         <View style={styles.content}>
           {/* Opción 1: Lista General */}
-          <TouchableOpacity
+          <TouchableSound
             style={styles.mainOptionCard}
             activeOpacity={0.8}
             onPress={handleGeneralList}
@@ -161,7 +168,7 @@ export default function ShoppingIndexScreen() {
               </View>
               <ChevronRight size={24} color={Colors.white} />
             </LinearGradient>
-          </TouchableOpacity>
+          </TouchableSound>
 
           {/* Opción 2: Buscar por Categoría */}
           <View style={styles.section}>
@@ -177,7 +184,7 @@ export default function ShoppingIndexScreen() {
               {SHOPPING_CATEGORIES.map((category) => {
                 const IconComponent = category.icon;
                 return (
-                  <TouchableOpacity
+                  <TouchableSound
                     key={category.id}
                     style={[styles.categoryCard, { backgroundColor: theme.card }]}
                     activeOpacity={0.8}
@@ -187,14 +194,14 @@ export default function ShoppingIndexScreen() {
                       <IconComponent size={24} color={category.color} />
                     </View>
                     <Text style={[styles.categoryName, { color: theme.text }]}>{category.name}</Text>
-                  </TouchableOpacity>
+                  </TouchableSound>
                 );
               })}
             </View>
           </View>
 
           {/* Comercios Cercanos - Con Mapa */}
-          <TouchableOpacity
+          <TouchableSound
             style={styles.nearbyButton}
             activeOpacity={0.8}
             onPress={handleNearbyStores}
@@ -205,7 +212,7 @@ export default function ShoppingIndexScreen() {
               <Text style={styles.nearbySubtext}>Ver en mapa (5 km)</Text>
             </View>
             <ChevronRight size={20} color={Colors.white} />
-          </TouchableOpacity>
+          </TouchableSound>
 
           {/* Info */}
           <View style={[styles.infoCard, { backgroundColor: theme.card }]}>

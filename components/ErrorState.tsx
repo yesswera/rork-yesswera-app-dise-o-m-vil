@@ -1,4 +1,9 @@
-import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
+import TouchableSound from '@/components/TouchableSound';
+import {
+  View,
+  Text,
+  StyleSheet,
+} from 'react-native';
 import { AlertCircle, RefreshCcw } from 'lucide-react-native';
 import Colors from '@/constants/colors';
 
@@ -16,10 +21,10 @@ export default function ErrorState({
       <AlertCircle size={48} color="#DC3545" />
       <Text style={styles.message}>{message}</Text>
       {onRetry && (
-        <TouchableOpacity style={styles.retryButton} onPress={onRetry}>
+        <TouchableSound style={styles.retryButton} onPress={onRetry}>
           <RefreshCcw size={20} color={Colors.white} />
           <Text style={styles.retryText}>Reintentar</Text>
-        </TouchableOpacity>
+        </TouchableSound>
       )}
     </View>
   );

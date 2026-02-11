@@ -1,5 +1,13 @@
+import TouchableSound from '@/components/TouchableSound';
 import { useState } from 'react';
-import { Modal, View, Text, StyleSheet, TouchableOpacity, TextInput, ActivityIndicator } from 'react-native';
+import {
+  Modal,
+  View,
+  Text,
+  StyleSheet,
+  TextInput,
+  ActivityIndicator,
+} from 'react-native';
 import { Star, X } from 'lucide-react-native';
 import * as Haptics from 'expo-haptics';
 import Colors from '@/constants/colors';
@@ -74,20 +82,20 @@ export default function RatingModal({
     >
       <View style={styles.overlay}>
         <View style={styles.modal}>
-          <TouchableOpacity
+          <TouchableSound
             style={styles.closeButton}
             onPress={handleClose}
             activeOpacity={0.7}
           >
             <X size={24} color={Colors.text.secondary} />
-          </TouchableOpacity>
+          </TouchableSound>
 
           <Text style={styles.title}>¿Cómo fue tu experiencia?</Text>
           <Text style={styles.subtitle}>Califica a {driverName}</Text>
 
           <View style={styles.starsContainer}>
             {[1, 2, 3, 4, 5].map((star) => (
-              <TouchableOpacity
+              <TouchableSound
                 key={star}
                 onPress={() => handleStarPress(star)}
                 activeOpacity={0.7}
@@ -99,7 +107,7 @@ export default function RatingModal({
                   fill={star <= rating ? Colors.warning : 'transparent'}
                   strokeWidth={2}
                 />
-              </TouchableOpacity>
+              </TouchableSound>
             ))}
           </View>
 
@@ -114,7 +122,7 @@ export default function RatingModal({
             textAlignVertical="top"
           />
 
-          <TouchableOpacity
+          <TouchableSound
             style={[
               styles.submitButton,
               (rating === 0 || isSubmitting) && styles.submitButtonDisabled
@@ -128,15 +136,15 @@ export default function RatingModal({
             ) : (
               <Text style={styles.submitButtonText}>Enviar Calificación</Text>
             )}
-          </TouchableOpacity>
+          </TouchableSound>
 
-          <TouchableOpacity
+          <TouchableSound
             style={styles.skipButton}
             onPress={handleClose}
             activeOpacity={0.7}
           >
             <Text style={styles.skipButtonText}>Saltar por ahora</Text>
-          </TouchableOpacity>
+          </TouchableSound>
         </View>
       </View>
     </Modal>

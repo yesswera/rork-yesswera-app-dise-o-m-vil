@@ -1,10 +1,16 @@
+import TouchableSound from '@/components/TouchableSound';
 // ============================================================================
 // YESSWERA: DASHBOARD DEL NEGOCIO
 // Usa ScreenContainer para diseño unificado
 // ============================================================================
 
 import { useState, useEffect, useCallback } from 'react';
-import { View, TouchableOpacity, Alert, BackHandler, StyleSheet } from 'react-native';
+import {
+  View,
+  Alert,
+  BackHandler,
+  StyleSheet,
+} from 'react-native';
 import { useRouter, useFocusEffect } from 'expo-router';
 import { DollarSign, Package, TrendingUp, LogOut, ShoppingBag, Monitor, Store } from 'lucide-react-native';
 import { useAuth } from '@/contexts/auth';
@@ -182,7 +188,7 @@ export default function BusinessDashboardScreen() {
 
           {/* Actions */}
           <View style={[styles.actionsSection, { gap: space.sm }]}>
-            <TouchableOpacity
+            <TouchableSound
               style={[styles.primaryButton, {
                 backgroundColor: colors.secondary,
                 borderRadius: radius.md,
@@ -192,9 +198,9 @@ export default function BusinessDashboardScreen() {
             >
               <Package size={22} color="#fff" />
               <ThemedText variant="subtitle" color="white" bold>Ver Ordenes</ThemedText>
-            </TouchableOpacity>
+            </TouchableSound>
 
-            <TouchableOpacity
+            <TouchableSound
               style={[styles.secondaryButton, {
                 backgroundColor: theme.card,
                 borderColor: colors.secondary,
@@ -205,9 +211,9 @@ export default function BusinessDashboardScreen() {
             >
               <ShoppingBag size={22} color={colors.secondary} />
               <ThemedText variant="subtitle" style={{ color: colors.secondary, fontWeight: '700' }}>Gestionar Productos</ThemedText>
-            </TouchableOpacity>
+            </TouchableSound>
 
-            <TouchableOpacity
+            <TouchableSound
               style={[styles.secondaryButton, {
                 backgroundColor: theme.card,
                 borderColor: colors.accent,
@@ -218,9 +224,9 @@ export default function BusinessDashboardScreen() {
             >
               <Monitor size={22} color={colors.accent} />
               <ThemedText variant="subtitle" style={{ color: colors.accent, fontWeight: '700' }}>Modo Comanda (Tablet)</ThemedText>
-            </TouchableOpacity>
+            </TouchableSound>
 
-            <TouchableOpacity
+            <TouchableSound
               style={[styles.logoutButton, {
                 borderColor: colors.error,
                 borderRadius: radius.md,
@@ -231,7 +237,7 @@ export default function BusinessDashboardScreen() {
             >
               <LogOut size={20} color={colors.error} />
               <ThemedText variant="body" color="error" bold>Cerrar Sesion</ThemedText>
-            </TouchableOpacity>
+            </TouchableSound>
           </View>
         </>
       )}

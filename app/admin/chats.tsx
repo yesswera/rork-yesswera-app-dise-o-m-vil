@@ -1,3 +1,4 @@
+import TouchableSound from '@/components/TouchableSound';
 // ============================================================================
 // YESSWERA: ADMIN CHATS
 // Visualizacion de chats para administradores - Actualizado con ScreenContainer
@@ -9,7 +10,6 @@ import {
   Text,
   View,
   ScrollView,
-  TouchableOpacity,
   TextInput,
   ActivityIndicator,
   Modal,
@@ -222,15 +222,15 @@ export default function AdminChatsScreen() {
           onChangeText={setSearchQuery}
         />
         {searchQuery.length > 0 && (
-          <TouchableOpacity onPress={() => setSearchQuery('')}>
+          <TouchableSound onPress={() => setSearchQuery('')}>
             <X size={18} color={theme.textSecondary} />
-          </TouchableOpacity>
+          </TouchableSound>
         )}
       </View>
 
       {/* Filters */}
       <View style={styles.filtersRow}>
-        <TouchableOpacity
+        <TouchableSound
           style={[
             styles.filterChip,
             { backgroundColor: theme.card, borderColor: theme.border },
@@ -241,8 +241,8 @@ export default function AdminChatsScreen() {
           <Text style={[styles.filterChipText, { color: theme.textSecondary }, filter === 'all' && styles.filterChipTextActive]}>
             Todos
           </Text>
-        </TouchableOpacity>
-        <TouchableOpacity
+        </TouchableSound>
+        <TouchableSound
           style={[
             styles.filterChip,
             { backgroundColor: theme.card, borderColor: theme.border },
@@ -253,8 +253,8 @@ export default function AdminChatsScreen() {
           <Text style={[styles.filterChipText, { color: theme.textSecondary }, filter === 'active' && styles.filterChipTextActive]}>
             Activos
           </Text>
-        </TouchableOpacity>
-        <TouchableOpacity
+        </TouchableSound>
+        <TouchableSound
           style={[
             styles.filterChip,
             { backgroundColor: theme.card, borderColor: theme.border },
@@ -266,7 +266,7 @@ export default function AdminChatsScreen() {
           <Text style={[styles.filterChipText, { color: theme.textSecondary }, filter === 'with_order' && styles.filterChipTextActive]}>
             Con Orden
           </Text>
-        </TouchableOpacity>
+        </TouchableSound>
       </View>
 
       {/* Conversations List */}
@@ -279,7 +279,7 @@ export default function AdminChatsScreen() {
           </View>
         ) : (
           filteredConversations.map((conv) => (
-            <TouchableOpacity
+            <TouchableSound
               key={conv.id}
               style={[styles.chatCard, { backgroundColor: theme.card }]}
               onPress={() => handleOpenConversation(conv)}
@@ -323,7 +323,7 @@ export default function AdminChatsScreen() {
                   <Text style={[styles.viewButtonText, { color: FIXED_COLORS.primary }]}>Ver</Text>
                 </View>
               </View>
-            </TouchableOpacity>
+            </TouchableSound>
           ))
         )}
       </View>
@@ -338,9 +338,9 @@ export default function AdminChatsScreen() {
         <View style={[styles.modalContainer, { backgroundColor: isDark ? COLORS.dark.cardAlt : '#F5F5F4' }]}>
           {/* Header */}
           <View style={[styles.modalHeader, { backgroundColor: theme.card, borderBottomColor: theme.border }]}>
-            <TouchableOpacity onPress={() => setDetailModalVisible(false)}>
+            <TouchableSound onPress={() => setDetailModalVisible(false)}>
               <X size={24} color={theme.text} />
-            </TouchableOpacity>
+            </TouchableSound>
             <Text style={[styles.modalTitle, { color: theme.text }]}>Conversacion</Text>
             <View style={{ width: 24 }} />
           </View>

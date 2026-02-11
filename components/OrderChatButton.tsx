@@ -1,4 +1,5 @@
-import { TouchableOpacity, StyleSheet, Text, View } from 'react-native';
+import { StyleSheet, Text, View } from 'react-native';
+import TouchableSound from '@/components/TouchableSound';
 import { useRouter } from 'expo-router';
 import { MessageCircle, User, Truck, Store } from 'lucide-react-native';
 import Colors from '@/constants/colors';
@@ -51,20 +52,20 @@ export default function OrderChatButton({
 
   if (variant === 'icon') {
     return (
-      <TouchableOpacity style={styles.iconButton} onPress={handlePress}>
+      <TouchableSound style={styles.iconButton} onPress={handlePress}>
         {getIcon()}
         {unreadCount > 0 && (
           <View style={styles.badge}>
             <Text style={styles.badgeText}>{unreadCount > 9 ? '9+' : unreadCount}</Text>
           </View>
         )}
-      </TouchableOpacity>
+      </TouchableSound>
     );
   }
 
   if (variant === 'card') {
     return (
-      <TouchableOpacity style={styles.cardButton} onPress={handlePress}>
+      <TouchableSound style={styles.cardButton} onPress={handlePress}>
         <View style={styles.cardIcon}>
           {getIcon()}
         </View>
@@ -77,13 +78,13 @@ export default function OrderChatButton({
             <Text style={styles.cardBadgeText}>{unreadCount}</Text>
           </View>
         )}
-      </TouchableOpacity>
+      </TouchableSound>
     );
   }
 
   // Default: button
   return (
-    <TouchableOpacity style={styles.button} onPress={handlePress}>
+    <TouchableSound style={styles.button} onPress={handlePress}>
       <MessageCircle size={18} color={Colors.white} />
       <Text style={styles.buttonText}>{getLabel()}</Text>
       {unreadCount > 0 && (
@@ -91,7 +92,7 @@ export default function OrderChatButton({
           <Text style={styles.buttonBadgeText}>{unreadCount}</Text>
         </View>
       )}
-    </TouchableOpacity>
+    </TouchableSound>
   );
 }
 

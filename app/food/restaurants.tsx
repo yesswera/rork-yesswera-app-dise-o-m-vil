@@ -1,9 +1,15 @@
+import TouchableSound from '@/components/TouchableSound';
 // ============================================================================
 // YESSWERA: LISTA DE RESTAURANTES
 // Usa ScreenContainer para diseño unificado con gradiente naranja
 // ============================================================================
 
-import { View, TouchableOpacity, TextInput, ActivityIndicator, StyleSheet } from 'react-native';
+import {
+  View,
+  TextInput,
+  ActivityIndicator,
+  StyleSheet,
+} from 'react-native';
 import { useRouter } from 'expo-router';
 import { Search, Star, Clock, UtensilsCrossed } from 'lucide-react-native';
 import { Image } from 'expo-image';
@@ -115,7 +121,7 @@ export default function RestaurantsScreen() {
         />
       ) : (
         filteredBusinesses.map((business) => (
-          <TouchableOpacity
+          <TouchableSound
             key={business.id}
             style={[styles.businessCard, {
               backgroundColor: theme.card,
@@ -176,7 +182,7 @@ export default function RestaurantsScreen() {
                 ))}
               </View>
             </View>
-          </TouchableOpacity>
+          </TouchableSound>
         ))
       )}
     </ScreenContainer>

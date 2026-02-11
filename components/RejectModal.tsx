@@ -1,9 +1,9 @@
+import TouchableSound from '@/components/TouchableSound';
 import { useState } from 'react';
 import {
   StyleSheet,
   Text,
   View,
-  TouchableOpacity,
   Modal,
   TextInput,
   ScrollView,
@@ -106,9 +106,9 @@ export default function RejectModal({
           {/* Header */}
           <View style={styles.header}>
             <Text style={styles.title}>¿Por qué rechazas esta orden?</Text>
-            <TouchableOpacity style={styles.closeButton} onPress={handleCancel}>
+            <TouchableSound style={styles.closeButton} onPress={handleCancel}>
               <X size={24} color={Colors.text.secondary} />
-            </TouchableOpacity>
+            </TouchableSound>
           </View>
 
           <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
@@ -119,7 +119,7 @@ export default function RejectModal({
                 const isSelected = selectedReason === reason.id;
 
                 return (
-                  <TouchableOpacity
+                  <TouchableSound
                     key={reason.id}
                     style={[
                       styles.reasonCard,
@@ -152,7 +152,7 @@ export default function RejectModal({
                     >
                       {isSelected && <View style={styles.radioInner} />}
                     </View>
-                  </TouchableOpacity>
+                  </TouchableSound>
                 );
               })}
             </View>
@@ -197,14 +197,14 @@ export default function RejectModal({
 
           {/* Action Buttons */}
           <View style={styles.actionsContainer}>
-            <TouchableOpacity
+            <TouchableSound
               style={styles.cancelButton}
               onPress={handleCancel}
             >
               <Text style={styles.cancelButtonText}>Cancelar</Text>
-            </TouchableOpacity>
+            </TouchableSound>
 
-            <TouchableOpacity
+            <TouchableSound
               style={[
                 styles.confirmButton,
                 !selectedReason && styles.confirmButtonDisabled,
@@ -214,7 +214,7 @@ export default function RejectModal({
               disabled={!selectedReason || (selectedReason === 'other' && !customReason.trim())}
             >
               <Text style={styles.confirmButtonText}>Confirmar Rechazo</Text>
-            </TouchableOpacity>
+            </TouchableSound>
           </View>
         </View>
       </View>

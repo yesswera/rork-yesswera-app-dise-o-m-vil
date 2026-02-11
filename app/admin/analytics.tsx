@@ -1,3 +1,4 @@
+import TouchableSound from '@/components/TouchableSound';
 // ============================================================================
 // YESSWERA: ADMIN ANALYTICS
 // Analiticas para administradores - Actualizado con ScreenContainer
@@ -9,7 +10,6 @@ import {
   Text,
   View,
   ScrollView,
-  TouchableOpacity,
   ActivityIndicator,
   Modal,
   Dimensions,
@@ -172,7 +172,7 @@ export default function AdminAnalyticsScreen() {
       {/* Time Range Selector */}
       <View style={styles.timeRangeContainer}>
         {(['7d', '30d', '90d'] as const).map((range) => (
-          <TouchableOpacity
+          <TouchableSound
             key={range}
             style={[
               styles.timeRangeBtn,
@@ -188,7 +188,7 @@ export default function AdminAnalyticsScreen() {
             ]}>
               {range === '7d' ? '7 Dias' : range === '30d' ? '30 Dias' : '90 Dias'}
             </Text>
-          </TouchableOpacity>
+          </TouchableSound>
         ))}
       </View>
 
@@ -335,7 +335,7 @@ export default function AdminAnalyticsScreen() {
             </View>
           ) : (
             businesses.map((biz) => (
-              <TouchableOpacity
+              <TouchableSound
                 key={biz.businessId}
                 style={[styles.businessCard, { backgroundColor: theme.card }]}
                 onPress={() => handleViewBusiness(biz.businessId)}
@@ -363,7 +363,7 @@ export default function AdminAnalyticsScreen() {
                   </View>
                 </View>
                 <ChevronRight size={18} color={theme.textMuted} />
-              </TouchableOpacity>
+              </TouchableSound>
             ))
           )}
         </View>
@@ -378,9 +378,9 @@ export default function AdminAnalyticsScreen() {
       >
         <View style={[styles.modalContainer, { backgroundColor: isDark ? COLORS.dark.cardAlt : '#F5F5F4' }]}>
           <View style={[styles.modalHeader, { backgroundColor: theme.card, borderBottomColor: theme.border }]}>
-            <TouchableOpacity onPress={() => setDetailModalVisible(false)}>
+            <TouchableSound onPress={() => setDetailModalVisible(false)}>
               <X size={24} color={theme.text} />
-            </TouchableOpacity>
+            </TouchableSound>
             <Text style={[styles.modalTitle, { color: theme.text }]}>Analytics de Negocio</Text>
             <View style={{ width: 24 }} />
           </View>

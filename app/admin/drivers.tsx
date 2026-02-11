@@ -1,3 +1,4 @@
+import TouchableSound from '@/components/TouchableSound';
 // ============================================================================
 // YESSWERA ADMIN: CONTROL DE REPARTIDORES
 // Sistema de gestión de capacidad de drivers
@@ -6,7 +7,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import {
   View,
-  TouchableOpacity,
   StyleSheet,
   ActivityIndicator,
   Alert,
@@ -399,7 +399,7 @@ export default function DriversControlScreen() {
         </View>
 
         {/* Botón Guardar */}
-        <TouchableOpacity
+        <TouchableSound
           style={[styles.saveButton, {
             backgroundColor: FIXED.primary,
             borderRadius: radius.md,
@@ -418,7 +418,7 @@ export default function DriversControlScreen() {
               </ThemedText>
             </>
           )}
-        </TouchableOpacity>
+        </TouchableSound>
       </View>
 
       {/* Lista de Espera */}

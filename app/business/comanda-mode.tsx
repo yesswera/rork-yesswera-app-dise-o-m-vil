@@ -1,3 +1,4 @@
+import TouchableSound from '@/components/TouchableSound';
 // ============================================================================
 // YESSWERA: MODO COMANDA
 // Pantalla simplificada para tablet/segunda sesion
@@ -10,7 +11,6 @@ import {
   Text,
   View,
   ScrollView,
-  TouchableOpacity,
   Alert,
   BackHandler,
   Dimensions,
@@ -227,34 +227,34 @@ export default function ComandaModeScreen() {
         {order.status === 'pending' && (
           <View style={styles.prepTimeRow}>
             {[10, 15, 20, 30].map((min) => (
-              <TouchableOpacity
+              <TouchableSound
                 key={min}
                 style={[styles.prepTimeButton, { backgroundColor: colors.success }]}
                 onPress={() => handleAccept(order.id.toString(), min)}
               >
                 <Text style={styles.prepTimeText}>{min} min</Text>
-              </TouchableOpacity>
+              </TouchableSound>
             ))}
           </View>
         )}
 
         {order.status === 'accepted' && (
-          <TouchableOpacity
+          <TouchableSound
             style={[styles.actionButton, { backgroundColor: colors.primary }]}
             onPress={() => handleStartPreparing(order.id.toString())}
           >
             <Text style={styles.actionButtonText}>COMENZAR A PREPARAR</Text>
-          </TouchableOpacity>
+          </TouchableSound>
         )}
 
         {order.status === 'preparing' && (
-          <TouchableOpacity
+          <TouchableSound
             style={[styles.actionButton, { backgroundColor: colors.success }]}
             onPress={() => handleMarkReady(order.id.toString())}
           >
             <CheckCircle size={20} color="#FFFFFF" />
             <Text style={styles.actionButtonText}>MARCAR LISTA</Text>
-          </TouchableOpacity>
+          </TouchableSound>
         )}
 
         {(order.status === 'ready' || order.status === 'assigned') && (
@@ -270,10 +270,10 @@ export default function ComandaModeScreen() {
   // Header content con controles
   const headerContent = (
     <View style={styles.headerControls}>
-      <TouchableOpacity style={[styles.closeButton, { backgroundColor: 'rgba(255,255,255,0.2)' }]} onPress={() => router.back()}>
+      <TouchableSound style={[styles.closeButton, { backgroundColor: 'rgba(255,255,255,0.2)' }]} onPress={() => router.back()}>
         <X size={20} color="#FFFFFF" />
-      </TouchableOpacity>
-      <TouchableOpacity
+      </TouchableSound>
+      <TouchableSound
         style={[styles.soundButton, { backgroundColor: 'rgba(255,255,255,0.2)' }]}
         onPress={() => setSoundEnabled(!soundEnabled)}
       >
@@ -282,7 +282,7 @@ export default function ComandaModeScreen() {
         ) : (
           <VolumeX size={20} color="#FFFFFF" />
         )}
-      </TouchableOpacity>
+      </TouchableSound>
     </View>
   );
 

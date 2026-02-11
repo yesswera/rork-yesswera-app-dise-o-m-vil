@@ -1,3 +1,4 @@
+import TouchableSound from '@/components/TouchableSound';
 // ============================================================================
 // YESSWERA: PANTALLA DE SOPORTE
 // Usa ScreenContainer para diseño unificado
@@ -8,7 +9,6 @@ import {
   StyleSheet,
   Text,
   View,
-  TouchableOpacity,
   TextInput,
   ActivityIndicator,
   Alert,
@@ -260,20 +260,20 @@ export default function SupportCenterScreen() {
       onRefresh={onRefresh}
     >
       {/* Create Ticket Button */}
-      <TouchableOpacity
+      <TouchableSound
         style={[styles.createButton, { backgroundColor: colors.primary }]}
         onPress={() => setCreateModalVisible(true)}
       >
         <Plus size={24} color="#FFFFFF" />
         <Text style={styles.createButtonText}>Nuevo Ticket de Soporte</Text>
-      </TouchableOpacity>
+      </TouchableSound>
 
       {/* Quick Help */}
       <View style={styles.quickHelpSection}>
         <Text style={[styles.sectionTitle, { color: theme.text }]}>Ayuda Rápida</Text>
         <View style={styles.quickHelpGrid}>
           {TICKET_CATEGORIES.slice(0, 4).map((cat) => (
-            <TouchableOpacity
+            <TouchableSound
               key={cat.value}
               style={[styles.quickHelpCard, { backgroundColor: theme.card }]}
               onPress={() => {
@@ -283,7 +283,7 @@ export default function SupportCenterScreen() {
             >
               {getCategoryIcon(cat.value)}
               <Text style={[styles.quickHelpText, { color: theme.textSecondary }]}>{cat.label}</Text>
-            </TouchableOpacity>
+            </TouchableSound>
           ))}
         </View>
       </View>
@@ -300,7 +300,7 @@ export default function SupportCenterScreen() {
           </View>
         ) : (
           tickets.map((ticket) => (
-            <TouchableOpacity
+            <TouchableSound
               key={ticket.id}
               style={[styles.ticketCard, { backgroundColor: theme.card }]}
               onPress={() => handleOpenTicket(ticket)}
@@ -321,7 +321,7 @@ export default function SupportCenterScreen() {
                 <Text style={[styles.ticketDate, { color: theme.textMuted }]}>{formatDate(ticket.createdAt)}</Text>
                 <ChevronRight size={18} color={theme.textMuted} />
               </View>
-            </TouchableOpacity>
+            </TouchableSound>
           ))
         )}
       </View>
@@ -338,12 +338,12 @@ export default function SupportCenterScreen() {
           behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
         >
           <View style={[styles.modalHeader, { backgroundColor: theme.card, borderBottomColor: theme.border }]}>
-            <TouchableOpacity onPress={() => {
+            <TouchableSound onPress={() => {
               setCreateModalVisible(false);
               resetForm();
             }}>
               <X size={24} color={theme.text} />
-            </TouchableOpacity>
+            </TouchableSound>
             <Text style={[styles.modalTitle, { color: theme.text }]}>Nuevo Ticket</Text>
             <View style={{ width: 24 }} />
           </View>
@@ -354,7 +354,7 @@ export default function SupportCenterScreen() {
               <Text style={[styles.formLabel, { color: theme.text }]}>¿Cuál es el problema?</Text>
               <View style={styles.categoryGrid}>
                 {TICKET_CATEGORIES.map((cat) => (
-                  <TouchableOpacity
+                  <TouchableSound
                     key={cat.value}
                     style={[
                       styles.categoryCard,
@@ -374,7 +374,7 @@ export default function SupportCenterScreen() {
                     ]}>
                       {cat.label}
                     </Text>
-                  </TouchableOpacity>
+                  </TouchableSound>
                 ))}
               </View>
             </View>
@@ -385,7 +385,7 @@ export default function SupportCenterScreen() {
                 <Text style={[styles.formLabel, { color: theme.text }]}>Especifica el problema</Text>
                 <View style={styles.subcategoryList}>
                   {TICKET_SUBCATEGORIES[selectedCategory].map((sub) => (
-                    <TouchableOpacity
+                    <TouchableSound
                       key={sub.value}
                       style={[
                         styles.subcategoryOption,
@@ -401,7 +401,7 @@ export default function SupportCenterScreen() {
                       ]}>
                         {sub.label}
                       </Text>
-                    </TouchableOpacity>
+                    </TouchableSound>
                   ))}
                 </View>
               </View>
@@ -447,7 +447,7 @@ export default function SupportCenterScreen() {
             )}
 
             {/* Submit Button */}
-            <TouchableOpacity
+            <TouchableSound
               style={[
                 styles.submitButton,
                 { backgroundColor: colors.primary },
@@ -464,7 +464,7 @@ export default function SupportCenterScreen() {
                   <Text style={styles.submitButtonText}>Enviar Ticket</Text>
                 </>
               )}
-            </TouchableOpacity>
+            </TouchableSound>
 
             <View style={{ height: 40 }} />
           </ScrollView>
@@ -483,9 +483,9 @@ export default function SupportCenterScreen() {
           behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
         >
           <View style={[styles.modalHeader, { backgroundColor: theme.card, borderBottomColor: theme.border }]}>
-            <TouchableOpacity onPress={() => setDetailModalVisible(false)}>
+            <TouchableSound onPress={() => setDetailModalVisible(false)}>
               <X size={24} color={theme.text} />
-            </TouchableOpacity>
+            </TouchableSound>
             <Text style={[styles.modalTitle, { color: theme.text }]}>{selectedTicket?.ticketNumber}</Text>
             <View style={{ width: 24 }} />
           </View>
@@ -573,7 +573,7 @@ export default function SupportCenterScreen() {
                     multiline
                     maxLength={500}
                   />
-                  <TouchableOpacity
+                  <TouchableSound
                     style={[
                       styles.sendButton,
                       { backgroundColor: colors.primary },
@@ -587,7 +587,7 @@ export default function SupportCenterScreen() {
                     ) : (
                       <Send size={20} color="#FFFFFF" />
                     )}
-                  </TouchableOpacity>
+                  </TouchableSound>
                 </View>
               )}
             </>

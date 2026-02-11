@@ -11,6 +11,10 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 // ============================================================================
 
 export type SoundType =
+  // Sistema
+  | 'startupChime'
+  | 'uiTap'
+
   // Feedback suave
   | 'success'
   | 'error'
@@ -63,76 +67,93 @@ interface SoundConfig {
 // Sonidos locales - Archivos en assets/sounds/
 const SOUND_FILES: Record<SoundType, SoundConfig> = {
   // =========================================================================
+  // SISTEMA (Startup + UI Tap)
+  // =========================================================================
+
+  startupChime: {
+    file: require('@/assets/sounds/startup-chime.wav'),
+    volume: 0.55,
+    priority: 'critical',
+    category: 'alert',  // Siempre suena (no se silencia)
+  },
+  uiTap: {
+    file: require('@/assets/sounds/ui-tap.wav'),
+    volume: 0.45,
+    priority: 'high',
+    category: 'normal',
+  },
+
+  // =========================================================================
   // SONIDOS SUAVES (8-25% volumen)
   // =========================================================================
 
   success: {
-    file: require('@/assets/sounds/success.mp3'),
-    volume: 0.20,
+    file: require('@/assets/sounds/success.wav'),
+    volume: 0.45,
     priority: 'medium',
-    category: 'subtle',
+    category: 'normal',
   },
   error: {
-    file: require('@/assets/sounds/error.mp3'),
+    file: require('@/assets/sounds/error.wav'),
     volume: 0.30,
     priority: 'high',
     category: 'normal',
   },
   warning: {
-    file: require('@/assets/sounds/warning.mp3'),
+    file: require('@/assets/sounds/warning.wav'),
     volume: 0.25,
     priority: 'medium',
     category: 'normal',
   },
   info: {
-    file: require('@/assets/sounds/info.mp3'),
-    volume: 0.15,
-    priority: 'low',
-    category: 'subtle',
+    file: require('@/assets/sounds/info.wav'),
+    volume: 0.40,
+    priority: 'medium',
+    category: 'normal',
   },
 
   login: {
-    file: require('@/assets/sounds/login.mp3'),
-    volume: 0.25,
+    file: require('@/assets/sounds/login.wav'),
+    volume: 0.30,
     priority: 'medium',
     category: 'subtle',
   },
   logout: {
-    file: require('@/assets/sounds/logout.mp3'),
-    volume: 0.15,
-    priority: 'low',
-    category: 'subtle',
+    file: require('@/assets/sounds/logout.wav'),
+    volume: 0.35,
+    priority: 'medium',
+    category: 'normal',
   },
 
   navigate: {
-    file: require('@/assets/sounds/navigate.mp3'),
-    volume: 0.10,
-    priority: 'low',
-    category: 'subtle',
+    file: require('@/assets/sounds/navigate.wav'),
+    volume: 0.35,
+    priority: 'medium',
+    category: 'normal',
   },
   back: {
-    file: require('@/assets/sounds/back.mp3'),
-    volume: 0.10,
-    priority: 'low',
-    category: 'subtle',
+    file: require('@/assets/sounds/back.wav'),
+    volume: 0.35,
+    priority: 'medium',
+    category: 'normal',
   },
   tap: {
-    file: require('@/assets/sounds/tap.mp3'),
-    volume: 0.08,
-    priority: 'low',
-    category: 'subtle',
+    file: require('@/assets/sounds/ui-tap.wav'),
+    volume: 0.40,
+    priority: 'medium',
+    category: 'normal',
   },
   toggle: {
-    file: require('@/assets/sounds/toggle.mp3'),
-    volume: 0.12,
-    priority: 'low',
-    category: 'subtle',
+    file: require('@/assets/sounds/toggle.wav'),
+    volume: 0.35,
+    priority: 'medium',
+    category: 'normal',
   },
   refresh: {
-    file: require('@/assets/sounds/refresh.mp3'),
-    volume: 0.10,
-    priority: 'low',
-    category: 'subtle',
+    file: require('@/assets/sounds/refresh.wav'),
+    volume: 0.35,
+    priority: 'medium',
+    category: 'normal',
   },
 
   // =========================================================================
@@ -146,7 +167,7 @@ const SOUND_FILES: Record<SoundType, SoundConfig> = {
     category: 'alert',
   },
   orderAccepted: {
-    file: require('@/assets/sounds/order-accepted.mp3'),
+    file: require('@/assets/sounds/order-accepted.wav'),
     volume: 0.50,
     priority: 'high',
     category: 'normal',
@@ -158,19 +179,19 @@ const SOUND_FILES: Record<SoundType, SoundConfig> = {
     category: 'alert',
   },
   orderPickedUp: {
-    file: require('@/assets/sounds/order-pickup.mp3'),
+    file: require('@/assets/sounds/order-pickup.wav'),
     volume: 0.45,
     priority: 'high',
     category: 'normal',
   },
   orderDelivered: {
-    file: require('@/assets/sounds/order-delivered.mp3'),
+    file: require('@/assets/sounds/order-delivered.wav'),
     volume: 0.70,
     priority: 'high',
     category: 'alert',
   },
   orderCancelled: {
-    file: require('@/assets/sounds/order-cancelled.mp3'),
+    file: require('@/assets/sounds/order-cancelled.wav'),
     volume: 0.55,
     priority: 'high',
     category: 'alert',
@@ -182,19 +203,19 @@ const SOUND_FILES: Record<SoundType, SoundConfig> = {
 
   driverArrived: {
     file: require('@/assets/sounds/driver-arrived.mp3'),
-    volume: 0.95,
+    volume: 0.85,
     priority: 'critical',
     category: 'alert',
   },
   arrivedAtBusiness: {
     file: require('@/assets/sounds/arrived-business.mp3'),
-    volume: 0.85,
+    volume: 0.75,
     priority: 'critical',
     category: 'alert',
   },
   arrivedAtClient: {
     file: require('@/assets/sounds/arrived-client.mp3'),
-    volume: 0.95,
+    volume: 0.85,
     priority: 'critical',
     category: 'alert',
   },
@@ -204,16 +225,16 @@ const SOUND_FILES: Record<SoundType, SoundConfig> = {
   // =========================================================================
 
   messageSent: {
-    file: require('@/assets/sounds/message-sent.mp3'),
-    volume: 0.18,
-    priority: 'low',
-    category: 'subtle',
+    file: require('@/assets/sounds/message-sent.wav'),
+    volume: 0.35,
+    priority: 'medium',
+    category: 'normal',
   },
   messageReceived: {
-    file: require('@/assets/sounds/message-received.mp3'),
-    volume: 0.30,
+    file: require('@/assets/sounds/message-received.wav'),
+    volume: 0.40,
     priority: 'medium',
-    category: 'subtle',
+    category: 'normal',
   },
 
   // =========================================================================
@@ -221,14 +242,14 @@ const SOUND_FILES: Record<SoundType, SoundConfig> = {
   // =========================================================================
 
   panic: {
-    file: require('@/assets/sounds/panic.mp3'),
+    file: require('@/assets/sounds/panic.wav'),
     volume: 1.0,
     priority: 'critical',
     category: 'emergency',
   },
   alert: {
-    file: require('@/assets/sounds/alert.mp3'),
-    volume: 0.95,
+    file: require('@/assets/sounds/alert.wav'),
+    volume: 0.90,
     priority: 'critical',
     category: 'emergency',
   },
@@ -239,19 +260,24 @@ const SOUND_FILES: Record<SoundType, SoundConfig> = {
 // ============================================================================
 
 const STORAGE_KEY = '@yesswera_sound_preferences';
+const PREFS_VERSION = 2; // Incrementar para forzar reset
 
 interface SoundPreferences {
+  version: number;
   enabled: boolean;
   volume: number;
   muteLowPriority: boolean;
   alertsOnly: boolean;
+  tapSoundEnabled: boolean;
 }
 
 const DEFAULT_PREFERENCES: SoundPreferences = {
+  version: PREFS_VERSION,
   enabled: true,
   volume: 0.8,
   muteLowPriority: false,
   alertsOnly: false,
+  tapSoundEnabled: true,
 };
 
 const soundCache: Map<SoundType, Audio.Sound> = new Map();
@@ -283,7 +309,7 @@ export async function initializeSounds(): Promise<void> {
 }
 
 async function preloadCriticalSounds(): Promise<void> {
-  const criticalSounds: SoundType[] = ['newOrder', 'orderReady', 'driverArrived', 'success', 'error'];
+  const criticalSounds: SoundType[] = ['startupChime', 'uiTap', 'newOrder', 'orderReady', 'driverArrived', 'success', 'error'];
 
   for (const soundType of criticalSounds) {
     try {
@@ -323,17 +349,19 @@ export async function playSound(
   options?: { volume?: number; force?: boolean }
 ): Promise<void> {
   const config = SOUND_FILES[type];
+  const isForced = options?.force === true;
 
-  if (!currentPreferences.enabled && !options?.force) {
-    return;
-  }
-
-  if (currentPreferences.alertsOnly && config.category === 'subtle') {
-    return;
-  }
-
-  if (currentPreferences.muteLowPriority && config.priority === 'low') {
-    return;
+  // Si NO es forzado, aplicar filtros de preferencias
+  if (!isForced) {
+    if (!currentPreferences.enabled) {
+      return;
+    }
+    if (currentPreferences.alertsOnly && config.category === 'subtle') {
+      return;
+    }
+    if (currentPreferences.muteLowPriority && config.priority === 'low') {
+      return;
+    }
   }
 
   try {
@@ -344,7 +372,7 @@ export async function playSound(
     }
 
     const finalVolume = (options?.volume ?? config.volume) * currentPreferences.volume;
-    await sound.setVolumeAsync(finalVolume);
+    await sound.setVolumeAsync(Math.max(finalVolume, 0.1));
 
     const status = await sound.getStatusAsync();
     if (status.isLoaded && status.positionMillis > 0) {
@@ -361,12 +389,35 @@ export async function playSound(
 // FUNCIONES DE CONVENIENCIA
 // ============================================================================
 
+// ============================================================================
+// SONIDOS DE SISTEMA
+// ============================================================================
+
+/**
+ * Reproduce el chime de inicio de la app.
+ * SIEMPRE suena, no respeta preferencias del usuario (es persistente).
+ * Similar al sonido de inicio de Windows/Samsung/Mac.
+ */
+export async function playStartupChime(): Promise<void> {
+  await playSound('startupChime', { force: true });
+}
+
+/**
+ * Reproduce el sonido de tap/clic en UI.
+ * Solo suena si el usuario lo tiene activado (tapSoundEnabled).
+ * Usa force:true para que no sea filtrado por alertsOnly/muteLowPriority.
+ */
+export async function playUiTap(): Promise<void> {
+  if (!currentPreferences.tapSoundEnabled) return;
+  await playSound('uiTap', { force: true });
+}
+
 export const SoundFeedback = {
   success: () => playSound('success'),
   error: () => playSound('error'),
   warning: () => playSound('warning'),
   info: () => playSound('info'),
-  tap: () => playSound('tap'),
+  tap: () => playUiTap(),
 };
 
 export const AuthSounds = {
@@ -412,7 +463,15 @@ async function loadPreferences(): Promise<void> {
   try {
     const stored = await AsyncStorage.getItem(STORAGE_KEY);
     if (stored) {
-      currentPreferences = { ...DEFAULT_PREFERENCES, ...JSON.parse(stored) };
+      const parsed = JSON.parse(stored);
+      // Si la version no coincide, forzar reset a defaults limpios
+      if (!parsed.version || parsed.version < PREFS_VERSION) {
+        currentPreferences = { ...DEFAULT_PREFERENCES };
+        await savePreferences();
+        console.log('[Sounds] Preferencias reseteadas a v' + PREFS_VERSION);
+      } else {
+        currentPreferences = { ...DEFAULT_PREFERENCES, ...parsed };
+      }
     }
   } catch (error) {
     console.error('[Sounds] Error cargando preferencias:', error);
@@ -457,6 +516,10 @@ export async function setGlobalVolume(volume: number): Promise<void> {
 
 export async function setAlertsOnly(alertsOnly: boolean): Promise<void> {
   await updateSoundPreferences({ alertsOnly });
+}
+
+export async function setTapSoundEnabled(enabled: boolean): Promise<void> {
+  await updateSoundPreferences({ tapSoundEnabled: enabled });
 }
 
 // ============================================================================

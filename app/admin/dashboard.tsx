@@ -1,3 +1,4 @@
+import TouchableSound from '@/components/TouchableSound';
 // ============================================================================
 // YESSWERA: ADMIN DASHBOARD
 // Panel principal de administracion - Actualizado con ScreenContainer
@@ -8,7 +9,6 @@ import {
   StyleSheet,
   Text,
   View,
-  TouchableOpacity,
   ActivityIndicator,
   Alert,
 } from 'react-native';
@@ -232,7 +232,7 @@ export default function AdminDashboard() {
     >
       {/* Stats Grid */}
       <View style={styles.statsGrid}>
-        <TouchableOpacity
+        <TouchableSound
           style={[styles.statCard, { backgroundColor: theme.card }]}
           onPress={() => router.push('/admin/users' as any)}
         >
@@ -240,9 +240,9 @@ export default function AdminDashboard() {
           <Text style={[styles.statValue, { color: theme.text }]}>{stats?.totalUsers || 0}</Text>
           <Text style={[styles.statLabel, { color: theme.textSecondary }]}>Usuarios</Text>
           <Text style={[styles.statSubtext, { color: theme.textMuted }]}>+{stats?.newUsersToday || 0} hoy</Text>
-        </TouchableOpacity>
+        </TouchableSound>
 
-        <TouchableOpacity
+        <TouchableSound
           style={[styles.statCard, { backgroundColor: theme.card }]}
           onPress={() => router.push('/admin/orders' as any)}
         >
@@ -250,7 +250,7 @@ export default function AdminDashboard() {
           <Text style={[styles.statValue, { color: theme.text }]}>{stats?.totalOrders || 0}</Text>
           <Text style={[styles.statLabel, { color: theme.textSecondary }]}>Ordenes</Text>
           <Text style={[styles.statSubtext, { color: theme.textMuted }]}>{stats?.ordersToday || 0} hoy</Text>
-        </TouchableOpacity>
+        </TouchableSound>
 
         <View style={[styles.statCard, { backgroundColor: theme.card }]}>
           <DollarSign size={24} color={FIXED_COLORS.success} />
@@ -269,7 +269,7 @@ export default function AdminDashboard() {
 
       {/* AI Supervisor Status */}
       {aiConfig && driverStats && (
-        <TouchableOpacity
+        <TouchableSound
           style={[styles.aiStatusCard, { backgroundColor: theme.card }]}
           onPress={() => router.push('/admin/drivers' as any)}
         >
@@ -341,7 +341,7 @@ export default function AdminDashboard() {
             <Text style={[styles.aiTapHintText, { color: theme.textMuted }]}>Toca para ver detalles</Text>
             <ChevronRight size={14} color={theme.textMuted} />
           </View>
-        </TouchableOpacity>
+        </TouchableSound>
       )}
 
       {/* User Breakdown */}
@@ -385,7 +385,7 @@ export default function AdminDashboard() {
         ) : (
           <View style={[styles.ordersListSmall, { backgroundColor: theme.card }]}>
             {ordersInProgress.slice(0, 5).map((order) => (
-              <TouchableOpacity
+              <TouchableSound
                 key={order.id}
                 style={[styles.orderCardSmall, { borderBottomColor: theme.border }]}
                 onPress={() => router.push('/admin/orders' as any)}
@@ -400,16 +400,16 @@ export default function AdminDashboard() {
                     {getStatusLabel(order.status)}
                   </Text>
                 </View>
-              </TouchableOpacity>
+              </TouchableSound>
             ))}
             {ordersInProgress.length > 5 && (
-              <TouchableOpacity
+              <TouchableSound
                 style={styles.seeMoreButton}
                 onPress={() => router.push('/admin/orders' as any)}
               >
                 <Text style={[styles.seeMoreText, { color: FIXED_COLORS.primary }]}>Ver todas ({ordersInProgress.length})</Text>
                 <ChevronRight size={16} color={FIXED_COLORS.primary} />
-              </TouchableOpacity>
+              </TouchableSound>
             )}
           </View>
         )}
@@ -462,23 +462,23 @@ export default function AdminDashboard() {
           <Text style={[styles.sectionTitle, { color: theme.text }]}>Acciones Rapidas</Text>
         </View>
         <View style={styles.actionsGrid}>
-          <TouchableOpacity
+          <TouchableSound
             style={[styles.actionCard, { backgroundColor: theme.card }]}
             onPress={() => router.push('/admin/users' as any)}
           >
             <Users size={24} color={FIXED_COLORS.primary} />
             <Text style={[styles.actionText, { color: theme.text }]}>Gestionar Usuarios</Text>
-          </TouchableOpacity>
+          </TouchableSound>
 
-          <TouchableOpacity
+          <TouchableSound
             style={[styles.actionCard, { backgroundColor: theme.card }]}
             onPress={() => router.push('/admin/orders' as any)}
           >
             <Package size={24} color={FIXED_COLORS.accent} />
             <Text style={[styles.actionText, { color: theme.text }]}>Ver Ordenes</Text>
-          </TouchableOpacity>
+          </TouchableSound>
 
-          <TouchableOpacity
+          <TouchableSound
             style={[styles.actionCard, { backgroundColor: theme.card }, seeding && styles.actionCardDisabled]}
             onPress={handleSeedProducts}
             disabled={seeding}
@@ -491,15 +491,15 @@ export default function AdminDashboard() {
             <Text style={[styles.actionText, { color: theme.text }]}>
               {seeding ? 'Sembrando...' : 'Sembrar Productos'}
             </Text>
-          </TouchableOpacity>
+          </TouchableSound>
 
-          <TouchableOpacity
+          <TouchableSound
             style={[styles.actionCard, { backgroundColor: theme.card }]}
             onPress={() => router.push('/admin/settings' as any)}
           >
             <Settings size={24} color={theme.textSecondary} />
             <Text style={[styles.actionText, { color: theme.text }]}>Configuracion</Text>
-          </TouchableOpacity>
+          </TouchableSound>
         </View>
       </View>
 
@@ -517,7 +517,7 @@ export default function AdminDashboard() {
         ) : (
           <View style={styles.ordersList}>
             {todayOrders.slice(0, 10).map((order) => (
-              <TouchableOpacity
+              <TouchableSound
                 key={order.id}
                 style={[styles.orderCard, { backgroundColor: theme.card }]}
                 onPress={() => router.push('/admin/orders' as any)}
@@ -550,7 +550,7 @@ export default function AdminDashboard() {
                   </View>
                   <ChevronRight size={18} color={theme.textMuted} />
                 </View>
-              </TouchableOpacity>
+              </TouchableSound>
             ))}
           </View>
         )}

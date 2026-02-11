@@ -1,4 +1,11 @@
-import { View, Text, TextInput, StyleSheet, TouchableOpacity, ActivityIndicator } from 'react-native';
+import TouchableSound from '@/components/TouchableSound';
+import {
+  View,
+  Text,
+  TextInput,
+  StyleSheet,
+  ActivityIndicator,
+} from 'react-native';
 import { useState } from 'react';
 import { CheckCircle } from 'lucide-react-native';
 import Colors from '@/constants/colors';
@@ -88,7 +95,7 @@ export default function VerificationCodeInput({
         <Text style={styles.errorText}>{error}</Text>
       )}
 
-      <TouchableOpacity
+      <TouchableSound
         style={[
           styles.validateButton,
           (!isValid || disabled || isValidating) && styles.validateButtonDisabled,
@@ -104,7 +111,7 @@ export default function VerificationCodeInput({
             {type === 'pickup' ? 'Validar Recolección' : 'Validar Entrega'}
           </Text>
         )}
-      </TouchableOpacity>
+      </TouchableSound>
     </View>
   );
 }

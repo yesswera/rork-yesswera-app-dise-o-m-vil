@@ -1,5 +1,10 @@
+import TouchableSound from '@/components/TouchableSound';
 import React from 'react';
-import { StyleSheet, Text, View, TouchableOpacity } from 'react-native';
+import {
+  StyleSheet,
+  Text,
+  View,
+} from 'react-native';
 import Colors from '@/constants/colors';
 
 interface Props {
@@ -40,9 +45,9 @@ export default class ErrorBoundary extends React.Component<Props, State> {
           {__DEV__ && this.state.error && (
             <Text style={styles.errorDetail}>{this.state.error.message}</Text>
           )}
-          <TouchableOpacity style={styles.button} onPress={this.handleRestart}>
+          <TouchableSound style={styles.button} onPress={this.handleRestart}>
             <Text style={styles.buttonText}>Reintentar</Text>
-          </TouchableOpacity>
+          </TouchableSound>
         </View>
       );
     }

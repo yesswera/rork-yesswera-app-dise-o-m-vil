@@ -1,5 +1,13 @@
+import TouchableSound from '@/components/TouchableSound';
 import { useState, useRef } from 'react';
-import { StyleSheet, Text, View, TouchableOpacity, TextInput, Alert, Switch } from 'react-native';
+import {
+  StyleSheet,
+  Text,
+  View,
+  TextInput,
+  Alert,
+  Switch,
+} from 'react-native';
 import { useRouter } from 'expo-router';
 import { Home, Briefcase, MapPinned, Navigation, Search, ChevronRight, Loader, MapPin } from 'lucide-react-native';
 import MapView, { Marker } from 'react-native-maps';
@@ -173,13 +181,13 @@ export default function AddAddressScreen() {
   // Footer component
   const FooterComponent = (
     <View style={styles.footerContent}>
-      <TouchableOpacity
+      <TouchableSound
         style={[styles.cancelButton, { borderColor: theme.border }]}
         onPress={() => router.back()}
         disabled={isSubmitting}
       >
         <Text style={[styles.cancelButtonText, { color: theme.text }]}>Cancelar</Text>
-      </TouchableOpacity>
+      </TouchableSound>
 
       <View style={styles.submitButtonContainer}>
         <LoadingButton
@@ -210,7 +218,7 @@ export default function AddAddressScreen() {
             const isSelected = selectedLabel === label.id;
 
             return (
-              <TouchableOpacity
+              <TouchableSound
                 key={label.id}
                 style={[
                   styles.labelChip,
@@ -239,7 +247,7 @@ export default function AddAddressScreen() {
                 ]}>
                   {label.id}
                 </Text>
-              </TouchableOpacity>
+              </TouchableSound>
             );
           })}
         </View>
@@ -257,7 +265,7 @@ export default function AddAddressScreen() {
           textAlignVertical="top"
         />
 
-        <TouchableOpacity
+        <TouchableSound
           style={[styles.locationButton, { borderColor: Colors.primary, backgroundColor: `${Colors.primary}08` }]}
           onPress={handleUseCurrentLocation}
           disabled={isLoadingLocation}
@@ -267,7 +275,7 @@ export default function AddAddressScreen() {
           <Text style={styles.locationButtonText}>
             {isLoadingLocation ? 'Obteniendo ubicacion...' : 'Usar mi ubicacion actual'}
           </Text>
-        </TouchableOpacity>
+        </TouchableSound>
       </View>
 
       <View style={styles.section}>
@@ -289,9 +297,9 @@ export default function AddAddressScreen() {
             {isSearching ? (
               <Loader size={20} color={Colors.primary} />
             ) : searchQuery.length > 0 ? (
-              <TouchableOpacity onPress={searchAddress}>
+              <TouchableSound onPress={searchAddress}>
                 <ChevronRight size={20} color={Colors.primary} />
-              </TouchableOpacity>
+              </TouchableSound>
             ) : null}
           </View>
         </View>

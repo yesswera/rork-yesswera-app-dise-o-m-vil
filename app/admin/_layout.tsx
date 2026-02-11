@@ -1,5 +1,5 @@
 import { Tabs, useRouter } from 'expo-router';
-import { BarChart3, Users, ShoppingBag, TrendingUp, Settings, MessageSquare, MessageCircle, Truck } from 'lucide-react-native';
+import { BarChart3, Users, ShoppingBag, TrendingUp, Settings, MessageSquare, MessageCircle, Truck, Bot } from 'lucide-react-native';
 import { useEffect } from 'react';
 import { Alert, BackHandler } from 'react-native';
 import Colors from '@/constants/colors';
@@ -123,6 +123,14 @@ export default function AdminLayout() {
           title: 'Chats',
           tabBarIcon: ({ color, size }) => <MessageCircle size={size} color={color} />,
           headerTitle: 'Conversaciones',
+        }}
+      />
+      <Tabs.Screen
+        name="yessi"
+        options={{
+          title: 'Yessi',
+          tabBarIcon: ({ color, size }) => <Bot size={size} color={color} />,
+          headerTitle: 'Yessi - Asistente BI',
         }}
       />
       <Tabs.Screen

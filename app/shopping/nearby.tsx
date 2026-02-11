@@ -1,6 +1,14 @@
+import TouchableSound from '@/components/TouchableSound';
 // Nearby Stores - Mapa con comercios cercanos (5km)
 import { useState, useEffect, useCallback, useRef } from 'react';
-import { StyleSheet, Text, View, TouchableOpacity, Alert, ActivityIndicator, Dimensions } from 'react-native';
+import {
+  StyleSheet,
+  Text,
+  View,
+  Alert,
+  ActivityIndicator,
+  Dimensions,
+} from 'react-native';
 import { useRouter } from 'expo-router';
 import { ArrowLeft, MapPin, Star, Store, Navigation, List } from 'lucide-react-native';
 import MapView, { Marker, Circle, PROVIDER_GOOGLE } from 'react-native-maps';
@@ -193,21 +201,21 @@ export default function NearbyStoresScreen() {
     <View style={[styles.container, { backgroundColor: theme.background }]}>
       {/* Header */}
       <View style={[styles.header, { backgroundColor: theme.card, borderBottomColor: theme.border }]}>
-        <TouchableOpacity style={[styles.backButton, { backgroundColor: theme.cardAlt }]} onPress={() => router.back()}>
+        <TouchableSound style={[styles.backButton, { backgroundColor: theme.cardAlt }]} onPress={() => router.back()}>
           <ArrowLeft size={24} color={theme.text} />
-        </TouchableOpacity>
+        </TouchableSound>
         <View style={styles.headerContent}>
           <Text style={[styles.headerTitle, { color: theme.text }]}>Comercios Cercanos</Text>
           <Text style={[styles.headerSubtitle, { color: theme.textSecondary }]}>
             {businesses.length} negocios en {RADIUS_KM} km
           </Text>
         </View>
-        <TouchableOpacity
+        <TouchableSound
           style={[styles.toggleButton, { backgroundColor: theme.cardAlt }, showList && styles.toggleButtonActive]}
           onPress={() => setShowList(!showList)}
         >
           <List size={20} color={showList ? Colors.white : Colors.primary} />
-        </TouchableOpacity>
+        </TouchableSound>
       </View>
 
       {/* Mapa */}
@@ -256,9 +264,9 @@ export default function NearbyStoresScreen() {
         </MapView>
 
         {/* Botón centrar en usuario */}
-        <TouchableOpacity style={[styles.centerButton, { backgroundColor: theme.card }]} onPress={centerOnUser}>
+        <TouchableSound style={[styles.centerButton, { backgroundColor: theme.card }]} onPress={centerOnUser}>
           <Navigation size={20} color={Colors.primary} />
-        </TouchableOpacity>
+        </TouchableSound>
 
         {/* Leyenda */}
         <View style={[styles.legend, { backgroundColor: theme.card }]}>
@@ -289,12 +297,12 @@ export default function NearbyStoresScreen() {
           <Text style={[styles.selectedDistance, { color: theme.textSecondary }]}>
             <MapPin size={14} color={theme.textSecondary} /> {selectedBusiness.distance} km de distancia
           </Text>
-          <TouchableOpacity
+          <TouchableSound
             style={styles.selectButton}
             onPress={() => handleGoToBusiness(selectedBusiness.id)}
           >
             <Text style={styles.selectButtonText}>Crear Lista de Compras</Text>
-          </TouchableOpacity>
+          </TouchableSound>
         </View>
       )}
 
@@ -310,7 +318,7 @@ export default function NearbyStoresScreen() {
             </View>
           ) : (
             businesses.map((business) => (
-              <TouchableOpacity
+              <TouchableSound
                 key={business.id}
                 style={[
                   styles.listItem,
@@ -333,7 +341,7 @@ export default function NearbyStoresScreen() {
                     <Text style={[styles.listRatingText, { color: theme.textSecondary }]}>{business.rating.toFixed(1)}</Text>
                   </View>
                 </View>
-              </TouchableOpacity>
+              </TouchableSound>
             ))
           )}
         </View>

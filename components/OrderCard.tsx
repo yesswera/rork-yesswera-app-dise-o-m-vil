@@ -1,4 +1,9 @@
-import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
+import TouchableSound from '@/components/TouchableSound';
+import {
+  View,
+  Text,
+  StyleSheet,
+} from 'react-native';
 import { UtensilsCrossed, ShoppingCart, Package } from 'lucide-react-native';
 import type { Order } from '@/constants/types';
 import Colors from '@/constants/colors';
@@ -82,7 +87,7 @@ export default function OrderCard({ order, onPress, variant = 'client' }: OrderC
   const Icon = getOrderIcon();
 
   return (
-    <TouchableOpacity
+    <TouchableSound
       style={styles.card}
       onPress={onPress}
       activeOpacity={0.7}
@@ -120,7 +125,7 @@ export default function OrderCard({ order, onPress, variant = 'client' }: OrderC
           <Text style={styles.deliveredDate}>{formatDate(order.deliveredAt)}</Text>
         </View>
       )}
-    </TouchableOpacity>
+    </TouchableSound>
   );
 }
 

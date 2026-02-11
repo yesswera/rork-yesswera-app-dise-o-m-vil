@@ -1,10 +1,16 @@
+import TouchableSound from '@/components/TouchableSound';
 // ============================================================================
 // YESSWERA: DETALLES DE ORDEN
 // Pantalla para ver los detalles completos de una orden
 // Actualizado para usar ScreenContainer
 // ============================================================================
 
-import { View, Text, StyleSheet, TouchableOpacity, ActivityIndicator } from 'react-native';
+import {
+  View,
+  Text,
+  StyleSheet,
+  ActivityIndicator,
+} from 'react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import {
   MapPin,
@@ -290,14 +296,14 @@ export default function OrderDetailsScreen() {
 
   // Footer con boton de mapa
   const renderFooter = () => (
-    <TouchableOpacity
+    <TouchableSound
       style={[styles.mapButton, { backgroundColor: STATUS_COLORS.accent }]}
       onPress={() => router.push(`/tracking/${order.id}` as any)}
       activeOpacity={0.8}
     >
       <Map size={20} color="#FFFFFF" />
       <Text style={styles.mapButtonText}>Ver en Mapa</Text>
-    </TouchableOpacity>
+    </TouchableSound>
   );
 
   return (

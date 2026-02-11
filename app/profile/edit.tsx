@@ -1,10 +1,17 @@
+import TouchableSound from '@/components/TouchableSound';
 // ============================================================================
 // YESSWERA: PANTALLA DE EDITAR PERFIL
 // Usa ScreenContainer para diseño unificado
 // ============================================================================
 
 import { useState } from 'react';
-import { StyleSheet, Text, View, TouchableOpacity, Image, Alert } from 'react-native';
+import {
+  StyleSheet,
+  Text,
+  View,
+  Image,
+  Alert,
+} from 'react-native';
 import { useRouter } from 'expo-router';
 import { Camera, Edit2 } from 'lucide-react-native';
 import * as ImagePicker from 'expo-image-picker';
@@ -151,7 +158,7 @@ export default function EditProfileScreen() {
     >
       {/* Avatar Section */}
       <View style={styles.avatarSection}>
-        <TouchableOpacity
+        <TouchableSound
           onPress={handlePickImage}
           activeOpacity={0.8}
           style={styles.avatarContainer}
@@ -168,7 +175,7 @@ export default function EditProfileScreen() {
           <View style={[styles.cameraButton, { backgroundColor: colors.primary, borderColor: theme.card }]}>
             <Camera size={18} color="#FFFFFF" />
           </View>
-        </TouchableOpacity>
+        </TouchableSound>
         <Text style={[styles.avatarHint, { color: theme.textSecondary }]}>Toca para cambiar foto</Text>
       </View>
 
@@ -213,14 +220,14 @@ export default function EditProfileScreen() {
             variant="primary"
           />
 
-          <TouchableOpacity
+          <TouchableSound
             style={[styles.cancelButton, { backgroundColor: theme.cardAlt }]}
             onPress={handleCancel}
             disabled={isLoading}
             activeOpacity={0.8}
           >
             <Text style={[styles.cancelButtonText, { color: theme.text }]}>Cancelar</Text>
-          </TouchableOpacity>
+          </TouchableSound>
         </View>
       </View>
     </ScreenContainer>

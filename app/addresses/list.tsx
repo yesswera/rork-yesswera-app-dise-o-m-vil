@@ -1,5 +1,12 @@
+import TouchableSound from '@/components/TouchableSound';
 import { useState, useEffect } from 'react';
-import { StyleSheet, Text, View, TouchableOpacity, Alert, ActivityIndicator } from 'react-native';
+import {
+  StyleSheet,
+  Text,
+  View,
+  Alert,
+  ActivityIndicator,
+} from 'react-native';
 import { useRouter } from 'expo-router';
 import { MapPin, Plus, Home, Briefcase, MapPinned, Star, Trash2 } from 'lucide-react-native';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -119,7 +126,7 @@ export default function AddressListScreen() {
 
   // Footer component
   const FooterComponent = (
-    <TouchableOpacity
+    <TouchableSound
       style={styles.addButton}
       onPress={() => router.push('/addresses/add' as any)}
       activeOpacity={0.8}
@@ -133,7 +140,7 @@ export default function AddressListScreen() {
         <Plus size={24} color={Colors.white} strokeWidth={3} />
         <Text style={styles.addButtonText}>Agregar Nueva Direccion</Text>
       </LinearGradient>
-    </TouchableOpacity>
+    </TouchableSound>
   );
 
   if (isLoading) {
@@ -217,16 +224,16 @@ export default function AddressListScreen() {
 
                   <View style={styles.actionsRow}>
                     {!address.isDefault && (
-                      <TouchableOpacity
+                      <TouchableSound
                         style={[styles.actionButton, { backgroundColor: theme.card, borderColor: theme.border }]}
                         onPress={() => handleSetDefault(address.id)}
                       >
                         <Star size={18} color={Colors.gold} />
                         <Text style={[styles.actionText, { color: theme.text }]}>Predeterminada</Text>
-                      </TouchableOpacity>
+                      </TouchableSound>
                     )}
 
-                    <TouchableOpacity
+                    <TouchableSound
                       style={[styles.actionButton, styles.deleteButton, { backgroundColor: theme.card }]}
                       onPress={() => handleDelete(address.id)}
                       disabled={isDeleting}
@@ -239,7 +246,7 @@ export default function AddressListScreen() {
                           <Text style={[styles.actionText, styles.deleteText]}>Eliminar</Text>
                         </>
                       )}
-                    </TouchableOpacity>
+                    </TouchableSound>
                   </View>
                 </LinearGradient>
               </View>

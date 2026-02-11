@@ -1,6 +1,7 @@
 import { TouchableOpacity, Text, StyleSheet, ActivityIndicator, View, ViewStyle } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import Colors from '@/constants/colors';
+import { playUiTap } from '@/services/sounds';
 
 interface LoadingButtonProps {
   title: string;
@@ -39,7 +40,10 @@ export default function LoadingButton({
   return (
     <TouchableOpacity
       activeOpacity={0.8}
-      onPress={onPress}
+      onPress={() => {
+        playUiTap();
+        onPress();
+      }}
       disabled={isDisabled}
       style={[styles.button, isDisabled && styles.buttonDisabled, style]}
     >

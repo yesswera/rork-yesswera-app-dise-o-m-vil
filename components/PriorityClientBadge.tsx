@@ -1,10 +1,15 @@
+import TouchableSound from '@/components/TouchableSound';
 /**
  * Badge Cliente Prioritario - Yesswera
  * Muestra al negocio que este cliente tuvo una mala experiencia previa
  */
 
 import React from 'react';
-import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
+import {
+  View,
+  Text,
+  StyleSheet,
+} from 'react-native';
 import { AlertTriangle, ChevronDown, ChevronUp } from 'lucide-react-native';
 import Colors from '@/constants/colors';
 
@@ -31,7 +36,7 @@ export default function PriorityClientBadge({
   }
 
   return (
-    <TouchableOpacity
+    <TouchableSound
       style={styles.container}
       onPress={onToggle}
       activeOpacity={onToggle ? 0.8 : 1}
@@ -81,7 +86,7 @@ export default function PriorityClientBadge({
           </View>
         </View>
       )}
-    </TouchableOpacity>
+    </TouchableSound>
   );
 }
 
