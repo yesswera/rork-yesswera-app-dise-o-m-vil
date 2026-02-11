@@ -4,7 +4,12 @@ import * as Location from 'expo-location';
 import createContextHook from '@nkzw/create-context-hook';
 import { useAuth } from './auth';
 import { Survey, SurveyResponse, UserBehaviorEvent } from '@/constants/types';
-import * as analyticsService from '@/services/analytics';
+// Analytics service stubs (TODO: connect to Supabase when ready)
+const analyticsService = {
+  trackEvent: (_event: any) => {},
+  getActiveSurveys: async (_userType: string): Promise<Survey[]> => [],
+  submitSurveyResponse: async (_response: any) => {},
+};
 
 interface AnalyticsContextValue {
   trackEvent: (
