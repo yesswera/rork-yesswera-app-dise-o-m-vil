@@ -30,6 +30,7 @@ import { SoundFeedback } from '@/services/sounds';
 import { ThemedText } from '@/components/themed';
 import ScreenContainer from '@/components/ScreenContainer';
 import { supabase } from '@/constants/supabase';
+import ProductImagePicker from '@/components/ProductImagePicker';
 
 // ============================================================================
 // COLORES EXPLICITOS PARA MODO OSCURO
@@ -84,6 +85,10 @@ export default function AddProductScreen() {
   const [showNewCategory, setShowNewCategory] = useState<boolean>(false);
   const [newCategoryName, setNewCategoryName] = useState<string>('');
   const [isCreatingCategory, setIsCreatingCategory] = useState<boolean>(false);
+
+  // Image
+  const [imageUrl, setImageUrl] = useState<string>('');
+  const [imageLocalUri, setImageLocalUri] = useState<string>('');
 
   // Submission
   const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
@@ -200,6 +205,7 @@ export default function AddProductScreen() {
         categoryId: selectedCategoryId || undefined,
         preparationTime: preparationTime ? parseInt(preparationTime, 10) : undefined,
         available,
+        image: imageUrl || undefined,
       });
 
       await SoundFeedback.success();
@@ -269,6 +275,21 @@ export default function AddProductScreen() {
       footer={FooterComponent}
       footerPadding={100}
     >
+      {/* Imagen del producto */}
+      <ProductImagePicker
+        imageUri={imageLocalUri || null}
+        productName={name}
+        businessId={businessId}
+        onImageUploaded={(publicUrl, localUri) => {
+          setImageUrl(publicUrl);
+          setImageLocalUri(localUri);
+        }}
+        onImageRemoved={() => {
+          setImageUrl('');
+          setImageLocalUri('');
+        }}
+      />
+
       {/* Nombre del producto */}
       <View style={styles.section}>
         <Text style={[styles.label, { color: theme.text }]}>

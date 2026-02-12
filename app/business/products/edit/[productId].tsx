@@ -25,6 +25,7 @@ import { SoundFeedback } from '@/services/sounds';
 import { ThemedText } from '@/components/themed';
 import ScreenContainer from '@/components/ScreenContainer';
 import LoadingButton from '@/components/LoadingButton';
+import ProductImagePicker from '@/components/ProductImagePicker';
 import { supabase } from '@/constants/supabase';
 
 // ============================================================================
@@ -67,6 +68,11 @@ export default function EditProductScreen() {
   const [categoryId, setCategoryId] = useState<string | null>(null);
   const [preparationTime, setPreparationTime] = useState('');
   const [available, setAvailable] = useState(true);
+
+  // Image state
+  const [imageUrl, setImageUrl] = useState('');
+  const [imageLocalUri, setImageLocalUri] = useState('');
+  const [existingImageUrl, setExistingImageUrl] = useState('');
 
   // UI state
   const [categories, setCategories] = useState<ProductCategory[]>([]);
@@ -130,6 +136,12 @@ export default function EditProductScreen() {
           : ''
       );
       setAvailable(product.is_available ?? true);
+
+      // Set image
+      if (product.image_url) {
+        setExistingImageUrl(product.image_url);
+        setImageUrl(product.image_url);
+      }
 
       // Set categories
       setCategories(categoriesData);
@@ -196,6 +208,7 @@ export default function EditProductScreen() {
           ? parseInt(preparationTime, 10)
           : undefined,
         available,
+        image: imageUrl || undefined,
       });
 
       await SoundFeedback.success();
@@ -271,6 +284,23 @@ export default function EditProductScreen() {
       footer={FooterComponent}
       footerPadding={100}
     >
+      {/* Imagen del producto */}
+      <ProductImagePicker
+        imageUri={imageLocalUri || null}
+        productName={name}
+        businessId={businessId}
+        onImageUploaded={(publicUrl, localUri) => {
+          setImageUrl(publicUrl);
+          setImageLocalUri(localUri);
+        }}
+        onImageRemoved={() => {
+          setImageUrl('');
+          setImageLocalUri('');
+          setExistingImageUrl('');
+        }}
+        existingImageUrl={existingImageUrl}
+      />
+
       {/* Nombre */}
       <View style={styles.section}>
         <View style={styles.labelRow}>
