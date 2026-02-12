@@ -44,14 +44,14 @@ export function RealtimeProvider({ children }: { children: React.ReactNode }) {
           .from('businesses')
           .select('id')
           .eq('user_id', user.id)
-          .single();
+          .maybeSingle();
         setBusinessId(data?.id || null);
       } else if (user.userType === 'driver') {
         const { data } = await supabase
           .from('drivers')
           .select('id')
           .eq('user_id', user.id)
-          .single();
+          .maybeSingle();
         setDriverId(data?.id || null);
       }
     };

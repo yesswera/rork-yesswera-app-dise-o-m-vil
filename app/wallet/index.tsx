@@ -75,7 +75,7 @@ export default function WalletScreen() {
           .from('drivers')
           .select('id, balance')
           .eq('user_id', user.id)
-          .single();
+          .maybeSingle();
 
         const driverId = driver?.id;
         const balance = Number(driver?.balance) || 0;

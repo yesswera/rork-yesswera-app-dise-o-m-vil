@@ -65,6 +65,68 @@ export async function uploadProductImage(
 }
 
 // ============================================================================
+// PROCESAR IMAGEN CON DIMENSIONES PERSONALIZADAS
+// ============================================================================
+
+export async function processImageCustom(
+  uri: string,
+  width: number,
+  height: number
+): Promise<{ uri: string; base64: string }> {
+  const result = await ImageManipulator.manipulateAsync(
+    uri,
+    [{ resize: { width, height } }],
+    {
+      compress: 0.85,
+      format: ImageManipulator.SaveFormat.JPEG,
+      base64: true,
+    }
+  );
+
+  return {
+    uri: result.uri,
+    base64: result.base64 || '',
+  };
+}
+
+// ============================================================================
+// SUBIR IMAGEN DE NEGOCIO (logo o cover)
+// Reutiliza bucket product-images con path businesses/{businessId}/{type}-{timestamp}.jpg
+// ============================================================================
+
+export async function uploadBusinessImage(
+  base64Data: string,
+  businessId: string,
+  type: 'logo' | 'cover'
+): Promise<string> {
+  const timestamp = Date.now();
+  const filePath = `businesses/${businessId}/${type}-${timestamp}.jpg`;
+
+  // Convertir base64 a Uint8Array para upload
+  const binaryString = atob(base64Data);
+  const bytes = new Uint8Array(binaryString.length);
+  for (let i = 0; i < binaryString.length; i++) {
+    bytes[i] = binaryString.charCodeAt(i);
+  }
+
+  const { error } = await supabase.storage
+    .from('product-images')
+    .upload(filePath, bytes, {
+      contentType: 'image/jpeg',
+      upsert: false,
+    });
+
+  if (error) throw error;
+
+  // Obtener URL publica
+  const { data: urlData } = supabase.storage
+    .from('product-images')
+    .getPublicUrl(filePath);
+
+  return urlData.publicUrl;
+}
+
+// ============================================================================
 // ELIMINAR IMAGEN DE SUPABASE STORAGE
 // ============================================================================
 

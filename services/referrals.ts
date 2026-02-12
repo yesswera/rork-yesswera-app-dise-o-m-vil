@@ -75,7 +75,7 @@ export async function getMyReferralCode(): Promise<ReferralCode | null> {
     .from('referral_codes')
     .select('*')
     .eq('user_id', user.id)
-    .single();
+    .maybeSingle();
 
   if (error || !data) return null;
 
@@ -259,7 +259,7 @@ export async function trackCodeShared(): Promise<void> {
     .from('referral_codes')
     .select('times_shared')
     .eq('user_id', user.id)
-    .single();
+    .maybeSingle();
 
   if (current) {
     await supabase
@@ -286,7 +286,7 @@ export async function getMyCreditBalance(): Promise<CreditBalance> {
     .from('user_credit_balance')
     .select('*')
     .eq('user_id', user.id)
-    .single();
+    .maybeSingle();
 
   if (error || !data) {
     return { availableBalance: 0, totalUsed: 0, totalExpired: 0, expiringSoonCount: 0 };

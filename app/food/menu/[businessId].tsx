@@ -17,6 +17,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { useTheme } from '@/contexts/theme';
 import { ThemedText } from '@/components/themed';
 import { Business, Product } from '@/constants/types';
+import { formatPriceWithUnit } from '@/constants/units';
 import { getBusinessById, getBusinessMenu } from '@/services/products';
 import { useCart } from '@/contexts/cart';
 import EmptyState from '@/components/EmptyState';
@@ -207,7 +208,7 @@ export default function MenuScreen() {
 
                     <View style={styles.productFooter}>
                       <ThemedText variant="subtitle" bold style={{ color: colors.primary }}>
-                        ${product.price.toFixed(2)}
+                        {formatPriceWithUnit(product.price, (product as any).unit || 'pieza')}
                       </ThemedText>
 
                       {quantity > 0 ? (

@@ -119,7 +119,7 @@ export default function ActiveOrderScreen() {
         .from('drivers')
         .select('id')
         .eq('user_id', user.id)
-        .single();
+        .maybeSingle();
 
       if (!driver) {
         Alert.alert('Error', 'No se encontro tu registro de repartidor');

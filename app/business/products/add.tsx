@@ -25,6 +25,7 @@ import {
   createCategory,
 } from '@/services/products';
 import { ProductCategory } from '@/constants/types';
+import { PRODUCT_UNITS, formatPriceWithUnit } from '@/constants/units';
 import { Toast } from '@/utils/toast';
 import { SoundFeedback } from '@/services/sounds';
 import { ThemedText } from '@/components/themed';
@@ -86,6 +87,10 @@ export default function AddProductScreen() {
   const [newCategoryName, setNewCategoryName] = useState<string>('');
   const [isCreatingCategory, setIsCreatingCategory] = useState<boolean>(false);
 
+  // Unit
+  const [unit, setUnit] = useState<string>('pieza');
+  const [customUnit, setCustomUnit] = useState<string>('');
+
   // Image
   const [imageUrl, setImageUrl] = useState<string>('');
   const [imageLocalUri, setImageLocalUri] = useState<string>('');
@@ -106,9 +111,9 @@ export default function AddProductScreen() {
       .from('businesses')
       .select('id')
       .eq('user_id', user.id)
-      .single()
+      .limit(1)
       .then(({ data }) => {
-        if (data) setBusinessId(data.id);
+        if (data && data.length > 0) setBusinessId(data[0].id);
       });
   }, [user]);
 
@@ -189,6 +194,8 @@ export default function AddProductScreen() {
   // ============================================================================
 
   const handleSubmit = async () => {
+    console.log('[AddProduct] businessId:', businessId, 'name:', name, 'price:', price, 'imageUrl:', imageUrl ? 'SET' : 'EMPTY');
+
     if (!businessId) {
       Toast.error('No se encontro el negocio');
       return;
@@ -198,7 +205,8 @@ export default function AddProductScreen() {
 
     setIsSubmitting(true);
     try {
-      await createProduct(businessId, {
+      const finalUnit = unit === 'otro' ? (customUnit.trim() || 'pieza') : unit;
+      const productData = {
         name: name.trim(),
         description: description.trim(),
         price: parseFloat(price),
@@ -206,14 +214,17 @@ export default function AddProductScreen() {
         preparationTime: preparationTime ? parseInt(preparationTime, 10) : undefined,
         available,
         image: imageUrl || undefined,
-      });
+        unit: finalUnit,
+      };
+      console.log('[AddProduct] Creating with data:', JSON.stringify(productData));
+      await createProduct(businessId, productData);
 
       await SoundFeedback.success();
       Toast.success('Producto creado exitosamente');
       router.back();
-    } catch (error) {
-      console.error('Error creating product:', error);
-      Toast.error('Error al crear producto');
+    } catch (error: any) {
+      console.error('Error creating product:', error?.message || error);
+      Toast.error('Error al crear producto: ' + (error?.message || 'desconocido'));
     } finally {
       setIsSubmitting(false);
     }
@@ -378,6 +389,65 @@ export default function AddProductScreen() {
         />
         {errors.price && (
           <Text style={[styles.errorText, { color: colors.error }]}>{errors.price}</Text>
+        )}
+      </View>
+
+      {/* Unidad de venta */}
+      <View style={styles.section}>
+        <Text style={[styles.label, { color: theme.text }]}>Unidad de venta</Text>
+        {price.trim() && !isNaN(parseFloat(price)) && parseFloat(price) > 0 && (
+          <Text style={[styles.helperText, { color: colors.primary, marginBottom: 8, fontWeight: '600' }]}>
+            Se mostrara como: {formatPriceWithUnit(parseFloat(price), unit === 'otro' ? (customUnit.trim() || 'pieza') : unit)}
+          </Text>
+        )}
+        <View style={styles.unitChipsContainer}>
+          {PRODUCT_UNITS.map((u) => (
+            <TouchableSound
+              key={u.value}
+              style={[
+                styles.unitChip,
+                {
+                  backgroundColor: unit === u.value ? `${colors.primary}15` : theme.card,
+                  borderColor: unit === u.value ? colors.primary : theme.border,
+                  borderRadius: radius.md,
+                },
+              ]}
+              onPress={() => setUnit(u.value)}
+              activeOpacity={0.7}
+            >
+              <Text
+                style={[
+                  styles.unitChipText,
+                  {
+                    color: unit === u.value ? colors.primary : theme.textSecondary,
+                    fontWeight: unit === u.value ? '700' : '500',
+                  },
+                ]}
+              >
+                {u.label}
+              </Text>
+            </TouchableSound>
+          ))}
+        </View>
+        {unit === 'otro' && (
+          <TextInput
+            style={[
+              styles.input,
+              {
+                borderWidth: 1,
+                borderColor: theme.border,
+                borderRadius: radius.md,
+                padding: space.md,
+                backgroundColor: theme.card,
+                color: theme.text,
+                marginTop: 8,
+              },
+            ]}
+            placeholder="Escribe la unidad (ej: rebanada, porcion)"
+            placeholderTextColor={theme.textMuted}
+            value={customUnit}
+            onChangeText={setCustomUnit}
+          />
         )}
       </View>
 
@@ -608,6 +678,21 @@ const styles = StyleSheet.create({
     fontSize: 13,
     marginTop: 6,
     lineHeight: 18,
+  },
+
+  // Unit chips
+  unitChipsContainer: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+  },
+  unitChip: {
+    paddingVertical: 10,
+    paddingHorizontal: 14,
+    borderWidth: 1.5,
+  },
+  unitChipText: {
+    fontSize: 14,
   },
 
   // Category picker

@@ -29,6 +29,11 @@ export async function validateProductImage(
   }
 
   try {
+    if (!ANTHROPIC_CONFIG.apiKey) {
+      console.warn('Yessi Vision: API key no configurada');
+      return { status: 'skipped', explanation: '' };
+    }
+
     const response = await fetch(ANTHROPIC_CONFIG.apiUrl, {
       method: 'POST',
       headers: {
@@ -73,7 +78,8 @@ Responde SOLO con JSON valido, sin markdown:
     });
 
     if (!response.ok) {
-      console.error('Yessi Vision API error:', response.status);
+      const errorBody = await response.text().catch(() => '');
+      console.error('Yessi Vision API error:', response.status, errorBody);
       return { status: 'error', explanation: 'Error al conectar con Yessi IA' };
     }
 

@@ -7,12 +7,13 @@ import TouchableSound from '@/components/TouchableSound';
 import { useState, useEffect, useCallback } from 'react';
 import {
   View,
+  Image,
   Alert,
   BackHandler,
   StyleSheet,
 } from 'react-native';
 import { useRouter, useFocusEffect } from 'expo-router';
-import { DollarSign, Package, TrendingUp, LogOut, ShoppingBag, Monitor, Store, Settings, BarChart3 } from 'lucide-react-native';
+import { DollarSign, Package, TrendingUp, LogOut, ShoppingBag, Monitor, Store, Settings, BarChart3, User } from 'lucide-react-native';
 import { useAuth } from '@/contexts/auth';
 import { useTheme } from '@/contexts/theme';
 import { ThemedText } from '@/components/themed';
@@ -51,6 +52,8 @@ export default function BusinessDashboardScreen() {
 
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [logoUrl, setLogoUrl] = useState<string>('');
+  const [businessName, setBusinessName] = useState<string>('');
   const [stats, setStats] = useState({
     todayOrders: 0,
     todayRevenue: 0,
@@ -81,16 +84,20 @@ export default function BusinessDashboardScreen() {
     if (!user) return;
 
     try {
-      const { data: business } = await supabase
+      const { data: businessRows } = await supabase
         .from('businesses')
-        .select('id, rating_average')
+        .select('id, rating_average, logo_url, business_name')
         .eq('user_id', user.id)
-        .single();
+        .limit(1);
 
+      const business = businessRows?.[0];
       if (!business) {
         setLoading(false);
         return;
       }
+
+      setLogoUrl(business.logo_url || '');
+      setBusinessName(business.business_name || '');
 
       const today = new Date();
       today.setHours(0, 0, 0, 0);
@@ -140,19 +147,27 @@ export default function BusinessDashboardScreen() {
     ]);
   };
 
-  // Header content con AccessibilityControls
+  // Header content con logo + AccessibilityControls
   const headerContent = (
-    <View style={styles.accessibilityRow}>
-      <AccessibilityControls variant="minimal" />
+    <View style={styles.headerContentRow}>
+      {logoUrl ? (
+        <Image
+          source={{ uri: logoUrl }}
+          style={styles.headerLogo}
+        />
+      ) : null}
+      <View style={styles.accessibilityRow}>
+        <AccessibilityControls variant="minimal" />
+      </View>
     </View>
   );
 
   return (
     <ScreenContainer
       headerGradient="secondary"
-      headerIcon={Store}
+      headerIcon={logoUrl ? undefined : Store}
       headerTitle="Portal de Negocio"
-      headerSubtitle={user?.name || 'Mi Negocio'}
+      headerSubtitle={businessName || user?.name || 'Mi Negocio'}
       headerContent={headerContent}
       refreshing={refreshing}
       onRefresh={handleRefresh}
@@ -242,6 +257,19 @@ export default function BusinessDashboardScreen() {
             <TouchableSound
               style={[styles.secondaryButton, {
                 backgroundColor: theme.card,
+                borderColor: colors.info || '#3B82F6',
+                borderRadius: radius.md,
+                padding: space.md,
+              }]}
+              onPress={() => router.push('/profile' as any)}
+            >
+              <User size={22} color={colors.info || '#3B82F6'} />
+              <ThemedText variant="subtitle" style={{ color: colors.info || '#3B82F6', fontWeight: '700' }}>Mi Cuenta</ThemedText>
+            </TouchableSound>
+
+            <TouchableSound
+              style={[styles.secondaryButton, {
+                backgroundColor: theme.card,
                 borderColor: colors.accent,
                 borderRadius: radius.md,
                 padding: space.md,
@@ -272,6 +300,18 @@ export default function BusinessDashboardScreen() {
 }
 
 const styles = StyleSheet.create({
+  headerContentRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  headerLogo: {
+    width: 52,
+    height: 52,
+    borderRadius: 26,
+    borderWidth: 2,
+    borderColor: 'rgba(255,255,255,0.4)',
+  },
   accessibilityRow: {
     alignItems: 'flex-end',
   },

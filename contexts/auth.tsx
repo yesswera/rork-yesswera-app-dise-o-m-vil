@@ -62,7 +62,7 @@ export const [AuthProvider, useAuth] = createContextHook<AuthState>(() => {
         .from('users')
         .select('*')
         .eq('id', userId)
-        .single();
+        .maybeSingle();
 
       if (error) throw error;
 
@@ -98,7 +98,7 @@ export const [AuthProvider, useAuth] = createContextHook<AuthState>(() => {
         .from('users')
         .select('*')
         .eq('email', email)
-        .single();
+        .maybeSingle();
 
       if (userError) throw userError;
       if (!userData) throw new Error('Perfil de usuario no encontrado');

@@ -93,7 +93,7 @@ export default function DriverDashboardScreen() {
           .from('drivers')
           .select('id')
           .eq('user_id', user.id)
-          .single();
+          .maybeSingle();
 
         if (driver) {
           setDriverId(driver.id);
@@ -103,7 +103,7 @@ export default function DriverDashboardScreen() {
             .select('id')
             .eq('driver_id', driver.id)
             .in('status', ['assigned', 'driver_verified', 'in_transit', 'arrived'])
-            .single();
+            .maybeSingle();
 
           if (activeOrder) {
             setActiveOrderId(activeOrder.id);

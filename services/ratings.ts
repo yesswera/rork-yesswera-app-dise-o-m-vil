@@ -85,12 +85,10 @@ export async function getRatingForOrder(orderId: string, ratedType: string): Pro
       .select('*')
       .eq('order_id', orderId)
       .eq('rated_type', ratedType)
-      .single();
+      .maybeSingle();
 
-    if (error) {
-      if (error.code === 'PGRST116') return null; // No rows found
-      throw error;
-    }
+    if (error) throw error;
+    if (!data) return null;
 
     return mapRating(data);
   } catch (error) {

@@ -1112,7 +1112,7 @@ export async function executeSupportAction(
           .from('push_tokens')
           .select('token')
           .eq('user_id', userId)
-          .single();
+          .maybeSingle();
 
         if (tokenData?.token) {
           await sendLocalNotification(

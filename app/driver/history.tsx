@@ -147,7 +147,7 @@ export default function DriverHistoryScreen() {
         .from('drivers')
         .select('id')
         .eq('user_id', user.id)
-        .single();
+        .maybeSingle();
 
       if (driverError || !driver) {
         console.error('Driver not found:', driverError);

@@ -13,12 +13,13 @@ import {
   StyleSheet,
   ActivityIndicator,
 } from 'react-native';
-import { useFocusEffect } from 'expo-router';
-import { Store, Star, Package, AlertTriangle, Clock, MapPin, Save } from 'lucide-react-native';
+import { useFocusEffect, useRouter } from 'expo-router';
+import { Store, Star, Package, AlertTriangle, Clock, MapPin, Save, User } from 'lucide-react-native';
 import { useAuth } from '@/contexts/auth';
 import { useTheme } from '@/contexts/theme';
 import { ThemedText } from '@/components/themed';
 import ScreenContainer from '@/components/ScreenContainer';
+import BusinessImagePicker from '@/components/BusinessImagePicker';
 import { supabase } from '@/constants/supabase';
 import {
   PauseReason,
@@ -86,6 +87,7 @@ interface BusinessData {
 // ============================================================================
 
 export default function BusinessProfileScreen() {
+  const router = useRouter();
   const { user } = useAuth();
   const { isDark, colors, space, radius } = useTheme();
   const theme = isDark ? COLORS.dark : COLORS.light;
@@ -104,6 +106,12 @@ export default function BusinessProfileScreen() {
   const [isOpen, setIsOpen] = useState(false);
   const [deliveryRadius, setDeliveryRadius] = useState('');
   const [prepTime, setPrepTime] = useState('');
+
+  // Imagenes del negocio
+  const [logoUri, setLogoUri] = useState<string | null>(null);
+  const [coverUri, setCoverUri] = useState<string | null>(null);
+  const [logoUrl, setLogoUrl] = useState<string>('');
+  const [coverUrl, setCoverUrl] = useState<string>('');
 
   // Stats
   const [ratingAverage, setRatingAverage] = useState(0);
@@ -131,13 +139,14 @@ export default function BusinessProfileScreen() {
       setLoading(true);
 
       // Cargar datos del negocio
-      const { data: business, error } = await supabase
+      const { data: businessRows, error } = await supabase
         .from('businesses')
         .select('*')
         .eq('user_id', user.id)
-        .single();
+        .limit(1);
 
       if (error) throw error;
+      const business = businessRows?.[0];
       if (!business) return;
 
       setBusinessId(business.id);
@@ -152,6 +161,10 @@ export default function BusinessProfileScreen() {
       setRatingAverage(business.rating_average || 0);
       setRatingCount(business.rating_count || 0);
       setStrikeCount(business.strike_count || 0);
+      setLogoUrl(business.logo_url || '');
+      setCoverUrl(business.cover_url || '');
+      setLogoUri(null);
+      setCoverUri(null);
 
       // Cargar conteo de productos
       const { count } = await supabase
@@ -219,6 +232,8 @@ export default function BusinessProfileScreen() {
           is_open: isOpen,
           delivery_radius_km: radiusNum,
           preparation_time_minutes: prepTimeNum,
+          logo_url: logoUrl || null,
+          cover_url: coverUrl || null,
         })
         .eq('id', businessId);
 
@@ -385,6 +400,71 @@ export default function BusinessProfileScreen() {
       headerTitle="Perfil del Negocio"
       headerSubtitle={name || 'Configura tu negocio'}
     >
+      {/* ================================================================== */}
+      {/* LINK A PERFIL PERSONAL */}
+      {/* ================================================================== */}
+      <TouchableSound
+        style={[
+          styles.personalProfileLink,
+          {
+            backgroundColor: (colors.info || '#3B82F6') + '10',
+            borderColor: (colors.info || '#3B82F6') + '40',
+            borderRadius: radius.md,
+            marginBottom: space.md,
+          },
+        ]}
+        onPress={() => router.push('/profile/edit' as any)}
+      >
+        <User size={20} color={colors.info || '#3B82F6'} />
+        <View style={{ flex: 1, marginLeft: space.sm }}>
+          <ThemedText variant="body" bold style={{ color: colors.info || '#3B82F6' }}>
+            Editar informacion personal
+          </ThemedText>
+          <ThemedText variant="caption" color="secondary">
+            Nombre, telefono, avatar
+          </ThemedText>
+        </View>
+      </TouchableSound>
+
+      {/* ================================================================== */}
+      {/* SECCION: IMAGEN DEL NEGOCIO */}
+      {/* ================================================================== */}
+      {renderSectionTitle('Imagen del Negocio')}
+
+      <View style={[styles.card, { backgroundColor: theme.card, borderRadius: radius.md }]}>
+        {/* Logo (circular) */}
+        <BusinessImagePicker
+          imageUri={logoUri}
+          type="logo"
+          businessId={businessId}
+          onImageUploaded={(publicUrl, localUri) => {
+            setLogoUrl(publicUrl);
+            setLogoUri(localUri);
+          }}
+          onImageRemoved={() => {
+            setLogoUrl('');
+            setLogoUri(null);
+          }}
+          existingImageUrl={logoUrl}
+        />
+
+        {/* Cover (rectangular) */}
+        <BusinessImagePicker
+          imageUri={coverUri}
+          type="cover"
+          businessId={businessId}
+          onImageUploaded={(publicUrl, localUri) => {
+            setCoverUrl(publicUrl);
+            setCoverUri(localUri);
+          }}
+          onImageRemoved={() => {
+            setCoverUrl('');
+            setCoverUri(null);
+          }}
+          existingImageUrl={coverUrl}
+        />
+      </View>
+
       {/* ================================================================== */}
       {/* SECCION: INFORMACION DEL NEGOCIO */}
       {/* ================================================================== */}
@@ -929,6 +1009,12 @@ const styles = StyleSheet.create({
   },
 
   // Save button
+  personalProfileLink: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 14,
+    borderWidth: 1,
+  },
   saveButton: {
     height: 56,
     flexDirection: 'row',

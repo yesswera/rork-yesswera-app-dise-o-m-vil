@@ -69,7 +69,7 @@ export default function DriverProfileScreen() {
         .from('drivers')
         .select('*')
         .eq('user_id', user!.id)
-        .single();
+        .maybeSingle();
 
       // Get delivery stats
       const { count: totalDeliveries } = await supabase

@@ -35,6 +35,7 @@ export interface Business {
   description: string;
   category: string;
   image: string;
+  logo?: string;
   rating: number;
   deliveryTime: string;
   tags: string[];
@@ -467,6 +468,7 @@ export interface ProductFull extends Product {
   preparationTime?: number;
   featured: boolean;
   tags?: string[];
+  unit?: string;
   createdAt: string;
   updatedAt: string;
 }

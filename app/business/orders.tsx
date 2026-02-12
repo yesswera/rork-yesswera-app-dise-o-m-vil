@@ -81,12 +81,13 @@ export default function BusinessOrdersScreen() {
 
     try {
       // Get the business record for this user
-      const { data: business } = await supabase
+      const { data: businessRows } = await supabase
         .from('businesses')
         .select('id')
         .eq('user_id', user.id)
-        .single();
+        .limit(1);
 
+      const business = businessRows?.[0];
       if (!business) {
         console.error('No business found for user');
         setOrders([]);

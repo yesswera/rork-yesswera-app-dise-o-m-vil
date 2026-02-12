@@ -65,9 +65,9 @@ export default function BusinessProductsScreen() {
       .from('businesses')
       .select('id')
       .eq('user_id', user.id)
-      .single()
+      .limit(1)
       .then(({ data }) => {
-        if (data) setBusinessId(data.id);
+        if (data && data.length > 0) setBusinessId(data[0].id);
       });
   }, [user]);
 

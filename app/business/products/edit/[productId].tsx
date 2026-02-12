@@ -20,6 +20,7 @@ import { useAuth } from '@/contexts/auth';
 import { useTheme } from '@/contexts/theme';
 import { getBusinessCategories, updateProduct } from '@/services/products';
 import { ProductCategory } from '@/constants/types';
+import { PRODUCT_UNITS, formatPriceWithUnit } from '@/constants/units';
 import { Toast } from '@/utils/toast';
 import { SoundFeedback } from '@/services/sounds';
 import { ThemedText } from '@/components/themed';
@@ -69,6 +70,10 @@ export default function EditProductScreen() {
   const [preparationTime, setPreparationTime] = useState('');
   const [available, setAvailable] = useState(true);
 
+  // Unit state
+  const [unit, setUnit] = useState<string>('pieza');
+  const [customUnit, setCustomUnit] = useState<string>('');
+
   // Image state
   const [imageUrl, setImageUrl] = useState('');
   const [imageLocalUri, setImageLocalUri] = useState('');
@@ -89,9 +94,9 @@ export default function EditProductScreen() {
       .from('businesses')
       .select('id')
       .eq('user_id', user.id)
-      .single()
+      .limit(1)
       .then(({ data }) => {
-        if (data) setBusinessId(data.id);
+        if (data && data.length > 0) setBusinessId(data[0].id);
       });
   }, [user]);
 
@@ -136,6 +141,16 @@ export default function EditProductScreen() {
           : ''
       );
       setAvailable(product.is_available ?? true);
+
+      // Set unit
+      const productUnit = product.unit || 'pieza';
+      const knownUnit = PRODUCT_UNITS.find(u => u.value === productUnit);
+      if (knownUnit) {
+        setUnit(productUnit);
+      } else {
+        setUnit('otro');
+        setCustomUnit(productUnit);
+      }
 
       // Set image
       if (product.image_url) {
@@ -199,6 +214,7 @@ export default function EditProductScreen() {
 
     setIsSaving(true);
     try {
+      const finalUnit = unit === 'otro' ? (customUnit.trim() || 'pieza') : unit;
       await updateProduct(businessId, productId, {
         name: name.trim(),
         description: description.trim(),
@@ -209,6 +225,7 @@ export default function EditProductScreen() {
           : undefined,
         available,
         image: imageUrl || undefined,
+        unit: finalUnit,
       });
 
       await SoundFeedback.success();
@@ -379,6 +396,66 @@ export default function EditProductScreen() {
           onChangeText={setPrice}
           keyboardType="decimal-pad"
         />
+      </View>
+
+      {/* Unidad de venta */}
+      <View style={styles.section}>
+        <View style={styles.labelRow}>
+          <Tag size={16} color={colors.primary} />
+          <Text style={[styles.sectionTitle, { color: theme.text }]}>
+            Unidad de Venta
+          </Text>
+        </View>
+        {price.trim() && !isNaN(parseFloat(price)) && parseFloat(price) > 0 && (
+          <Text style={[styles.charCount, { color: colors.primary, marginBottom: 8, fontWeight: '600', textAlign: 'left' }]}>
+            Se mostrara como: {formatPriceWithUnit(parseFloat(price), unit === 'otro' ? (customUnit.trim() || 'pieza') : unit)}
+          </Text>
+        )}
+        <View style={styles.categoriesContainer}>
+          {PRODUCT_UNITS.map((u) => (
+            <TouchableSound
+              key={u.value}
+              style={[
+                styles.categoryChip,
+                {
+                  backgroundColor: unit === u.value ? `${colors.primary}10` : theme.card,
+                  borderColor: unit === u.value ? colors.primary : theme.border,
+                },
+              ]}
+              onPress={() => setUnit(u.value)}
+              activeOpacity={0.7}
+            >
+              <Text
+                style={[
+                  styles.categoryChipText,
+                  {
+                    color: unit === u.value ? colors.primary : theme.textSecondary,
+                    fontWeight: unit === u.value ? '700' : '600',
+                  },
+                ]}
+              >
+                {u.label}
+              </Text>
+            </TouchableSound>
+          ))}
+        </View>
+        {unit === 'otro' && (
+          <TextInput
+            style={[
+              styles.input,
+              {
+                backgroundColor: theme.card,
+                borderColor: theme.border,
+                color: theme.text,
+                marginTop: 8,
+              },
+            ]}
+            placeholder="Escribe la unidad (ej: rebanada, porcion)"
+            placeholderTextColor={theme.textMuted}
+            value={customUnit}
+            onChangeText={setCustomUnit}
+          />
+        )}
       </View>
 
       {/* Categoria */}

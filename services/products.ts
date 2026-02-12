@@ -10,13 +10,14 @@ function mapBusiness(db: any): Business {
     description: db.description || '',
     category: db.category || 'food',
     image: db.cover_url || db.logo_url || '',
+    logo: db.logo_url || '',
     rating: Number(db.rating_average) || 0,
     deliveryTime: `${prepTime + 10}-${prepTime + 25} min`,
     tags: [db.category || 'Restaurante'].filter(Boolean),
   };
 }
 
-function mapProductToSimple(dbProduct: any, businessName: string): Product {
+function mapProductToSimple(dbProduct: any, businessName: string): Product & { unit?: string } {
   return {
     id: dbProduct.id,
     name: dbProduct.name,
@@ -26,6 +27,7 @@ function mapProductToSimple(dbProduct: any, businessName: string): Product {
     businessId: dbProduct.business_id,
     businessName,
     category: '',
+    unit: dbProduct.unit || 'pieza',
   };
 }
 
@@ -127,6 +129,7 @@ function mapProduct(dbProduct: any): ProductFull {
     inStock: dbProduct.is_available,
     preparationTime: dbProduct.preparation_time_minutes,
     featured: false,
+    unit: dbProduct.unit || 'pieza',
     createdAt: dbProduct.created_at || new Date().toISOString(),
     updatedAt: dbProduct.updated_at || new Date().toISOString(),
   };
@@ -202,6 +205,7 @@ export async function createProduct(
         image_url: productData.image,
         is_available: productData.available ?? true,
         preparation_time_minutes: productData.preparationTime,
+        unit: productData.unit || 'pieza',
       })
       .select()
       .single();
@@ -230,6 +234,7 @@ export async function updateProduct(
     if (productData.available !== undefined) updateData.is_available = productData.available;
     if (productData.categoryId !== undefined) updateData.category_id = productData.categoryId;
     if (productData.preparationTime !== undefined) updateData.preparation_time_minutes = productData.preparationTime;
+    if (productData.unit !== undefined) updateData.unit = productData.unit;
 
     const { data, error } = await supabase
       .from('products')

@@ -20,6 +20,7 @@ import { ThemedText } from '@/components/themed';
 import { useCart } from '@/contexts/cart';
 import { useAuth } from '@/contexts/auth';
 import { SavedAddress, PaymentMethod } from '@/constants/types';
+import { formatPriceWithUnit } from '@/constants/units';
 import AddressSelector from '@/components/AddressSelector';
 import PaymentMethodSelector from '@/components/PaymentMethodSelector';
 import TipSelector from '@/components/TipSelector';
@@ -333,7 +334,9 @@ export default function CartScreen() {
             />
             <View style={styles.itemInfo}>
               <ThemedText variant="subtitle" bold>{item.name}</ThemedText>
-              <ThemedText variant="body" style={{ color: colors.primary }}>${item.price.toFixed(2)}</ThemedText>
+              <ThemedText variant="body" style={{ color: colors.primary }}>
+                {formatPriceWithUnit(item.price, (item as any).unit || 'pieza')}
+              </ThemedText>
               <View style={[styles.itemControls, { gap: space.xs }]}>
                 <TouchableSound
                   style={[styles.controlButton, { backgroundColor: colors.primary + '15' }]}
