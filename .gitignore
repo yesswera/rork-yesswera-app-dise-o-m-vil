@@ -41,5 +41,6 @@ yarn-error.*
 .rork
 
 .env
+credentials.json
 rork-eslint.config.js
 core
