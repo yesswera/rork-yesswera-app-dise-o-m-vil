@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { View, Text, TextInput, StyleSheet, TextInputProps } from 'react-native';
 import { AlertCircle } from 'lucide-react-native';
 import Colors from '@/constants/colors';
@@ -20,10 +21,25 @@ export default function FormInput({
   secureTextEntry = false,
   ...props
 }: FormInputProps) {
+  const [isFocused, setIsFocused] = useState(false);
+
+  const getBorderColor = () => {
+    if (error) return Colors.error;
+    if (isFocused) return Colors.primary;
+    return Colors.border.light;
+  };
+
   return (
     <View style={styles.container}>
       <Text style={styles.label}>{label}</Text>
-      <View style={[styles.inputContainer, error && styles.inputContainerError]}>
+      <View style={[
+        styles.inputContainer,
+        {
+          borderColor: getBorderColor(),
+          shadowColor: isFocused ? 'rgba(22, 163, 74, 0.1)' : 'transparent',
+          shadowOpacity: isFocused ? 1 : 0,
+        },
+      ]}>
         <TextInput
           style={styles.input}
           value={value}
@@ -31,11 +47,13 @@ export default function FormInput({
           placeholder={placeholder}
           placeholderTextColor={Colors.text.muted}
           secureTextEntry={secureTextEntry}
+          onFocus={() => setIsFocused(true)}
+          onBlur={() => setIsFocused(false)}
           {...props}
         />
         {error && (
           <View style={styles.errorIcon}>
-            <AlertCircle size={20} color={Colors.error} />
+            <AlertCircle size={18} color={Colors.error} />
           </View>
         )}
       </View>
@@ -50,21 +68,21 @@ const styles = StyleSheet.create({
   },
   label: {
     fontSize: 14,
-    fontWeight: '600' as const,
-    color: Colors.text.primary,
+    fontWeight: '500' as const,
+    color: Colors.text.secondary,
     marginBottom: 8,
   },
   inputContainer: {
     flexDirection: 'row' as const,
     alignItems: 'center' as const,
     backgroundColor: Colors.white,
-    borderWidth: 1,
+    borderWidth: 1.5,
     borderColor: Colors.border.light,
     borderRadius: 12,
-    paddingHorizontal: 16,
-  },
-  inputContainerError: {
-    borderColor: Colors.error,
+    paddingHorizontal: 14,
+    shadowOffset: { width: 0, height: 0 },
+    shadowRadius: 8,
+    elevation: 0,
   },
   input: {
     flex: 1,

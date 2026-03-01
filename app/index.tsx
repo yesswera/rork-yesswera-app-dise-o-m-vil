@@ -5,16 +5,14 @@ import {
   View,
   ScrollView,
   Animated,
-  Dimensions,
   Platform,
 } from 'react-native';
 import { Image } from 'expo-image';
-import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter, useFocusEffect } from 'expo-router';
-import { UtensilsCrossed, ShoppingCart, Package, User, ChevronRight, ShoppingBag, RefreshCw, Clock, XCircle, AlertTriangle, Sparkles, TrendingUp, Zap } from 'lucide-react-native';
+import { UtensilsCrossed, ShoppingCart, Package, User, ChevronRight, ShoppingBag, RefreshCw, Clock, XCircle } from 'lucide-react-native';
 import { StatusBar } from 'expo-status-bar';
+import { Swipeable } from 'react-native-gesture-handler';
 import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
-import { BlurView } from 'expo-blur';
 import { useAuth } from '@/contexts/auth';
 import { useTheme } from '@/contexts/theme';
 import AccessibilityControls from '@/components/AccessibilityControls';
@@ -22,70 +20,38 @@ import { getActiveOrders, getUserOrders } from '@/services/orders';
 import { getClientTransferMessage } from '@/services/driver-monitoring';
 import { useClientOrderSubscription } from '@/hooks/useRealtimeOrders';
 import { Order, OrderStatus } from '@/constants/types';
-import Colors from '@/constants/colors';
 import { Toast } from '@/utils/toast';
 import { supabase } from '@/constants/supabase';
 import { getUserPreferences, DisplayPreferences, ServiceType } from '@/services/user-preferences';
 
-// Colores para modo claro/oscuro
-const COLORS = {
-  light: {
-    background: '#FFFFFF',
-    card: '#FFFFFF',
-    cardAlt: '#F5F5F4',
-    border: '#E7E5E4',
-    text: '#1C1917',
-    textSecondary: '#57534E',
-    textMuted: '#A8A29E'
-  },
-  dark: {
-    background: '#1C1917',
-    card: '#292524',
-    cardAlt: '#44403C',
-    border: '#44403C',
-    text: '#FAFAFA',
-    textSecondary: '#D6D3D1',
-    textMuted: '#78716C'
-  },
-};
-
-// Servicios disponibles (fuera del componente para evitar recreación)
+// Servicios disponibles
 const services = [
   {
     id: 'food',
     title: 'Alimentos y Bebidas',
-    subtitle: 'Restaurantes y Cafés',
+    subtitle: 'Restaurantes y cafes cerca de ti',
     icon: UtensilsCrossed,
-    badge: Sparkles,
-    badgeText: 'Popular',
-    color1: Colors.primary,
-    color2: Colors.primaryDark,
+    iconBg: '#D1FAE5',
+    iconColor: '#16A34A',
     route: '/food/restaurants',
-    pattern: '🌮',
   },
   {
     id: 'shopping',
     title: 'Lista de Compras',
-    subtitle: 'Escribe y te lo llevamos',
+    subtitle: 'Escribe tu lista y te lo llevamos',
     icon: ShoppingCart,
-    badge: Zap,
-    badgeText: 'Rápido',
-    color1: Colors.secondary,
-    color2: Colors.secondaryDark,
+    iconBg: '#FFEDD5',
+    iconColor: '#EA580C',
     route: '/shopping',
-    pattern: '🛒',
   },
   {
     id: 'delivery',
     title: 'Recoger y Entregar',
-    subtitle: 'Mensajería Express',
+    subtitle: 'Mensajeria y paqueteria express',
     icon: Package,
-    badge: TrendingUp,
-    badgeText: 'Nuevo',
-    color1: Colors.accent,
-    color2: Colors.accentDark,
+    iconBg: '#DBEAFE',
+    iconColor: '#2563EB',
     route: '/delivery/create',
-    pattern: '📦',
   },
 ];
 
@@ -93,24 +59,28 @@ export default function HomeScreen() {
   const router = useRouter();
   const { user, token, isLoading } = useAuth();
   const { isDark, colors, fonts, space, radius } = useTheme();
-  const theme = isDark ? COLORS.dark : COLORS.light;
   const [activeOrder, setActiveOrder] = useState<Order | null>(null);
   const [cancelledOrder, setCancelledOrder] = useState<Order | null>(null);
   const [recentOrders, setRecentOrders] = useState<Order[]>([]);
   const [displayPrefs, setDisplayPrefs] = useState<DisplayPreferences | null>(null);
-  const logoScale = useRef(new Animated.Value(0)).current;
-  const logoOpacity = useRef(new Animated.Value(0)).current;
-  const [serviceAnimations] = useState(() => 
-    services.map(() => ({
-      scale: new Animated.Value(0),
-      opacity: new Animated.Value(0),
-    }))
-  );
-  const pulseAnim = useRef(new Animated.Value(1)).current;
-  const floatingAnim = useRef(new Animated.Value(0)).current;
-  const shimmerAnim = useRef(new Animated.Value(0)).current;
+  const [reorderDismissed, setReorderDismissed] = useState(false);
+  const swipeableRef = useRef<Swipeable>(null);
 
-  // Redirigir por rol: negocio y driver no deben ver el home de cliente
+  // Fade-in staggered animations (no loops)
+  const fadeAnims = useRef(services.map(() => new Animated.Value(0))).current;
+  const slideAnims = useRef(services.map(() => new Animated.Value(20))).current;
+  const headerFade = useRef(new Animated.Value(0)).current;
+  const pulseAnim = useRef(new Animated.Value(1)).current;
+
+  // Theme colors
+  const bg = isDark ? '#1C1917' : '#FAFAF9';
+  const cardBg = isDark ? '#292524' : '#FFFFFF';
+  const borderColor = isDark ? '#44403C' : '#F5F5F4';
+  const textPrimary = isDark ? '#FAFAFA' : '#1C1917';
+  const textSecondary = isDark ? '#D6D3D1' : '#57534E';
+  const textMuted = isDark ? '#78716C' : '#A8A29E';
+
+  // Redirigir por rol
   useEffect(() => {
     if (isLoading || !user) return;
     if (user.userType === 'business') {
@@ -122,75 +92,45 @@ export default function HomeScreen() {
     }
   }, [user, isLoading]);
 
+  // Entry animations
   useEffect(() => {
-    Animated.parallel([
-      Animated.spring(logoScale, {
-        toValue: 1,
-        tension: 50,
-        friction: 7,
-        useNativeDriver: true,
-      }),
-      Animated.timing(logoOpacity, {
-        toValue: 1,
-        duration: 800,
-        useNativeDriver: true,
-      }),
-    ]).start(() => {
-      serviceAnimations.forEach((anim, index) => {
-        Animated.parallel([
-          Animated.spring(anim.scale, {
-            toValue: 1,
-            tension: 40,
-            friction: 7,
-            delay: index * 100,
-            useNativeDriver: true,
-          }),
-          Animated.timing(anim.opacity, {
-            toValue: 1,
-            duration: 600,
-            delay: index * 100,
-            useNativeDriver: true,
-          }),
-        ]).start();
-      });
+    Animated.timing(headerFade, {
+      toValue: 1,
+      duration: 500,
+      useNativeDriver: true,
+    }).start();
+
+    services.forEach((_, index) => {
+      Animated.parallel([
+        Animated.timing(fadeAnims[index], {
+          toValue: 1,
+          duration: 400,
+          delay: 200 + index * 100,
+          useNativeDriver: true,
+        }),
+        Animated.timing(slideAnims[index], {
+          toValue: 0,
+          duration: 400,
+          delay: 200 + index * 100,
+          useNativeDriver: true,
+        }),
+      ]).start();
     });
 
+    // Subtle pulse for active order dot
     Animated.loop(
       Animated.sequence([
         Animated.timing(pulseAnim, {
-          toValue: 1.05,
-          duration: 2000,
+          toValue: 1.3,
+          duration: 1000,
           useNativeDriver: true,
         }),
         Animated.timing(pulseAnim, {
           toValue: 1,
-          duration: 2000,
+          duration: 1000,
           useNativeDriver: true,
         }),
       ])
-    ).start();
-
-    Animated.loop(
-      Animated.sequence([
-        Animated.timing(floatingAnim, {
-          toValue: -10,
-          duration: 3000,
-          useNativeDriver: true,
-        }),
-        Animated.timing(floatingAnim, {
-          toValue: 0,
-          duration: 3000,
-          useNativeDriver: true,
-        }),
-      ])
-    ).start();
-
-    Animated.loop(
-      Animated.timing(shimmerAnim, {
-        toValue: 1,
-        duration: 2000,
-        useNativeDriver: true,
-      })
     ).start();
   }, []);
 
@@ -203,7 +143,6 @@ export default function HomeScreen() {
     }
 
     try {
-      // Load active orders
       const orders = await getActiveOrders(user.id);
       if (orders.length > 0) {
         setActiveOrder(orders[0]);
@@ -211,7 +150,6 @@ export default function HomeScreen() {
         setActiveOrder(null);
       }
 
-      // Load recently cancelled orders (last 30 minutes)
       const thirtyMinutesAgo = new Date(Date.now() - 30 * 60 * 1000).toISOString();
       const { data: cancelledData } = await supabase
         .from('orders')
@@ -224,17 +162,13 @@ export default function HomeScreen() {
 
       if (cancelledData && cancelledData.length > 0) {
         const cancelled = cancelledData[0];
-
-        // Check if user already dismissed this notification
         let wasDismissed = false;
         try {
           const AsyncStorage = require('@react-native-async-storage/async-storage').default;
           const dismissedKey = `dismissed_cancelled_${cancelled.id}`;
           const dismissed = await AsyncStorage.getItem(dismissedKey);
           wasDismissed = dismissed === 'true';
-        } catch (e) {
-          // Storage not available, show the notification
-        }
+        } catch (e) {}
 
         if (!wasDismissed) {
           setCancelledOrder({
@@ -249,7 +183,6 @@ export default function HomeScreen() {
           } as Order);
         }
       } else {
-        // No recent cancelled orders, clear state
         if (!cancelledOrder) {
           setCancelledOrder(null);
         }
@@ -259,20 +192,16 @@ export default function HomeScreen() {
     }
   }, [user, token]);
 
-  // Realtime subscription for order updates
   useClientOrderSubscription(
     useCallback(() => {
-      // Refresh order data when we get realtime updates
       loadOrderData();
     }, [loadOrderData])
   );
 
-  // Reload orders when screen gets focus (e.g., after creating an order)
   useFocusEffect(
     useCallback(() => {
       if (user && token) {
         loadOrderData();
-        // Load user display preferences
         getUserPreferences(user.id).then(prefs => {
           setDisplayPrefs(prefs.display);
         }).catch(console.error);
@@ -304,14 +233,13 @@ export default function HomeScreen() {
           .slice(0, 3);
         setRecentOrders(completed);
       } catch (error) {
-        console.error('Error cargando órdenes recientes:', error);
+        console.error('Error cargando ordenes recientes:', error);
       }
     };
 
     checkActiveOrder();
     loadRecentOrders();
 
-    // Reduced polling since we have realtime now
     const interval = setInterval(checkActiveOrder, 30000);
     return () => {
       isMounted = false;
@@ -319,25 +247,31 @@ export default function HomeScreen() {
     };
   }, [user, token, loadOrderData]);
 
+  const getGreeting = () => {
+    const hour = new Date().getHours();
+    if (hour < 12) return 'Buenos dias';
+    if (hour < 19) return 'Buenas tardes';
+    return 'Buenas noches';
+  };
+
   const getOrderStatusText = (order: Order) => {
-    // Si es una transferencia, mostrar mensaje personalizado segun la razon
     if (order.needsDriverTransfer && order.status === 'ready') {
       if (order.transferReason) {
-        return '🔄 ' + getClientTransferMessage(order.transferReason);
+        return getClientTransferMessage(order.transferReason);
       }
-      return '🔄 Buscando nuevo repartidor...';
+      return 'Buscando nuevo repartidor...';
     }
 
     switch (order.status) {
-      case 'pending': return '⏳ Esperando confirmacion del negocio...';
-      case 'accepted': return '✅ Negocio acepto tu orden';
-      case 'preparing': return '👨‍🍳 Preparando tu orden';
-      case 'ready': return '✅ Orden lista, buscando repartidor...';
-      case 'assigned': return '🚴 Repartidor va al negocio';
-      case 'driver_verified': return '🚴 Repartidor en el negocio';
-      case 'handed_to_driver': return '📦 Repartidor tiene tu orden';
-      case 'in_transit': return '🚴 Tu orden va en camino';
-      case 'arrived': return '🏠 Repartidor llego, sal a recibir';
+      case 'pending': return 'Esperando confirmacion del negocio';
+      case 'accepted': return 'Negocio acepto tu orden';
+      case 'preparing': return 'Preparando tu orden';
+      case 'ready': return 'Orden lista, buscando repartidor';
+      case 'assigned': return 'Repartidor va al negocio';
+      case 'driver_verified': return 'Repartidor en el negocio';
+      case 'handed_to_driver': return 'Repartidor tiene tu orden';
+      case 'in_transit': return 'Tu orden va en camino';
+      case 'arrived': return 'Repartidor llego, sal a recibir';
       default: return 'Orden activa';
     }
   };
@@ -347,31 +281,25 @@ export default function HomeScreen() {
     const now = new Date();
     const diffMs = now.getTime() - orderDate.getTime();
     const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
-    
+
     if (diffDays === 0) return 'Hoy';
     if (diffDays === 1) return 'Ayer';
-    if (diffDays < 7) return `Hace ${diffDays} días`;
+    if (diffDays < 7) return `Hace ${diffDays} dias`;
     return orderDate.toLocaleDateString();
   };
 
-  // Filter and sort services based on user preferences
   const visibleServices = useMemo(() => {
     if (!displayPrefs) return services;
-
-    // Filter out hidden services
     const filtered = services.filter(s => !displayPrefs.hiddenServices.includes(s.id as ServiceType));
-
-    // Sort by user's preferred order
     return filtered.sort((a, b) => {
       const orderA = displayPrefs.serviceOrder.indexOf(a.id as ServiceType);
       const orderB = displayPrefs.serviceOrder.indexOf(b.id as ServiceType);
-      // If not in the order list, put at the end
       return (orderA === -1 ? 999 : orderA) - (orderB === -1 ? 999 : orderB);
     });
   }, [displayPrefs]);
 
   const handleReorder = (order: Order) => {
-    Toast.success('¡Orden agregada al carrito!');
+    Toast.success('Orden agregada al carrito');
     if (order.type === 'food' && order.businessId) {
       router.push(`/food/menu/${order.businessId}` as any);
     } else if (order.type === 'shopping') {
@@ -381,9 +309,7 @@ export default function HomeScreen() {
     }
   };
 
-  // Only dismiss when user explicitly closes - NOT when navigating
   const handleDismissCancelled = async () => {
-    // Mark as dismissed in storage so it doesn't reappear
     if (cancelledOrder?.id) {
       try {
         const AsyncStorage = require('@react-native-async-storage/async-storage').default;
@@ -396,10 +322,8 @@ export default function HomeScreen() {
     setCancelledOrder(null);
   };
 
-  // Reorder at the same business - keep banner visible
   const handleReorderSameBusiness = () => {
     const businessId = cancelledOrder?.businessId;
-    // DON'T clear the cancelled order - user might come back
     if (businessId) {
       router.push(`/food/menu/${businessId}` as any);
     } else {
@@ -407,10 +331,8 @@ export default function HomeScreen() {
     }
   };
 
-  // Find alternative businesses - keep banner visible
   const handleFindAlternative = () => {
     const orderType = cancelledOrder?.type;
-    // DON'T clear the cancelled order - user might come back
     if (orderType === 'food') {
       router.push('/food/restaurants' as any);
     } else if (orderType === 'shopping') {
@@ -421,325 +343,235 @@ export default function HomeScreen() {
   };
 
   return (
-    <View style={[styles.container, { backgroundColor: theme.background }]}>
+    <View style={[styles.container, { backgroundColor: bg }]}>
       <StatusBar style={isDark ? "light" : "dark"} />
 
-      <LinearGradient
-        colors={isDark
-          ? [theme.background, theme.card, theme.cardAlt]
-          : ['#FFFFFF', '#F0FDF9', '#ECFDF5', '#F8FAFC']
-        }
-        style={styles.gradient}
-      />
-
-      <View style={styles.decorativePatterns}>
-        {[...Array(8)].map((_, i) => (
-          <Animated.View
-            key={i}
-            style={[
-              styles.patternCircle,
-              {
-                left: `${(i % 4) * 30}%`,
-                top: `${Math.floor(i / 4) * 50}%`,
-                opacity: shimmerAnim.interpolate({
-                  inputRange: [0, 0.5, 1],
-                  outputRange: [0.03, 0.06, 0.03],
-                }),
-                transform: [
-                  {
-                    scale: shimmerAnim.interpolate({
-                      inputRange: [0, 0.5, 1],
-                      outputRange: [1, 1.2, 1],
-                    }),
-                  },
-                ],
-              },
-            ]}
-          />
-        ))}
-      </View>
-
-      <ScrollView 
+      <ScrollView
         style={styles.scrollView}
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
       >
-        {/* Header Row: Accesibilidad + Perfil */}
-        <View style={styles.headerRow}>
-          <AccessibilityControls variant="minimal" />
-          {user && (
-            <TouchableSound
-              style={[styles.userButton, { backgroundColor: theme.card, borderColor: theme.border, borderWidth: isDark ? 1 : 0 }]}
-              onPress={() => router.push('/profile' as any)}
-            >
-              <User size={24} color={theme.text} />
-            </TouchableSound>
-          )}
-        </View>
-
-        <Animated.View 
-          style={[
-            styles.heroSection,
-            {
-              opacity: logoOpacity,
-              transform: [
-                { scale: logoScale },
-                { translateY: floatingAnim },
-              ],
-            },
-          ]}
-        >
-          <Animated.View 
-            style={[
-              styles.logoGlow,
-              {
-                transform: [{ scale: pulseAnim }],
-              },
-            ]}
-          />
-          <Image 
-            source={{ uri: 'https://pub-e001eb4506b145aa938b5d3badbff6a5.r2.dev/attachments/1vcwmxc8pzt7x8m13osxp' }}
-            style={styles.logoImage}
-            contentFit="contain"
-          />
-          <View style={styles.taglineContainer}>
-            <Text style={[styles.tagline, { fontSize: fonts.lg, color: theme.text }]}>Lo que quieras, cuando quieras</Text>
-            <View style={[styles.mexicanAccent, { backgroundColor: isDark ? 'rgba(0, 200, 150, 0.15)' : 'rgba(0, 200, 150, 0.08)' }]}>
-              <Text style={styles.mexicanEmoji}>🇲🇽</Text>
-              <Text style={styles.localText}>Hecho en Jalisco</Text>
+        {/* Header: Saludo + Accesibilidad + Avatar */}
+        <Animated.View style={[styles.header, { opacity: headerFade }]}>
+          <View style={styles.headerLeft}>
+            <AccessibilityControls variant="minimal" />
+            <View style={styles.greetingContainer}>
+              <Text style={[styles.greeting, { color: textMuted, fontSize: fonts.sm }]}>
+                {getGreeting()}
+              </Text>
+              <Text style={[styles.userName, { color: textPrimary, fontSize: fonts.xl }]} numberOfLines={1}>
+                {user?.name || 'Bienvenido'}
+              </Text>
             </View>
           </View>
-          <LinearGradient
-            colors={[Colors.primary, Colors.accent]}
-            start={{ x: 0, y: 0 }}
-            end={{ x: 1, y: 0 }}
-            style={styles.divider}
-          />
+          {user && (
+            <TouchableSound
+              style={[styles.avatarButton, { backgroundColor: cardBg, borderColor: borderColor }]}
+              onPress={() => router.push('/profile' as any)}
+            >
+              <User size={22} color={textSecondary} />
+            </TouchableSound>
+          )}
         </Animated.View>
 
-        {/* Banner de orden cancelada - prioridad alta */}
+        {/* Banner de orden cancelada */}
         {cancelledOrder && user && (
-          <View style={[styles.cancelledOrderBanner, { backgroundColor: theme.card }]}>
-            <View style={styles.cancelledBannerHeader}>
-              <View style={styles.cancelledIconContainer}>
-                <XCircle size={28} color={Colors.error} />
+          <View style={[styles.cancelledBanner, { backgroundColor: cardBg, borderColor: '#FEE2E2' }]}>
+            <View style={styles.cancelledHeader}>
+              <View style={styles.cancelledIconWrap}>
+                <XCircle size={22} color="#EF4444" />
               </View>
-              <View style={styles.cancelledTextContainer}>
-                <Text style={styles.cancelledTitle}>Orden Cancelada</Text>
-                <Text style={[styles.cancelledSubtitle, { color: theme.text }]}>
+              <View style={styles.cancelledInfo}>
+                <Text style={[styles.cancelledTitle, { color: '#EF4444' }]}>Orden Cancelada</Text>
+                <Text style={[styles.cancelledSub, { color: textPrimary }]}>
                   {cancelledOrder.businessName || 'Tu pedido'} no pudo completarse
                 </Text>
                 {cancelledOrder.cancellationReason && (
-                  <Text style={[styles.cancelledReason, { color: theme.textSecondary }]}>
+                  <Text style={[styles.cancelledReason, { color: textMuted }]}>
                     {cancelledOrder.cancellationReason}
                   </Text>
                 )}
               </View>
             </View>
             <View style={styles.cancelledActions}>
-              {/* If food order with businessId, offer to reorder at same place */}
               {cancelledOrder.type === 'food' && cancelledOrder.businessId ? (
                 <>
-                  <TouchableSound
-                    style={styles.reorderSameButton}
-                    onPress={handleReorderSameBusiness}
-                  >
-                    <RefreshCw size={16} color={Colors.white} />
-                    <Text style={styles.findAlternativeText}>Reintentar</Text>
+                  <TouchableSound style={styles.retryBtn} onPress={handleReorderSameBusiness}>
+                    <RefreshCw size={14} color="#FFFFFF" />
+                    <Text style={styles.retryText}>Reintentar</Text>
                   </TouchableSound>
-                  <TouchableSound
-                    style={styles.findOtherButton}
-                    onPress={handleFindAlternative}
-                  >
-                    <Text style={styles.findOtherText}>Ver Otros</Text>
+                  <TouchableSound style={[styles.altBtn, { backgroundColor: '#EA580C' }]} onPress={handleFindAlternative}>
+                    <Text style={styles.retryText}>Ver Otros</Text>
                   </TouchableSound>
                 </>
               ) : (
-                <TouchableSound
-                  style={styles.findAlternativeButton}
-                  onPress={handleFindAlternative}
-                >
-                  <RefreshCw size={16} color={Colors.white} />
-                  <Text style={styles.findAlternativeText}>Buscar Alternativa</Text>
+                <TouchableSound style={styles.retryBtn} onPress={handleFindAlternative}>
+                  <RefreshCw size={14} color="#FFFFFF" />
+                  <Text style={styles.retryText}>Buscar Alternativa</Text>
                 </TouchableSound>
               )}
               <TouchableSound
-                style={[styles.dismissButton, { backgroundColor: theme.cardAlt }]}
+                style={[styles.dismissBtn, { backgroundColor: isDark ? '#44403C' : '#F5F5F4' }]}
                 onPress={handleDismissCancelled}
               >
-                <Text style={[styles.dismissButtonText, { color: theme.textSecondary }]}>Cerrar</Text>
+                <Text style={[styles.dismissText, { color: textSecondary }]}>Cerrar</Text>
               </TouchableSound>
             </View>
           </View>
         )}
 
+        {/* Banner de orden activa */}
         {activeOrder && user && (
           <TouchableSound
-            style={styles.activeOrderBanner}
+            style={[styles.activeBanner, { backgroundColor: isDark ? '#064E3B' : '#F0FDF4' }]}
             onPress={() => router.push(`/tracking/${activeOrder.id}` as any)}
-            activeOpacity={0.9}
+            activeOpacity={0.8}
           >
-            <LinearGradient
-              colors={[Colors.primary, Colors.primaryDark]}
-              style={styles.bannerGradient}
-              start={{ x: 0, y: 0 }}
-              end={{ x: 1, y: 1 }}
-            >
-              <View style={styles.bannerContent}>
-                <View style={styles.bannerIcon}>
-                  {activeOrder.type === 'food' && <UtensilsCrossed size={24} color={Colors.white} />}
-                  {activeOrder.type === 'shopping' && <ShoppingBag size={24} color={Colors.white} />}
-                  {activeOrder.type === 'delivery' && <Package size={24} color={Colors.white} />}
-                </View>
-                <View style={styles.bannerText}>
-                  <Text style={styles.bannerTitle}>
-                    {getOrderStatusText(activeOrder)}
-                  </Text>
-                  <Text style={styles.bannerSubtitle}>
-                    {activeOrder.orderNumber} • Tap para ver detalles
-                  </Text>
-                </View>
-                <ChevronRight size={20} color={Colors.white} />
+            <View style={styles.activeBannerContent}>
+              <Animated.View style={[styles.pulseDot, { transform: [{ scale: pulseAnim }] }]} />
+              <View style={styles.activeBannerIcon}>
+                {activeOrder.type === 'food' && <UtensilsCrossed size={20} color="#16A34A" />}
+                {activeOrder.type === 'shopping' && <ShoppingBag size={20} color="#16A34A" />}
+                {activeOrder.type === 'delivery' && <Package size={20} color="#16A34A" />}
               </View>
-            </LinearGradient>
+              <View style={styles.activeBannerText}>
+                <Text style={[styles.activeBannerTitle, { color: isDark ? '#D1FAE5' : '#15803D' }]}>
+                  {getOrderStatusText(activeOrder)}
+                </Text>
+                <Text style={[styles.activeBannerSub, { color: isDark ? '#A7F3D0' : '#16A34A' }]}>
+                  {activeOrder.orderNumber} · Ver detalles
+                </Text>
+              </View>
+              <ChevronRight size={18} color={isDark ? '#A7F3D0' : '#16A34A'} />
+            </View>
           </TouchableSound>
         )}
 
-        {user && recentOrders.length > 0 && (
-          <View style={styles.reorderSection}>
-            <View style={styles.reorderHeader}>
-              <RefreshCw size={20} color={Colors.primary} />
-              <Text style={[styles.reorderTitle, { fontSize: fonts.lg, color: theme.text }]}>Volver a Pedir</Text>
-            </View>
-            <ScrollView
-              horizontal
-              showsHorizontalScrollIndicator={false}
-              contentContainerStyle={styles.reorderScrollContent}
-            >
-              {recentOrders.map((order) => (
-                <TouchableSound
-                  key={order.id}
-                  style={[styles.reorderCard, { backgroundColor: theme.card, borderColor: theme.border, borderWidth: isDark ? 1 : 0 }]}
-                  onPress={() => handleReorder(order)}
-                  activeOpacity={0.8}
-                >
-                  <View style={styles.reorderCardHeader}>
-                    {order.type === 'food' && <UtensilsCrossed size={20} color={Colors.primary} />}
-                    {order.type === 'shopping' && <ShoppingBag size={20} color={Colors.secondary} />}
-                    {order.type === 'delivery' && <Package size={20} color={Colors.accent} />}
-                    <View style={styles.reorderCardTitleContainer}>
-                      <Text style={[styles.reorderCardTitle, { color: theme.text }]} numberOfLines={1}>
-                        {order.businessName || (order.type === 'shopping' ? 'Lista de compras' : 'Entrega')}
-                      </Text>
-                      <View style={styles.reorderCardMeta}>
-                        <Clock size={12} color={theme.textMuted} />
-                        <Text style={[styles.reorderCardDate, { color: theme.textMuted }]}>
-                          {formatOrderDate(order.deliveredAt || order.createdAt)}
-                        </Text>
-                      </View>
-                    </View>
-                  </View>
-                  {order.items && order.items.length > 0 && (
-                    <Text style={[styles.reorderCardItems, { color: theme.textSecondary }]} numberOfLines={2}>
-                      {order.items.map(item => `${item.quantity}x ${item.name}`).join(', ')}
-                    </Text>
-                  )}
-                  <View style={styles.reorderCardFooter}>
-                    <Text style={styles.reorderCardTotal}>${order.total.toFixed(2)}</Text>
-                    <View style={styles.reorderButton}>
-                      <RefreshCw size={14} color={Colors.white} />
-                      <Text style={styles.reorderButtonText}>Repetir</Text>
-                    </View>
-                  </View>
-                </TouchableSound>
-              ))}
-            </ScrollView>
-          </View>
-        )}
-
-        <View style={styles.servicesContainer}>
+        {/* Service Cards */}
+        <View style={styles.servicesSection}>
           {visibleServices.map((service, index) => (
             <Animated.View
               key={service.id}
               style={{
-                opacity: serviceAnimations[Math.min(index, serviceAnimations.length - 1)]?.opacity,
-                transform: [{ scale: serviceAnimations[Math.min(index, serviceAnimations.length - 1)]?.scale }],
-                marginBottom: index === visibleServices.length - 1 ? 0 : 20,
+                opacity: fadeAnims[Math.min(index, fadeAnims.length - 1)],
+                transform: [{ translateY: slideAnims[Math.min(index, slideAnims.length - 1)] }],
               }}
             >
               <TouchableSound
-                activeOpacity={0.8}
+                activeOpacity={0.7}
                 onPress={() => router.push(service.route as any)}
-                style={styles.serviceCard}
+                style={[styles.serviceCard, {
+                  backgroundColor: cardBg,
+                  borderColor: borderColor,
+                }]}
               >
-                <LinearGradient
-                  colors={[service.color1, service.color2]}
-                  style={styles.serviceGradient}
-                  start={{ x: 0, y: 0 }}
-                  end={{ x: 1, y: 1 }}
-                >
-                  <View style={styles.patternOverlay}>
-                    <Text style={styles.patternEmoji}>{service.pattern}</Text>
-                    <Text style={styles.patternEmoji}>{service.pattern}</Text>
-                    <Text style={styles.patternEmoji}>{service.pattern}</Text>
-                  </View>
-                  
-                  <View style={styles.serviceContent}>
-                    <View style={styles.serviceIconContainer}>
-                      <View style={styles.iconGlow} />
-                      <service.icon size={40} color={Colors.white} strokeWidth={2.5} />
-                    </View>
-                    <View style={styles.serviceText}>
-                      <View style={styles.serviceTitleRow}>
-                        <Text style={[styles.serviceTitle, { fontSize: fonts['2xl'] }]}>{service.title}</Text>
-                      </View>
-                      <Text style={[styles.serviceSubtitle, { fontSize: fonts.base }]}>{service.subtitle}</Text>
-                    </View>
-                    {Platform.OS === 'web' ? (
-                      <View style={styles.serviceBadge}>
-                        <service.badge size={12} color={Colors.white} />
-                        <Text style={styles.badgeText}>{service.badgeText}</Text>
-                      </View>
-                    ) : (
-                      <BlurView intensity={20} style={styles.serviceBadge}>
-                        <service.badge size={12} color={Colors.white} />
-                        <Text style={styles.badgeText}>{service.badgeText}</Text>
-                      </BlurView>
-                    )}
-                  </View>
-                  
-                  <View style={styles.sparkleContainer}>
-                    <View style={[styles.sparkle, styles.sparkle1]} />
-                    <View style={[styles.sparkle, styles.sparkle2]} />
-                    <View style={[styles.sparkle, styles.sparkle3]} />
-                  </View>
-                </LinearGradient>
+                <View style={[styles.serviceIconWrap, { backgroundColor: isDark ? `${service.iconColor}20` : service.iconBg }]}>
+                  <service.icon size={24} color={service.iconColor} strokeWidth={1.8} />
+                </View>
+                <View style={styles.serviceText}>
+                  <Text style={[styles.serviceTitle, { color: textPrimary, fontSize: fonts.lg }]}>
+                    {service.title}
+                  </Text>
+                  <Text style={[styles.serviceSubtitle, { color: textMuted, fontSize: fonts.sm }]}>
+                    {service.subtitle}
+                  </Text>
+                </View>
+                <ChevronRight size={20} color={textMuted} />
               </TouchableSound>
             </Animated.View>
           ))}
         </View>
 
+        {/* Pedidos recientes */}
+        {user && recentOrders.length > 0 && !reorderDismissed && (
+          <Swipeable
+            ref={swipeableRef}
+            renderLeftActions={() => <View style={{ width: 80 }} />}
+            renderRightActions={() => <View style={{ width: 80 }} />}
+            onSwipeableOpen={() => setReorderDismissed(true)}
+            overshootLeft={false}
+            overshootRight={false}
+          >
+            <View style={styles.reorderSection}>
+              <Text style={[styles.sectionTitle, { color: textPrimary, fontSize: fonts.lg }]}>
+                Pedidos recientes
+              </Text>
+              <ScrollView
+                horizontal
+                showsHorizontalScrollIndicator={false}
+                contentContainerStyle={styles.reorderScroll}
+              >
+                {recentOrders.map((order) => (
+                  <TouchableSound
+                    key={order.id}
+                    style={[styles.reorderCard, {
+                      backgroundColor: cardBg,
+                      borderColor: borderColor,
+                    }]}
+                    onPress={() => handleReorder(order)}
+                    activeOpacity={0.7}
+                  >
+                    <View style={styles.reorderCardHeader}>
+                      {order.type === 'food' && <UtensilsCrossed size={18} color="#16A34A" />}
+                      {order.type === 'shopping' && <ShoppingBag size={18} color="#EA580C" />}
+                      {order.type === 'delivery' && <Package size={18} color="#2563EB" />}
+                      <View style={styles.reorderCardInfo}>
+                        <Text style={[styles.reorderCardTitle, { color: textPrimary }]} numberOfLines={1}>
+                          {order.businessName || (order.type === 'shopping' ? 'Lista de compras' : 'Entrega')}
+                        </Text>
+                        <View style={styles.reorderCardMeta}>
+                          <Clock size={11} color={textMuted} />
+                          <Text style={[styles.reorderCardDate, { color: textMuted }]}>
+                            {formatOrderDate(order.deliveredAt || order.createdAt)}
+                          </Text>
+                        </View>
+                      </View>
+                    </View>
+                    {order.items && order.items.length > 0 && (
+                      <Text style={[styles.reorderCardItems, { color: textSecondary }]} numberOfLines={2}>
+                        {order.items.map(item => `${item.quantity}x ${item.name}`).join(', ')}
+                      </Text>
+                    )}
+                    <View style={styles.reorderCardFooter}>
+                      <Text style={[styles.reorderCardTotal, { color: '#16A34A' }]}>
+                        ${order.total.toFixed(2)}
+                      </Text>
+                      <View style={styles.repeatBtn}>
+                        <RefreshCw size={13} color="#FFFFFF" />
+                        <Text style={styles.repeatText}>Repetir</Text>
+                      </View>
+                    </View>
+                  </TouchableSound>
+                ))}
+              </ScrollView>
+            </View>
+          </Swipeable>
+        )}
 
-
+        {/* Auth prompt */}
         {!user && (
           <View style={styles.authPrompt}>
-            <Text style={[styles.authPromptText, { fontSize: fonts.base, color: theme.text }]}>¿Listo para ordenar?</Text>
-            <View style={styles.authButtonsRow}>
+            <Text style={[styles.authText, { color: textPrimary, fontSize: fonts.base }]}>
+              Listo para ordenar?
+            </Text>
+            <View style={styles.authRow}>
               <TouchableSound
                 onPress={() => router.push('/register' as any)}
-                style={[styles.registerButton, { padding: space.md, borderRadius: radius.md }]}
+                style={[styles.primaryBtn, { borderRadius: radius.md }]}
               >
-                <Text style={[styles.registerButtonText, { fontSize: fonts.sm }]}>Crear Cuenta</Text>
+                <Text style={styles.primaryBtnText}>Crear Cuenta</Text>
               </TouchableSound>
               <TouchableSound
                 onPress={() => router.push('/login' as any)}
-                style={[styles.authPromptButton, { padding: space.md, borderRadius: radius.md, backgroundColor: theme.card, borderColor: Colors.primary }]}
+                style={[styles.outlineBtn, { borderRadius: radius.md, backgroundColor: cardBg, borderColor: '#16A34A' }]}
               >
-                <Text style={[styles.authPromptButtonText, { fontSize: fonts.sm }]}>Iniciar Sesion</Text>
+                <Text style={[styles.outlineBtnText, { color: '#16A34A' }]}>Iniciar Sesion</Text>
               </TouchableSound>
             </View>
           </View>
         )}
+
+        <View style={{ height: 40 }} />
       </ScrollView>
     </View>
   );
@@ -748,524 +580,303 @@ export default function HomeScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: Colors.background.primary,
-  },
-  gradient: {
-    position: 'absolute' as const,
-    left: 0,
-    right: 0,
-    top: 0,
-    bottom: 0,
   },
   scrollView: {
     flex: 1,
   },
   scrollContent: {
-    paddingTop: 70,
-    paddingBottom: 40,
+    paddingTop: 60,
+    paddingBottom: 20,
     paddingHorizontal: 20,
-  },
-  heroSection: {
-    alignItems: 'center' as const,
-    marginBottom: 40,
-    paddingTop: 20,
-  },
-  logoGlow: {
-    position: 'absolute' as const,
-    width: 320,
-    height: 180,
-    borderRadius: 160,
-    backgroundColor: Colors.primary,
-    opacity: 0.2,
-    top: 10,
-  },
-  taglineContainer: {
-    alignItems: 'center' as const,
-  },
-  mexicanAccent: {
-    flexDirection: 'row' as const,
-    alignItems: 'center' as const,
-    gap: 6,
-    marginTop: 8,
-    paddingHorizontal: 12,
-    paddingVertical: 4,
-    backgroundColor: 'rgba(0, 200, 150, 0.08)',
-    borderRadius: 12,
-  },
-  mexicanEmoji: {
-    fontSize: 14,
-  },
-  localText: {
-    fontSize: 12,
-    fontWeight: '600' as const,
-    color: Colors.primary,
-  },
-  decorativePatterns: {
-    position: 'absolute' as const,
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
-    overflow: 'hidden' as const,
-  },
-  patternCircle: {
-    position: 'absolute' as const,
-    width: 200,
-    height: 200,
-    borderRadius: 100,
-    backgroundColor: Colors.primary,
-  },
-  logoImage: {
-    width: 320,
-    height: 130,
-    marginBottom: 16,
-    backgroundColor: 'transparent',
-  },
-  tagline: {
-    fontSize: 18,
-    fontWeight: '600' as const,
-    color: Colors.text.primary,
-    letterSpacing: 0.5,
-    textAlign: 'center' as const,
-  },
-  divider: {
-    width: 80,
-    height: 4,
-    borderRadius: 2,
-    marginTop: 20,
-  },
-  headerRow: {
-    position: 'absolute' as const,
-    top: 60,
-    left: 20,
-    right: 20,
-    flexDirection: 'row' as const,
-    justifyContent: 'space-between' as const,
-    alignItems: 'center' as const,
-    zIndex: 10,
-  },
-  userButton: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
-    backgroundColor: Colors.white,
-    justifyContent: 'center' as const,
-    alignItems: 'center' as const,
-    shadowColor: Colors.shadow.dark,
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.2,
-    shadowRadius: 12,
-    elevation: 5,
-  },
-  loginButton: {
-    paddingHorizontal: 20,
-    paddingVertical: 10,
-    borderRadius: 20,
-    backgroundColor: Colors.primary,
-  },
-  loginText: {
-    color: Colors.white,
-    fontSize: 14,
-    fontWeight: '600' as const,
-  },
-  servicesContainer: {
-    marginBottom: 32,
-  },
-  serviceCard: {
-    borderRadius: 28,
-    overflow: 'hidden' as const,
-    shadowColor: Colors.shadow.dark,
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.25,
-    shadowRadius: 20,
-    elevation: 10,
-  },
-  serviceGradient: {
-    padding: 28,
-    minHeight: 160,
-    position: 'relative' as const,
-  },
-  patternOverlay: {
-    position: 'absolute' as const,
-    top: 0,
-    right: 0,
-    bottom: 0,
-    width: '40%',
-    flexDirection: 'row' as const,
-    justifyContent: 'space-around' as const,
-    alignItems: 'center' as const,
-    opacity: 0.1,
-  },
-  patternEmoji: {
-    fontSize: 60,
-    transform: [{ rotate: '15deg' }],
-  },
-  serviceContent: {
-    flexDirection: 'row' as const,
-    alignItems: 'center' as const,
-  },
-  serviceIconContainer: {
-    width: 80,
-    height: 80,
-    borderRadius: 40,
-    backgroundColor: 'rgba(255, 255, 255, 0.25)',
-    justifyContent: 'center' as const,
-    alignItems: 'center' as const,
-    marginRight: 20,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 8,
-    borderWidth: 3,
-    borderColor: 'rgba(255, 255, 255, 0.3)',
-    position: 'relative' as const,
-  },
-  iconGlow: {
-    position: 'absolute' as const,
-    width: 60,
-    height: 60,
-    borderRadius: 30,
-    backgroundColor: Colors.white,
-    opacity: 0.3,
-  },
-  serviceText: {
-    flex: 1,
-  },
-  serviceTitleRow: {
-    flexDirection: 'row' as const,
-    alignItems: 'center' as const,
-    gap: 6,
-  },
-  serviceTitle: {
-    fontSize: 24,
-    fontWeight: '900' as const,
-    color: Colors.white,
-    marginBottom: 8,
-    letterSpacing: 0.5,
-    textShadowColor: 'rgba(0, 0, 0, 0.3)',
-    textShadowOffset: { width: 0, height: 2 },
-    textShadowRadius: 4,
-  },
-  serviceSubtitle: {
-    fontSize: 16,
-    color: 'rgba(255, 255, 255, 0.95)',
-    fontWeight: '600' as const,
-    letterSpacing: 0.3,
-  },
-  serviceBadge: {
-    position: 'absolute' as const,
-    top: 16,
-    right: 16,
-    flexDirection: 'row' as const,
-    alignItems: 'center' as const,
-    gap: 4,
-    paddingHorizontal: 10,
-    paddingVertical: 6,
-    borderRadius: 12,
-    backgroundColor: 'rgba(255, 255, 255, 0.25)',
-    borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.3)',
-    overflow: 'hidden' as const,
-  },
-  badgeText: {
-    fontSize: 11,
-    fontWeight: '700' as const,
-    color: Colors.white,
-    letterSpacing: 0.5,
-    textTransform: 'uppercase' as const,
-  },
-  sparkleContainer: {
-    position: 'absolute' as const,
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
-  },
-  sparkle: {
-    position: 'absolute' as const,
-    width: 4,
-    height: 4,
-    backgroundColor: 'rgba(255, 255, 255, 0.6)',
-    borderRadius: 2,
-  },
-  sparkle1: {
-    top: 40,
-    left: 100,
-  },
-  sparkle2: {
-    top: 80,
-    right: 60,
-  },
-  sparkle3: {
-    bottom: 50,
-    left: 50,
   },
 
-  authPrompt: {
-    alignItems: 'center' as const,
-    paddingTop: 8,
+  // Header
+  header: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 28,
   },
-  authPromptText: {
-    fontSize: 16,
-    fontWeight: '600' as const,
-    color: Colors.text.primary,
-    marginBottom: 16,
-  },
-  authButtonsRow: {
-    flexDirection: 'row' as const,
+  headerLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flex: 1,
     gap: 12,
-    width: '100%' as const,
   },
-  registerButton: {
+  greetingContainer: {
     flex: 1,
-    paddingVertical: 14,
-    borderRadius: 12,
-    backgroundColor: Colors.primary,
-    shadowColor: Colors.primary,
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.2,
-    shadowRadius: 4,
-    elevation: 3,
   },
-  registerButtonText: {
-    fontSize: 15,
-    fontWeight: '600' as const,
-    color: Colors.white,
-    textAlign: 'center' as const,
+  greeting: {
+    fontWeight: '400',
+    marginBottom: 2,
   },
-  authPromptButton: {
+  userName: {
+    fontWeight: '700',
+  },
+  avatarButton: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 1,
+  },
+
+  // Active order banner
+  activeBanner: {
+    borderRadius: 14,
+    marginBottom: 20,
+    overflow: 'hidden',
+  },
+  activeBannerContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 14,
+    gap: 12,
+  },
+  pulseDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: '#16A34A',
+  },
+  activeBannerIcon: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: 'rgba(22, 163, 74, 0.15)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  activeBannerText: {
     flex: 1,
-    paddingVertical: 14,
-    borderRadius: 12,
-    backgroundColor: Colors.white,
-    borderWidth: 2,
-    borderColor: Colors.primary,
   },
-  authPromptButtonText: {
-    fontSize: 15,
-    fontWeight: '600' as const,
-    color: Colors.primary,
-    textAlign: 'center' as const,
+  activeBannerTitle: {
+    fontSize: 14,
+    fontWeight: '600',
+    marginBottom: 2,
   },
-  cancelledOrderBanner: {
-    marginBottom: 24,
-    borderRadius: 16,
-    backgroundColor: Colors.white,
+  activeBannerSub: {
+    fontSize: 12,
+    fontWeight: '500',
+  },
+
+  // Cancelled banner
+  cancelledBanner: {
+    borderRadius: 14,
     padding: 16,
-    borderWidth: 2,
-    borderColor: Colors.error,
-    shadowColor: Colors.error,
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.2,
-    shadowRadius: 12,
-    elevation: 6,
+    marginBottom: 20,
+    borderWidth: 1,
   },
-  cancelledBannerHeader: {
-    flexDirection: 'row' as const,
-    alignItems: 'flex-start' as const,
-    marginBottom: 16,
+  cancelledHeader: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    marginBottom: 14,
   },
-  cancelledIconContainer: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
+  cancelledIconWrap: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
     backgroundColor: 'rgba(239, 68, 68, 0.1)',
-    justifyContent: 'center' as const,
-    alignItems: 'center' as const,
+    justifyContent: 'center',
+    alignItems: 'center',
     marginRight: 12,
   },
-  cancelledTextContainer: {
+  cancelledInfo: {
     flex: 1,
   },
   cancelledTitle: {
-    fontSize: 18,
-    fontWeight: '700' as const,
-    color: Colors.error,
+    fontSize: 16,
+    fontWeight: '600',
     marginBottom: 4,
   },
-  cancelledSubtitle: {
+  cancelledSub: {
     fontSize: 14,
-    color: Colors.text.primary,
     marginBottom: 4,
   },
   cancelledReason: {
     fontSize: 13,
-    color: Colors.text.secondary,
-    fontStyle: 'italic' as const,
+    fontStyle: 'italic',
   },
   cancelledActions: {
-    flexDirection: 'row' as const,
-    gap: 12,
+    flexDirection: 'row',
+    gap: 10,
   },
-  findAlternativeButton: {
+  retryBtn: {
     flex: 1,
-    flexDirection: 'row' as const,
-    alignItems: 'center' as const,
-    justifyContent: 'center' as const,
-    gap: 8,
-    backgroundColor: Colors.primary,
-    paddingVertical: 12,
-    borderRadius: 10,
-  },
-  reorderSameButton: {
-    flex: 1,
-    flexDirection: 'row' as const,
-    alignItems: 'center' as const,
-    justifyContent: 'center' as const,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
     gap: 6,
-    backgroundColor: Colors.primary,
-    paddingVertical: 12,
+    backgroundColor: '#16A34A',
+    paddingVertical: 10,
     borderRadius: 10,
   },
-  findOtherButton: {
+  altBtn: {
     flex: 1,
-    alignItems: 'center' as const,
-    justifyContent: 'center' as const,
-    backgroundColor: Colors.secondary,
-    paddingVertical: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 10,
     borderRadius: 10,
   },
-  findOtherText: {
-    fontSize: 14,
-    fontWeight: '600' as const,
-    color: Colors.white,
+  retryText: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#FFFFFF',
   },
-  findAlternativeText: {
-    fontSize: 14,
-    fontWeight: '600' as const,
-    color: Colors.white,
-  },
-  dismissButton: {
-    paddingVertical: 12,
-    paddingHorizontal: 20,
+  dismissBtn: {
+    paddingVertical: 10,
+    paddingHorizontal: 16,
     borderRadius: 10,
-    backgroundColor: Colors.background.secondary,
   },
-  dismissButtonText: {
-    fontSize: 14,
-    fontWeight: '600' as const,
-    color: Colors.text.secondary,
+  dismissText: {
+    fontSize: 13,
+    fontWeight: '500',
   },
-  activeOrderBanner: {
-    marginBottom: 24,
-    borderRadius: 16,
-    overflow: 'hidden' as const,
-    shadowColor: Colors.shadow.dark,
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.2,
-    shadowRadius: 12,
-    elevation: 6,
+
+  // Service cards
+  servicesSection: {
+    gap: 12,
+    marginBottom: 28,
   },
-  bannerGradient: {
+  serviceCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
     padding: 16,
+    borderRadius: 16,
+    borderWidth: 1,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.04,
+    shadowRadius: 6,
+    elevation: 1,
   },
-  bannerContent: {
-    flexDirection: 'row' as const,
-    alignItems: 'center' as const,
-  },
-  bannerIcon: {
+  serviceIconWrap: {
     width: 48,
     height: 48,
-    borderRadius: 24,
-    backgroundColor: 'rgba(255, 255, 255, 0.2)',
-    justifyContent: 'center' as const,
-    alignItems: 'center' as const,
-    marginRight: 12,
+    borderRadius: 14,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 14,
   },
-  bannerText: {
+  serviceText: {
     flex: 1,
   },
-  bannerTitle: {
-    fontSize: 16,
-    fontWeight: '700' as const,
-    color: Colors.white,
-    marginBottom: 4,
+  serviceTitle: {
+    fontWeight: '600',
+    marginBottom: 3,
   },
-  bannerSubtitle: {
-    fontSize: 13,
-    color: 'rgba(255, 255, 255, 0.9)',
+  serviceSubtitle: {
+    fontWeight: '400',
   },
+
+  // Reorder section
   reorderSection: {
-    marginBottom: 32,
+    marginBottom: 24,
   },
-  reorderHeader: {
-    flexDirection: 'row' as const,
-    alignItems: 'center' as const,
-    gap: 8,
-    marginBottom: 16,
+  sectionTitle: {
+    fontWeight: '600',
+    marginBottom: 14,
   },
-  reorderTitle: {
-    fontSize: 18,
-    fontWeight: '700' as const,
-    color: Colors.text.primary,
-  },
-  reorderScrollContent: {
+  reorderScroll: {
     paddingRight: 20,
   },
   reorderCard: {
-    width: 280,
-    backgroundColor: Colors.white,
-    borderRadius: 16,
-    padding: 16,
+    width: 260,
+    borderRadius: 14,
+    padding: 14,
     marginRight: 12,
-    shadowColor: Colors.shadow.medium,
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 8,
-    elevation: 3,
+    borderWidth: 1,
   },
   reorderCardHeader: {
-    flexDirection: 'row' as const,
-    alignItems: 'flex-start' as const,
+    flexDirection: 'row',
+    alignItems: 'flex-start',
     gap: 10,
-    marginBottom: 12,
+    marginBottom: 10,
   },
-  reorderCardTitleContainer: {
+  reorderCardInfo: {
     flex: 1,
   },
   reorderCardTitle: {
-    fontSize: 16,
-    fontWeight: '700' as const,
-    color: Colors.text.primary,
-    marginBottom: 4,
+    fontSize: 15,
+    fontWeight: '600',
+    marginBottom: 3,
   },
   reorderCardMeta: {
-    flexDirection: 'row' as const,
-    alignItems: 'center' as const,
+    flexDirection: 'row',
+    alignItems: 'center',
     gap: 4,
   },
   reorderCardDate: {
     fontSize: 12,
-    color: Colors.text.light,
   },
   reorderCardItems: {
     fontSize: 13,
-    color: Colors.text.secondary,
-    marginBottom: 12,
+    marginBottom: 10,
     lineHeight: 18,
   },
   reorderCardFooter: {
-    flexDirection: 'row' as const,
-    alignItems: 'center' as const,
-    justifyContent: 'space-between' as const,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
   },
   reorderCardTotal: {
-    fontSize: 18,
-    fontWeight: '700' as const,
-    color: Colors.primary,
+    fontSize: 17,
+    fontWeight: '700',
   },
-  reorderButton: {
-    flexDirection: 'row' as const,
-    alignItems: 'center' as const,
-    gap: 6,
-    backgroundColor: Colors.primary,
-    paddingHorizontal: 14,
-    paddingVertical: 8,
+  repeatBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+    backgroundColor: '#16A34A',
+    paddingHorizontal: 12,
+    paddingVertical: 7,
     borderRadius: 20,
   },
-  reorderButtonText: {
-    fontSize: 13,
-    fontWeight: '600' as const,
-    color: Colors.white,
+  repeatText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#FFFFFF',
+  },
+
+  // Auth prompt
+  authPrompt: {
+    alignItems: 'center',
+    paddingTop: 8,
+  },
+  authText: {
+    fontWeight: '600',
+    marginBottom: 16,
+  },
+  authRow: {
+    flexDirection: 'row',
+    gap: 12,
+    width: '100%',
+  },
+  primaryBtn: {
+    flex: 1,
+    paddingVertical: 14,
+    backgroundColor: '#16A34A',
+    alignItems: 'center',
+    shadowColor: '#16A34A',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 4,
+    elevation: 2,
+  },
+  primaryBtnText: {
+    fontSize: 15,
+    fontWeight: '600',
+    color: '#FFFFFF',
+  },
+  outlineBtn: {
+    flex: 1,
+    paddingVertical: 14,
+    borderWidth: 1.5,
+    alignItems: 'center',
+  },
+  outlineBtnText: {
+    fontSize: 15,
+    fontWeight: '600',
   },
 });

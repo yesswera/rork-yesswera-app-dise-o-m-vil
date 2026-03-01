@@ -49,12 +49,12 @@ const THEME_COLORS = {
   },
 };
 
-// Colores de gradiente (basados en el logo de Yesswera)
+// Colores de gradiente premium
 const GRADIENT_COLORS = {
-  primary: ['#22C55E', '#15803D'],      // Verde
-  secondary: ['#F97316', '#C2410C'],    // Naranja
-  accent: ['#3B82F6', '#1D4ED8'],       // Azul
-  tertiary: ['#FBBF24', '#D97706'],     // Amarillo/Dorado
+  primary: ['#16A34A', '#15803D'],      // Verde premium
+  secondary: ['#EA580C', '#C2410C'],    // Naranja contenido
+  accent: ['#2563EB', '#1D4ED8'],       // Azul profesional
+  tertiary: ['#F59E0B', '#D97706'],     // Amarillo/Dorado
 };
 
 // ============================================================================
@@ -409,14 +409,16 @@ export function ScreenCard({
   const cardStyle = [
     {
       backgroundColor: theme.card,
-      borderRadius: 12,
+      borderRadius: 16,
       padding: 16,
       marginBottom: 16,
+      borderWidth: isDark ? 0 : 1,
+      borderColor: isDark ? 'transparent' : '#F5F5F4',
       shadowColor: '#000',
       shadowOffset: { width: 0, height: 2 },
-      shadowOpacity: isDark ? 0.3 : 0.08,
+      shadowOpacity: isDark ? 0.2 : 0.04,
       shadowRadius: 8,
-      elevation: 3,
+      elevation: 2,
     },
     style,
   ];

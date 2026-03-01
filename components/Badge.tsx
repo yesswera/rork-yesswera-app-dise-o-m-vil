@@ -34,7 +34,7 @@ export default function Badge({ label, variant = 'primary', size = 'medium' }: B
   return (
     <View style={[
       styles.badge,
-      { backgroundColor: `${color}15` },
+      { backgroundColor: `${color}10` },
       size === 'small' && styles.badgeSmall,
       size === 'large' && styles.badgeLarge,
     ]}>
@@ -53,19 +53,17 @@ export default function Badge({ label, variant = 'primary', size = 'medium' }: B
 const styles = StyleSheet.create({
   badge: {
     paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 12,
+    paddingVertical: 5,
+    borderRadius: 9999,
     alignSelf: 'flex-start' as const,
   },
   badgeSmall: {
     paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 8,
+    paddingVertical: 3,
   },
   badgeLarge: {
     paddingHorizontal: 16,
-    paddingVertical: 8,
-    borderRadius: 16,
+    paddingVertical: 7,
   },
   text: {
     fontSize: 12,

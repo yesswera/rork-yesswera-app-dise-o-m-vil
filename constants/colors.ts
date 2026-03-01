@@ -1,55 +1,55 @@
 export default {
-  primary: '#00C896',
-  primaryDark: '#00A876',
-  primaryLight: '#34d399',
-  
-  secondary: '#FF6B35',
-  secondaryDark: '#E55A2B',
-  secondaryLight: '#fb923c',
-  
-  accent: '#00A8E8',
-  accentDark: '#0088C4',
-  accentLight: '#38bdf8',
-  
-  black: '#1A1A1A',
-  darkGray: '#2D3436',
-  mediumGray: '#6C757D',
-  lightGray: '#B2BEC3',
-  silver: '#DEE2E6',
+  primary: '#16A34A',
+  primaryDark: '#15803D',
+  primaryLight: '#34D399',
+
+  secondary: '#EA580C',
+  secondaryDark: '#C2410C',
+  secondaryLight: '#FB923C',
+
+  accent: '#2563EB',
+  accentDark: '#1D4ED8',
+  accentLight: '#60A5FA',
+
+  black: '#1C1917',
+  darkGray: '#292524',
+  mediumGray: '#57534E',
+  lightGray: '#A8A29E',
+  silver: '#E7E5E4',
   white: '#FFFFFF',
-  
-  gold: '#FFD700',
-  goldSoft: '#F4C430',
-  
-  success: '#00C896',
-  warning: '#FF6B35',
-  error: '#DC3545',
-  
+
+  gold: '#FBBF24',
+  goldSoft: '#F59E0B',
+
+  success: '#16A34A',
+  warning: '#F59E0B',
+  error: '#EF4444',
+
   text: {
-    primary: '#1A1A1A',
-    secondary: '#6C757D',
-    light: '#ADB5BD',
-    disabled: '#B2BEC3',
+    primary: '#1C1917',
+    secondary: '#57534E',
+    light: '#78716C',
+    disabled: '#A8A29E',
     white: '#FFFFFF',
-    muted: '#ADB5BD',
+    muted: '#A8A29E',
   },
-  
+
   border: {
-    light: '#DEE2E6',
-    medium: '#B2BEC3',
-    dark: '#6C757D',
+    light: '#E7E5E4',
+    medium: '#D6D3D1',
+    dark: '#A8A29E',
   },
-  
+
   background: {
-    primary: '#FFFFFF',
-    secondary: '#F8F9FA',
-    tertiary: '#F1F3F5',
-    dark: '#1A1A1A',
+    primary: '#FAFAF9',
+    secondary: '#F5F5F4',
+    tertiary: '#E7E5E4',
+    dark: '#1C1917',
   },
-  
+
   shadow: {
-    light: 'rgba(0, 0, 0, 0.05)',
-    medium: 'rgba(0, 0, 0, 0.1)',
-    dark: 'rgba(0, 0, 0, 0.15)',
+    light: 'rgba(0, 0, 0, 0.03)',
+    medium: 'rgba(0, 0, 0, 0.06)',
+    dark: 'rgba(0, 0, 0, 0.1)',
   },
 };

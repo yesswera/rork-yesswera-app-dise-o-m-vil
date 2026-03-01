@@ -37,11 +37,13 @@ const styles = StyleSheet.create({
     padding: 16,
   },
   cardElevated: {
-    shadowColor: Colors.shadow.medium,
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 1,
-    shadowRadius: 8,
-    elevation: 3,
+    borderWidth: 1,
+    borderColor: '#F5F5F4',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.03,
+    shadowRadius: 6,
+    elevation: 1,
   },
   cardOutlined: {
     borderWidth: 1,

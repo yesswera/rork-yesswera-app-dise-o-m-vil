@@ -111,7 +111,7 @@ export const palette = {
 export const lightTheme = {
   // Fondos
   background: {
-    primary: '#FFFFFF',
+    primary: '#FAFAF9',
     secondary: '#F5F5F4',
     tertiary: '#E7E5E4',
     card: '#FFFFFF',
@@ -125,32 +125,32 @@ export const lightTheme = {
     tertiary: '#78716C',      // Contraste 4.5:1
     muted: '#A8A29E',        // Para placeholders
     inverse: '#FFFFFF',
-    link: '#22C55E',
+    link: '#16A34A',
   },
 
   // Colores de marca (basados en logo Yesswera)
-  primary: '#22C55E',         // Verde principal (la Y del logo)
+  primary: '#16A34A',         // Verde premium profundo
   primaryLight: '#D1FAE5',
   primaryDark: '#15803D',
 
-  secondary: '#F97316',       // Naranja (línea velocidad superior)
+  secondary: '#EA580C',       // Naranja contenido
   secondaryLight: '#FFEDD5',
   secondaryDark: '#C2410C',
 
   accent: '#FBBF24',          // Amarillo (línea velocidad media)
   accentLight: '#FEF3C7',
 
-  tertiary: '#3B82F6',        // Azul (línea velocidad inferior)
+  tertiary: '#2563EB',        // Azul profesional
   tertiaryLight: '#DBEAFE',
 
   // Estados
-  success: '#22C55E',
+  success: '#16A34A',
   successLight: '#D1FAE5',
   warning: '#F59E0B',
   warningLight: '#FEF3C7',
   error: '#EF4444',
   errorLight: '#FEE2E2',
-  info: '#3B82F6',
+  info: '#2563EB',
   infoLight: '#DBEAFE',
 
   // Colores especiales para UI
@@ -166,13 +166,13 @@ export const lightTheme = {
   // Sombras
   shadow: {
     color: '#000000',
-    opacity: 0.08,
+    opacity: 0.04,
   },
 
   // Tab bar
   tabBar: {
     background: '#FFFFFF',
-    active: '#22C55E',
+    active: '#16A34A',
     inactive: '#78716C',
   },
 
@@ -197,11 +197,11 @@ export const darkTheme = {
     tertiary: '#A8A29E',
     muted: '#78716C',        // Para placeholders
     inverse: '#1C1917',
-    link: '#4ADE80',
+    link: '#34D399',
   },
 
   // Colores de marca (más brillantes en oscuro, basados en logo)
-  primary: '#4ADE80',         // Verde más brillante
+  primary: '#34D399',         // Verde brillante pero no neon
   primaryLight: '#064E3B',
   primaryDark: '#86EFAC',
 
@@ -216,7 +216,7 @@ export const darkTheme = {
   tertiaryLight: '#44403C',
 
   // Estados
-  success: '#4ADE80',
+  success: '#34D399',
   successLight: '#064E3B',
   warning: '#FBBF24',
   warningLight: '#44403C',
@@ -244,7 +244,7 @@ export const darkTheme = {
   // Tab bar
   tabBar: {
     background: '#292524',
-    active: '#4ADE80',
+    active: '#34D399',
     inactive: '#A8A29E',
   },
 

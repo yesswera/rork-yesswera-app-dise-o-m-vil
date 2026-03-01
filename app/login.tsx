@@ -1,42 +1,24 @@
 import TouchableSound from '@/components/TouchableSound';
-// ============================================================================
-// YESSWERA: PANTALLA DE LOGIN
-// Diseño unificado con ScreenContainer - Todo scrollea junto
-// ============================================================================
-
 import { useState } from 'react';
 import {
   View,
+  Text,
   TextInput,
   StyleSheet,
+  KeyboardAvoidingView,
+  Platform,
+  ScrollView,
+  StatusBar,
 } from 'react-native';
 import { useRouter } from 'expo-router';
-import { Mail, Lock, LogIn } from 'lucide-react-native';
+import { Mail, Lock } from 'lucide-react-native';
+import { LinearGradient } from 'expo-linear-gradient';
 import { useAuth } from '@/contexts/auth';
 import { useTheme } from '@/contexts/theme';
-import { ThemedText } from '@/components/themed';
-import ScreenContainer from '@/components/ScreenContainer';
-import AccessibilityControls from '@/components/AccessibilityControls';
 import { Toast } from '@/utils/toast';
 import { Validator } from '@/utils/validation';
 import { HapticFeedback } from '@/utils/haptics';
 import { AuthSounds, SoundFeedback } from '@/services/sounds';
-
-// Colores explícitos para garantizar consistencia
-const COLORS = {
-  light: {
-    card: '#FFFFFF',
-    cardAlt: '#F5F5F4',
-    border: '#E7E5E4',
-    text: { primary: '#1C1917', muted: '#A8A29E' },
-  },
-  dark: {
-    card: '#292524',
-    cardAlt: '#44403C',
-    border: '#44403C',
-    text: { primary: '#FAFAFA', muted: '#78716C' },
-  },
-};
 
 export default function LoginScreen() {
   const router = useRouter();
@@ -47,8 +29,14 @@ export default function LoginScreen() {
   const [password, setPassword] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [errors, setErrors] = useState({ email: '', password: '' });
+  const [focusedField, setFocusedField] = useState<string | null>(null);
 
-  const theme = isDark ? COLORS.dark : COLORS.light;
+  const bg = isDark ? '#1C1917' : '#FAFAF9';
+  const cardBg = isDark ? '#292524' : '#FFFFFF';
+  const borderColor = isDark ? '#44403C' : '#E7E5E4';
+  const textPrimary = isDark ? '#FAFAFA' : '#1C1917';
+  const textSecondary = isDark ? '#D6D3D1' : '#57534E';
+  const textMuted = isDark ? '#78716C' : '#A8A29E';
 
   const validateEmail = (value: string) => Validator.email(value);
   const validatePassword = (value: string) => Validator.required(value) || '';
@@ -69,9 +57,8 @@ export default function LoginScreen() {
       const userData = await login(email, password);
       HapticFeedback.success();
       AuthSounds.login();
-      Toast.success('¡Bienvenido de nuevo!');
+      Toast.success('Bienvenido de nuevo');
 
-      // Redirigir según tipo de usuario
       if (userData?.userType === 'driver') {
         router.replace('/driver/dashboard' as any);
       } else if (userData?.userType === 'business') {
@@ -91,190 +78,290 @@ export default function LoginScreen() {
     }
   };
 
-  // Contenido del header (controles de accesibilidad)
-  const headerContent = (
-    <View style={styles.accessibilityRow}>
-      <AccessibilityControls variant="compact" />
-    </View>
-  );
+  const getInputBorder = (field: string, error: string) => {
+    if (error) return '#EF4444';
+    if (focusedField === field) return '#16A34A';
+    return borderColor;
+  };
 
   return (
-    <ScreenContainer
-      headerGradient="primary"
-      headerIcon={LogIn}
-      headerTitle="Bienvenido"
-      headerSubtitle="Inicia sesión para continuar"
-      headerContent={headerContent}
+    <KeyboardAvoidingView
+      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+      style={[styles.container, { backgroundColor: bg }]}
     >
-      {/* Icono decorativo */}
-      <View style={[styles.iconContainer, { backgroundColor: theme.cardAlt }]}>
-        <LogIn size={48} color={colors.primary} />
-      </View>
-
-      <ThemedText variant="h3" center style={{ marginBottom: space.xs }}>
-        Accede a tu cuenta
-      </ThemedText>
-      <ThemedText variant="body" color="secondary" center style={{ marginBottom: space.xl }}>
-        Ingresa tus credenciales
-      </ThemedText>
-
-      {/* Email */}
-      <View style={styles.inputGroup}>
-        <ThemedText variant="label" bold style={{ marginBottom: space.xs }}>
-          Correo Electrónico
-        </ThemedText>
-        <View style={[styles.inputWrapper, {
-          backgroundColor: theme.card,
-          borderColor: errors.email ? colors.error : theme.border,
-          borderRadius: radius.md,
-        }]}>
-          <Mail size={20} color={theme.text.muted} />
-          <TextInput
-            style={[styles.input, { color: theme.text.primary, fontSize: fonts.base }]}
-            placeholder="tu@email.com"
-            placeholderTextColor={theme.text.muted}
-            value={email}
-            onChangeText={(v) => { setEmail(v.toLowerCase()); setErrors(p => ({ ...p, email: '' })); }}
-            keyboardType="email-address"
-            autoCapitalize="none"
-            editable={!isLoading}
-          />
+      <StatusBar barStyle={isDark ? 'light-content' : 'dark-content'} />
+      <ScrollView
+        contentContainerStyle={styles.scrollContent}
+        showsVerticalScrollIndicator={false}
+        keyboardShouldPersistTaps="handled"
+      >
+        {/* Logo */}
+        <View style={styles.logoSection}>
+          <View style={[styles.logoBox, {
+            backgroundColor: '#16A34A',
+            shadowColor: '#16A34A',
+          }]}>
+            <Text style={styles.logoLetter}>Y</Text>
+          </View>
+          <Text style={[styles.appName, { color: textPrimary, fontSize: fonts['3xl'] }]}>
+            Yesswera
+          </Text>
+          <Text style={[styles.tagline, { color: textMuted, fontSize: fonts.base }]}>
+            Lo que quieras, cuando quieras
+          </Text>
         </View>
-        {errors.email ? <ThemedText variant="caption" color="error">{errors.email}</ThemedText> : null}
-      </View>
 
-      {/* Contraseña */}
-      <View style={styles.inputGroup}>
-        <ThemedText variant="label" bold style={{ marginBottom: space.xs }}>
-          Contraseña
-        </ThemedText>
-        <View style={[styles.inputWrapper, {
-          backgroundColor: theme.card,
-          borderColor: errors.password ? colors.error : theme.border,
-          borderRadius: radius.md,
-        }]}>
-          <Lock size={20} color={theme.text.muted} />
-          <TextInput
-            style={[styles.input, { color: theme.text.primary, fontSize: fonts.base }]}
-            placeholder="••••••••"
-            placeholderTextColor={theme.text.muted}
-            value={password}
-            onChangeText={(v) => { setPassword(v); setErrors(p => ({ ...p, password: '' })); }}
-            secureTextEntry
-            autoCapitalize="none"
-            editable={!isLoading}
-          />
+        {/* Form */}
+        <View style={styles.form}>
+          {/* Email */}
+          <View style={styles.inputGroup}>
+            <Text style={[styles.label, { color: textSecondary, fontSize: fonts.sm }]}>
+              Correo Electronico
+            </Text>
+            <View style={[styles.inputWrap, {
+              backgroundColor: cardBg,
+              borderColor: getInputBorder('email', errors.email),
+              shadowColor: focusedField === 'email' ? '#16A34A' : 'transparent',
+              shadowOpacity: focusedField === 'email' ? 0.1 : 0,
+            }]}>
+              <Mail size={18} color={focusedField === 'email' ? '#16A34A' : textMuted} />
+              <TextInput
+                style={[styles.input, { color: textPrimary, fontSize: fonts.base }]}
+                placeholder="tu@email.com"
+                placeholderTextColor={textMuted}
+                value={email}
+                onChangeText={(v) => { setEmail(v.toLowerCase()); setErrors(p => ({ ...p, email: '' })); }}
+                onFocus={() => setFocusedField('email')}
+                onBlur={() => setFocusedField(null)}
+                keyboardType="email-address"
+                autoCapitalize="none"
+                editable={!isLoading}
+              />
+            </View>
+            {errors.email ? <Text style={styles.errorText}>{errors.email}</Text> : null}
+          </View>
+
+          {/* Password */}
+          <View style={styles.inputGroup}>
+            <Text style={[styles.label, { color: textSecondary, fontSize: fonts.sm }]}>
+              Contrasena
+            </Text>
+            <View style={[styles.inputWrap, {
+              backgroundColor: cardBg,
+              borderColor: getInputBorder('password', errors.password),
+              shadowColor: focusedField === 'password' ? '#16A34A' : 'transparent',
+              shadowOpacity: focusedField === 'password' ? 0.1 : 0,
+            }]}>
+              <Lock size={18} color={focusedField === 'password' ? '#16A34A' : textMuted} />
+              <TextInput
+                style={[styles.input, { color: textPrimary, fontSize: fonts.base }]}
+                placeholder="Tu contrasena"
+                placeholderTextColor={textMuted}
+                value={password}
+                onChangeText={(v) => { setPassword(v); setErrors(p => ({ ...p, password: '' })); }}
+                onFocus={() => setFocusedField('password')}
+                onBlur={() => setFocusedField(null)}
+                secureTextEntry
+                autoCapitalize="none"
+                editable={!isLoading}
+              />
+            </View>
+            {errors.password ? <Text style={styles.errorText}>{errors.password}</Text> : null}
+          </View>
+
+          {/* Forgot password */}
+          <TouchableSound
+            style={styles.forgotLink}
+            onPress={() => router.push('/password-recovery/request' as any)}
+            disabled={isLoading}
+          >
+            <Text style={[styles.forgotText, { color: '#16A34A', fontSize: fonts.sm }]}>
+              Olvidaste tu contrasena?
+            </Text>
+          </TouchableSound>
+
+          {/* Login button */}
+          <TouchableSound
+            style={[styles.loginBtn, { opacity: isLoading ? 0.6 : 1 }]}
+            onPress={handleLogin}
+            disabled={isLoading}
+            activeOpacity={0.8}
+          >
+            <LinearGradient
+              colors={['#16A34A', '#15803D']}
+              style={styles.loginGradient}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 0 }}
+            >
+              <Text style={styles.loginBtnText}>
+                {isLoading ? 'Iniciando...' : 'Iniciar Sesion'}
+              </Text>
+            </LinearGradient>
+          </TouchableSound>
+
+          {/* Divider */}
+          <View style={styles.divider}>
+            <View style={[styles.dividerLine, { backgroundColor: borderColor }]} />
+            <Text style={[styles.dividerText, { color: textMuted, fontSize: fonts.sm }]}>o</Text>
+            <View style={[styles.dividerLine, { backgroundColor: borderColor }]} />
+          </View>
+
+          {/* Register link */}
+          <TouchableSound
+            style={[styles.registerBtn, { borderColor: borderColor, backgroundColor: cardBg }]}
+            onPress={() => router.push('/register' as any)}
+            disabled={isLoading}
+          >
+            <Text style={[styles.registerText, { color: textPrimary, fontSize: fonts.base }]}>
+              Crear una cuenta
+            </Text>
+          </TouchableSound>
         </View>
-        {errors.password ? <ThemedText variant="caption" color="error">{errors.password}</ThemedText> : null}
-      </View>
 
-      {/* Olvidé contraseña */}
-      <TouchableSound
-        style={styles.forgotPassword}
-        onPress={() => router.push('/password-recovery/request' as any)}
-        disabled={isLoading}
-      >
-        <ThemedText variant="label" color="accent" bold>
-          ¿Olvidaste tu contraseña?
-        </ThemedText>
-      </TouchableSound>
-
-      {/* Botón Iniciar Sesión */}
-      <TouchableSound
-        style={[styles.button, {
-          backgroundColor: isLoading ? theme.border : colors.primary,
-          borderRadius: radius.md,
-          marginTop: space.lg,
-        }]}
-        onPress={handleLogin}
-        disabled={isLoading}
-        activeOpacity={0.8}
-      >
-        <ThemedText variant="subtitle" color="white" bold>
-          {isLoading ? 'Iniciando...' : 'Iniciar Sesión'}
-        </ThemedText>
-      </TouchableSound>
-
-      {/* Divider */}
-      <View style={[styles.divider, { marginVertical: space.xl }]}>
-        <View style={[styles.dividerLine, { backgroundColor: theme.border }]} />
-        <ThemedText variant="caption" color="secondary" style={{ marginHorizontal: space.md }}>
-          o
-        </ThemedText>
-        <View style={[styles.dividerLine, { backgroundColor: theme.border }]} />
-      </View>
-
-      {/* Link a registro */}
-      <TouchableSound
-        style={styles.linkButton}
-        onPress={() => router.push('/register' as any)}
-        disabled={isLoading}
-      >
-        <ThemedText variant="body" color="secondary">
-          ¿No tienes cuenta?{' '}
-          <ThemedText variant="body" color="accent" bold>Regístrate</ThemedText>
-        </ThemedText>
-      </TouchableSound>
-
-      <View style={{ height: 40 }} />
-    </ScreenContainer>
+        {/* Footer */}
+        <Text style={[styles.footer, { color: textMuted, fontSize: fonts.xs }]}>
+          Tomatlan, Jalisco
+        </Text>
+      </ScrollView>
+    </KeyboardAvoidingView>
   );
 }
 
 const styles = StyleSheet.create({
-  accessibilityRow: {
-    alignItems: 'center',
-    marginTop: 8,
+  container: {
+    flex: 1,
   },
-  iconContainer: {
-    width: 96,
-    height: 96,
-    borderRadius: 48,
+  scrollContent: {
+    flexGrow: 1,
+    paddingHorizontal: 24,
+    paddingTop: 80,
+    paddingBottom: 40,
+  },
+
+  // Logo
+  logoSection: {
+    alignItems: 'center',
+    marginBottom: 40,
+  },
+  logoBox: {
+    width: 72,
+    height: 72,
+    borderRadius: 20,
     justifyContent: 'center',
     alignItems: 'center',
-    alignSelf: 'center',
-    marginBottom: 24,
-    marginTop: -16, // Overlap con el header gradient
+    marginBottom: 16,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.25,
+    shadowRadius: 12,
+    elevation: 6,
+  },
+  logoLetter: {
+    fontSize: 36,
+    fontWeight: '800',
+    color: '#FFFFFF',
+  },
+  appName: {
+    fontWeight: '700',
+    marginBottom: 6,
+    letterSpacing: 0.5,
+  },
+  tagline: {
+    fontWeight: '400',
+  },
+
+  // Form
+  form: {
+    flex: 1,
   },
   inputGroup: {
-    marginBottom: 16,
+    marginBottom: 18,
   },
-  inputWrapper: {
+  label: {
+    fontWeight: '500',
+    marginBottom: 8,
+  },
+  inputWrap: {
     flexDirection: 'row',
     alignItems: 'center',
-    height: 56,
-    paddingHorizontal: 16,
+    height: 52,
+    paddingHorizontal: 14,
     borderWidth: 1.5,
-    gap: 12,
+    borderRadius: 12,
+    gap: 10,
+    shadowOffset: { width: 0, height: 0 },
+    shadowRadius: 8,
+    elevation: 0,
   },
   input: {
     flex: 1,
     height: '100%',
   },
-  forgotPassword: {
+  errorText: {
+    fontSize: 12,
+    color: '#EF4444',
+    marginTop: 6,
+    marginLeft: 4,
+  },
+  forgotLink: {
     alignSelf: 'flex-end',
+    marginBottom: 24,
     marginTop: -8,
   },
-  button: {
-    height: 56,
+  forgotText: {
+    fontWeight: '500',
+  },
+
+  // Login button
+  loginBtn: {
+    borderRadius: 14,
+    overflow: 'hidden',
+    shadowColor: '#16A34A',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.25,
+    shadowRadius: 12,
+    elevation: 4,
+    marginBottom: 24,
+  },
+  loginGradient: {
+    height: 52,
     justifyContent: 'center',
     alignItems: 'center',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.2,
-    shadowRadius: 8,
-    elevation: 4,
   },
+  loginBtnText: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#FFFFFF',
+  },
+
+  // Divider
   divider: {
     flexDirection: 'row',
     alignItems: 'center',
+    marginBottom: 24,
   },
   dividerLine: {
     flex: 1,
     height: 1,
   },
-  linkButton: {
+  dividerText: {
+    marginHorizontal: 16,
+  },
+
+  // Register
+  registerBtn: {
+    height: 52,
+    borderRadius: 14,
+    borderWidth: 1.5,
+    justifyContent: 'center',
     alignItems: 'center',
-    paddingVertical: 8,
+  },
+  registerText: {
+    fontWeight: '600',
+  },
+
+  // Footer
+  footer: {
+    textAlign: 'center',
+    marginTop: 32,
   },
 });

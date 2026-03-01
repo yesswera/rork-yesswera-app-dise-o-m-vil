@@ -28,8 +28,11 @@ export default function SearchBar({
   };
 
   return (
-    <View style={[styles.container, isFocused && styles.containerFocused]}>
-      <Search size={20} color={isFocused ? Colors.primary : Colors.text.secondary} />
+    <View style={[
+      styles.container,
+      isFocused && styles.containerFocused,
+    ]}>
+      <Search size={18} color={isFocused ? Colors.primary : Colors.text.muted} />
       <TextInput
         style={styles.input}
         value={value}
@@ -44,7 +47,7 @@ export default function SearchBar({
       />
       {value.length > 0 && (
         <TouchableSound onPress={handleClear} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
-          <X size={20} color={Colors.text.secondary} />
+          <X size={18} color={Colors.text.muted} />
         </TouchableSound>
       )}
     </View>
@@ -55,17 +58,21 @@ const styles = StyleSheet.create({
   container: {
     flexDirection: 'row' as const,
     alignItems: 'center' as const,
-    backgroundColor: Colors.background.secondary,
+    backgroundColor: Colors.white,
     borderRadius: 12,
-    paddingHorizontal: 16,
+    paddingHorizontal: 14,
     paddingVertical: 12,
-    borderWidth: 1,
+    borderWidth: 1.5,
     borderColor: Colors.border.light,
-    gap: 12,
+    gap: 10,
   },
   containerFocused: {
     borderColor: Colors.primary,
-    backgroundColor: Colors.white,
+    shadowColor: 'rgba(22, 163, 74, 0.1)',
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 1,
+    shadowRadius: 8,
+    elevation: 0,
   },
   input: {
     flex: 1,

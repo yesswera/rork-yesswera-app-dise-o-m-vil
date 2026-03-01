@@ -31,7 +31,7 @@ export default function LoadingButton({
       case 'tertiary':
         return [Colors.accent, Colors.accentDark] as const;
       case 'danger':
-        return [Colors.error, '#C62828'] as const;
+        return [Colors.error, '#B91C1C'] as const;
       default:
         return [Colors.primary, Colors.primaryDark] as const;
     }
@@ -70,12 +70,12 @@ export default function LoadingButton({
 
 const styles = StyleSheet.create({
   button: {
-    borderRadius: 12,
+    borderRadius: 14,
     overflow: 'hidden' as const,
-    shadowColor: Colors.shadow.medium,
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 1,
-    shadowRadius: 8,
+    shadowColor: '#16A34A',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.25,
+    shadowRadius: 12,
     elevation: 3,
   },
   buttonDisabled: {
