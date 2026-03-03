@@ -139,7 +139,8 @@ export function subscribeToDriverById(
 }
 
 // Request location permissions
-export async function requestLocationPermissions(): Promise<boolean> {
+// requestBackground: only set to true for drivers who need GPS tracking
+export async function requestLocationPermissions(requestBackground: boolean = false): Promise<boolean> {
   try {
     const { status: foregroundStatus } = await Location.requestForegroundPermissionsAsync();
 
@@ -148,12 +149,12 @@ export async function requestLocationPermissions(): Promise<boolean> {
       return false;
     }
 
-    // For drivers, we also need background permission
-    const { status: backgroundStatus } = await Location.requestBackgroundPermissionsAsync();
-
-    if (backgroundStatus !== 'granted') {
-      console.log('Background location permission denied (optional)');
-      // Still return true since foreground is enough for basic tracking
+    // Only request background permission for drivers (causes extra dialog on Android 11+)
+    if (requestBackground) {
+      const { status: backgroundStatus } = await Location.requestBackgroundPermissionsAsync();
+      if (backgroundStatus !== 'granted') {
+        console.log('Background location permission denied (optional)');
+      }
     }
 
     return true;
@@ -163,14 +164,14 @@ export async function requestLocationPermissions(): Promise<boolean> {
   }
 }
 
-// Get current location once
+// Get current location once (foreground only - for clients and general use)
 export async function getCurrentLocation(): Promise<Location.LocationObject | null> {
   try {
-    const hasPermission = await requestLocationPermissions();
+    const hasPermission = await requestLocationPermissions(false);
     if (!hasPermission) return null;
 
     const location = await Location.getCurrentPositionAsync({
-      accuracy: Location.Accuracy.High,
+      accuracy: Location.Accuracy.Balanced,
     });
 
     return location;
@@ -180,14 +181,14 @@ export async function getCurrentLocation(): Promise<Location.LocationObject | nu
   }
 }
 
-// Start watching location (for drivers)
+// Start watching location (for drivers - requests background permission)
 export async function startLocationUpdates(
   driverId: string,
   orderId: string,
   intervalMs: number = 5000
 ): Promise<Location.LocationSubscription | null> {
   try {
-    const hasPermission = await requestLocationPermissions();
+    const hasPermission = await requestLocationPermissions(true);
     if (!hasPermission) return null;
 
     const subscription = await Location.watchPositionAsync(

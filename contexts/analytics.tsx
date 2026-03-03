@@ -72,7 +72,11 @@ const [AnalyticsProvider, useAnalytics] = createContextHook(() => {
       const { status } = await Location.getForegroundPermissionsAsync();
       if (status !== 'granted') return undefined;
 
-      const location = await Location.getCurrentPositionAsync({});
+      // Use last known position for analytics (instant, non-blocking)
+      // getCurrentPositionAsync can hang 10-30s waiting for GPS lock
+      const location = await Location.getLastKnownPositionAsync({});
+      if (!location) return undefined;
+
       return {
         latitude: location.coords.latitude,
         longitude: location.coords.longitude,

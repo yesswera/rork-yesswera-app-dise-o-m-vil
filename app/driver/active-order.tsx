@@ -623,7 +623,7 @@ export default function ActiveOrderScreen() {
               <ThemedText variant="h3" style={{ color: theme.text }}>Paso 5: Entregar Orden</ThemedText>
             </View>
             <ThemedText variant="body" style={[styles.stepInstruction, { color: theme.textSecondary }]}>
-              Pide el codigo de entrega al cliente (6 caracteres)
+              Pide el codigo de entrega al cliente (5 caracteres)
             </ThemedText>
             <TextInput
               ref={deliveryInputRef}
@@ -636,7 +636,7 @@ export default function ActiveOrderScreen() {
               placeholderTextColor={theme.textMuted}
               value={deliveryCodeInput}
               onChangeText={(text) => setDeliveryCodeInput(text.toUpperCase())}
-              maxLength={6}
+              maxLength={5}
               autoCapitalize="characters"
               editable={!validating}
               keyboardType="default"
@@ -650,10 +650,10 @@ export default function ActiveOrderScreen() {
               style={[
                 styles.validateButton,
                 { backgroundColor: theme.success },
-                (deliveryCodeInput.length !== 6 || validating) && styles.validateButtonDisabled,
+                (deliveryCodeInput.length !== 5 || validating) && styles.validateButtonDisabled,
               ]}
               onPress={handleValidateDelivery}
-              disabled={deliveryCodeInput.length !== 6 || validating}
+              disabled={deliveryCodeInput.length !== 5 || validating}
             >
               {validating ? (
                 <ActivityIndicator size="small" color="#fff" />

@@ -1,6 +1,13 @@
 import { supabase } from '@/constants/supabase';
 import { Order } from '@/constants/types';
 import { parseLocation } from '@/utils/geo';
+import {
+  getBusinessTonalliConfig,
+  createTonalliOrder,
+  sendTonalliWebhook,
+  mapYessweraEventToTonalli,
+  type TonalliOrderItem,
+} from '@/services/tonalli-bridge';
 
 // Safe characters (no O/0/I/1 to avoid confusion)
 const CODE_CHARS = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
@@ -265,6 +272,76 @@ export async function createOrder(orderData: {
         .insert(orderItems);
 
       if (itemsError) throw itemsError;
+    }
+
+    // === TONALLI BRIDGE: Enviar orden a Tonalli si el negocio esta vinculado ===
+    if (orderData.businessId && orderData.serviceType === 'food') {
+      try {
+        const tonalliConfig = await getBusinessTonalliConfig(orderData.businessId);
+        if (tonalliConfig) {
+          // Mapear items de Yesswera a items de Tonalli usando tonalli_product_id
+          const { data: productsWithTonalli } = await supabase
+            .from('products')
+            .select('id, tonalli_product_id')
+            .in('id', orderData.items.map(i => i.productId))
+            .not('tonalli_product_id', 'is', null);
+
+          const tonalliProductMap = new Map(
+            (productsWithTonalli || []).map(p => [p.id, p.tonalli_product_id])
+          );
+
+          // Solo enviar a Tonalli si TODOS los items tienen tonalli_product_id
+          const tonalliItems: TonalliOrderItem[] = [];
+          let allMapped = true;
+          for (const item of orderData.items) {
+            const tonalliProductId = tonalliProductMap.get(item.productId);
+            if (!tonalliProductId) {
+              allMapped = false;
+              break;
+            }
+            tonalliItems.push({
+              productId: tonalliProductId,
+              quantity: item.quantity,
+              notes: item.specialInstructions,
+            });
+          }
+
+          if (allMapped && tonalliItems.length > 0) {
+            // Obtener datos del cliente
+            const { data: clientData } = await supabase
+              .from('users')
+              .select('full_name, phone')
+              .eq('id', orderData.clientId)
+              .single();
+
+            const tonalliResponse = await createTonalliOrder(
+              tonalliConfig.tonalli_api_key,
+              {
+                slug: tonalliConfig.tonalli_slug,
+                externalOrderId: order.id,
+                items: tonalliItems,
+                customerName: clientData?.full_name || 'Cliente Yesswera',
+                customerPhone: clientData?.phone || '',
+                deliveryAddress: orderData.deliveryAddress,
+                notes: orderData.deliveryInstructions,
+              }
+            );
+
+            if (tonalliResponse) {
+              // Guardar el tonalli_order_id en la orden de Yesswera
+              await supabase
+                .from('orders')
+                .update({ tonalli_order_id: tonalliResponse.tonalliOrderId })
+                .eq('id', order.id);
+            }
+            // Si Tonalli falla, la orden ya existe en Supabase (fallback)
+            // Un job posterior puede reintentar la sincronizacion
+          }
+        }
+      } catch (tonalliError) {
+        // Tonalli caido: la orden vive solo en Supabase por ahora
+        console.warn('Tonalli bridge error (non-blocking):', tonalliError);
+      }
     }
 
     return mapOrder(order);
@@ -908,10 +985,33 @@ export async function updateOrderStatus(
       .from('orders')
       .update(updateData)
       .eq('id', orderId)
-      .select()
+      .select('*, businesses(id, tonalli_slug, tonalli_linked, tonalli_api_key)')
       .single();
 
     if (error) throw error;
+
+    // === TONALLI BRIDGE: Notificar a Tonalli de cambios de status del driver ===
+    if (data.tonalli_order_id && data.businesses?.tonalli_linked) {
+      const webhookEvent = mapYessweraEventToTonalli(status);
+      if (webhookEvent) {
+        const webhookData: Record<string, any> = {};
+
+        // Agregar datos relevantes segun el evento
+        if (webhookEvent === 'driver_assigned' && additionalFields) {
+          webhookData.driverName = additionalFields.driverName;
+          webhookData.driverPhone = additionalFields.driverPhone;
+          webhookData.driverVehicle = additionalFields.driverVehicle;
+          webhookData.estimatedMinutes = additionalFields.estimatedMinutes;
+        }
+
+        sendTonalliWebhook(data.businesses.tonalli_api_key, {
+          slug: data.businesses.tonalli_slug,
+          event: webhookEvent,
+          externalOrderId: orderId,
+          data: webhookData,
+        }).catch((err: any) => console.warn('Tonalli webhook error (non-blocking):', err));
+      }
+    }
 
     return mapOrder(data);
   } catch (error) {

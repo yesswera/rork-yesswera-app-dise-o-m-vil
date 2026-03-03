@@ -41,6 +41,11 @@
         "foregroundImage": "./assets/images/adaptive-icon.png",
         "backgroundColor": "#ffffff"
       },
+      "config": {
+        "googleMaps": {
+          "apiKey": "AIzaSyCN3YaVIo381yI4PVlHLmCeC7At061sUNc"
+        }
+      },
       "package": "app.rork.yesswera_app_disenio_movil",
       "permissions": [
         "android.permission.CAMERA",

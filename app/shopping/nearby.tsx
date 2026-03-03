@@ -61,27 +61,53 @@ export default function NearbyStoresScreen() {
   const [selectedBusiness, setSelectedBusiness] = useState<BusinessWithLocation | null>(null);
   const [showList, setShowList] = useState(false);
 
-  // Obtener ubicación del usuario
+  // Obtener ubicación del usuario con timeout y fallbacks
   useEffect(() => {
     (async () => {
+      const fallbackLocation = { latitude: 19.9333, longitude: -105.2419 }; // Tomatlan centro
+
       try {
         const { status } = await Location.requestForegroundPermissionsAsync();
         if (status !== 'granted') {
           Alert.alert('Permiso denegado', 'Necesitamos acceso a tu ubicación para mostrar comercios cercanos');
-          // Usar ubicación por defecto (Tomatlán centro)
-          setUserLocation({ latitude: 19.9333, longitude: -105.2419 });
+          setUserLocation(fallbackLocation);
           return;
         }
 
-        const location = await Location.getCurrentPositionAsync({});
-        setUserLocation({
-          latitude: location.coords.latitude,
-          longitude: location.coords.longitude,
+        // Try getCurrentPosition with a 10-second timeout
+        const locationPromise = Location.getCurrentPositionAsync({
+          accuracy: Location.Accuracy.Balanced,
         });
+        const timeoutPromise = new Promise<never>((_, reject) =>
+          setTimeout(() => reject(new Error('timeout')), 10000)
+        );
+
+        try {
+          const location = await Promise.race([locationPromise, timeoutPromise]);
+          setUserLocation({
+            latitude: location.coords.latitude,
+            longitude: location.coords.longitude,
+          });
+          return;
+        } catch {
+          console.log('getCurrentPosition timed out, trying last known...');
+        }
+
+        // Fallback: try last known position (instant)
+        const lastKnown = await Location.getLastKnownPositionAsync({});
+        if (lastKnown) {
+          setUserLocation({
+            latitude: lastKnown.coords.latitude,
+            longitude: lastKnown.coords.longitude,
+          });
+          return;
+        }
+
+        // Final fallback: Tomatlan center
+        setUserLocation(fallbackLocation);
       } catch (error) {
         console.error('Error getting location:', error);
-        // Usar ubicación por defecto
-        setUserLocation({ latitude: 19.9333, longitude: -105.2419 });
+        setUserLocation(fallbackLocation);
       }
     })();
   }, []);
