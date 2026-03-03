@@ -356,7 +356,7 @@ export default function DriverDashboardScreen() {
           <View
             key={index}
             style={[styles.statCard, {
-              backgroundColor: colors.background.card,
+              backgroundColor: colors.card,
               borderRadius: radius.md,
               padding: space.md,
             }]}
@@ -412,7 +412,7 @@ export default function DriverDashboardScreen() {
           <TouchableSound
             key={index}
             style={[styles.quickActionCard, {
-              backgroundColor: colors.background.card,
+              backgroundColor: colors.card,
               borderRadius: radius.md,
               padding: space.md,
             }]}
@@ -442,7 +442,7 @@ export default function DriverDashboardScreen() {
       )}
 
       {isOnline && availableOrders.length === 0 && (
-        <View style={[styles.emptyState, { backgroundColor: colors.background.card, borderRadius: radius.md, padding: space.xl }]}>
+        <View style={[styles.emptyState, { backgroundColor: colors.card, borderRadius: radius.md, padding: space.xl }]}>
           <Package size={32} color={colors.text.muted} />
           <ThemedText variant="subtitle" style={[styles.emptyStateTitle, { color: colors.text.primary }]}>
             No hay ordenes disponibles en tu zona
@@ -457,7 +457,7 @@ export default function DriverDashboardScreen() {
         <View
           key={order.id}
           style={[styles.orderCard, {
-            backgroundColor: colors.background.card,
+            backgroundColor: colors.card,
             borderRadius: radius.lg,
             padding: space.md,
             marginBottom: space.sm,

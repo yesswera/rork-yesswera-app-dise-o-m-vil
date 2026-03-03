@@ -159,7 +159,7 @@ export default function DriverProfileScreen() {
       onRefresh={handleRefresh}
     >
       {/* Profile Header */}
-      <View style={[styles.profileHeader, { backgroundColor: colors.background.card }]}>
+      <View style={[styles.profileHeader, { backgroundColor: colors.card }]}>
         <View style={styles.avatarContainer}>
           <Image source={{ uri: displayAvatar }} style={[styles.avatar, { borderColor: colors.primary }]} />
           <TouchableSound style={[styles.cameraButton, { backgroundColor: colors.primary }]} onPress={handleEditPhoto}>

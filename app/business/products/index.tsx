@@ -119,7 +119,7 @@ export default function BusinessProductsScreen() {
   };
 
   const renderProduct = ({ item }: { item: ProductFull }) => (
-    <View style={[styles.productCard, { backgroundColor: colors.background.card, borderColor: colors.border.light }]}>
+    <View style={[styles.productCard, { backgroundColor: colors.card, borderColor: colors.border.light }]}>
       <View style={styles.productHeader}>
         <View style={styles.productInfo}>
           <Text style={[styles.productName, { color: colors.text.primary }]}>{item.name}</Text>

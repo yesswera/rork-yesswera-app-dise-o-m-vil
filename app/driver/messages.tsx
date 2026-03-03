@@ -282,7 +282,7 @@ export default function DriverMessagesScreen() {
                 return (
                   <TouchableSound
                     key={conversation.id}
-                    style={[styles.conversationCard, { backgroundColor: colors.background.card, borderBottomColor: colors.border.light }]}
+                    style={[styles.conversationCard, { backgroundColor: colors.card, borderBottomColor: colors.border.light }]}
                     onPress={() => handleOpenConversation(conversation.id)}
                   >
                     <View style={styles.avatarContainer}>
@@ -339,7 +339,7 @@ export default function DriverMessagesScreen() {
                     style={[
                       styles.conversationCard,
                       styles.conversationCardClosed,
-                      { backgroundColor: colors.background.card, borderBottomColor: colors.border.light },
+                      { backgroundColor: colors.card, borderBottomColor: colors.border.light },
                     ]}
                     onPress={() => handleOpenConversation(conversation.id)}
                   >

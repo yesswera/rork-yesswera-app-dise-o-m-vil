@@ -167,7 +167,7 @@ export default function BusinessDashboardScreen() {
               <View
                 key={index}
                 style={[styles.statCard, {
-                  backgroundColor: colors.background.card,
+                  backgroundColor: colors.card,
                   borderRadius: radius.md,
                   padding: space.md,
                 }]}
@@ -195,7 +195,7 @@ export default function BusinessDashboardScreen() {
 
             <TouchableSound
               style={[styles.secondaryButton, {
-                backgroundColor: colors.background.card,
+                backgroundColor: colors.card,
                 borderColor: colors.secondary,
                 borderRadius: radius.md,
                 padding: space.md,
@@ -208,7 +208,7 @@ export default function BusinessDashboardScreen() {
 
             <TouchableSound
               style={[styles.secondaryButton, {
-                backgroundColor: colors.background.card,
+                backgroundColor: colors.card,
                 borderColor: colors.success,
                 borderRadius: radius.md,
                 padding: space.md,
@@ -221,7 +221,7 @@ export default function BusinessDashboardScreen() {
 
             <TouchableSound
               style={[styles.secondaryButton, {
-                backgroundColor: colors.background.card,
+                backgroundColor: colors.card,
                 borderColor: colors.warning,
                 borderRadius: radius.md,
                 padding: space.md,
@@ -234,7 +234,7 @@ export default function BusinessDashboardScreen() {
 
             <TouchableSound
               style={[styles.secondaryButton, {
-                backgroundColor: colors.background.card,
+                backgroundColor: colors.card,
                 borderColor: colors.info,
                 borderRadius: radius.md,
                 padding: space.md,
@@ -247,7 +247,7 @@ export default function BusinessDashboardScreen() {
 
             <TouchableSound
               style={[styles.secondaryButton, {
-                backgroundColor: colors.background.card,
+                backgroundColor: colors.card,
                 borderColor: colors.accent,
                 borderRadius: radius.md,
                 padding: space.md,

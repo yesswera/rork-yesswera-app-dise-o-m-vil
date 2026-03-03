@@ -329,7 +329,7 @@ export default function DriverHistoryScreen() {
                 </View>
 
                 {items.map((item) => (
-                  <TouchableSound key={item.id} style={[styles.historyCard, { backgroundColor: colors.background.card }]}>
+                  <TouchableSound key={item.id} style={[styles.historyCard, { backgroundColor: colors.card }]}>
                     <View style={styles.cardHeader}>
                       <View style={[styles.typeTag, { backgroundColor: colors.background.secondary }]}>
                         <ThemedText variant="caption" bold style={{ color: colors.text.primary }}>
@@ -419,7 +419,7 @@ export default function DriverHistoryScreen() {
 
       <Modal visible={showFilters} animationType="slide" transparent>
         <View style={styles.modalOverlay}>
-          <View style={[styles.modalContent, { backgroundColor: colors.background.card }]}>
+          <View style={[styles.modalContent, { backgroundColor: colors.card }]}>
             <View style={[styles.modalHeader, { borderBottomColor: colors.border.light }]}>
               <ThemedText variant="h3" style={{ color: colors.text.primary }}>Filtros</ThemedText>
               <TouchableSound onPress={() => setShowFilters(false)}>

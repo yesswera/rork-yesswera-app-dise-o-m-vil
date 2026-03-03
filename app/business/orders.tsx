@@ -244,7 +244,7 @@ export default function BusinessOrdersScreen() {
     return (
       <TouchableSound
         key={order.id}
-        style={[styles.orderCard, { backgroundColor: colors.background.card, borderColor: colors.border.light }]}
+        style={[styles.orderCard, { backgroundColor: colors.card, borderColor: colors.border.light }]}
         onPress={() => router.push(`/business/comanda/${order.id}` as any)}
         activeOpacity={0.7}
       >
@@ -357,7 +357,7 @@ export default function BusinessOrdersScreen() {
               Pide el codigo de recoleccion al repartidor para entregar el pedido:
             </Text>
             <TextInput
-              style={[styles.codeInput, { borderColor: colors.success, backgroundColor: colors.background.card, color: colors.text.primary }]}
+              style={[styles.codeInput, { borderColor: colors.success, backgroundColor: colors.card, color: colors.text.primary }]}
               value={pickupCodeInputs[order.id.toString()] || ''}
               onChangeText={(text) =>
                 setPickupCodeInputs(prev => ({
@@ -447,7 +447,7 @@ export default function BusinessOrdersScreen() {
                   key={min}
                   style={[
                     styles.prepTimeButton,
-                    { borderColor: colors.success, backgroundColor: colors.background.card },
+                    { borderColor: colors.success, backgroundColor: colors.card },
                     min === 20 && { backgroundColor: colors.success },
                   ]}
                   onPress={() => handleAcceptOrder(order.id.toString(), min)}
@@ -482,7 +482,7 @@ export default function BusinessOrdersScreen() {
                 key={key}
                 style={[
                   styles.rejectReasonButton,
-                  { backgroundColor: colors.background.card, borderColor: colors.error },
+                  { backgroundColor: colors.card, borderColor: colors.error },
                   rejectingOrder === order.id.toString() && styles.rejectReasonButtonDisabled,
                 ]}
                 onPress={() => handleRejectOrder(order.id.toString(), key)}
@@ -517,7 +517,7 @@ export default function BusinessOrdersScreen() {
           key={tab.key}
           style={[
             styles.tab,
-            { backgroundColor: colors.background.card, borderColor: colors.border.light },
+            { backgroundColor: colors.card, borderColor: colors.border.light },
             activeTab === tab.key && { backgroundColor: colors.secondary, borderColor: colors.secondary },
           ]}
           onPress={() => setActiveTab(tab.key)}

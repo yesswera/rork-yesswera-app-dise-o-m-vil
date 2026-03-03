@@ -344,7 +344,7 @@ export default function ActiveOrderScreen() {
 
         {/* Contact Actions */}
         <View style={styles.contactActions}>
-          <TouchableSound style={[styles.contactButton, { borderColor: colors.border.light, backgroundColor: colors.background.card }]} onPress={callClient}>
+          <TouchableSound style={[styles.contactButton, { borderColor: colors.border.light, backgroundColor: colors.card }]} onPress={callClient}>
             <Phone size={18} color={colors.primary} />
             <ThemedText variant="label" style={{ color: colors.text.primary }}>Llamar</ThemedText>
           </TouchableSound>
