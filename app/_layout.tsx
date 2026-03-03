@@ -52,8 +52,8 @@ function RootLayoutNav() {
   return (
     <Stack screenOptions={{ headerBackTitle: "Atrás" }}>
       <Stack.Screen name="index" options={{ headerShown: false }} />
-      <Stack.Screen name="login" options={{ title: "Iniciar Sesión", presentation: "modal" }} />
-      <Stack.Screen name="register" options={{ title: "Crear Cuenta", presentation: "modal" }} />
+      <Stack.Screen name="login" options={{ title: "Iniciar Sesión", headerShown: false }} />
+      <Stack.Screen name="register" options={{ title: "Crear Cuenta", headerShown: false }} />
       <Stack.Screen name="food/restaurants" options={{ title: "Restaurantes" }} />
       <Stack.Screen name="food/menu/[businessId]" options={{ title: "Menú" }} />
       <Stack.Screen name="food/cart" options={{ title: "Carrito" }} />
@@ -79,7 +79,7 @@ function RootLayoutNav() {
       <Stack.Screen name="ratings/create/[orderId]" options={{ title: "Calificar Servicio" }} />
       <Stack.Screen name="support/index" options={{ title: "Centro de Ayuda" }} />
       <Stack.Screen name="chat/order/[orderId]" options={{ title: "Chat", headerShown: false }} />
-      <Stack.Screen name="password-recovery/request" options={{ title: "Recuperar Contraseña", presentation: "modal" }} />
+      <Stack.Screen name="password-recovery/request" options={{ title: "Recuperar Contraseña" }} />
       <Stack.Screen name="password-recovery/verify" options={{ title: "Verificar Código" }} />
       <Stack.Screen name="password-recovery/reset" options={{ title: "Nueva Contraseña" }} />
       <Stack.Screen name="+not-found" options={{ title: "Oops!" }} />
