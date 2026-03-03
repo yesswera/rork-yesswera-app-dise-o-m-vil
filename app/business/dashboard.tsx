@@ -21,34 +21,12 @@ import AccessibilityControls from '@/components/AccessibilityControls';
 import ScreenContainer from '@/components/ScreenContainer';
 import { supabase } from '@/constants/supabase';
 
-// ============================================================================
-// COLORES EXPLICITOS PARA MODO OSCURO
-// ============================================================================
-
-const COLORS = {
-  light: {
-    card: '#FFFFFF',
-    cardAlt: '#F5F5F4',
-    border: '#E7E5E4',
-    text: '#1C1917',
-    textSecondary: '#57534E',
-    textMuted: '#A8A29E',
-  },
-  dark: {
-    card: '#292524',
-    cardAlt: '#44403C',
-    border: '#44403C',
-    text: '#FAFAFA',
-    textSecondary: '#D6D3D1',
-    textMuted: '#78716C',
-  },
-};
+// Theme colors via useTheme() — no local COLORS needed
 
 export default function BusinessDashboardScreen() {
   const router = useRouter();
   const { user, logout } = useAuth();
   const { isDark, colors, space, radius } = useTheme();
-  const theme = isDark ? COLORS.dark : COLORS.light;
 
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -189,14 +167,14 @@ export default function BusinessDashboardScreen() {
               <View
                 key={index}
                 style={[styles.statCard, {
-                  backgroundColor: theme.card,
+                  backgroundColor: colors.background.card,
                   borderRadius: radius.md,
                   padding: space.md,
                 }]}
               >
                 <stat.icon size={24} color={stat.color} />
-                <ThemedText variant="h3" style={{ marginTop: space.xs, color: theme.text }}>{stat.value}</ThemedText>
-                <ThemedText variant="caption" style={{ color: theme.textSecondary, textAlign: 'center' }}>{stat.label}</ThemedText>
+                <ThemedText variant="h3" style={{ marginTop: space.xs, color: colors.text.primary }}>{stat.value}</ThemedText>
+                <ThemedText variant="caption" style={{ color: colors.text.secondary, textAlign: 'center' }}>{stat.label}</ThemedText>
               </View>
             ))}
           </View>
@@ -217,7 +195,7 @@ export default function BusinessDashboardScreen() {
 
             <TouchableSound
               style={[styles.secondaryButton, {
-                backgroundColor: theme.card,
+                backgroundColor: colors.background.card,
                 borderColor: colors.secondary,
                 borderRadius: radius.md,
                 padding: space.md,
@@ -230,7 +208,7 @@ export default function BusinessDashboardScreen() {
 
             <TouchableSound
               style={[styles.secondaryButton, {
-                backgroundColor: theme.card,
+                backgroundColor: colors.background.card,
                 borderColor: colors.success,
                 borderRadius: radius.md,
                 padding: space.md,
@@ -243,7 +221,7 @@ export default function BusinessDashboardScreen() {
 
             <TouchableSound
               style={[styles.secondaryButton, {
-                backgroundColor: theme.card,
+                backgroundColor: colors.background.card,
                 borderColor: colors.warning,
                 borderRadius: radius.md,
                 padding: space.md,
@@ -256,20 +234,20 @@ export default function BusinessDashboardScreen() {
 
             <TouchableSound
               style={[styles.secondaryButton, {
-                backgroundColor: theme.card,
-                borderColor: colors.info || '#3B82F6',
+                backgroundColor: colors.background.card,
+                borderColor: colors.info,
                 borderRadius: radius.md,
                 padding: space.md,
               }]}
               onPress={() => router.push('/profile' as any)}
             >
-              <User size={22} color={colors.info || '#3B82F6'} />
-              <ThemedText variant="subtitle" style={{ color: colors.info || '#3B82F6', fontWeight: '700' }}>Mi Cuenta</ThemedText>
+              <User size={22} color={colors.info} />
+              <ThemedText variant="subtitle" style={{ color: colors.info, fontWeight: '700' }}>Mi Cuenta</ThemedText>
             </TouchableSound>
 
             <TouchableSound
               style={[styles.secondaryButton, {
-                backgroundColor: theme.card,
+                backgroundColor: colors.background.card,
                 borderColor: colors.accent,
                 borderRadius: radius.md,
                 padding: space.md,
@@ -329,7 +307,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.08,
+    shadowOpacity: 0.04,
     shadowRadius: 8,
     elevation: 2,
   },
@@ -342,9 +320,9 @@ const styles = StyleSheet.create({
     gap: 10,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
+    shadowOpacity: 0.04,
     shadowRadius: 8,
-    elevation: 3,
+    elevation: 2,
   },
   secondaryButton: {
     height: 56,

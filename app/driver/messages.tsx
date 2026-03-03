@@ -21,30 +21,7 @@ import { es } from 'date-fns/locale';
 import { useAuth } from '@/contexts/auth';
 import { supabase } from '@/constants/supabase';
 
-// ============================================================================
-// COLORES EXPLICITOS PARA MODO OSCURO
-// ============================================================================
-
-const COLORS = {
-  light: {
-    card: '#FFFFFF',
-    cardAlt: '#F5F5F4',
-    border: '#E7E5E4',
-    text: '#1C1917',
-    textSecondary: '#57534E',
-    textMuted: '#A8A29E',
-    error: '#EF4444',
-  },
-  dark: {
-    card: '#292524',
-    cardAlt: '#44403C',
-    border: '#44403C',
-    text: '#FAFAFA',
-    textSecondary: '#D6D3D1',
-    textMuted: '#78716C',
-    error: '#EF4444',
-  },
-};
+// Theme colors via useTheme() — no local COLORS needed
 
 interface DriverConversation {
   id: string;          // order_id (used as conversation id)
@@ -64,7 +41,6 @@ export default function DriverMessagesScreen() {
   const router = useRouter();
   const { user } = useAuth();
   const { isDark, colors, radius, space } = useTheme();
-  const theme = isDark ? COLORS.dark : COLORS.light;
 
   const [searchQuery, setSearchQuery] = useState('');
   const [conversations, setConversations] = useState<DriverConversation[]>([]);
@@ -280,17 +256,17 @@ export default function DriverMessagesScreen() {
       {isLoading ? (
         <View style={styles.emptyState}>
           <ActivityIndicator size="large" color={colors.primary} />
-          <ThemedText variant="body" style={[styles.emptySubtext, { color: theme.textSecondary }]}>
+          <ThemedText variant="body" style={[styles.emptySubtext, { color: colors.text.secondary }]}>
             Cargando conversaciones...
           </ThemedText>
         </View>
       ) : activeConversations.length === 0 && closedConversations.length === 0 ? (
         <View style={styles.emptyState}>
-          <MessageCircle size={48} color={theme.textMuted} />
-          <ThemedText variant="subtitle" bold style={[styles.emptyText, { color: theme.text }]}>
+          <MessageCircle size={48} color={colors.text.muted} />
+          <ThemedText variant="subtitle" bold style={[styles.emptyText, { color: colors.text.primary }]}>
             No hay conversaciones
           </ThemedText>
-          <ThemedText variant="body" style={[styles.emptySubtext, { color: theme.textSecondary }]}>
+          <ThemedText variant="body" style={[styles.emptySubtext, { color: colors.text.secondary }]}>
             {searchQuery ? 'Intenta con otro termino de busqueda' : 'Tus mensajes apareceran aqui'}
           </ThemedText>
         </View>
@@ -298,7 +274,7 @@ export default function DriverMessagesScreen() {
         <>
           {activeConversations.length > 0 && (
             <View style={styles.section}>
-              <ThemedText variant="label" bold style={{ color: theme.text, marginBottom: 12 }}>
+              <ThemedText variant="label" bold style={{ color: colors.text.primary, marginBottom: 12 }}>
                 Activas
               </ThemedText>
               {activeConversations.map((conversation) => {
@@ -306,15 +282,15 @@ export default function DriverMessagesScreen() {
                 return (
                   <TouchableSound
                     key={conversation.id}
-                    style={[styles.conversationCard, { backgroundColor: theme.card, borderBottomColor: theme.border }]}
+                    style={[styles.conversationCard, { backgroundColor: colors.background.card, borderBottomColor: colors.border.light }]}
                     onPress={() => handleOpenConversation(conversation.id)}
                   >
                     <View style={styles.avatarContainer}>
-                      <View style={[styles.avatar, { backgroundColor: theme.cardAlt }]}>
+                      <View style={[styles.avatar, { backgroundColor: colors.background.secondary }]}>
                         <Icon size={24} color={colors.primary} />
                       </View>
                       {conversation.unreadCount > 0 && (
-                        <View style={[styles.badge, { backgroundColor: theme.error }]}>
+                        <View style={[styles.badge, { backgroundColor: colors.error }]}>
                           <ThemedText variant="caption" bold style={styles.badgeText}>
                             {conversation.unreadCount}
                           </ThemedText>
@@ -323,21 +299,21 @@ export default function DriverMessagesScreen() {
                     </View>
                     <View style={styles.conversationContent}>
                       <View style={styles.conversationHeader}>
-                        <ThemedText variant="subtitle" bold style={{ color: theme.text }}>
+                        <ThemedText variant="subtitle" bold style={{ color: colors.text.primary }}>
                           {conversation.name}
                         </ThemedText>
-                        <ThemedText variant="caption" style={{ color: theme.textSecondary }}>
+                        <ThemedText variant="caption" style={{ color: colors.text.secondary }}>
                           {getTimeDisplay(conversation.lastMessageTime)}
                         </ThemedText>
                       </View>
-                      <ThemedText variant="caption" style={{ color: theme.textMuted }}>
+                      <ThemedText variant="caption" style={{ color: colors.text.muted }}>
                         Orden {conversation.orderNumber}
                       </ThemedText>
                       <ThemedText
                         variant="body"
                         style={[
-                          { color: theme.textSecondary },
-                          conversation.unreadCount > 0 && { fontWeight: '600', color: theme.text },
+                          { color: colors.text.secondary },
+                          conversation.unreadCount > 0 && { fontWeight: '600', color: colors.text.primary },
                         ]}
                         numberOfLines={1}
                       >
@@ -352,7 +328,7 @@ export default function DriverMessagesScreen() {
 
           {closedConversations.length > 0 && (
             <View style={styles.section}>
-              <ThemedText variant="label" bold style={{ color: theme.text, marginBottom: 12 }}>
+              <ThemedText variant="label" bold style={{ color: colors.text.primary, marginBottom: 12 }}>
                 Conversaciones Cerradas
               </ThemedText>
               {closedConversations.map((conversation) => {
@@ -363,28 +339,28 @@ export default function DriverMessagesScreen() {
                     style={[
                       styles.conversationCard,
                       styles.conversationCardClosed,
-                      { backgroundColor: theme.card, borderBottomColor: theme.border },
+                      { backgroundColor: colors.background.card, borderBottomColor: colors.border.light },
                     ]}
                     onPress={() => handleOpenConversation(conversation.id)}
                   >
                     <View style={styles.avatarContainer}>
-                      <View style={[styles.avatar, styles.avatarClosed, { backgroundColor: theme.cardAlt }]}>
-                        <Icon size={24} color={theme.textMuted} />
+                      <View style={[styles.avatar, styles.avatarClosed, { backgroundColor: colors.background.secondary }]}>
+                        <Icon size={24} color={colors.text.muted} />
                       </View>
                     </View>
                     <View style={styles.conversationContent}>
                       <View style={styles.conversationHeader}>
-                        <ThemedText variant="subtitle" bold style={{ color: theme.text }}>
+                        <ThemedText variant="subtitle" bold style={{ color: colors.text.primary }}>
                           {conversation.name}
                         </ThemedText>
-                        <ThemedText variant="caption" style={{ color: theme.textSecondary }}>
+                        <ThemedText variant="caption" style={{ color: colors.text.secondary }}>
                           {getTimeDisplay(conversation.lastMessageTime)}
                         </ThemedText>
                       </View>
-                      <ThemedText variant="caption" style={{ color: theme.textMuted }}>
+                      <ThemedText variant="caption" style={{ color: colors.text.muted }}>
                         Orden {conversation.orderNumber}
                       </ThemedText>
-                      <ThemedText variant="body" style={{ color: theme.textSecondary }} numberOfLines={1}>
+                      <ThemedText variant="body" style={{ color: colors.text.secondary }} numberOfLines={1}>
                         {conversation.lastMessage}
                       </ThemedText>
                     </View>
@@ -435,7 +411,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingVertical: 14,
     borderBottomWidth: 1,
-    borderRadius: 12,
+    borderRadius: 16,
     marginBottom: 8,
   },
   conversationCardClosed: {

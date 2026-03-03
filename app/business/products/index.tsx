@@ -24,34 +24,12 @@ import EmptyState from '@/components/EmptyState';
 import ScreenContainer from '@/components/ScreenContainer';
 import { supabase } from '@/constants/supabase';
 
-// ============================================================================
-// COLORES EXPLICITOS PARA MODO OSCURO
-// ============================================================================
-
-const COLORS = {
-  light: {
-    card: '#FFFFFF',
-    cardAlt: '#F5F5F4',
-    border: '#E7E5E4',
-    text: '#1C1917',
-    textSecondary: '#57534E',
-    textMuted: '#A8A29E',
-  },
-  dark: {
-    card: '#292524',
-    cardAlt: '#44403C',
-    border: '#44403C',
-    text: '#FAFAFA',
-    textSecondary: '#D6D3D1',
-    textMuted: '#78716C',
-  },
-};
+// Theme colors via useTheme() — no local COLORS needed
 
 export default function BusinessProductsScreen() {
   const router = useRouter();
   const { user } = useAuth();
   const { isDark, colors } = useTheme();
-  const theme = isDark ? COLORS.dark : COLORS.light;
 
   const [products, setProducts] = useState<ProductFull[]>([]);
   const [isLoading, setIsLoading] = useState<boolean>(true);
@@ -141,11 +119,11 @@ export default function BusinessProductsScreen() {
   };
 
   const renderProduct = ({ item }: { item: ProductFull }) => (
-    <View style={[styles.productCard, { backgroundColor: theme.card, borderColor: theme.border }]}>
+    <View style={[styles.productCard, { backgroundColor: colors.background.card, borderColor: colors.border.light }]}>
       <View style={styles.productHeader}>
         <View style={styles.productInfo}>
-          <Text style={[styles.productName, { color: theme.text }]}>{item.name}</Text>
-          <Text style={[styles.productDescription, { color: theme.textSecondary }]} numberOfLines={2}>
+          <Text style={[styles.productName, { color: colors.text.primary }]}>{item.name}</Text>
+          <Text style={[styles.productDescription, { color: colors.text.secondary }]} numberOfLines={2}>
             {item.description}
           </Text>
           <Text style={[styles.productPrice, { color: colors.primary }]}>${item.price.toFixed(2)} MXN</Text>
@@ -154,7 +132,7 @@ export default function BusinessProductsScreen() {
         <Switch
           value={item.available}
           onValueChange={() => handleToggleAvailability(item.id, item.available)}
-          trackColor={{ false: theme.border, true: colors.success }}
+          trackColor={{ false: colors.border.light, true: colors.success }}
           thumbColor={'#FFFFFF'}
         />
       </View>
@@ -238,7 +216,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingHorizontal: 16,
     paddingVertical: 12,
-    borderRadius: 10,
+    borderRadius: 14,
     gap: 8,
     alignSelf: 'flex-start',
   },
@@ -250,7 +228,7 @@ const styles = StyleSheet.create({
     paddingBottom: 20,
   },
   productCard: {
-    borderRadius: 12,
+    borderRadius: 16,
     padding: 16,
     marginBottom: 12,
     borderWidth: 1,
@@ -289,7 +267,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     padding: 10,
-    borderRadius: 8,
+    borderRadius: 14,
     gap: 6,
   },
   editButton: {},

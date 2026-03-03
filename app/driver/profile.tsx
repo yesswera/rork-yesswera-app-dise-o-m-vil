@@ -20,38 +20,12 @@ import { ThemedText } from '@/components/themed';
 import ScreenContainer, { ScreenCard } from '@/components/ScreenContainer';
 import { supabase } from '@/constants/supabase';
 
-// ============================================================================
-// COLORES EXPLICITOS PARA MODO OSCURO
-// ============================================================================
-
-const COLORS = {
-  light: {
-    card: '#FFFFFF',
-    cardAlt: '#F5F5F4',
-    border: '#E7E5E4',
-    text: '#1C1917',
-    textSecondary: '#57534E',
-    textMuted: '#A8A29E',
-    success: '#22C55E',
-    warning: '#F59E0B',
-  },
-  dark: {
-    card: '#292524',
-    cardAlt: '#44403C',
-    border: '#44403C',
-    text: '#FAFAFA',
-    textSecondary: '#D6D3D1',
-    textMuted: '#78716C',
-    success: '#22C55E',
-    warning: '#F59E0B',
-  },
-};
+// Theme colors via useTheme() — no local COLORS needed
 
 export default function DriverProfileScreen() {
   const router = useRouter();
   const { user } = useAuth();
   const { isDark, colors, radius, space } = useTheme();
-  const theme = isDark ? COLORS.dark : COLORS.light;
 
   const [driverData, setDriverData] = useState<any>(null);
   const [loading, setLoading] = useState(true);
@@ -157,7 +131,7 @@ export default function DriverProfileScreen() {
       >
         <View style={styles.loadingContainer}>
           <ActivityIndicator size="large" color={colors.primary} />
-          <ThemedText variant="body" style={[styles.loadingText, { color: theme.textSecondary }]}>
+          <ThemedText variant="body" style={[styles.loadingText, { color: colors.text.secondary }]}>
             Cargando perfil...
           </ThemedText>
         </View>
@@ -185,20 +159,20 @@ export default function DriverProfileScreen() {
       onRefresh={handleRefresh}
     >
       {/* Profile Header */}
-      <View style={[styles.profileHeader, { backgroundColor: theme.card }]}>
+      <View style={[styles.profileHeader, { backgroundColor: colors.background.card }]}>
         <View style={styles.avatarContainer}>
           <Image source={{ uri: displayAvatar }} style={[styles.avatar, { borderColor: colors.primary }]} />
           <TouchableSound style={[styles.cameraButton, { backgroundColor: colors.primary }]} onPress={handleEditPhoto}>
             <Camera size={18} color="#FFFFFF" />
           </TouchableSound>
         </View>
-        <ThemedText variant="h2" style={{ color: theme.text }}>{displayName}</ThemedText>
+        <ThemedText variant="h2" style={{ color: colors.text.primary }}>{displayName}</ThemedText>
         <View style={styles.ratingContainer}>
-          <ThemedText variant="subtitle" bold style={{ color: theme.text }}>{displayRating.toFixed(1)}</ThemedText>
-          <ThemedText variant="body" style={{ color: theme.textSecondary }}> ({displayRatingCount} calificaciones)</ThemedText>
+          <ThemedText variant="subtitle" bold style={{ color: colors.text.primary }}>{displayRating.toFixed(1)}</ThemedText>
+          <ThemedText variant="body" style={{ color: colors.text.secondary }}> ({displayRatingCount} calificaciones)</ThemedText>
         </View>
-        <ThemedText variant="body" style={{ color: theme.textSecondary }}>Activo desde {displayMemberSince}</ThemedText>
-        <TouchableSound onPress={handleEditPersonalInfo} style={[styles.editProfileButton, { backgroundColor: theme.cardAlt }]}>
+        <ThemedText variant="body" style={{ color: colors.text.secondary }}>Activo desde {displayMemberSince}</ThemedText>
+        <TouchableSound onPress={handleEditPersonalInfo} style={[styles.editProfileButton, { backgroundColor: colors.background.secondary }]}>
           <Edit2 size={16} color={colors.primary} />
           <ThemedText variant="label" style={{ color: colors.primary }}>Editar Perfil</ThemedText>
         </TouchableSound>
@@ -207,37 +181,37 @@ export default function DriverProfileScreen() {
       {/* Personal Info */}
       <View style={styles.sectionHeader}>
         <Phone size={20} color={colors.primary} />
-        <ThemedText variant="h3" style={{ color: theme.text }}>Datos Personales</ThemedText>
+        <ThemedText variant="h3" style={{ color: colors.text.primary }}>Datos Personales</ThemedText>
       </View>
       <ScreenCard>
         <View style={styles.infoRow}>
-          <ThemedText variant="label" style={{ color: theme.textSecondary }}>Telefono:</ThemedText>
-          <ThemedText variant="body" style={{ color: theme.text }}>{displayPhone}</ThemedText>
+          <ThemedText variant="label" style={{ color: colors.text.secondary }}>Telefono:</ThemedText>
+          <ThemedText variant="body" style={{ color: colors.text.primary }}>{displayPhone}</ThemedText>
         </View>
-        <View style={[styles.divider, { backgroundColor: theme.border }]} />
+        <View style={[styles.divider, { backgroundColor: colors.border.light }]} />
         <View style={styles.infoRow}>
-          <ThemedText variant="label" style={{ color: theme.textSecondary }}>Email:</ThemedText>
-          <ThemedText variant="body" style={{ color: theme.text }}>{displayEmail}</ThemedText>
+          <ThemedText variant="label" style={{ color: colors.text.secondary }}>Email:</ThemedText>
+          <ThemedText variant="body" style={{ color: colors.text.primary }}>{displayEmail}</ThemedText>
         </View>
-        <View style={[styles.divider, { backgroundColor: theme.border }]} />
+        <View style={[styles.divider, { backgroundColor: colors.border.light }]} />
         <View style={styles.infoRow}>
-          <ThemedText variant="label" style={{ color: theme.textSecondary }}>CURP:</ThemedText>
-          <ThemedText variant="body" style={{ color: theme.text }}>No registrado</ThemedText>
+          <ThemedText variant="label" style={{ color: colors.text.secondary }}>CURP:</ThemedText>
+          <ThemedText variant="body" style={{ color: colors.text.primary }}>No registrado</ThemedText>
         </View>
       </ScreenCard>
 
       {/* Vehicle */}
       <View style={styles.sectionHeader}>
         <Car size={20} color={colors.primary} />
-        <ThemedText variant="h3" style={{ color: theme.text }}>Mi Vehiculo</ThemedText>
+        <ThemedText variant="h3" style={{ color: colors.text.primary }}>Mi Vehiculo</ThemedText>
       </View>
       <ScreenCard>
         <View style={styles.vehicleInfo}>
-          <ThemedText variant="subtitle" bold style={{ color: theme.text }}>{displayVehicleType}</ThemedText>
-          <ThemedText variant="body" style={{ color: theme.textSecondary }}>Marca y modelo: No registrado</ThemedText>
-          <ThemedText variant="body" style={{ color: theme.textSecondary }}>Placas: No registrado</ThemedText>
+          <ThemedText variant="subtitle" bold style={{ color: colors.text.primary }}>{displayVehicleType}</ThemedText>
+          <ThemedText variant="body" style={{ color: colors.text.secondary }}>Marca y modelo: No registrado</ThemedText>
+          <ThemedText variant="body" style={{ color: colors.text.secondary }}>Placas: No registrado</ThemedText>
         </View>
-        <TouchableSound style={[styles.updateButton, { backgroundColor: theme.cardAlt }]} onPress={handleEditVehicle}>
+        <TouchableSound style={[styles.updateButton, { backgroundColor: colors.background.secondary }]} onPress={handleEditVehicle}>
           <ThemedText variant="label" style={{ color: colors.primary }}>Registrar vehiculo</ThemedText>
         </TouchableSound>
       </ScreenCard>
@@ -245,30 +219,30 @@ export default function DriverProfileScreen() {
       {/* Documents */}
       <View style={styles.sectionHeader}>
         <FileText size={20} color={colors.primary} />
-        <ThemedText variant="h3" style={{ color: theme.text }}>Mis Documentos</ThemedText>
+        <ThemedText variant="h3" style={{ color: colors.text.primary }}>Mis Documentos</ThemedText>
       </View>
       <ScreenCard>
         <View style={styles.documentRow}>
-          <ThemedText variant="label" style={{ color: theme.textSecondary }}>INE:</ThemedText>
+          <ThemedText variant="label" style={{ color: colors.text.secondary }}>INE:</ThemedText>
           <View style={styles.documentStatus}>
-            <Clock size={16} color={theme.warning} />
-            <ThemedText variant="body" style={{ color: theme.textSecondary }}>Pendiente</ThemedText>
+            <Clock size={16} color={colors.warning} />
+            <ThemedText variant="body" style={{ color: colors.text.secondary }}>Pendiente</ThemedText>
           </View>
         </View>
-        <View style={[styles.divider, { backgroundColor: theme.border }]} />
+        <View style={[styles.divider, { backgroundColor: colors.border.light }]} />
         <View style={styles.documentRow}>
-          <ThemedText variant="label" style={{ color: theme.textSecondary }}>Licencia:</ThemedText>
+          <ThemedText variant="label" style={{ color: colors.text.secondary }}>Licencia:</ThemedText>
           <View style={styles.documentStatus}>
-            <Clock size={16} color={theme.warning} />
-            <ThemedText variant="body" style={{ color: theme.textSecondary }}>Pendiente</ThemedText>
+            <Clock size={16} color={colors.warning} />
+            <ThemedText variant="body" style={{ color: colors.text.secondary }}>Pendiente</ThemedText>
           </View>
         </View>
-        <View style={[styles.divider, { backgroundColor: theme.border }]} />
+        <View style={[styles.divider, { backgroundColor: colors.border.light }]} />
         <View style={styles.documentRow}>
-          <ThemedText variant="label" style={{ color: theme.textSecondary }}>Comprobante:</ThemedText>
+          <ThemedText variant="label" style={{ color: colors.text.secondary }}>Comprobante:</ThemedText>
           <View style={styles.documentStatus}>
-            <Clock size={16} color={theme.warning} />
-            <ThemedText variant="body" style={{ color: theme.textSecondary }}>Pendiente</ThemedText>
+            <Clock size={16} color={colors.warning} />
+            <ThemedText variant="body" style={{ color: colors.text.secondary }}>Pendiente</ThemedText>
           </View>
         </View>
         <TouchableSound style={styles.linkButton} onPress={handleUpdateDocuments}>
@@ -279,12 +253,12 @@ export default function DriverProfileScreen() {
       {/* Bank Account */}
       <View style={styles.sectionHeader}>
         <CreditCard size={20} color={colors.primary} />
-        <ThemedText variant="h3" style={{ color: theme.text }}>Datos Bancarios</ThemedText>
+        <ThemedText variant="h3" style={{ color: colors.text.primary }}>Datos Bancarios</ThemedText>
       </View>
       <ScreenCard>
         <View style={styles.infoRow}>
-          <ThemedText variant="label" style={{ color: theme.textSecondary }}>Estado:</ThemedText>
-          <ThemedText variant="body" style={{ color: theme.text }}>No configurada</ThemedText>
+          <ThemedText variant="label" style={{ color: colors.text.secondary }}>Estado:</ThemedText>
+          <ThemedText variant="body" style={{ color: colors.text.primary }}>No configurada</ThemedText>
         </View>
         <TouchableSound style={styles.linkButton} onPress={handleEditBankAccount}>
           <ThemedText variant="label" style={{ color: colors.primary }}>Configurar cuenta</ThemedText>
@@ -294,12 +268,12 @@ export default function DriverProfileScreen() {
       {/* Emergency Contact */}
       <View style={styles.sectionHeader}>
         <UserPlus size={20} color={colors.primary} />
-        <ThemedText variant="h3" style={{ color: theme.text }}>Contacto de Emergencia</ThemedText>
+        <ThemedText variant="h3" style={{ color: colors.text.primary }}>Contacto de Emergencia</ThemedText>
       </View>
       <ScreenCard>
         <View style={styles.infoRow}>
-          <ThemedText variant="label" style={{ color: theme.textSecondary }}>Estado:</ThemedText>
-          <ThemedText variant="body" style={{ color: theme.text }}>No configurado</ThemedText>
+          <ThemedText variant="label" style={{ color: colors.text.secondary }}>Estado:</ThemedText>
+          <ThemedText variant="body" style={{ color: colors.text.primary }}>No configurado</ThemedText>
         </View>
         <TouchableSound style={styles.linkButton} onPress={handleEditEmergencyContact}>
           <ThemedText variant="label" style={{ color: colors.primary }}>Agregar contacto</ThemedText>
@@ -309,29 +283,29 @@ export default function DriverProfileScreen() {
       {/* Statistics */}
       <View style={styles.sectionHeader}>
         <TrendingUp size={20} color={colors.primary} />
-        <ThemedText variant="h3" style={{ color: theme.text }}>Mis Estadisticas</ThemedText>
+        <ThemedText variant="h3" style={{ color: colors.text.primary }}>Mis Estadisticas</ThemedText>
       </View>
       <ScreenCard>
         <View style={styles.statsGrid}>
           <View style={styles.statItem}>
             <Package size={20} color={colors.primary} />
-            <ThemedText variant="h2" style={{ color: theme.text }}>{totalDeliveries}</ThemedText>
-            <ThemedText variant="caption" style={{ color: theme.textSecondary }}>Entregas totales</ThemedText>
+            <ThemedText variant="h2" style={{ color: colors.text.primary }}>{totalDeliveries}</ThemedText>
+            <ThemedText variant="caption" style={{ color: colors.text.secondary }}>Entregas totales</ThemedText>
           </View>
           <View style={styles.statItem}>
-            <CheckCircle size={20} color={theme.success} />
-            <ThemedText variant="h2" style={{ color: theme.text }}>--</ThemedText>
-            <ThemedText variant="caption" style={{ color: theme.textSecondary }}>Aceptacion</ThemedText>
+            <CheckCircle size={20} color={colors.success} />
+            <ThemedText variant="h2" style={{ color: colors.text.primary }}>--</ThemedText>
+            <ThemedText variant="caption" style={{ color: colors.text.secondary }}>Aceptacion</ThemedText>
           </View>
           <View style={styles.statItem}>
             <Clock size={20} color={colors.accent} />
-            <ThemedText variant="h2" style={{ color: theme.text }}>--</ThemedText>
-            <ThemedText variant="caption" style={{ color: theme.textSecondary }}>A tiempo</ThemedText>
+            <ThemedText variant="h2" style={{ color: colors.text.primary }}>--</ThemedText>
+            <ThemedText variant="caption" style={{ color: colors.text.secondary }}>A tiempo</ThemedText>
           </View>
           <View style={styles.statItem}>
-            <MapPin size={20} color={theme.warning} />
-            <ThemedText variant="h2" style={{ color: theme.text }}>--</ThemedText>
-            <ThemedText variant="caption" style={{ color: theme.textSecondary }}>Km recorridos</ThemedText>
+            <MapPin size={20} color={colors.warning} />
+            <ThemedText variant="h2" style={{ color: colors.text.primary }}>--</ThemedText>
+            <ThemedText variant="caption" style={{ color: colors.text.secondary }}>Km recorridos</ThemedText>
           </View>
         </View>
       </ScreenCard>
@@ -417,7 +391,7 @@ const styles = StyleSheet.create({
   updateButton: {
     paddingVertical: 10,
     paddingHorizontal: 16,
-    borderRadius: 8,
+    borderRadius: 14,
     alignItems: 'center',
   },
   documentRow: {

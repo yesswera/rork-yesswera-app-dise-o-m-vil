@@ -25,36 +25,7 @@ import { es } from 'date-fns/locale';
 import { useAuth } from '@/contexts/auth';
 import { supabase } from '@/constants/supabase';
 
-// ============================================================================
-// COLORES EXPLICITOS PARA MODO OSCURO
-// ============================================================================
-
-const COLORS = {
-  light: {
-    card: '#FFFFFF',
-    cardAlt: '#F5F5F4',
-    border: '#E7E5E4',
-    text: '#1C1917',
-    textSecondary: '#57534E',
-    textMuted: '#A8A29E',
-    success: '#22C55E',
-    warning: '#F59E0B',
-    error: '#EF4444',
-    gold: '#EAB308',
-  },
-  dark: {
-    card: '#292524',
-    cardAlt: '#44403C',
-    border: '#44403C',
-    text: '#FAFAFA',
-    textSecondary: '#D6D3D1',
-    textMuted: '#78716C',
-    success: '#22C55E',
-    warning: '#F59E0B',
-    error: '#EF4444',
-    gold: '#EAB308',
-  },
-};
+// Theme colors via useTheme() — no local COLORS needed
 
 interface DeliveryHistory {
   id: string;
@@ -127,7 +98,6 @@ export default function DriverHistoryScreen() {
   const router = useRouter();
   const { user } = useAuth();
   const { isDark, colors, radius, space } = useTheme();
-  const theme = isDark ? COLORS.dark : COLORS.light;
 
   const [searchQuery, setSearchQuery] = useState('');
   const [showFilters, setShowFilters] = useState(false);
@@ -329,17 +299,17 @@ export default function DriverHistoryScreen() {
       {loading ? (
         <View style={styles.emptyState}>
           <ActivityIndicator size="large" color={colors.primary} />
-          <ThemedText variant="body" style={[styles.emptySubtext, { color: theme.textSecondary }]}>
+          <ThemedText variant="body" style={[styles.emptySubtext, { color: colors.text.secondary }]}>
             Cargando historial...
           </ThemedText>
         </View>
       ) : Object.keys(groupedHistory).length === 0 ? (
         <View style={styles.emptyState}>
-          <Package size={48} color={theme.textMuted} />
-          <ThemedText variant="subtitle" bold style={[styles.emptyText, { color: theme.text }]}>
+          <Package size={48} color={colors.text.muted} />
+          <ThemedText variant="subtitle" bold style={[styles.emptyText, { color: colors.text.primary }]}>
             No hay entregas que mostrar
           </ThemedText>
-          <ThemedText variant="body" style={[styles.emptySubtext, { color: theme.textSecondary }]}>
+          <ThemedText variant="body" style={[styles.emptySubtext, { color: colors.text.secondary }]}>
             Intenta cambiar los filtros
           </ThemedText>
         </View>
@@ -352,57 +322,57 @@ export default function DriverHistoryScreen() {
             return (
               <View key={groupKey} style={styles.groupSection}>
                 <View style={styles.groupHeader}>
-                  <ThemedText variant="h3" style={{ color: theme.text }}>{groupKey}</ThemedText>
-                  <ThemedText variant="body" style={{ color: theme.textSecondary }}>
+                  <ThemedText variant="h3" style={{ color: colors.text.primary }}>{groupKey}</ThemedText>
+                  <ThemedText variant="body" style={{ color: colors.text.secondary }}>
                     {groupCount} {groupCount === 1 ? 'entrega' : 'entregas'} - ${groupEarnings.toFixed(2)}
                   </ThemedText>
                 </View>
 
                 {items.map((item) => (
-                  <TouchableSound key={item.id} style={[styles.historyCard, { backgroundColor: theme.card }]}>
+                  <TouchableSound key={item.id} style={[styles.historyCard, { backgroundColor: colors.background.card }]}>
                     <View style={styles.cardHeader}>
-                      <View style={[styles.typeTag, { backgroundColor: theme.cardAlt }]}>
-                        <ThemedText variant="caption" bold style={{ color: theme.text }}>
+                      <View style={[styles.typeTag, { backgroundColor: colors.background.secondary }]}>
+                        <ThemedText variant="caption" bold style={{ color: colors.text.primary }}>
                           {getTypeIcon(item.type)}
                         </ThemedText>
                       </View>
-                      <ThemedText variant="h3" style={{ color: theme.success }}>${item.earnings.toFixed(2)}</ThemedText>
+                      <ThemedText variant="h3" style={{ color: colors.success }}>${item.earnings.toFixed(2)}</ThemedText>
                     </View>
 
-                    <ThemedText variant="subtitle" bold style={{ color: theme.text }}>{item.businessName}</ThemedText>
+                    <ThemedText variant="subtitle" bold style={{ color: colors.text.primary }}>{item.businessName}</ThemedText>
 
                     <View style={styles.cardDetails}>
                       {item.rating && (
                         <View style={styles.detailItem}>
-                          <Star size={14} color={theme.gold} />
-                          <ThemedText variant="caption" style={{ color: theme.textSecondary }}>{item.rating.toFixed(1)}</ThemedText>
+                          <Star size={14} color={colors.accent} />
+                          <ThemedText variant="caption" style={{ color: colors.text.secondary }}>{item.rating.toFixed(1)}</ThemedText>
                         </View>
                       )}
                       <View style={styles.detailItem}>
-                        <MapPin size={14} color={theme.textSecondary} />
-                        <ThemedText variant="caption" style={{ color: theme.textSecondary }}>
+                        <MapPin size={14} color={colors.text.secondary} />
+                        <ThemedText variant="caption" style={{ color: colors.text.secondary }}>
                           {item.distance === '-' ? '-' : `${item.distance} km`}
                         </ThemedText>
                       </View>
                       <View style={styles.detailItem}>
-                        <Clock size={14} color={theme.textSecondary} />
-                        <ThemedText variant="caption" style={{ color: theme.textSecondary }}>
+                        <Clock size={14} color={colors.text.secondary} />
+                        <ThemedText variant="caption" style={{ color: colors.text.secondary }}>
                           {item.duration === '-' ? '-' : `${item.duration} min`}
                         </ThemedText>
                       </View>
                     </View>
 
-                    <View style={[styles.addressSection, { backgroundColor: theme.cardAlt }]}>
-                      <ThemedText variant="caption" style={{ color: theme.textSecondary }}>
+                    <View style={[styles.addressSection, { backgroundColor: colors.background.secondary }]}>
+                      <ThemedText variant="caption" style={{ color: colors.text.secondary }}>
                         {item.pickupAddress} - {item.deliveryAddress}
                       </ThemedText>
                     </View>
 
                     <View style={styles.cardFooter}>
-                      <ThemedText variant="caption" bold style={{ color: theme.textSecondary }}>
+                      <ThemedText variant="caption" bold style={{ color: colors.text.secondary }}>
                         Orden: {item.orderNumber}
                       </ThemedText>
-                      <ThemedText variant="caption" style={{ color: theme.textMuted }}>
+                      <ThemedText variant="caption" style={{ color: colors.text.muted }}>
                         {item.status === 'completed' ? 'Completada' : 'Cancelada'} {format(item.completedAt, 'h:mm a', { locale: es })}
                       </ThemedText>
                     </View>
@@ -415,24 +385,24 @@ export default function DriverHistoryScreen() {
           <ScreenCard>
             <View style={styles.summaryHeader}>
               <Calendar size={24} color={colors.primary} />
-              <ThemedText variant="h3" style={{ color: theme.text }}>Resumen del Mes</ThemedText>
+              <ThemedText variant="h3" style={{ color: colors.text.primary }}>Resumen del Mes</ThemedText>
             </View>
             <View style={styles.summaryGrid}>
               <View style={styles.summaryItem}>
-                <ThemedText variant="h2" style={{ color: theme.text }}>{monthSummary.totalDeliveries}</ThemedText>
-                <ThemedText variant="caption" style={{ color: theme.textSecondary }}>Entregas</ThemedText>
+                <ThemedText variant="h2" style={{ color: colors.text.primary }}>{monthSummary.totalDeliveries}</ThemedText>
+                <ThemedText variant="caption" style={{ color: colors.text.secondary }}>Entregas</ThemedText>
               </View>
               <View style={styles.summaryItem}>
-                <ThemedText variant="h2" style={{ color: theme.text }}>${monthSummary.totalEarned.toFixed(0)}</ThemedText>
-                <ThemedText variant="caption" style={{ color: theme.textSecondary }}>Ganado</ThemedText>
+                <ThemedText variant="h2" style={{ color: colors.text.primary }}>${monthSummary.totalEarned.toFixed(0)}</ThemedText>
+                <ThemedText variant="caption" style={{ color: colors.text.secondary }}>Ganado</ThemedText>
               </View>
               <View style={styles.summaryItem}>
-                <ThemedText variant="h2" style={{ color: theme.text }}>{monthSummary.avgRating.toFixed(1)}</ThemedText>
-                <ThemedText variant="caption" style={{ color: theme.textSecondary }}>Rating</ThemedText>
+                <ThemedText variant="h2" style={{ color: colors.text.primary }}>{monthSummary.avgRating.toFixed(1)}</ThemedText>
+                <ThemedText variant="caption" style={{ color: colors.text.secondary }}>Rating</ThemedText>
               </View>
               <View style={styles.summaryItem}>
-                <ThemedText variant="h2" style={{ color: theme.text }}>{monthSummary.totalKm.toFixed(0)} km</ThemedText>
-                <ThemedText variant="caption" style={{ color: theme.textSecondary }}>Recorrido</ThemedText>
+                <ThemedText variant="h2" style={{ color: colors.text.primary }}>{monthSummary.totalKm.toFixed(0)} km</ThemedText>
+                <ThemedText variant="caption" style={{ color: colors.text.secondary }}>Recorrido</ThemedText>
               </View>
             </View>
           </ScreenCard>
@@ -449,17 +419,17 @@ export default function DriverHistoryScreen() {
 
       <Modal visible={showFilters} animationType="slide" transparent>
         <View style={styles.modalOverlay}>
-          <View style={[styles.modalContent, { backgroundColor: theme.card }]}>
-            <View style={[styles.modalHeader, { borderBottomColor: theme.border }]}>
-              <ThemedText variant="h3" style={{ color: theme.text }}>Filtros</ThemedText>
+          <View style={[styles.modalContent, { backgroundColor: colors.background.card }]}>
+            <View style={[styles.modalHeader, { borderBottomColor: colors.border.light }]}>
+              <ThemedText variant="h3" style={{ color: colors.text.primary }}>Filtros</ThemedText>
               <TouchableSound onPress={() => setShowFilters(false)}>
-                <X size={24} color={theme.text} />
+                <X size={24} color={colors.text.primary} />
               </TouchableSound>
             </View>
 
             <ScrollView style={styles.modalScroll}>
               <View style={styles.filterSection}>
-                <ThemedText variant="label" bold style={{ color: theme.text }}>Fecha</ThemedText>
+                <ThemedText variant="label" bold style={{ color: colors.text.primary }}>Fecha</ThemedText>
                 <View style={styles.filterOptions}>
                   {[
                     { value: 'all', label: 'Todo' },
@@ -472,14 +442,14 @@ export default function DriverHistoryScreen() {
                       key={option.value}
                       style={[
                         styles.filterOption,
-                        { backgroundColor: theme.cardAlt, borderColor: theme.border },
+                        { backgroundColor: colors.background.secondary, borderColor: colors.border.light },
                         dateFilter === option.value && { backgroundColor: colors.primary, borderColor: colors.primary },
                       ]}
                       onPress={() => setDateFilter(option.value as DateFilter)}
                     >
                       <ThemedText
                         variant="caption"
-                        style={{ color: dateFilter === option.value ? '#FFFFFF' : theme.text }}
+                        style={{ color: dateFilter === option.value ? '#FFFFFF' : colors.text.primary }}
                       >
                         {option.label}
                       </ThemedText>
@@ -489,7 +459,7 @@ export default function DriverHistoryScreen() {
               </View>
 
               <View style={styles.filterSection}>
-                <ThemedText variant="label" bold style={{ color: theme.text }}>Tipo</ThemedText>
+                <ThemedText variant="label" bold style={{ color: colors.text.primary }}>Tipo</ThemedText>
                 <View style={styles.filterOptions}>
                   {[
                     { value: 'all', label: 'Todos' },
@@ -501,14 +471,14 @@ export default function DriverHistoryScreen() {
                       key={option.value}
                       style={[
                         styles.filterOption,
-                        { backgroundColor: theme.cardAlt, borderColor: theme.border },
+                        { backgroundColor: colors.background.secondary, borderColor: colors.border.light },
                         typeFilter === option.value && { backgroundColor: colors.primary, borderColor: colors.primary },
                       ]}
                       onPress={() => setTypeFilter(option.value as FilterType)}
                     >
                       <ThemedText
                         variant="caption"
-                        style={{ color: typeFilter === option.value ? '#FFFFFF' : theme.text }}
+                        style={{ color: typeFilter === option.value ? '#FFFFFF' : colors.text.primary }}
                       >
                         {option.label}
                       </ThemedText>
@@ -518,7 +488,7 @@ export default function DriverHistoryScreen() {
               </View>
 
               <View style={styles.filterSection}>
-                <ThemedText variant="label" bold style={{ color: theme.text }}>Estado</ThemedText>
+                <ThemedText variant="label" bold style={{ color: colors.text.primary }}>Estado</ThemedText>
                 <View style={styles.filterOptions}>
                   {[
                     { value: 'all', label: 'Todos' },
@@ -529,14 +499,14 @@ export default function DriverHistoryScreen() {
                       key={option.value}
                       style={[
                         styles.filterOption,
-                        { backgroundColor: theme.cardAlt, borderColor: theme.border },
+                        { backgroundColor: colors.background.secondary, borderColor: colors.border.light },
                         statusFilter === option.value && { backgroundColor: colors.primary, borderColor: colors.primary },
                       ]}
                       onPress={() => setStatusFilter(option.value as any)}
                     >
                       <ThemedText
                         variant="caption"
-                        style={{ color: statusFilter === option.value ? '#FFFFFF' : theme.text }}
+                        style={{ color: statusFilter === option.value ? '#FFFFFF' : colors.text.primary }}
                       >
                         {option.label}
                       </ThemedText>
@@ -546,12 +516,12 @@ export default function DriverHistoryScreen() {
               </View>
             </ScrollView>
 
-            <View style={[styles.modalActions, { borderTopColor: theme.border }]}>
+            <View style={[styles.modalActions, { borderTopColor: colors.border.light }]}>
               <TouchableSound
-                style={[styles.resetButton, { backgroundColor: theme.cardAlt }]}
+                style={[styles.resetButton, { backgroundColor: colors.background.secondary }]}
                 onPress={resetFilters}
               >
-                <ThemedText variant="label" bold style={{ color: theme.text }}>Resetear</ThemedText>
+                <ThemedText variant="label" bold style={{ color: colors.text.primary }}>Resetear</ThemedText>
               </TouchableSound>
               <TouchableSound
                 style={[styles.applyButton, { backgroundColor: colors.primary }]}
@@ -598,12 +568,12 @@ const styles = StyleSheet.create({
     marginBottom: 12,
   },
   historyCard: {
-    borderRadius: 12,
+    borderRadius: 16,
     padding: 16,
     marginBottom: 12,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.08,
+    shadowOpacity: 0.04,
     shadowRadius: 8,
     elevation: 2,
   },
@@ -616,7 +586,7 @@ const styles = StyleSheet.create({
   typeTag: {
     paddingHorizontal: 10,
     paddingVertical: 6,
-    borderRadius: 8,
+    borderRadius: 12,
   },
   cardDetails: {
     flexDirection: 'row',
@@ -630,7 +600,7 @@ const styles = StyleSheet.create({
     gap: 4,
   },
   addressSection: {
-    borderRadius: 8,
+    borderRadius: 12,
     padding: 10,
     marginBottom: 10,
   },

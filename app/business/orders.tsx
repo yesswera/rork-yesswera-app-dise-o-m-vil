@@ -26,34 +26,12 @@ import { useBusinessOrderSubscription } from '@/hooks/useRealtimeOrders';
 import PriorityClientBadge from '@/components/PriorityClientBadge';
 import { OrderSounds, SoundFeedback, ArrivalSounds } from '@/services/sounds';
 
-// ============================================================================
-// COLORES EXPLICITOS PARA MODO OSCURO
-// ============================================================================
-
-const COLORS = {
-  light: {
-    card: '#FFFFFF',
-    cardAlt: '#F5F5F4',
-    border: '#E7E5E4',
-    text: '#1C1917',
-    textSecondary: '#57534E',
-    textMuted: '#A8A29E',
-  },
-  dark: {
-    card: '#292524',
-    cardAlt: '#44403C',
-    border: '#44403C',
-    text: '#FAFAFA',
-    textSecondary: '#D6D3D1',
-    textMuted: '#78716C',
-  },
-};
+// Theme colors via useTheme() — no local COLORS needed
 
 export default function BusinessOrdersScreen() {
   const router = useRouter();
   const { user, token } = useAuth();
   const { isDark, colors } = useTheme();
-  const theme = isDark ? COLORS.dark : COLORS.light;
 
   const [orders, setOrders] = useState<Order[]>([]);
   const [loading, setLoading] = useState(true);
@@ -257,7 +235,7 @@ export default function BusinessOrdersScreen() {
     if (status === 'handed_to_driver' || status === 'in_transit' || status === 'arrived') return colors.success;
     if (status === 'delivered') return colors.success;
     if (status === 'cancelled') return colors.error;
-    return theme.textMuted;
+    return colors.text.muted;
   };
 
   const renderOrder = (order: Order) => {
@@ -266,12 +244,12 @@ export default function BusinessOrdersScreen() {
     return (
       <TouchableSound
         key={order.id}
-        style={[styles.orderCard, { backgroundColor: theme.card, borderColor: theme.border }]}
+        style={[styles.orderCard, { backgroundColor: colors.background.card, borderColor: colors.border.light }]}
         onPress={() => router.push(`/business/comanda/${order.id}` as any)}
         activeOpacity={0.7}
       >
         <View style={styles.orderHeader}>
-          <Text style={[styles.orderNumber, { color: theme.text }]}>Orden #{order.id.toString().slice(0, 8)}</Text>
+          <Text style={[styles.orderNumber, { color: colors.text.primary }]}>Orden #{order.id.toString().slice(0, 8)}</Text>
           <View
             style={[
               styles.statusBadge,
@@ -297,14 +275,14 @@ export default function BusinessOrdersScreen() {
         <View style={styles.orderDetails}>
           <View style={styles.detailRow}>
             <MapPin size={16} color={colors.primary} />
-            <Text style={[styles.detailText, { color: theme.textSecondary }]} numberOfLines={2}>
+            <Text style={[styles.detailText, { color: colors.text.secondary }]} numberOfLines={2}>
               {order.deliveryAddress}
             </Text>
           </View>
 
           <View style={styles.detailRow}>
             <Clock size={16} color={colors.accent} />
-            <Text style={[styles.detailText, { color: theme.textSecondary }]}>
+            <Text style={[styles.detailText, { color: colors.text.secondary }]}>
               {new Date(order.createdAt).toLocaleTimeString('es-MX', {
                 hour: '2-digit',
                 minute: '2-digit',
@@ -313,10 +291,10 @@ export default function BusinessOrdersScreen() {
           </View>
 
           {order.items && order.items.length > 0 && (
-            <View style={[styles.itemsList, { borderTopColor: theme.border }]}>
-              <Text style={[styles.itemsTitle, { color: theme.text }]}>Productos:</Text>
+            <View style={[styles.itemsList, { borderTopColor: colors.border.light }]}>
+              <Text style={[styles.itemsTitle, { color: colors.text.primary }]}>Productos:</Text>
               {order.items.map((item, index) => (
-                <Text key={index} style={[styles.itemText, { color: theme.textSecondary }]}>
+                <Text key={index} style={[styles.itemText, { color: colors.text.secondary }]}>
                   - {item.quantity}x {item.name}
                 </Text>
               ))}
@@ -375,11 +353,11 @@ export default function BusinessOrdersScreen() {
             <Text style={[styles.codeLabel, { marginTop: 8, fontWeight: '700', fontSize: 14, color: colors.success }]}>
               Repartidor listo para recoger
             </Text>
-            <Text style={[styles.codeInstruction, { color: theme.textSecondary }]}>
+            <Text style={[styles.codeInstruction, { color: colors.text.secondary }]}>
               Pide el codigo de recoleccion al repartidor para entregar el pedido:
             </Text>
             <TextInput
-              style={[styles.codeInput, { borderColor: colors.success, backgroundColor: theme.card, color: theme.text }]}
+              style={[styles.codeInput, { borderColor: colors.success, backgroundColor: colors.background.card, color: colors.text.primary }]}
               value={pickupCodeInputs[order.id.toString()] || ''}
               onChangeText={(text) =>
                 setPickupCodeInputs(prev => ({
@@ -388,7 +366,7 @@ export default function BusinessOrdersScreen() {
                 }))
               }
               placeholder="XXXX"
-              placeholderTextColor={theme.textMuted}
+              placeholderTextColor={colors.text.muted}
               maxLength={4}
               autoCapitalize="characters"
             />
@@ -462,14 +440,14 @@ export default function BusinessOrdersScreen() {
         {/* Selector de tiempo de preparacion */}
         {isPending && showPrepTimeFor === order.id.toString() && (
           <View style={[styles.prepTimeContainer, { backgroundColor: colors.success + '10', borderColor: colors.success + '30' }]}>
-            <Text style={[styles.prepTimeTitle, { color: theme.text }]}>Tiempo de preparacion:</Text>
+            <Text style={[styles.prepTimeTitle, { color: colors.text.primary }]}>Tiempo de preparacion:</Text>
             <View style={styles.prepTimeRow}>
               {[10, 15, 20, 30, 45].map((min) => (
                 <TouchableSound
                   key={min}
                   style={[
                     styles.prepTimeButton,
-                    { borderColor: colors.success, backgroundColor: theme.card },
+                    { borderColor: colors.success, backgroundColor: colors.background.card },
                     min === 20 && { backgroundColor: colors.success },
                   ]}
                   onPress={() => handleAcceptOrder(order.id.toString(), min)}
@@ -490,7 +468,7 @@ export default function BusinessOrdersScreen() {
               style={styles.prepTimeCancelButton}
               onPress={() => setShowPrepTimeFor(null)}
             >
-              <Text style={[styles.prepTimeCancelText, { color: theme.textSecondary }]}>Volver</Text>
+              <Text style={[styles.prepTimeCancelText, { color: colors.text.secondary }]}>Volver</Text>
             </TouchableSound>
           </View>
         )}
@@ -498,13 +476,13 @@ export default function BusinessOrdersScreen() {
         {/* Selector de motivo de rechazo */}
         {isPending && showRejectFor === order.id.toString() && (
           <View style={[styles.rejectContainer, { backgroundColor: colors.error + '10', borderColor: colors.error + '30' }]}>
-            <Text style={[styles.rejectTitle, { color: theme.text }]}>Motivo del rechazo:</Text>
+            <Text style={[styles.rejectTitle, { color: colors.text.primary }]}>Motivo del rechazo:</Text>
             {(Object.keys(REJECTION_REASONS) as RejectionReason[]).map((key) => (
               <TouchableSound
                 key={key}
                 style={[
                   styles.rejectReasonButton,
-                  { backgroundColor: theme.card, borderColor: colors.error },
+                  { backgroundColor: colors.background.card, borderColor: colors.error },
                   rejectingOrder === order.id.toString() && styles.rejectReasonButtonDisabled,
                 ]}
                 onPress={() => handleRejectOrder(order.id.toString(), key)}
@@ -519,7 +497,7 @@ export default function BusinessOrdersScreen() {
               style={styles.prepTimeCancelButton}
               onPress={() => setShowRejectFor(null)}
             >
-              <Text style={[styles.prepTimeCancelText, { color: theme.textSecondary }]}>Volver</Text>
+              <Text style={[styles.prepTimeCancelText, { color: colors.text.secondary }]}>Volver</Text>
             </TouchableSound>
           </View>
         )}
@@ -539,14 +517,14 @@ export default function BusinessOrdersScreen() {
           key={tab.key}
           style={[
             styles.tab,
-            { backgroundColor: theme.card, borderColor: theme.border },
+            { backgroundColor: colors.background.card, borderColor: colors.border.light },
             activeTab === tab.key && { backgroundColor: colors.secondary, borderColor: colors.secondary },
           ]}
           onPress={() => setActiveTab(tab.key)}
         >
           <Text style={[
             styles.tabText,
-            { color: theme.textSecondary },
+            { color: colors.text.secondary },
             activeTab === tab.key && { color: '#FFFFFF' },
           ]}>
             {tab.label}
@@ -589,9 +567,9 @@ export default function BusinessOrdersScreen() {
       {renderTabs()}
 
       {loading ? (
-        <Text style={[styles.loadingText, { color: theme.textSecondary }]}>Cargando ordenes...</Text>
+        <Text style={[styles.loadingText, { color: colors.text.secondary }]}>Cargando ordenes...</Text>
       ) : filteredOrders.length === 0 ? (
-        <Text style={[styles.emptyText, { color: theme.textSecondary }]}>
+        <Text style={[styles.emptyText, { color: colors.text.secondary }]}>
           {activeTab === 'new' ? 'No hay ordenes nuevas' : activeTab === 'active' ? 'No hay ordenes activas' : 'No hay ordenes completadas'}
         </Text>
       ) : (
@@ -603,13 +581,13 @@ export default function BusinessOrdersScreen() {
 
 const styles = StyleSheet.create({
   orderCard: {
-    borderRadius: 12,
+    borderRadius: 16,
     padding: 16,
     marginBottom: 12,
     borderWidth: 1,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.08,
+    shadowOpacity: 0.04,
     shadowRadius: 8,
     elevation: 2,
   },
@@ -668,7 +646,7 @@ const styles = StyleSheet.create({
     marginTop: 8,
   },
   codeContainer: {
-    borderRadius: 8,
+    borderRadius: 12,
     padding: 12,
     marginTop: 12,
     alignItems: 'center',
@@ -684,7 +662,7 @@ const styles = StyleSheet.create({
   },
   codeInput: {
     borderWidth: 2,
-    borderRadius: 8,
+    borderRadius: 12,
     paddingHorizontal: 20,
     paddingVertical: 12,
     fontSize: 24,
@@ -695,12 +673,11 @@ const styles = StyleSheet.create({
     width: '100%',
   },
   acceptButton: {
-    backgroundColor: '#22C55E',
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
     paddingVertical: 12,
-    borderRadius: 8,
+    borderRadius: 14,
     marginTop: 12,
   },
   acceptButtonText: {
@@ -720,7 +697,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     paddingVertical: 10,
-    borderRadius: 10,
+    borderRadius: 14,
     borderWidth: 1,
     gap: 6,
   },
@@ -738,7 +715,7 @@ const styles = StyleSheet.create({
     fontWeight: '700',
   },
   prepTimeContainer: {
-    borderRadius: 8,
+    borderRadius: 12,
     padding: 12,
     marginTop: 12,
     borderWidth: 1,
@@ -757,7 +734,7 @@ const styles = StyleSheet.create({
   prepTimeButton: {
     flex: 1,
     borderWidth: 1,
-    borderRadius: 8,
+    borderRadius: 14,
     paddingVertical: 10,
     marginHorizontal: 3,
     alignItems: 'center',
@@ -795,7 +772,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     paddingVertical: 12,
-    borderRadius: 8,
+    borderRadius: 14,
     gap: 6,
   },
   rejectButtonText: {
@@ -804,7 +781,7 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
   },
   rejectContainer: {
-    borderRadius: 8,
+    borderRadius: 12,
     padding: 12,
     marginTop: 12,
     borderWidth: 1,
@@ -817,7 +794,7 @@ const styles = StyleSheet.create({
   },
   rejectReasonButton: {
     borderWidth: 1,
-    borderRadius: 8,
+    borderRadius: 14,
     paddingVertical: 12,
     paddingHorizontal: 12,
     marginBottom: 8,

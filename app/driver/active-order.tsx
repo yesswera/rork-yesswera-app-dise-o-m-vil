@@ -37,42 +37,12 @@ import {
 import { supabase } from '@/constants/supabase';
 import { Order } from '@/constants/types';
 
-// ============================================================================
-// COLORES EXPLICITOS PARA MODO OSCURO
-// ============================================================================
-
-const COLORS = {
-  light: {
-    card: '#FFFFFF',
-    cardAlt: '#F5F5F4',
-    border: '#E7E5E4',
-    text: '#1C1917',
-    textSecondary: '#57534E',
-    textMuted: '#A8A29E',
-    success: '#22C55E',
-    warning: '#F59E0B',
-    error: '#EF4444',
-    accent: '#3B82F6',
-  },
-  dark: {
-    card: '#292524',
-    cardAlt: '#44403C',
-    border: '#44403C',
-    text: '#FAFAFA',
-    textSecondary: '#D6D3D1',
-    textMuted: '#78716C',
-    success: '#22C55E',
-    warning: '#F59E0B',
-    error: '#EF4444',
-    accent: '#3B82F6',
-  },
-};
+// Theme colors via useTheme() — no local COLORS needed
 
 export default function ActiveOrderScreen() {
   const router = useRouter();
   const { user, token } = useAuth();
   const { isDark, colors, radius, space } = useTheme();
-  const theme = isDark ? COLORS.dark : COLORS.light;
 
   const [order, setOrder] = useState<Order | null>(null);
   const [deliveryCodeInput, setDeliveryCodeInput] = useState('');
@@ -104,7 +74,8 @@ export default function ActiveOrderScreen() {
             duration: 600,
             useNativeDriver: true,
           }),
-        ])
+        ]),
+        { iterations: 3 }
       );
       pulse.start();
       return () => pulse.stop();
@@ -258,7 +229,7 @@ export default function ActiveOrderScreen() {
       >
         <View style={styles.loadingContainer}>
           <ActivityIndicator size="large" color={colors.primary} />
-          <ThemedText variant="body" style={[styles.loadingText, { color: theme.textSecondary }]}>
+          <ThemedText variant="body" style={[styles.loadingText, { color: colors.text.secondary }]}>
             Cargando orden...
           </ThemedText>
         </View>
@@ -324,7 +295,7 @@ export default function ActiveOrderScreen() {
     >
       {/* Status Badge */}
       <View style={styles.statusCard}>
-        <View style={[styles.statusBadge, { backgroundColor: theme.accent }]}>
+        <View style={[styles.statusBadge, { backgroundColor: colors.tertiary }]}>
           <ThemedText variant="label" bold style={styles.statusText}>
             {getStatusLabel(status, driverAtBusiness)}
           </ThemedText>
@@ -333,18 +304,18 @@ export default function ActiveOrderScreen() {
 
       {/* Order Details Card */}
       <ScreenCard>
-        <ThemedText variant="h3" style={[styles.cardTitle, { color: theme.text }]}>Detalles de la Orden</ThemedText>
+        <ThemedText variant="h3" style={[styles.cardTitle, { color: colors.text.primary }]}>Detalles de la Orden</ThemedText>
 
         {/* Pickup Address */}
-        <View style={[styles.addressCard, { backgroundColor: theme.cardAlt, borderRadius: radius.md }]}>
+        <View style={[styles.addressCard, { backgroundColor: colors.background.secondary, borderRadius: radius.md }]}>
           <View style={styles.addressHeader}>
             <Store size={18} color={colors.primary} />
-            <ThemedText variant="label" bold style={{ color: theme.text }}>Negocio</ThemedText>
+            <ThemedText variant="label" bold style={{ color: colors.text.primary }}>Negocio</ThemedText>
           </View>
-          <ThemedText variant="body" style={{ color: theme.textSecondary }}>{order.pickupAddress || 'N/A'}</ThemedText>
+          <ThemedText variant="body" style={{ color: colors.text.secondary }}>{order.pickupAddress || 'N/A'}</ThemedText>
           {isGoingToBusiness && (
             <TouchableSound
-              style={[styles.navButtonSmall, { backgroundColor: theme.accent }]}
+              style={[styles.navButtonSmall, { backgroundColor: colors.tertiary }]}
               onPress={() => openNavigation(order.pickupAddress || '', order.pickupLocation)}
             >
               <Navigation size={16} color="#fff" />
@@ -354,15 +325,15 @@ export default function ActiveOrderScreen() {
         </View>
 
         {/* Delivery Address */}
-        <View style={[styles.addressCard, { backgroundColor: theme.cardAlt, borderRadius: radius.md }]}>
+        <View style={[styles.addressCard, { backgroundColor: colors.background.secondary, borderRadius: radius.md }]}>
           <View style={styles.addressHeader}>
-            <MapPin size={18} color={theme.success} />
-            <ThemedText variant="label" bold style={{ color: theme.text }}>Cliente</ThemedText>
+            <MapPin size={18} color={colors.success} />
+            <ThemedText variant="label" bold style={{ color: colors.text.primary }}>Cliente</ThemedText>
           </View>
-          <ThemedText variant="body" style={{ color: theme.textSecondary }}>{order.deliveryAddress}</ThemedText>
+          <ThemedText variant="body" style={{ color: colors.text.secondary }}>{order.deliveryAddress}</ThemedText>
           {(isInTransit || isAtClient) && (
             <TouchableSound
-              style={[styles.navButtonSmall, { backgroundColor: theme.success }]}
+              style={[styles.navButtonSmall, { backgroundColor: colors.success }]}
               onPress={() => openNavigation(order.deliveryAddress, order.deliveryLocation)}
             >
               <Navigation size={16} color="#fff" />
@@ -373,9 +344,9 @@ export default function ActiveOrderScreen() {
 
         {/* Contact Actions */}
         <View style={styles.contactActions}>
-          <TouchableSound style={[styles.contactButton, { borderColor: theme.border, backgroundColor: theme.card }]} onPress={callClient}>
+          <TouchableSound style={[styles.contactButton, { borderColor: colors.border.light, backgroundColor: colors.background.card }]} onPress={callClient}>
             <Phone size={18} color={colors.primary} />
-            <ThemedText variant="label" style={{ color: theme.text }}>Llamar</ThemedText>
+            <ThemedText variant="label" style={{ color: colors.text.primary }}>Llamar</ThemedText>
           </TouchableSound>
           <OrderChatButton
             orderId={order.id.toString()}
@@ -387,10 +358,10 @@ export default function ActiveOrderScreen() {
 
         {/* Time and Total */}
         <View style={styles.detailRow}>
-          <Clock size={18} color={theme.warning} />
+          <Clock size={18} color={colors.warning} />
           <View style={styles.detailTextContainer}>
-            <ThemedText variant="caption" style={{ color: theme.textSecondary }}>Hora:</ThemedText>
-            <ThemedText variant="body" style={{ color: theme.text }}>
+            <ThemedText variant="caption" style={{ color: colors.text.secondary }}>Hora:</ThemedText>
+            <ThemedText variant="body" style={{ color: colors.text.primary }}>
               {new Date(order.createdAt).toLocaleTimeString('es-MX', {
                 hour: '2-digit',
                 minute: '2-digit',
@@ -398,8 +369,8 @@ export default function ActiveOrderScreen() {
             </ThemedText>
           </View>
         </View>
-        <View style={[styles.totalRow, { borderTopColor: theme.border }]}>
-          <ThemedText variant="label" bold style={{ color: theme.text }}>Total:</ThemedText>
+        <View style={[styles.totalRow, { borderTopColor: colors.border.light }]}>
+          <ThemedText variant="label" bold style={{ color: colors.text.primary }}>Total:</ThemedText>
           <ThemedText variant="h3" style={{ color: colors.primary }}>${order.total.toFixed(2)} MXN</ThemedText>
         </View>
       </ScreenCard>
@@ -408,32 +379,32 @@ export default function ActiveOrderScreen() {
       {order.type === 'delivery' && order.packageDetails && (
         <ScreenCard>
           <View style={styles.packageHeader}>
-            <Package size={20} color={theme.accent} />
-            <ThemedText variant="h3" style={[styles.cardTitle, { color: theme.text }]}>Detalles del Paquete</ThemedText>
+            <Package size={20} color={colors.tertiary} />
+            <ThemedText variant="h3" style={[styles.cardTitle, { color: colors.text.primary }]}>Detalles del Paquete</ThemedText>
           </View>
 
           <View style={styles.packageGrid}>
-            <View style={[styles.packageItem, { backgroundColor: theme.cardAlt }]}>
-              <Box size={18} color={theme.textSecondary} />
-              <ThemedText variant="caption" style={{ color: theme.textSecondary }}>Tipo</ThemedText>
-              <ThemedText variant="label" bold style={{ color: theme.text }}>{getPackageTypeLabel(order.packageDetails.type)}</ThemedText>
+            <View style={[styles.packageItem, { backgroundColor: colors.background.secondary }]}>
+              <Box size={18} color={colors.text.secondary} />
+              <ThemedText variant="caption" style={{ color: colors.text.secondary }}>Tipo</ThemedText>
+              <ThemedText variant="label" bold style={{ color: colors.text.primary }}>{getPackageTypeLabel(order.packageDetails.type)}</ThemedText>
             </View>
-            <View style={[styles.packageItem, { backgroundColor: theme.cardAlt }]}>
-              <Scale size={18} color={theme.textSecondary} />
-              <ThemedText variant="caption" style={{ color: theme.textSecondary }}>Peso</ThemedText>
-              <ThemedText variant="label" bold style={{ color: theme.text }}>{getWeightLabel(order.packageDetails.weight)}</ThemedText>
+            <View style={[styles.packageItem, { backgroundColor: colors.background.secondary }]}>
+              <Scale size={18} color={colors.text.secondary} />
+              <ThemedText variant="caption" style={{ color: colors.text.secondary }}>Peso</ThemedText>
+              <ThemedText variant="label" bold style={{ color: colors.text.primary }}>{getWeightLabel(order.packageDetails.weight)}</ThemedText>
             </View>
           </View>
 
-          <View style={[styles.packageDescriptionBox, { backgroundColor: theme.cardAlt }]}>
-            <ThemedText variant="caption" bold style={{ color: theme.textSecondary }}>Contenido:</ThemedText>
-            <ThemedText variant="body" style={{ color: theme.text }}>{order.packageDetails.description}</ThemedText>
+          <View style={[styles.packageDescriptionBox, { backgroundColor: colors.background.secondary }]}>
+            <ThemedText variant="caption" bold style={{ color: colors.text.secondary }}>Contenido:</ThemedText>
+            <ThemedText variant="body" style={{ color: colors.text.primary }}>{order.packageDetails.description}</ThemedText>
           </View>
 
           {order.packageDetails.isFragile && (
-            <View style={[styles.fragileWarning, { borderColor: theme.warning }]}>
-              <AlertTriangle size={18} color={theme.warning} />
-              <ThemedText variant="label" bold style={{ color: theme.warning }}>
+            <View style={[styles.fragileWarning, { borderColor: colors.warning }]}>
+              <AlertTriangle size={18} color={colors.warning} />
+              <ThemedText variant="label" bold style={{ color: colors.warning }}>
                 FRAGIL - Manejar con cuidado
               </ThemedText>
             </View>
@@ -446,7 +417,7 @@ export default function ActiveOrderScreen() {
                 <User size={18} color={colors.primary} />
                 <ThemedText variant="label" bold style={{ color: colors.primary }}>Destinatario</ThemedText>
               </View>
-              <ThemedText variant="subtitle" bold style={{ color: theme.text }}>{order.packageDetails.recipientName}</ThemedText>
+              <ThemedText variant="subtitle" bold style={{ color: colors.text.primary }}>{order.packageDetails.recipientName}</ThemedText>
               {order.packageDetails.recipientPhone && (
                 <TouchableSound
                   style={styles.recipientPhone}
@@ -461,22 +432,22 @@ export default function ActiveOrderScreen() {
 
           {/* Minor Protection Alert */}
           {order.packageDetails.isMinorRecipient && order.packageDetails.minorDetails && (
-            <View style={[styles.minorAlert, { borderColor: theme.warning }]}>
+            <View style={[styles.minorAlert, { borderColor: colors.warning }]}>
               <View style={styles.minorAlertHeader}>
-                <Shield size={20} color={theme.warning} />
-                <ThemedText variant="label" bold style={{ color: theme.warning }}>Entrega a Menor Autorizada</ThemedText>
+                <Shield size={20} color={colors.warning} />
+                <ThemedText variant="label" bold style={{ color: colors.warning }}>Entrega a Menor Autorizada</ThemedText>
               </View>
-              <ThemedText variant="body" style={{ color: theme.text }}>
+              <ThemedText variant="body" style={{ color: colors.text.primary }}>
                 Menor: {order.packageDetails.minorDetails.name} (~{order.packageDetails.minorDetails.age} anos)
               </ThemedText>
-              <ThemedText variant="body" style={{ color: theme.text }}>
+              <ThemedText variant="body" style={{ color: colors.text.primary }}>
                 Relacion: {order.packageDetails.minorDetails.relationship}
               </ThemedText>
-              <ThemedText variant="caption" style={{ color: theme.textSecondary }}>
+              <ThemedText variant="caption" style={{ color: colors.text.secondary }}>
                 Autorizado por: {order.packageDetails.minorDetails.authorizedBy}
               </ThemedText>
-              <View style={[styles.minorAlertWarningBox, { backgroundColor: theme.error + '15' }]}>
-                <ThemedText variant="caption" bold style={{ color: theme.error }}>
+              <View style={[styles.minorAlertWarningBox, { backgroundColor: colors.error + '15' }]}>
+                <ThemedText variant="caption" bold style={{ color: colors.error }}>
                   Si detectas algo sospechoso, NO entregues y reporta inmediatamente.
                 </ThemedText>
               </View>
@@ -490,9 +461,9 @@ export default function ActiveOrderScreen() {
         <ScreenCard>
           <View style={styles.stepHeader}>
             <Store size={24} color={colors.primary} />
-            <ThemedText variant="h3" style={{ color: theme.text }}>Paso 1: Ir al Negocio</ThemedText>
+            <ThemedText variant="h3" style={{ color: colors.text.primary }}>Paso 1: Ir al Negocio</ThemedText>
           </View>
-          <ThemedText variant="body" style={[styles.stepInstruction, { color: theme.textSecondary }]}>
+          <ThemedText variant="body" style={[styles.stepInstruction, { color: colors.text.secondary }]}>
             Dirigete al negocio. Cuando llegues, presiona el boton para confirmar tu llegada.
           </ThemedText>
           <TouchableSound
@@ -515,12 +486,12 @@ export default function ActiveOrderScreen() {
       {/* === PHASE 2: Waiting at business (order not ready yet) === */}
       {isWaitingAtBusiness && (
         <ScreenCard>
-          <View style={[styles.waitingCard, { backgroundColor: theme.warning + '15' }]}>
-            <Clock size={32} color={theme.warning} />
-            <ThemedText variant="subtitle" bold style={{ color: theme.warning }}>
+          <View style={[styles.waitingCard, { backgroundColor: colors.warning + '15' }]}>
+            <Clock size={32} color={colors.warning} />
+            <ThemedText variant="subtitle" bold style={{ color: colors.warning }}>
               Esperando que el pedido este listo...
             </ThemedText>
-            <ThemedText variant="body" style={[styles.waitingSubtext, { color: theme.textSecondary }]}>
+            <ThemedText variant="body" style={[styles.waitingSubtext, { color: colors.text.secondary }]}>
               Cuando el negocio termine de preparar, te aparecera el codigo de recoleccion automaticamente.
             </ThemedText>
           </View>
@@ -529,7 +500,7 @@ export default function ActiveOrderScreen() {
 
       {/* === PHASE 3: Order ready + Driver at business = Show pickup code === */}
       {canShowPickupCode && (
-        <Animated.View style={[styles.pickupCodeCard, { transform: [{ scale: pulseAnim }], backgroundColor: theme.success }]}>
+        <Animated.View style={[styles.pickupCodeCard, { transform: [{ scale: pulseAnim }], backgroundColor: colors.success }]}>
           <View style={styles.pickupCodeHeader}>
             <View style={styles.pickupCodeIconContainer}>
               <Package size={28} color="#fff" />
@@ -540,7 +511,7 @@ export default function ActiveOrderScreen() {
             Muestra este codigo al negocio:
           </ThemedText>
           <View style={styles.pickupCodeBox}>
-            <ThemedText variant="h1" style={[styles.pickupCodeValue, { color: theme.success }]}>{order.comandaCode}</ThemedText>
+            <ThemedText variant="h1" style={[styles.pickupCodeValue, { color: colors.success }]}>{order.comandaCode}</ThemedText>
           </View>
           <View style={styles.pickupCodeFooter}>
             <ThemedText variant="caption" style={styles.pickupCodeHint}>
@@ -554,14 +525,14 @@ export default function ActiveOrderScreen() {
       {isHandedToDriver && (
         <ScreenCard>
           <View style={styles.stepHeader}>
-            <CheckCircle size={24} color={theme.success} />
-            <ThemedText variant="h3" style={{ color: theme.text }}>Paso 3: Confirmar Recepcion</ThemedText>
+            <CheckCircle size={24} color={colors.success} />
+            <ThemedText variant="h3" style={{ color: colors.text.primary }}>Paso 3: Confirmar Recepcion</ThemedText>
           </View>
-          <ThemedText variant="body" style={[styles.stepInstruction, { color: theme.textSecondary }]}>
+          <ThemedText variant="body" style={[styles.stepInstruction, { color: colors.text.secondary }]}>
             El negocio te entrego el pedido? Confirma para iniciar el viaje al cliente.
           </ThemedText>
           <TouchableSound
-            style={[styles.validateButton, { backgroundColor: theme.success }, validating && styles.validateButtonDisabled]}
+            style={[styles.validateButton, { backgroundColor: colors.success }, validating && styles.validateButtonDisabled]}
             onPress={handleOrderReceived}
             disabled={validating}
           >
@@ -580,20 +551,20 @@ export default function ActiveOrderScreen() {
       {/* === PHASE 5: In transit to client === */}
       {isInTransit && (
         <>
-          <View style={[styles.successCard, { backgroundColor: theme.success + '15', borderColor: theme.success }]}>
-            <CheckCircle size={32} color={theme.success} />
-            <ThemedText variant="subtitle" bold style={{ color: theme.text }}>En camino al cliente</ThemedText>
+          <View style={[styles.successCard, { backgroundColor: colors.success + '15', borderColor: colors.success }]}>
+            <CheckCircle size={32} color={colors.success} />
+            <ThemedText variant="subtitle" bold style={{ color: colors.text.primary }}>En camino al cliente</ThemedText>
           </View>
           <ScreenCard>
             <View style={styles.stepHeader}>
-              <MapPin size={24} color={theme.accent} />
-              <ThemedText variant="h3" style={{ color: theme.text }}>Paso 4: Llegar al Cliente</ThemedText>
+              <MapPin size={24} color={colors.tertiary} />
+              <ThemedText variant="h3" style={{ color: colors.text.primary }}>Paso 4: Llegar al Cliente</ThemedText>
             </View>
-            <ThemedText variant="body" style={[styles.stepInstruction, { color: theme.textSecondary }]}>
+            <ThemedText variant="body" style={[styles.stepInstruction, { color: colors.text.secondary }]}>
               Cuando estes en el domicilio del cliente, confirma tu llegada.
             </ThemedText>
             <TouchableSound
-              style={[styles.validateButton, { backgroundColor: theme.accent }, validating && styles.validateButtonDisabled]}
+              style={[styles.validateButton, { backgroundColor: colors.tertiary }, validating && styles.validateButtonDisabled]}
               onPress={handleArrivedAtClient}
               disabled={validating}
             >
@@ -613,27 +584,27 @@ export default function ActiveOrderScreen() {
       {/* === PHASE 6: At client, enter delivery code === */}
       {isAtClient && (
         <>
-          <View style={[styles.successCard, { backgroundColor: theme.success + '15', borderColor: theme.success }]}>
-            <CheckCircle size={32} color={theme.success} />
-            <ThemedText variant="subtitle" bold style={{ color: theme.text }}>Cliente notificado - Esperando</ThemedText>
+          <View style={[styles.successCard, { backgroundColor: colors.success + '15', borderColor: colors.success }]}>
+            <CheckCircle size={32} color={colors.success} />
+            <ThemedText variant="subtitle" bold style={{ color: colors.text.primary }}>Cliente notificado - Esperando</ThemedText>
           </View>
           <ScreenCard>
             <View style={styles.stepHeader}>
-              <Package size={24} color={theme.success} />
-              <ThemedText variant="h3" style={{ color: theme.text }}>Paso 5: Entregar Orden</ThemedText>
+              <Package size={24} color={colors.success} />
+              <ThemedText variant="h3" style={{ color: colors.text.primary }}>Paso 5: Entregar Orden</ThemedText>
             </View>
-            <ThemedText variant="body" style={[styles.stepInstruction, { color: theme.textSecondary }]}>
+            <ThemedText variant="body" style={[styles.stepInstruction, { color: colors.text.secondary }]}>
               Pide el codigo de entrega al cliente (5 caracteres)
             </ThemedText>
             <TextInput
               ref={deliveryInputRef}
               style={[styles.codeInput, {
                 borderColor: colors.primary,
-                color: theme.text,
-                backgroundColor: theme.cardAlt,
+                color: colors.text.primary,
+                backgroundColor: colors.background.secondary,
               }]}
               placeholder="Codigo de entrega"
-              placeholderTextColor={theme.textMuted}
+              placeholderTextColor={colors.text.muted}
               value={deliveryCodeInput}
               onChangeText={(text) => setDeliveryCodeInput(text.toUpperCase())}
               maxLength={5}
@@ -649,7 +620,7 @@ export default function ActiveOrderScreen() {
             <TouchableSound
               style={[
                 styles.validateButton,
-                { backgroundColor: theme.success },
+                { backgroundColor: colors.success },
                 (deliveryCodeInput.length !== 5 || validating) && styles.validateButtonDisabled,
               ]}
               onPress={handleValidateDelivery}
@@ -780,7 +751,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     paddingVertical: 10,
     paddingHorizontal: 16,
-    borderRadius: 8,
+    borderRadius: 14,
     gap: 6,
     marginTop: 10,
   },
@@ -796,7 +767,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     borderWidth: 1.5,
     paddingVertical: 10,
-    borderRadius: 8,
+    borderRadius: 14,
     gap: 6,
   },
   detailRow: {
@@ -830,7 +801,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     paddingVertical: 14,
-    borderRadius: 8,
+    borderRadius: 14,
     gap: 8,
   },
   validateButtonDisabled: {
@@ -854,7 +825,7 @@ const styles = StyleSheet.create({
   },
   codeInput: {
     borderWidth: 2,
-    borderRadius: 8,
+    borderRadius: 12,
     paddingVertical: 12,
     paddingHorizontal: 16,
     fontSize: 24,
@@ -868,11 +839,11 @@ const styles = StyleSheet.create({
     borderRadius: 16,
     overflow: 'hidden',
     marginBottom: 16,
-    shadowColor: '#22C55E',
-    shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.4,
+    shadowColor: '#16A34A',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.15,
     shadowRadius: 12,
-    elevation: 8,
+    elevation: 4,
   },
   pickupCodeHeader: {
     backgroundColor: 'rgba(0,0,0,0.1)',
@@ -934,19 +905,19 @@ const styles = StyleSheet.create({
   },
   packageItem: {
     flex: 1,
-    borderRadius: 10,
+    borderRadius: 12,
     padding: 12,
     alignItems: 'center',
   },
   packageDescriptionBox: {
-    borderRadius: 10,
+    borderRadius: 12,
     padding: 12,
     marginBottom: 12,
   },
   fragileWarning: {
     flexDirection: 'row',
     alignItems: 'center',
-    borderRadius: 10,
+    borderRadius: 12,
     padding: 12,
     marginBottom: 12,
     borderWidth: 1,
@@ -954,7 +925,7 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(245, 158, 11, 0.15)',
   },
   recipientBox: {
-    borderRadius: 10,
+    borderRadius: 12,
     padding: 12,
     marginBottom: 12,
   },
@@ -971,7 +942,7 @@ const styles = StyleSheet.create({
     marginTop: 4,
   },
   minorAlert: {
-    borderRadius: 10,
+    borderRadius: 12,
     padding: 14,
     borderWidth: 2,
     backgroundColor: 'rgba(245, 158, 11, 0.1)',

@@ -12,7 +12,6 @@ import {
   Platform,
   BackHandler,
   StyleSheet,
-  useColorScheme,
 } from 'react-native';
 import { useRouter, useFocusEffect } from 'expo-router';
 import { Package, DollarSign, Star, Power, MessageCircle, History, User, HelpCircle, AlertTriangle, Truck } from 'lucide-react-native';
@@ -32,35 +31,12 @@ import { useDriverMonitoring } from '@/hooks/useDriverMonitoring';
 import { Toast } from '@/utils/toast';
 import { OrderSounds, SoundFeedback, AuthSounds } from '@/services/sounds';
 
-// ============================================================================
-// COLORES EXPLICITOS PARA MODO OSCURO
-// ============================================================================
-
-const COLORS = {
-  light: {
-    card: '#FFFFFF',
-    cardAlt: '#F5F5F4',
-    border: '#E7E5E4',
-    text: '#1C1917',
-    textSecondary: '#57534E',
-    textMuted: '#A8A29E',
-  },
-  dark: {
-    card: '#292524',
-    cardAlt: '#44403C',
-    border: '#44403C',
-    text: '#FAFAFA',
-    textSecondary: '#D6D3D1',
-    textMuted: '#78716C',
-  },
-};
+// Theme colors via useTheme() — no local COLORS needed
 
 export default function DriverDashboardScreen() {
   const router = useRouter();
   const { user, logout } = useAuth();
   const { colors, space, radius, isDark } = useTheme();
-  const colorScheme = useColorScheme();
-  const theme = isDark ? COLORS.dark : COLORS.light;
   const { trackEvent, trackPageView, currentSurvey, closeSurvey, submitSurvey } = useAnalytics();
 
   const [isOnline, setIsOnline] = useState(false);
@@ -380,14 +356,14 @@ export default function DriverDashboardScreen() {
           <View
             key={index}
             style={[styles.statCard, {
-              backgroundColor: theme.card,
+              backgroundColor: colors.background.card,
               borderRadius: radius.md,
               padding: space.md,
             }]}
           >
             <stat.icon size={24} color={stat.color} />
-            <ThemedText variant="h3" style={[styles.statValue, { color: theme.text }]}>{stat.value}</ThemedText>
-            <ThemedText variant="caption" style={[styles.statLabel, { color: theme.textSecondary }]}>{stat.label}</ThemedText>
+            <ThemedText variant="h3" style={[styles.statValue, { color: colors.text.primary }]}>{stat.value}</ThemedText>
+            <ThemedText variant="caption" style={[styles.statLabel, { color: colors.text.secondary }]}>{stat.label}</ThemedText>
           </View>
         ))}
       </View>
@@ -425,7 +401,7 @@ export default function DriverDashboardScreen() {
       </TouchableSound>
 
       {/* Quick Actions */}
-      <ThemedText variant="title" style={[styles.sectionTitle, { color: theme.text, marginBottom: space.sm }]}>Acciones Rapidas</ThemedText>
+      <ThemedText variant="title" style={[styles.sectionTitle, { color: colors.text.primary, marginBottom: space.sm }]}>Acciones Rapidas</ThemedText>
       <View style={[styles.quickActionsGrid, { gap: space.sm, marginBottom: space.lg }]}>
         {[
           { icon: History, label: 'Historial', color: colors.primary, route: '/driver/history' },
@@ -436,7 +412,7 @@ export default function DriverDashboardScreen() {
           <TouchableSound
             key={index}
             style={[styles.quickActionCard, {
-              backgroundColor: theme.card,
+              backgroundColor: colors.background.card,
               borderRadius: radius.md,
               padding: space.md,
             }]}
@@ -446,32 +422,32 @@ export default function DriverDashboardScreen() {
             }}
           >
             <action.icon size={24} color={action.color} />
-            <ThemedText variant="caption" bold style={[styles.quickActionLabel, { color: theme.text }]}>{action.label}</ThemedText>
+            <ThemedText variant="caption" bold style={[styles.quickActionLabel, { color: colors.text.primary }]}>{action.label}</ThemedText>
           </TouchableSound>
         ))}
       </View>
 
       {/* Orders Section */}
-      <ThemedText variant="title" style={[styles.sectionTitle, { color: theme.text, marginBottom: space.sm }]}>
+      <ThemedText variant="title" style={[styles.sectionTitle, { color: colors.text.primary, marginBottom: space.sm }]}>
         {isOnline ? 'Ordenes Disponibles' : 'Activa tu estado para ver ordenes'}
       </ThemedText>
 
       {!isOnline && (
-        <View style={[styles.emptyState, { backgroundColor: theme.cardAlt, borderRadius: radius.md, padding: space.xl }]}>
-          <Power size={32} color={theme.textMuted} />
-          <ThemedText variant="body" style={[styles.emptyStateText, { color: theme.textSecondary }]}>
+        <View style={[styles.emptyState, { backgroundColor: colors.background.secondary, borderRadius: radius.md, padding: space.xl }]}>
+          <Power size={32} color={colors.text.muted} />
+          <ThemedText variant="body" style={[styles.emptyStateText, { color: colors.text.secondary }]}>
             Presiona "EN LINEA" arriba para comenzar a recibir ordenes
           </ThemedText>
         </View>
       )}
 
       {isOnline && availableOrders.length === 0 && (
-        <View style={[styles.emptyState, { backgroundColor: theme.card, borderRadius: radius.md, padding: space.xl }]}>
-          <Package size={32} color={theme.textMuted} />
-          <ThemedText variant="subtitle" style={[styles.emptyStateTitle, { color: theme.text }]}>
+        <View style={[styles.emptyState, { backgroundColor: colors.background.card, borderRadius: radius.md, padding: space.xl }]}>
+          <Package size={32} color={colors.text.muted} />
+          <ThemedText variant="subtitle" style={[styles.emptyStateTitle, { color: colors.text.primary }]}>
             No hay ordenes disponibles en tu zona
           </ThemedText>
-          <ThemedText variant="caption" style={[styles.emptyStateText, { color: theme.textSecondary }]}>
+          <ThemedText variant="caption" style={[styles.emptyStateText, { color: colors.text.secondary }]}>
             Te notificaremos cuando haya nuevas
           </ThemedText>
         </View>
@@ -481,33 +457,33 @@ export default function DriverDashboardScreen() {
         <View
           key={order.id}
           style={[styles.orderCard, {
-            backgroundColor: theme.card,
+            backgroundColor: colors.background.card,
             borderRadius: radius.lg,
             padding: space.md,
             marginBottom: space.sm,
           }]}
         >
           <View style={styles.orderHeader}>
-            <View style={[styles.orderTypeTag, { backgroundColor: theme.cardAlt, borderRadius: radius.sm, padding: space.xs }]}>
-              <ThemedText variant="caption" bold style={{ color: theme.text }}>
+            <View style={[styles.orderTypeTag, { backgroundColor: colors.background.secondary, borderRadius: radius.sm, padding: space.xs }]}>
+              <ThemedText variant="caption" bold style={{ color: colors.text.primary }}>
                 {order.type === 'food' ? 'Alimentos' : order.type === 'shopping' ? 'Compras' : 'Envio'}
               </ThemedText>
             </View>
             <ThemedText variant="title" style={{ color: colors.success }}>${order.deliveryFee?.toFixed(2)}</ThemedText>
           </View>
 
-          <ThemedText variant="subtitle" bold style={[styles.orderBusinessName, { color: theme.text }]}>
+          <ThemedText variant="subtitle" bold style={[styles.orderBusinessName, { color: colors.text.primary }]}>
             {order.businessName || 'Negocio'}
           </ThemedText>
 
-          <View style={[styles.addressSection, { backgroundColor: theme.cardAlt, borderRadius: radius.sm, padding: space.sm }]}>
-            <ThemedText variant="caption" bold style={{ color: theme.textSecondary }}>Recogida:</ThemedText>
-            <ThemedText variant="label" style={{ color: theme.text }}>{order.pickupAddress || 'N/A'}</ThemedText>
-            <ThemedText variant="caption" bold style={[styles.addressLabel, { color: theme.textSecondary }]}>Entrega:</ThemedText>
-            <ThemedText variant="label" style={{ color: theme.text }}>{order.deliveryAddress}</ThemedText>
+          <View style={[styles.addressSection, { backgroundColor: colors.background.secondary, borderRadius: radius.sm, padding: space.sm }]}>
+            <ThemedText variant="caption" bold style={{ color: colors.text.secondary }}>Recogida:</ThemedText>
+            <ThemedText variant="label" style={{ color: colors.text.primary }}>{order.pickupAddress || 'N/A'}</ThemedText>
+            <ThemedText variant="caption" bold style={[styles.addressLabel, { color: colors.text.secondary }]}>Entrega:</ThemedText>
+            <ThemedText variant="label" style={{ color: colors.text.primary }}>{order.deliveryAddress}</ThemedText>
           </View>
 
-          <ThemedText variant="body" style={[styles.orderTotal, { color: theme.text }]}>
+          <ThemedText variant="body" style={[styles.orderTotal, { color: colors.text.primary }]}>
             Total: ${order.total?.toFixed(2)} MXN
           </ThemedText>
 
@@ -569,7 +545,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.08,
+    shadowOpacity: 0.04,
     shadowRadius: 8,
     elevation: 2,
   },
@@ -588,9 +564,9 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
+    shadowOpacity: 0.04,
     shadowRadius: 8,
-    elevation: 3,
+    elevation: 2,
   },
   panicButton: {
     flexDirection: 'row',
@@ -600,9 +576,9 @@ const styles = StyleSheet.create({
     gap: 8,
     shadowColor: '#DC2626',
     shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
+    shadowOpacity: 0.15,
     shadowRadius: 8,
-    elevation: 4,
+    elevation: 3,
   },
   sectionTitle: {
     fontWeight: '700',
@@ -617,7 +593,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.08,
+    shadowOpacity: 0.04,
     shadowRadius: 8,
     elevation: 2,
   },
@@ -639,9 +615,9 @@ const styles = StyleSheet.create({
   orderCard: {
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
+    shadowOpacity: 0.04,
     shadowRadius: 8,
-    elevation: 3,
+    elevation: 2,
   },
   orderHeader: {
     flexDirection: 'row',
