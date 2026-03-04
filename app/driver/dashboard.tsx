@@ -157,12 +157,27 @@ export default function DriverDashboardScreen() {
       return;
     }
     try {
-      const orders = await getAvailableOrdersForDriver();
+      const orders = await getAvailableOrdersForDriver(driverId || undefined);
       setAvailableOrders(orders);
+
+      // Auto-navigate to active order if one was just assigned to us
+      const assignedToMe = orders.find(o => o.status === 'assigned' && o.driverId === driverId);
+      if (assignedToMe && !activeOrderId) {
+        OrderSounds.newOrder();
+        setActiveOrderId(assignedToMe.id.toString());
+        Alert.alert(
+          'Orden Asignada',
+          `Se te asigno una orden de ${assignedToMe.businessName || 'un negocio'}. Total: $${assignedToMe.total?.toFixed(2)} MXN`,
+          [
+            { text: 'Ver Orden', onPress: () => router.push('/driver/active-order' as any) },
+            { text: 'OK' },
+          ]
+        );
+      }
     } catch {
       setAvailableOrders([]);
     }
-  }, [user, isOnline]);
+  }, [user, isOnline, driverId, activeOrderId]);
 
   useEffect(() => {
     trackPageView('driver_dashboard', { status: isOnline ? 'online' : 'offline' });
@@ -453,7 +468,9 @@ export default function DriverDashboardScreen() {
         </View>
       )}
 
-      {isOnline && availableOrders.map((order) => (
+      {isOnline && availableOrders.map((order) => {
+        const isAssignedToMe = order.status === 'assigned' && order.driverId === driverId;
+        return (
         <View
           key={order.id}
           style={[styles.orderCard, {
@@ -461,8 +478,17 @@ export default function DriverDashboardScreen() {
             borderRadius: radius.lg,
             padding: space.md,
             marginBottom: space.sm,
+            borderLeftWidth: isAssignedToMe ? 4 : 0,
+            borderLeftColor: isAssignedToMe ? colors.success : 'transparent',
           }]}
         >
+          {isAssignedToMe && (
+            <View style={[styles.assignedBadge, { backgroundColor: colors.success + '15', borderRadius: radius.sm, padding: space.xs, marginBottom: space.sm }]}>
+              <ThemedText variant="caption" bold style={{ color: colors.success }}>
+                ASIGNADA A TI
+              </ThemedText>
+            </View>
+          )}
           <View style={styles.orderHeader}>
             <View style={[styles.orderTypeTag, { backgroundColor: colors.background.secondary, borderRadius: radius.sm, padding: space.xs }]}>
               <ThemedText variant="caption" bold style={{ color: colors.text.primary }}>
@@ -488,13 +514,23 @@ export default function DriverDashboardScreen() {
           </ThemedText>
 
           <TouchableSound
-            style={[styles.acceptButton, { backgroundColor: colors.primary, borderRadius: radius.md, padding: space.md }]}
-            onPress={() => handleAcceptOrder(order.id.toString())}
+            style={[styles.acceptButton, { backgroundColor: isAssignedToMe ? colors.success : colors.primary, borderRadius: radius.md, padding: space.md }]}
+            onPress={() => {
+              if (isAssignedToMe) {
+                setActiveOrderId(order.id.toString());
+                router.push('/driver/active-order' as any);
+              } else {
+                handleAcceptOrder(order.id.toString());
+              }
+            }}
           >
-            <ThemedText variant="label" color="white" bold center>Aceptar Orden</ThemedText>
+            <ThemedText variant="label" color="white" bold center>
+              {isAssignedToMe ? 'Ir a Orden' : 'Aceptar Orden'}
+            </ThemedText>
           </TouchableSound>
         </View>
-      ))}
+        );
+      })}
 
       {/* Logout */}
       <TouchableSound
@@ -618,6 +654,9 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.04,
     shadowRadius: 8,
     elevation: 2,
+  },
+  assignedBadge: {
+    alignItems: 'center',
   },
   orderHeader: {
     flexDirection: 'row',

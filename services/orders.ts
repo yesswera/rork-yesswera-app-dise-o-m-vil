@@ -20,21 +20,25 @@ function generateCode(length: number): string {
   return code;
 }
 
-// Generate all 3 verification codes (unique from each other)
+// Generate all 4 verification codes (unique from each other)
 function generateOrderCodes() {
   let driverCode = generateCode(4);
   let comandaCode = generateCode(4);
+  let pickupCode = generateCode(4);
   let deliveryCode = generateCode(5);
 
-  // Ensure all codes are different
-  while (driverCode === comandaCode) {
-    comandaCode = generateCode(4);
-  }
-  while (deliveryCode.startsWith(driverCode) || deliveryCode.startsWith(comandaCode)) {
+  // Ensure all 4-char codes are different
+  const used = new Set<string>();
+  used.add(driverCode);
+  while (used.has(comandaCode)) comandaCode = generateCode(4);
+  used.add(comandaCode);
+  while (used.has(pickupCode)) pickupCode = generateCode(4);
+  used.add(pickupCode);
+  while (deliveryCode.startsWith(driverCode) || deliveryCode.startsWith(comandaCode) || deliveryCode.startsWith(pickupCode)) {
     deliveryCode = generateCode(5);
   }
 
-  return { driverCode, comandaCode, deliveryCode };
+  return { driverCode, comandaCode, pickupCode, deliveryCode };
 }
 
 // Map database order to app Order type
@@ -102,6 +106,8 @@ function mapOrder(dbOrder: any): Order {
     transferReason: dbOrder.transfer_reason,
     // Package details (for delivery orders)
     packageDetails: dbOrder.package_details,
+    // Tonalli integration
+    tonalliPickupConfirmed: dbOrder.tonalli_pickup_confirmed || false,
   };
 }
 
@@ -195,7 +201,7 @@ export async function createOrder(orderData: {
 }): Promise<Order> {
   try {
     const total = orderData.subtotal + orderData.deliveryFee + (orderData.tip || 0);
-    const { driverCode, comandaCode, deliveryCode } = generateOrderCodes();
+    const { driverCode, comandaCode, pickupCode, deliveryCode } = generateOrderCodes();
 
     // Get pickup address: from param, from business, or empty
     let pickupAddress = orderData.pickupAddress || '';
@@ -227,6 +233,7 @@ export async function createOrder(orderData: {
       delivery_instructions: orderData.deliveryInstructions,
       driver_code: driverCode,
       comanda_code: comandaCode,
+      pickup_code: pickupCode,
       delivery_code: deliveryCode,
       subtotal: orderData.subtotal,
       delivery_fee: orderData.deliveryFee,
@@ -891,23 +898,46 @@ export async function getBusinessOrders(businessId: string): Promise<Order[]> {
   }
 }
 
-// Driver: Get available orders
-export async function getAvailableOrdersForDriver(): Promise<Order[]> {
+// Driver: Get available orders (unassigned ready + assigned to this driver)
+export async function getAvailableOrdersForDriver(driverId?: string): Promise<Order[]> {
   try {
-    const { data, error } = await supabase
+    // 1. Unassigned orders in 'ready' status (pool general)
+    const { data: poolOrders, error: poolError } = await supabase
       .from('orders')
       .select(`
         *,
         users:client_id (full_name, phone),
         businesses (id, business_name, address, logo_url)
       `)
-      .in('status', ['preparing', 'ready'])
+      .eq('status', 'ready')
       .is('driver_id', null)
       .order('created_at', { ascending: true });
 
-    if (error) throw error;
+    if (poolError) throw poolError;
 
-    return (data || []).map(mapOrder);
+    let assignedOrders: any[] = [];
+
+    // 2. Orders auto-assigned to this driver (status 'assigned')
+    if (driverId) {
+      const { data: myOrders, error: myError } = await supabase
+        .from('orders')
+        .select(`
+          *,
+          users:client_id (full_name, phone),
+          businesses (id, business_name, address, logo_url)
+        `)
+        .eq('driver_id', driverId)
+        .eq('status', 'assigned')
+        .order('created_at', { ascending: true });
+
+      if (!myError && myOrders) {
+        assignedOrders = myOrders;
+      }
+    }
+
+    // Assigned orders first (priority), then pool
+    const all = [...assignedOrders, ...(poolOrders || [])];
+    return all.map(mapOrder);
   } catch (error) {
     console.error('getAvailableOrdersForDriver error:', error);
     throw error;
@@ -1002,6 +1032,16 @@ export async function updateOrderStatus(
           webhookData.driverPhone = additionalFields.driverPhone;
           webhookData.driverVehicle = additionalFields.driverVehicle;
           webhookData.estimatedMinutes = additionalFields.estimatedMinutes;
+          // Codigos de verificacion para pickup
+          webhookData.driverCode = data.driver_code;
+          webhookData.pickupCode = data.pickup_code;
+        }
+
+        // Agregar datos de verificacion de entrega
+        if (webhookEvent === 'delivered') {
+          webhookData.deliveredAt = data.delivered_at || new Date().toISOString();
+          webhookData.deliveryCodeUsed = !!data.delivery_validation?.validated;
+          webhookData.deliveryVerifiedAt = data.delivery_validation?.validatedAt || null;
         }
 
         sendTonalliWebhook(data.businesses.tonalli_api_key, {

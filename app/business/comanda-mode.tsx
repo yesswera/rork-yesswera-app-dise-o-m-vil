@@ -26,28 +26,6 @@ import { Order } from '@/constants/types';
 import { supabase } from '@/constants/supabase';
 import { useBusinessOrderSubscription } from '@/hooks/useRealtimeOrders';
 
-// ============================================================================
-// COLORES EXPLICITOS PARA MODO OSCURO
-// ============================================================================
-
-const COLORS = {
-  light: {
-    card: '#FFFFFF',
-    cardAlt: '#F5F5F4',
-    border: '#E7E5E4',
-    text: '#1C1917',
-    textSecondary: '#57534E',
-    textMuted: '#A8A29E',
-  },
-  dark: {
-    card: '#292524',
-    cardAlt: '#44403C',
-    border: '#44403C',
-    text: '#FAFAFA',
-    textSecondary: '#D6D3D1',
-    textMuted: '#78716C',
-  },
-};
 
 const { width } = Dimensions.get('window');
 const isTablet = width >= 768;
@@ -55,8 +33,7 @@ const isTablet = width >= 768;
 export default function ComandaModeScreen() {
   const router = useRouter();
   const { user } = useAuth();
-  const { isDark, colors } = useTheme();
-  const theme = isDark ? COLORS.dark : COLORS.light;
+  const { colors } = useTheme();
 
   const [orders, setOrders] = useState<Order[]>([]);
   const [businessId, setBusinessId] = useState<string | null>(null);
@@ -162,7 +139,7 @@ export default function ComandaModeScreen() {
     if (status === 'accepted') return colors.accent;
     if (status === 'preparing') return colors.primary;
     if (status === 'ready') return colors.success;
-    return theme.textMuted;
+    return colors.text.muted;
   };
 
   const getStatusLabel = (status: string) => {
@@ -182,20 +159,20 @@ export default function ComandaModeScreen() {
       key={order.id}
       style={[
         styles.comandaCard,
-        { backgroundColor: theme.card, borderLeftColor: getStatusColor(order.status) },
+        { backgroundColor: colors.card, borderLeftColor: getStatusColor(order.status) },
       ]}
     >
       {/* Header */}
-      <View style={[styles.comandaHeader, { borderBottomColor: theme.border }]}>
+      <View style={[styles.comandaHeader, { borderBottomColor: colors.border.light }]}>
         <View style={styles.comandaOrderInfo}>
-          <Text style={[styles.comandaNumber, { color: theme.text }]}>#{order.id.toString().slice(0, 6)}</Text>
+          <Text style={[styles.comandaNumber, { color: colors.text.primary }]}>#{order.id.toString().slice(0, 6)}</Text>
           <View style={[styles.statusBadge, { backgroundColor: getStatusColor(order.status) }]}>
             <Text style={styles.statusText}>{getStatusLabel(order.status)}</Text>
           </View>
         </View>
         <View style={styles.comandaTime}>
-          <Clock size={16} color={theme.textSecondary} />
-          <Text style={[styles.timeText, { color: theme.textSecondary }]}>
+          <Clock size={16} color={colors.text.secondary} />
+          <Text style={[styles.timeText, { color: colors.text.secondary }]}>
             {new Date(order.createdAt).toLocaleTimeString('es-MX', {
               hour: '2-digit',
               minute: '2-digit',
@@ -209,7 +186,7 @@ export default function ComandaModeScreen() {
         {order.items && order.items.map((item, index) => (
           <View key={index} style={styles.comandaItem}>
             <Text style={[styles.itemQuantity, { color: colors.primary }]}>{item.quantity}x</Text>
-            <Text style={[styles.itemName, { color: theme.text }]}>{item.name}</Text>
+            <Text style={[styles.itemName, { color: colors.text.primary }]}>{item.name}</Text>
           </View>
         ))}
       </View>
@@ -218,7 +195,7 @@ export default function ComandaModeScreen() {
       {order.notes && (
         <View style={[styles.notesContainer, { backgroundColor: colors.warning + '20', borderColor: colors.warning }]}>
           <Text style={[styles.notesLabel, { color: colors.warning }]}>NOTAS:</Text>
-          <Text style={[styles.notesText, { color: theme.text }]}>{order.notes}</Text>
+          <Text style={[styles.notesText, { color: colors.text.primary }]}>{order.notes}</Text>
         </View>
       )}
 
@@ -303,13 +280,13 @@ export default function ComandaModeScreen() {
       >
         {loading ? (
           <View style={styles.emptyState}>
-            <Text style={[styles.emptyText, { color: theme.textSecondary }]}>Cargando...</Text>
+            <Text style={[styles.emptyText, { color: colors.text.secondary }]}>Cargando...</Text>
           </View>
         ) : orders.length === 0 ? (
           <View style={styles.emptyState}>
-            <Bell size={48} color={theme.textMuted} />
-            <Text style={[styles.emptyText, { color: theme.text }]}>Sin ordenes activas</Text>
-            <Text style={[styles.emptySubtext, { color: theme.textSecondary }]}>Las nuevas ordenes apareceran aqui</Text>
+            <Bell size={48} color={colors.text.muted} />
+            <Text style={[styles.emptyText, { color: colors.text.primary }]}>Sin ordenes activas</Text>
+            <Text style={[styles.emptySubtext, { color: colors.text.secondary }]}>Las nuevas ordenes apareceran aqui</Text>
           </View>
         ) : (
           <View style={styles.comandasGrid}>

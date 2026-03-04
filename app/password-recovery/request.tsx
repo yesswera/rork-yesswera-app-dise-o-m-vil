@@ -8,8 +8,8 @@ import { useState } from 'react';
 import {
   View,
   StyleSheet,
-  Image,
 } from 'react-native';
+import { Image } from 'expo-image';
 import { useRouter } from 'expo-router';
 import { KeyRound, ArrowLeft } from 'lucide-react-native';
 import { useTheme } from '@/contexts/theme';
@@ -20,6 +20,7 @@ import LoadingButton from '@/components/LoadingButton';
 import { Toast } from '@/utils/toast';
 import { Validator } from '@/utils/validation';
 import { HapticFeedback } from '@/utils/haptics';
+import { supabase } from '@/constants/supabase';
 
 // ============================================================================
 // COLORES EXPLÍCITOS PARA MODO OSCURO
@@ -75,10 +76,16 @@ export default function PasswordRecoveryRequestScreen() {
 
     setIsLoading(true);
     try {
-      await new Promise(resolve => setTimeout(resolve, 1500));
+      const { error: resetError } = await supabase.auth.resetPasswordForEmail(email);
 
+      if (resetError) {
+        console.error('Reset email error:', resetError);
+        // Anti-enumeracion: no revelar si el email existe o no
+      }
+
+      // Siempre mostrar exito (seguridad: no revelar si el email existe)
       HapticFeedback.success();
-      Toast.success('Codigo enviado exitosamente');
+      Toast.success('Si el correo existe, recibiras un codigo');
       router.push(`/password-recovery/verify?email=${encodeURIComponent(email)}` as any);
     } catch (error) {
       console.error('Send code error:', error);
@@ -113,9 +120,9 @@ export default function PasswordRecoveryRequestScreen() {
       {/* Logo */}
       <View style={styles.logoContainer}>
         <Image
-          source={{ uri: 'https://rork.app/pa/9eb35k949i660ayrsld5b/logo' }}
+          source={require('@/assets/images/icon.png')}
           style={styles.logoImage}
-          resizeMode="contain"
+          contentFit="contain"
         />
       </View>
 
@@ -185,8 +192,9 @@ const styles = StyleSheet.create({
     marginBottom: 24,
   },
   logoImage: {
-    width: 160,
-    height: 80,
+    width: 64,
+    height: 64,
+    borderRadius: 16,
   },
   title: {
     marginBottom: 12,

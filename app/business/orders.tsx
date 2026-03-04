@@ -164,18 +164,20 @@ export default function BusinessOrdersScreen() {
 
   const handleMarkReady = async (orderId: string) => {
     try {
-      // Mark as ready AND notify nearby drivers
+      // Mark as ready AND auto-assign nearest driver
       const result = await markOrderReadyAndAssign(orderId);
       OrderSounds.ready();
       if (result.success) {
         Alert.alert(
           'Pedido Listo',
-          result.driversNotified && result.driversNotified > 0
-            ? `${result.driversNotified} repartidores fueron notificados`
-            : 'Buscando repartidores disponibles...'
+          result.assignedDriver
+            ? `Repartidor asignado: ${result.assignedDriver.name} (a ${result.assignedDriver.distanceMeters}m)`
+            : result.driversNotified && result.driversNotified > 0
+              ? `Buscando entre ${result.driversNotified} repartidores cercanos...`
+              : 'Buscando repartidores disponibles...'
         );
       } else {
-        Alert.alert('Listo', 'Pedido marcado como listo para recoger');
+        Alert.alert('Listo', result.message || 'Pedido marcado como listo para recoger');
       }
       loadOrders();
     } catch (error) {

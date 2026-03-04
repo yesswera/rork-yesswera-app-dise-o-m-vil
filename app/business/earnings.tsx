@@ -19,28 +19,6 @@ import { ThemedText } from '@/components/themed';
 import ScreenContainer from '@/components/ScreenContainer';
 import { supabase } from '@/constants/supabase';
 
-// ============================================================================
-// COLORES EXPLICITOS PARA MODO OSCURO
-// ============================================================================
-
-const COLORS = {
-  light: {
-    card: '#FFFFFF',
-    cardAlt: '#F5F5F4',
-    border: '#E7E5E4',
-    text: '#1C1917',
-    textSecondary: '#57534E',
-    textMuted: '#A8A29E',
-  },
-  dark: {
-    card: '#292524',
-    cardAlt: '#44403C',
-    border: '#44403C',
-    text: '#FAFAFA',
-    textSecondary: '#D6D3D1',
-    textMuted: '#78716C',
-  },
-};
 
 // ============================================================================
 // TIPOS
@@ -118,8 +96,7 @@ function formatDate(dateStr: string): string {
 
 export default function BusinessEarningsScreen() {
   const { user } = useAuth();
-  const { isDark, colors, space, radius } = useTheme();
-  const theme = isDark ? COLORS.dark : COLORS.light;
+  const { colors, space, radius } = useTheme();
 
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -313,8 +290,8 @@ export default function BusinessEarningsScreen() {
             style={[
               styles.tab,
               {
-                backgroundColor: theme.card,
-                borderColor: theme.border,
+                backgroundColor: colors.card,
+                borderColor: colors.border.light,
                 borderRadius: radius.md,
               },
               period === p && {
@@ -328,7 +305,7 @@ export default function BusinessEarningsScreen() {
               variant="label"
               bold
               style={[
-                { color: theme.textSecondary },
+                { color: colors.text.secondary },
                 period === p && { color: '#FFFFFF' },
               ]}
             >
@@ -350,7 +327,7 @@ export default function BusinessEarningsScreen() {
         /* EMPTY STATE                                                      */
         /* ================================================================ */
         <View style={styles.emptyContainer}>
-          <DollarSign size={48} color={theme.textMuted} />
+          <DollarSign size={48} color={colors.text.muted} />
           <ThemedText variant="subtitle" color="muted" style={{ marginTop: space.md, textAlign: 'center' }}>
             Sin datos
           </ThemedText>
@@ -365,21 +342,21 @@ export default function BusinessEarningsScreen() {
           {/* ================================================================ */}
 
           <View style={[styles.card, {
-            backgroundColor: theme.card,
+            backgroundColor: colors.card,
             borderRadius: radius.md,
             padding: space.md,
             marginBottom: space.md,
           }]}>
             <View style={styles.cardHeader}>
               <TrendingUp size={20} color={colors.success} />
-              <ThemedText variant="subtitle" bold style={{ marginLeft: 8, color: theme.text }}>
+              <ThemedText variant="subtitle" bold style={{ marginLeft: 8, color: colors.text.primary }}>
                 Resumen de Ingresos
               </ThemedText>
             </View>
 
             <View style={[styles.revenueRow, { marginTop: space.md }]}>
               <View style={styles.revenueStat}>
-                <ThemedText variant="caption" style={{ color: theme.textMuted }}>
+                <ThemedText variant="caption" style={{ color: colors.text.muted }}>
                   Total Ingresos
                 </ThemedText>
                 <ThemedText variant="h3" bold style={{ color: colors.success, marginTop: 4 }}>
@@ -390,18 +367,18 @@ export default function BusinessEarningsScreen() {
 
             <View style={[styles.revenueRow, { marginTop: space.sm }]}>
               <View style={styles.revenueStat}>
-                <ThemedText variant="caption" style={{ color: theme.textMuted }}>
+                <ThemedText variant="caption" style={{ color: colors.text.muted }}>
                   Ordenes Completadas
                 </ThemedText>
-                <ThemedText variant="title" bold style={{ color: theme.text, marginTop: 2 }}>
+                <ThemedText variant="title" bold style={{ color: colors.text.primary, marginTop: 2 }}>
                   {stats.totalOrders}
                 </ThemedText>
               </View>
               <View style={[styles.revenueStat, { alignItems: 'flex-end' }]}>
-                <ThemedText variant="caption" style={{ color: theme.textMuted }}>
+                <ThemedText variant="caption" style={{ color: colors.text.muted }}>
                   Ticket Promedio
                 </ThemedText>
-                <ThemedText variant="title" bold style={{ color: theme.text, marginTop: 2 }}>
+                <ThemedText variant="title" bold style={{ color: colors.text.primary, marginTop: 2 }}>
                   {formatCurrency(stats.avgTicket)}
                 </ThemedText>
               </View>
@@ -413,28 +390,28 @@ export default function BusinessEarningsScreen() {
           {/* ================================================================ */}
 
           <View style={[styles.card, {
-            backgroundColor: theme.card,
+            backgroundColor: colors.card,
             borderRadius: radius.md,
             padding: space.md,
             marginBottom: space.md,
           }]}>
             <View style={styles.cardHeader}>
               <ShoppingBag size={20} color={colors.secondary} />
-              <ThemedText variant="subtitle" bold style={{ marginLeft: 8, color: theme.text }}>
+              <ThemedText variant="subtitle" bold style={{ marginLeft: 8, color: colors.text.primary }}>
                 Desglose de Ordenes
               </ThemedText>
             </View>
 
             {/* Completadas */}
-            <View style={[styles.statusRow, { marginTop: space.md, borderBottomColor: theme.border }]}>
+            <View style={[styles.statusRow, { marginTop: space.md, borderBottomColor: colors.border.light }]}>
               <View style={styles.statusLeft}>
                 <CheckCircle size={18} color={colors.success} />
-                <ThemedText variant="body" style={{ marginLeft: 8, color: theme.text }}>
+                <ThemedText variant="body" style={{ marginLeft: 8, color: colors.text.primary }}>
                   Completadas
                 </ThemedText>
               </View>
               <View style={styles.statusRight}>
-                <ThemedText variant="body" bold style={{ color: theme.text }}>
+                <ThemedText variant="body" bold style={{ color: colors.text.primary }}>
                   {stats.totalOrders}
                 </ThemedText>
                 <ThemedText variant="caption" style={{ color: colors.success, marginLeft: 8 }}>
@@ -444,15 +421,15 @@ export default function BusinessEarningsScreen() {
             </View>
 
             {/* Canceladas */}
-            <View style={[styles.statusRow, { borderBottomColor: theme.border }]}>
+            <View style={[styles.statusRow, { borderBottomColor: colors.border.light }]}>
               <View style={styles.statusLeft}>
                 <XCircle size={18} color={colors.error} />
-                <ThemedText variant="body" style={{ marginLeft: 8, color: theme.text }}>
+                <ThemedText variant="body" style={{ marginLeft: 8, color: colors.text.primary }}>
                   Canceladas
                 </ThemedText>
               </View>
               <View style={styles.statusRight}>
-                <ThemedText variant="body" bold style={{ color: theme.text }}>
+                <ThemedText variant="body" bold style={{ color: colors.text.primary }}>
                   {stats.cancelledCount}
                 </ThemedText>
                 <ThemedText variant="caption" style={{ color: colors.error, marginLeft: 8 }}>
@@ -465,12 +442,12 @@ export default function BusinessEarningsScreen() {
             <View style={[styles.statusRow, { borderBottomWidth: 0 }]}>
               <View style={styles.statusLeft}>
                 <Clock size={18} color={colors.warning} />
-                <ThemedText variant="body" style={{ marginLeft: 8, color: theme.text }}>
+                <ThemedText variant="body" style={{ marginLeft: 8, color: colors.text.primary }}>
                   Pendientes
                 </ThemedText>
               </View>
               <View style={styles.statusRight}>
-                <ThemedText variant="body" bold style={{ color: theme.text }}>
+                <ThemedText variant="body" bold style={{ color: colors.text.primary }}>
                   {stats.pendingCount}
                 </ThemedText>
                 <ThemedText variant="caption" style={{ color: colors.warning, marginLeft: 8 }}>
@@ -486,14 +463,14 @@ export default function BusinessEarningsScreen() {
 
           {dailyRevenue.length > 0 && (
             <View style={[styles.card, {
-              backgroundColor: theme.card,
+              backgroundColor: colors.card,
               borderRadius: radius.md,
               padding: space.md,
               marginBottom: space.md,
             }]}>
               <View style={styles.cardHeader}>
                 <TrendingUp size={20} color={colors.accent} />
-                <ThemedText variant="subtitle" bold style={{ marginLeft: 8, color: theme.text }}>
+                <ThemedText variant="subtitle" bold style={{ marginLeft: 8, color: colors.text.primary }}>
                   Ingresos por Dia
                 </ThemedText>
               </View>
@@ -504,16 +481,16 @@ export default function BusinessEarningsScreen() {
                   style={[
                     styles.dailyRow,
                     {
-                      borderBottomColor: theme.border,
+                      borderBottomColor: colors.border.light,
                       borderBottomWidth: index < dailyRevenue.length - 1 ? 1 : 0,
                     },
                   ]}
                 >
                   <View>
-                    <ThemedText variant="body" style={{ color: theme.text }}>
+                    <ThemedText variant="body" style={{ color: colors.text.primary }}>
                       {formatDate(day.date)}
                     </ThemedText>
-                    <ThemedText variant="caption" style={{ color: theme.textMuted, marginTop: 2 }}>
+                    <ThemedText variant="caption" style={{ color: colors.text.muted, marginTop: 2 }}>
                       {day.count} {day.count === 1 ? 'orden' : 'ordenes'}
                     </ThemedText>
                   </View>
@@ -531,14 +508,14 @@ export default function BusinessEarningsScreen() {
 
           {topProducts.length > 0 && (
             <View style={[styles.card, {
-              backgroundColor: theme.card,
+              backgroundColor: colors.card,
               borderRadius: radius.md,
               padding: space.md,
               marginBottom: space.md,
             }]}>
               <View style={styles.cardHeader}>
                 <ShoppingBag size={20} color={colors.primary} />
-                <ThemedText variant="subtitle" bold style={{ marginLeft: 8, color: theme.text }}>
+                <ThemedText variant="subtitle" bold style={{ marginLeft: 8, color: colors.text.primary }}>
                   Productos Mas Vendidos
                 </ThemedText>
               </View>
@@ -549,27 +526,27 @@ export default function BusinessEarningsScreen() {
                   style={[
                     styles.productRow,
                     {
-                      borderBottomColor: theme.border,
+                      borderBottomColor: colors.border.light,
                       borderBottomWidth: index < topProducts.length - 1 ? 1 : 0,
                     },
                   ]}
                 >
                   <View style={styles.productRank}>
                     <View style={[styles.rankBadge, {
-                      backgroundColor: index === 0 ? colors.warning + '20' : theme.cardAlt,
+                      backgroundColor: index === 0 ? colors.warning + '20' : colors.background.secondary,
                     }]}>
                       <ThemedText variant="label" bold style={{
-                        color: index === 0 ? colors.warning : theme.textMuted,
+                        color: index === 0 ? colors.warning : colors.text.muted,
                       }}>
                         #{index + 1}
                       </ThemedText>
                     </View>
                   </View>
                   <View style={styles.productInfo}>
-                    <ThemedText variant="body" style={{ color: theme.text }} numberOfLines={1}>
+                    <ThemedText variant="body" style={{ color: colors.text.primary }} numberOfLines={1}>
                       {product.product_name}
                     </ThemedText>
-                    <ThemedText variant="caption" style={{ color: theme.textMuted, marginTop: 2 }}>
+                    <ThemedText variant="caption" style={{ color: colors.text.muted, marginTop: 2 }}>
                       {product.totalQuantity} {product.totalQuantity === 1 ? 'unidad' : 'unidades'}
                     </ThemedText>
                   </View>
@@ -586,34 +563,34 @@ export default function BusinessEarningsScreen() {
           {/* ================================================================ */}
 
           <View style={[styles.card, {
-            backgroundColor: theme.card,
+            backgroundColor: colors.card,
             borderRadius: radius.md,
             padding: space.md,
             marginBottom: space.xl || 32,
           }]}>
             <View style={styles.cardHeader}>
               <CreditCard size={20} color={colors.tertiary} />
-              <ThemedText variant="subtitle" bold style={{ marginLeft: 8, color: theme.text }}>
+              <ThemedText variant="subtitle" bold style={{ marginLeft: 8, color: colors.text.primary }}>
                 Metodos de Pago
               </ThemedText>
             </View>
 
             {/* Efectivo */}
-            <View style={[styles.paymentRow, { marginTop: space.md, borderBottomColor: theme.border }]}>
+            <View style={[styles.paymentRow, { marginTop: space.md, borderBottomColor: colors.border.light }]}>
               <View style={styles.paymentLeft}>
                 <View style={[styles.paymentIcon, { backgroundColor: colors.success + '15' }]}>
                   <Banknote size={18} color={colors.success} />
                 </View>
                 <View style={{ marginLeft: 10 }}>
-                  <ThemedText variant="body" style={{ color: theme.text }}>
+                  <ThemedText variant="body" style={{ color: colors.text.primary }}>
                     Efectivo
                   </ThemedText>
-                  <ThemedText variant="caption" style={{ color: theme.textMuted }}>
+                  <ThemedText variant="caption" style={{ color: colors.text.muted }}>
                     {stats.cashCount} {stats.cashCount === 1 ? 'orden' : 'ordenes'}
                   </ThemedText>
                 </View>
               </View>
-              <ThemedText variant="body" bold style={{ color: theme.text }}>
+              <ThemedText variant="body" bold style={{ color: colors.text.primary }}>
                 {formatCurrency(stats.cashAmount)}
               </ThemedText>
             </View>
@@ -625,15 +602,15 @@ export default function BusinessEarningsScreen() {
                   <CreditCard size={18} color={colors.tertiary} />
                 </View>
                 <View style={{ marginLeft: 10 }}>
-                  <ThemedText variant="body" style={{ color: theme.text }}>
+                  <ThemedText variant="body" style={{ color: colors.text.primary }}>
                     Tarjeta
                   </ThemedText>
-                  <ThemedText variant="caption" style={{ color: theme.textMuted }}>
+                  <ThemedText variant="caption" style={{ color: colors.text.muted }}>
                     {stats.cardCount} {stats.cardCount === 1 ? 'orden' : 'ordenes'}
                   </ThemedText>
                 </View>
               </View>
-              <ThemedText variant="body" bold style={{ color: theme.text }}>
+              <ThemedText variant="body" bold style={{ color: colors.text.primary }}>
                 {formatCurrency(stats.cardAmount)}
               </ThemedText>
             </View>

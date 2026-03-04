@@ -1,7 +1,7 @@
 import TouchableSound from '@/components/TouchableSound';
 // ============================================================================
-// YESSWERA: LISTA DE RESTAURANTES
-// Usa ScreenContainer para diseño unificado con gradiente naranja
+// YESSWERA: ALIMENTOS Y BEBIDAS
+// Grid compacto de 2 columnas con filtro de categorias
 // ============================================================================
 
 import {
@@ -9,11 +9,13 @@ import {
   TextInput,
   ActivityIndicator,
   StyleSheet,
+  Dimensions,
+  ScrollView as RNScrollView,
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { Search, Star, Clock, UtensilsCrossed } from 'lucide-react-native';
 import { Image } from 'expo-image';
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import { useTheme } from '@/contexts/theme';
 import { ThemedText } from '@/components/themed';
 import { Business } from '@/constants/types';
@@ -22,22 +24,44 @@ import EmptyState from '@/components/EmptyState';
 import ScreenContainer from '@/components/ScreenContainer';
 
 // ============================================================================
-// COLORES EXPLÍCITOS PARA MODO OSCURO
+// CATEGORIAS CON NOMBRES LEGIBLES
 // ============================================================================
-const COLORS = {
-  light: { card: '#FFFFFF', cardAlt: '#F5F5F4', border: '#E7E5E4' },
-  dark: { card: '#292524', cardAlt: '#44403C', border: '#44403C' },
+const CATEGORY_LABELS: Record<string, string> = {
+  tacos: 'Tacos',
+  comida_mexicana: 'Comida',
+  mariscos: 'Mariscos',
+  pizza: 'Pizza',
+  cafe: 'Cafe',
+  bebidas: 'Bebidas',
+  panaderia: 'Panaderia',
+  jugos: 'Jugos',
+  loncheria: 'Loncheria',
+  pollos: 'Pollos',
+  neveria: 'Nieves',
+  miscelanea: 'Miscelanea',
+  hotdogs: 'Hot Dogs',
+  food: 'Comida',
+  restaurant: 'Restaurante',
 };
+
+const { width: SCREEN_WIDTH } = Dimensions.get('window');
+const CARD_GAP = 12;
+const CARD_WIDTH = (SCREEN_WIDTH - 32 - CARD_GAP) / 2; // 16px padding each side (ScreenContainer)
 
 export default function RestaurantsScreen() {
   const router = useRouter();
   const { isDark, colors, space, radius, fonts } = useTheme();
-  const theme = isDark ? COLORS.dark : COLORS.light;
+
+  const cardBg = isDark ? '#292524' : '#FFFFFF';
+  const borderColor = isDark ? '#44403C' : '#F5F5F4';
+  const chipBg = isDark ? '#44403C' : '#F5F5F4';
+  const chipActiveBg = isDark ? '#16A34A' : '#16A34A';
 
   const [search, setSearch] = useState('');
   const [businesses, setBusinesses] = useState<Business[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
 
   const loadBusinesses = useCallback(async () => {
     try {
@@ -60,13 +84,25 @@ export default function RestaurantsScreen() {
     loadBusinesses();
   };
 
-  const filteredBusinesses = businesses.filter(
-    (business) =>
-      business.name.toLowerCase().includes(search.toLowerCase()) ||
-      business.category.toLowerCase().includes(search.toLowerCase())
-  );
+  // Extract unique categories from loaded businesses
+  const categories = useMemo(() => {
+    const cats = new Set(businesses.map(b => b.category));
+    return Array.from(cats).sort();
+  }, [businesses]);
 
-  // Barra de búsqueda como contenido custom del header
+  // Filter by search + category
+  const filteredBusinesses = useMemo(() => {
+    return businesses.filter((business) => {
+      const searchLower = search.toLowerCase();
+      const matchesSearch = !search ||
+        (business.name || '').toLowerCase().includes(searchLower) ||
+        (business.category || '').toLowerCase().includes(searchLower);
+      const matchesCategory = !selectedCategory || business.category === selectedCategory;
+      return matchesSearch && matchesCategory;
+    });
+  }, [businesses, search, selectedCategory]);
+
+  // Search bar in header
   const searchBar = (
     <View style={[styles.searchContainer, {
       backgroundColor: 'rgba(255, 255, 255, 0.2)',
@@ -81,7 +117,7 @@ export default function RestaurantsScreen() {
           fontSize: fonts.base,
           marginLeft: space.sm,
         }]}
-        placeholder="Buscar restaurantes..."
+        placeholder="Buscar negocios..."
         placeholderTextColor="rgba(255, 255, 255, 0.6)"
         value={search}
         onChangeText={setSearch}
@@ -94,7 +130,7 @@ export default function RestaurantsScreen() {
       <ScreenContainer
         headerGradient="secondary"
         headerIcon={UtensilsCrossed}
-        headerTitle="Restaurantes"
+        headerTitle="Alimentos y Bebidas"
         headerSubtitle="Cargando..."
       >
         <View style={styles.loadingContainer}>
@@ -108,82 +144,121 @@ export default function RestaurantsScreen() {
     <ScreenContainer
       headerGradient="secondary"
       headerIcon={UtensilsCrossed}
-      headerTitle="Restaurantes"
-      headerSubtitle="Encuentra tu comida favorita en Tomatlan"
+      headerTitle="Alimentos y Bebidas"
+      headerSubtitle="Todo lo que necesitas en Tomatlan"
       headerContent={searchBar}
       refreshing={refreshing}
       onRefresh={onRefresh}
     >
+      {/* Category filter chips */}
+      {categories.length > 1 && (
+        <RNScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          contentContainerStyle={styles.chipScroll}
+          style={styles.chipContainer}
+        >
+          <TouchableSound
+            style={[styles.chip, {
+              backgroundColor: selectedCategory === null ? chipActiveBg : chipBg,
+              borderColor: selectedCategory === null ? chipActiveBg : borderColor,
+            }]}
+            onPress={() => setSelectedCategory(null)}
+          >
+            <ThemedText
+              variant="caption"
+              bold
+              style={{ color: selectedCategory === null ? '#FFFFFF' : (isDark ? '#D6D3D1' : '#57534E') }}
+            >
+              Todos
+            </ThemedText>
+          </TouchableSound>
+          {categories.map((cat) => (
+            <TouchableSound
+              key={cat}
+              style={[styles.chip, {
+                backgroundColor: selectedCategory === cat ? chipActiveBg : chipBg,
+                borderColor: selectedCategory === cat ? chipActiveBg : borderColor,
+              }]}
+              onPress={() => setSelectedCategory(selectedCategory === cat ? null : cat)}
+            >
+              <ThemedText
+                variant="caption"
+                bold
+                style={{ color: selectedCategory === cat ? '#FFFFFF' : (isDark ? '#D6D3D1' : '#57534E') }}
+              >
+                {CATEGORY_LABELS[cat] || cat}
+              </ThemedText>
+            </TouchableSound>
+          ))}
+        </RNScrollView>
+      )}
+
+      {/* Business grid */}
       {filteredBusinesses.length === 0 ? (
         <EmptyState
+          icon={UtensilsCrossed}
           title="Sin resultados"
           message={search ? 'No hay negocios que coincidan con tu busqueda' : 'No hay negocios disponibles aun'}
         />
       ) : (
-        filteredBusinesses.map((business) => (
-          <TouchableSound
-            key={business.id}
-            style={[styles.businessCard, {
-              backgroundColor: theme.card,
-              borderRadius: radius.lg,
-              marginBottom: space.md,
-            }]}
-            activeOpacity={0.8}
-            onPress={() => router.push(`/food/menu/${business.id}` as any)}
-          >
-            {business.image ? (
-              <Image
-                source={{ uri: business.image }}
-                style={[styles.businessImage, { borderTopLeftRadius: radius.lg, borderTopRightRadius: radius.lg }]}
-                contentFit="cover"
-              />
-            ) : (
-              <View style={[styles.businessImage, styles.imagePlaceholder, {
-                backgroundColor: colors.primary,
-                borderTopLeftRadius: radius.lg,
-                borderTopRightRadius: radius.lg,
-              }]}>
-                <ThemedText variant="h2" color="white">{business.name.charAt(0)}</ThemedText>
-              </View>
-            )}
-
-            <View style={[styles.businessInfo, { padding: space.md }]}>
-              <ThemedText variant="subtitle" bold>{business.name}</ThemedText>
-              <ThemedText variant="caption" color="secondary" numberOfLines={1}>
-                {business.description}
-              </ThemedText>
-
-              <View style={[styles.businessMeta, { marginTop: space.sm, gap: space.md }]}>
-                <View style={styles.metaItem}>
-                  <Star size={14} color={colors.warning} fill={colors.warning} />
-                  <ThemedText variant="caption" bold style={{ marginLeft: 4 }}>
-                    {business.rating.toFixed(1)}
+        <View style={styles.grid}>
+          {filteredBusinesses.map((business) => (
+            <TouchableSound
+              key={business.id}
+              style={[styles.gridCard, {
+                backgroundColor: cardBg,
+                borderColor: borderColor,
+                width: CARD_WIDTH,
+              }]}
+              activeOpacity={0.8}
+              onPress={() => router.push(`/food/menu/${business.id}` as any)}
+            >
+              {/* Image or placeholder */}
+              {business.image ? (
+                <Image
+                  source={{ uri: business.image }}
+                  style={styles.gridImage}
+                  contentFit="cover"
+                />
+              ) : (
+                <View style={[styles.gridImage, styles.gridImagePlaceholder, {
+                  backgroundColor: isDark ? '#44403C' : '#E7E5E4',
+                }]}>
+                  <ThemedText variant="h2" color="secondary">
+                    {(business.name || '?').charAt(0)}
                   </ThemedText>
                 </View>
-                <View style={[styles.metaDivider, { backgroundColor: theme.border }]} />
-                <View style={styles.metaItem}>
-                  <Clock size={14} color={isDark ? '#D6D3D1' : colors.text.secondary} />
-                  <ThemedText variant="caption" color="secondary" style={{ marginLeft: 4 }}>
+              )}
+
+              {/* Info */}
+              <View style={styles.gridInfo}>
+                <ThemedText variant="body" bold numberOfLines={1}>
+                  {business.name}
+                </ThemedText>
+
+                <View style={styles.gridMeta}>
+                  <Star size={12} color={colors.warning} fill={colors.warning} />
+                  <ThemedText variant="caption" bold style={styles.gridRating}>
+                    {business.rating.toFixed(1)}
+                  </ThemedText>
+                  <Clock size={12} color={isDark ? '#A8A29E' : '#78716C'} />
+                  <ThemedText variant="caption" color="secondary" style={styles.gridTime}>
                     {business.deliveryTime}
                   </ThemedText>
                 </View>
-              </View>
 
-              <View style={[styles.tagsContainer, { marginTop: space.sm, gap: space.xs }]}>
-                {business.tags.slice(0, 3).map((tag) => (
-                  <View key={tag} style={[styles.tag, {
-                    backgroundColor: colors.primary + '15',
-                    borderRadius: radius.full,
-                    paddingHorizontal: space.sm,
-                    paddingVertical: space.xs,
-                  }]}>
-                    <ThemedText variant="caption" color="accent">{tag}</ThemedText>
-                  </View>
-                ))}
+                <View style={[styles.gridTag, {
+                  backgroundColor: (isDark ? '#16A34A' : '#16A34A') + '15',
+                }]}>
+                  <ThemedText variant="caption" color="accent" style={{ fontSize: 11 }}>
+                    {CATEGORY_LABELS[business.category] || business.category}
+                  </ThemedText>
+                </View>
               </View>
-            </View>
-          </TouchableSound>
-        ))
+            </TouchableSound>
+          ))}
+        </View>
       )}
     </ScreenContainer>
   );
@@ -203,38 +278,65 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     minHeight: 200,
   },
-  businessCard: {
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 8,
-    elevation: 3,
+
+  // Category chips
+  chipContainer: {
+    marginBottom: 16,
+    marginHorizontal: -4,
+  },
+  chipScroll: {
+    paddingHorizontal: 4,
+    gap: 8,
+  },
+  chip: {
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 20,
+    borderWidth: 1,
+  },
+
+  // Grid layout
+  grid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: CARD_GAP,
+  },
+  gridCard: {
+    borderRadius: 14,
+    borderWidth: 1,
     overflow: 'hidden',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.04,
+    shadowRadius: 4,
+    elevation: 1,
   },
-  businessImage: {
+  gridImage: {
     width: '100%',
-    height: 150,
+    height: 100,
   },
-  imagePlaceholder: {
+  gridImagePlaceholder: {
     justifyContent: 'center',
     alignItems: 'center',
   },
-  businessInfo: {},
-  businessMeta: {
+  gridInfo: {
+    padding: 10,
+  },
+  gridMeta: {
     flexDirection: 'row',
     alignItems: 'center',
+    marginTop: 4,
+    gap: 4,
   },
-  metaItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
+  gridRating: {
+    marginRight: 6,
   },
-  metaDivider: {
-    width: 1,
-    height: 14,
+  gridTime: {},
+  gridTag: {
+    alignSelf: 'flex-start',
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 10,
+    marginTop: 6,
   },
-  tagsContainer: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-  },
-  tag: {},
 });

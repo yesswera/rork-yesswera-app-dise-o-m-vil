@@ -172,7 +172,7 @@ export default function MenuScreen() {
         <ThemedText variant="h2" style={{ marginBottom: space.md }}>Menu</ThemedText>
 
         {products.length === 0 ? (
-          <EmptyState title="Sin productos" message="Este negocio aun no tiene productos disponibles" />
+          <EmptyState icon={Store} title="Sin productos" message="Este negocio aun no tiene productos disponibles" />
         ) : (
           <View style={[styles.productsGrid, { gap: space.md }]}>
             {products.map((product) => {

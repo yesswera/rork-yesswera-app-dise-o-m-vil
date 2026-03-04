@@ -19,34 +19,6 @@ import { ThemedText } from '@/components/themed';
 import ScreenContainer, { ScreenCard } from '@/components/ScreenContainer';
 import { supabase } from '@/constants/supabase';
 
-// ============================================================================
-// COLORES EXPLICITOS PARA MODO OSCURO
-// ============================================================================
-
-const COLORS = {
-  light: {
-    card: '#FFFFFF',
-    cardAlt: '#F5F5F4',
-    border: '#E7E5E4',
-    text: '#1C1917',
-    textSecondary: '#57534E',
-    textMuted: '#A8A29E',
-    success: '#22C55E',
-    warning: '#F59E0B',
-    error: '#EF4444',
-  },
-  dark: {
-    card: '#292524',
-    cardAlt: '#44403C',
-    border: '#44403C',
-    text: '#FAFAFA',
-    textSecondary: '#D6D3D1',
-    textMuted: '#78716C',
-    success: '#22C55E',
-    warning: '#F59E0B',
-    error: '#EF4444',
-  },
-};
 
 type Period = 'today' | 'week' | 'month';
 
@@ -71,8 +43,7 @@ interface PendingSettlement {
 export default function EarningsScreen() {
   const router = useRouter();
   const { user } = useAuth();
-  const { isDark, colors, radius, space } = useTheme();
-  const theme = isDark ? COLORS.dark : COLORS.light;
+  const { colors, radius, space } = useTheme();
 
   const [selectedPeriod, setSelectedPeriod] = useState<Period>('today');
   const [earnings, setEarnings] = useState<EarningsData>({
@@ -259,61 +230,61 @@ export default function EarningsScreen() {
       {/* Summary Card */}
       <ScreenCard style={styles.summaryCard}>
         <View style={styles.summaryHeader}>
-          <DollarSign size={32} color={theme.success} />
-          <ThemedText variant="label" style={{ color: theme.textSecondary }}>
+          <DollarSign size={32} color={colors.success} />
+          <ThemedText variant="label" style={{ color: colors.text.secondary }}>
             Total Ganado - {getPeriodLabel()}
           </ThemedText>
         </View>
-        <ThemedText variant="h1" style={[styles.summaryAmount, { color: theme.success }]}>
+        <ThemedText variant="h1" style={[styles.summaryAmount, { color: colors.success }]}>
           ${earnings.totalEarned.toFixed(2)} MXN
         </ThemedText>
 
         <View style={styles.statsRow}>
           <View style={styles.statItem}>
             <Package size={20} color={colors.primary} />
-            <ThemedText variant="h3" style={{ color: theme.text }}>{earnings.deliveriesCompleted}</ThemedText>
-            <ThemedText variant="caption" style={{ color: theme.textSecondary }}>Entregas</ThemedText>
+            <ThemedText variant="h3" style={{ color: colors.text.primary }}>{earnings.deliveriesCompleted}</ThemedText>
+            <ThemedText variant="caption" style={{ color: colors.text.secondary }}>Entregas</ThemedText>
           </View>
-          <View style={[styles.statDivider, { backgroundColor: theme.border }]} />
+          <View style={[styles.statDivider, { backgroundColor: colors.border.light }]} />
           <View style={styles.statItem}>
-            <TrendingUp size={20} color={theme.warning} />
-            <ThemedText variant="h3" style={{ color: theme.text }}>${earnings.tipsReceived.toFixed(2)}</ThemedText>
-            <ThemedText variant="caption" style={{ color: theme.textSecondary }}>Propinas</ThemedText>
+            <TrendingUp size={20} color={colors.warning} />
+            <ThemedText variant="h3" style={{ color: colors.text.primary }}>${earnings.tipsReceived.toFixed(2)}</ThemedText>
+            <ThemedText variant="caption" style={{ color: colors.text.secondary }}>Propinas</ThemedText>
           </View>
         </View>
       </ScreenCard>
 
       {/* Orders History */}
-      <ThemedText variant="h3" style={[styles.sectionTitle, { color: theme.text }]}>
+      <ThemedText variant="h3" style={[styles.sectionTitle, { color: colors.text.primary }]}>
         Historial de Ganancias
       </ThemedText>
 
       {loading ? (
-        <ThemedText variant="body" style={[styles.loadingText, { color: theme.textSecondary }]}>
+        <ThemedText variant="body" style={[styles.loadingText, { color: colors.text.secondary }]}>
           Cargando...
         </ThemedText>
       ) : earnings.orders.length === 0 ? (
-        <View style={[styles.emptyState, { backgroundColor: theme.card }]}>
-          <Package size={48} color={theme.textMuted} />
-          <ThemedText variant="body" style={{ color: theme.textSecondary }}>
+        <View style={[styles.emptyState, { backgroundColor: colors.card }]}>
+          <Package size={48} color={colors.text.muted} />
+          <ThemedText variant="body" style={{ color: colors.text.secondary }}>
             No hay entregas en este periodo
           </ThemedText>
         </View>
       ) : (
         earnings.orders.map((order) => (
-          <View key={order.id} style={[styles.orderCard, { backgroundColor: theme.card }]}>
+          <View key={order.id} style={[styles.orderCard, { backgroundColor: colors.card }]}>
             <View style={styles.orderHeader}>
-              <ThemedText variant="label" style={{ color: theme.textSecondary }}>
+              <ThemedText variant="label" style={{ color: colors.text.secondary }}>
                 #{order.orderNumber}
               </ThemedText>
-              <ThemedText variant="h3" style={{ color: theme.success }}>
+              <ThemedText variant="h3" style={{ color: colors.success }}>
                 ${(order.earnings + order.tip).toFixed(2)}
               </ThemedText>
             </View>
-            <View style={[styles.orderDetails, { borderTopColor: theme.border }]}>
+            <View style={[styles.orderDetails, { borderTopColor: colors.border.light }]}>
               <View style={styles.orderDetailRow}>
-                <Clock size={14} color={theme.textSecondary} />
-                <ThemedText variant="caption" style={{ color: theme.textSecondary }}>
+                <Clock size={14} color={colors.text.secondary} />
+                <ThemedText variant="caption" style={{ color: colors.text.secondary }}>
                   {new Date(order.completedAt).toLocaleString('es-MX', {
                     day: '2-digit',
                     month: 'short',
@@ -323,13 +294,13 @@ export default function EarningsScreen() {
                 </ThemedText>
               </View>
               <View style={styles.breakdownRow}>
-                <ThemedText variant="body" style={{ color: theme.textSecondary }}>Entrega:</ThemedText>
-                <ThemedText variant="body" bold style={{ color: theme.text }}>${order.earnings.toFixed(2)}</ThemedText>
+                <ThemedText variant="body" style={{ color: colors.text.secondary }}>Entrega:</ThemedText>
+                <ThemedText variant="body" bold style={{ color: colors.text.primary }}>${order.earnings.toFixed(2)}</ThemedText>
               </View>
               {order.tip > 0 && (
                 <View style={styles.breakdownRow}>
-                  <ThemedText variant="body" style={{ color: theme.textSecondary }}>Propina:</ThemedText>
-                  <ThemedText variant="body" bold style={{ color: theme.success }}>+${order.tip.toFixed(2)}</ThemedText>
+                  <ThemedText variant="body" style={{ color: colors.text.secondary }}>Propina:</ThemedText>
+                  <ThemedText variant="body" bold style={{ color: colors.success }}>+${order.tip.toFixed(2)}</ThemedText>
                 </View>
               )}
             </View>
@@ -340,26 +311,26 @@ export default function EarningsScreen() {
       {/* Pending Settlements */}
       {pendingSettlements.length > 0 && (
         <>
-          <ThemedText variant="h3" style={[styles.sectionTitle, { color: theme.text }]}>
+          <ThemedText variant="h3" style={[styles.sectionTitle, { color: colors.text.primary }]}>
             Liquidaciones Pendientes
           </ThemedText>
-          <ThemedText variant="body" style={[styles.pendingSubtitle, { color: theme.textSecondary }]}>
+          <ThemedText variant="body" style={[styles.pendingSubtitle, { color: colors.text.secondary }]}>
             Montos que debes entregar a los negocios
           </ThemedText>
           {pendingSettlements.map((settlement, index) => (
-            <View key={index} style={[styles.settlementCard, { backgroundColor: theme.card, borderColor: theme.error }]}>
-              <View style={[styles.settlementIcon, { backgroundColor: theme.error + '15' }]}>
-                <DollarSign size={20} color={theme.error} />
+            <View key={index} style={[styles.settlementCard, { backgroundColor: colors.card, borderColor: colors.error }]}>
+              <View style={[styles.settlementIcon, { backgroundColor: colors.error + '15' }]}>
+                <DollarSign size={20} color={colors.error} />
               </View>
               <View style={styles.settlementInfo}>
-                <ThemedText variant="subtitle" bold style={{ color: theme.text }}>
+                <ThemedText variant="subtitle" bold style={{ color: colors.text.primary }}>
                   {settlement.businessName}
                 </ThemedText>
-                <ThemedText variant="caption" style={{ color: theme.textSecondary }}>
+                <ThemedText variant="caption" style={{ color: colors.text.secondary }}>
                   Debes entregar:
                 </ThemedText>
               </View>
-              <ThemedText variant="h3" style={{ color: theme.error }}>
+              <ThemedText variant="h3" style={{ color: colors.error }}>
                 ${settlement.amount.toFixed(2)}
               </ThemedText>
             </View>

@@ -18,6 +18,7 @@ import ScreenContainer from '@/components/ScreenContainer';
 import LoadingButton from '@/components/LoadingButton';
 import { Toast } from '@/utils/toast';
 import { HapticFeedback } from '@/utils/haptics';
+import { supabase } from '@/constants/supabase';
 
 // ============================================================================
 // COLORES EXPLÍCITOS PARA MODO OSCURO
@@ -90,23 +91,42 @@ export default function PasswordRecoveryVerifyScreen() {
 
     setIsLoading(true);
     try {
-      await new Promise(resolve => setTimeout(resolve, 1500));
+      const emailStr = Array.isArray(email) ? email[0] : email || '';
+      const { data, error: verifyError } = await supabase.auth.verifyOtp({
+        email: emailStr,
+        token: codeString,
+        type: 'recovery',
+      });
+
+      if (verifyError) {
+        throw verifyError;
+      }
 
       HapticFeedback.success();
       Toast.success('Codigo verificado correctamente');
-      router.push(`/password-recovery/reset?code=${codeString}` as any);
-    } catch (error) {
+      router.push('/password-recovery/reset' as any);
+    } catch (error: any) {
       console.error('Verify code error:', error);
       HapticFeedback.error();
-      Toast.error('Codigo incorrecto. Intenta nuevamente.');
+      const msg = error?.message?.includes('expired')
+        ? 'Codigo expirado. Solicita uno nuevo.'
+        : 'Codigo incorrecto. Intenta nuevamente.';
+      Toast.error(msg);
     } finally {
       setIsLoading(false);
     }
   };
 
   const handleResendCode = async () => {
-    HapticFeedback.light();
-    Toast.info('Codigo reenviado a tu correo');
+    try {
+      const emailStr = Array.isArray(email) ? email[0] : email || '';
+      await supabase.auth.resetPasswordForEmail(emailStr);
+      HapticFeedback.light();
+      Toast.info('Codigo reenviado a tu correo');
+    } catch (error) {
+      console.error('Resend code error:', error);
+      Toast.error('No se pudo reenviar. Intenta de nuevo.');
+    }
     setCode(['', '', '', '', '', '']);
     inputRefs.current[0]?.focus();
   };

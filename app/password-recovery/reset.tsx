@@ -19,6 +19,7 @@ import LoadingButton from '@/components/LoadingButton';
 import { Toast } from '@/utils/toast';
 import { Validator } from '@/utils/validation';
 import { HapticFeedback } from '@/utils/haptics';
+import { supabase } from '@/constants/supabase';
 
 // ============================================================================
 // COLORES EXPLÍCITOS PARA MODO OSCURO
@@ -83,15 +84,27 @@ export default function PasswordRecoveryResetScreen() {
 
     setIsLoading(true);
     try {
-      await new Promise(resolve => setTimeout(resolve, 1500));
+      const { error: updateError } = await supabase.auth.updateUser({
+        password: password,
+      });
+
+      if (updateError) {
+        throw updateError;
+      }
+
+      // Cerrar sesion para que el usuario inicie con la nueva contrasena
+      await supabase.auth.signOut();
 
       HapticFeedback.success();
       Toast.success('Contrasena actualizada exitosamente');
       router.replace('/login' as any);
-    } catch (error) {
+    } catch (error: any) {
       console.error('Reset password error:', error);
       HapticFeedback.error();
-      Toast.error('No se pudo cambiar la contrasena. Intenta nuevamente.');
+      const msg = error?.message?.includes('session')
+        ? 'Sesion expirada. Solicita un nuevo codigo.'
+        : 'No se pudo cambiar la contrasena. Intenta nuevamente.';
+      Toast.error(msg);
     } finally {
       setIsLoading(false);
     }

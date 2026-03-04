@@ -5,6 +5,7 @@ import { supabase } from '@/constants/supabase';
 import { ref, get } from 'firebase/database';
 import { realtimeDb } from '@/constants/firebase';
 import { DriverLocation } from './gps';
+import { sendTonalliWebhook } from '@/services/tonalli-bridge';
 
 export interface DriverCandidate {
   id: string;
@@ -284,52 +285,115 @@ export async function getDriversToNotify(
   return findDriversInRadius(location.lat, location.lng, config);
 }
 
-// Mark order as ready and start driver assignment
+// Mark order as ready and auto-assign best available driver
 export async function markOrderReadyAndAssign(orderId: string): Promise<{
   success: boolean;
   message: string;
+  assignedDriver?: DriverCandidate;
   driversNotified?: number;
 }> {
   try {
     // Get business location
     const location = await getBusinessLocation(orderId);
     if (!location) {
-      return { success: false, message: 'No se pudo obtener ubicacion del negocio' };
+      // No location — just mark ready, driver will pick manually
+      await supabase
+        .from('orders')
+        .update({ status: 'ready' })
+        .eq('id', orderId);
+      return { success: true, message: 'Orden lista. Sin ubicacion para asignacion automatica.' };
     }
 
     // Update order status to ready
     const { error: updateError } = await supabase
       .from('orders')
-      .update({
-        status: 'ready',
-        ready_at: new Date().toISOString(),
-      })
+      .update({ status: 'ready' })
       .eq('id', orderId);
 
     if (updateError) throw updateError;
 
-    // Find available drivers (first radius)
-    const drivers = await findDriversInRadius(location.lat, location.lng, ASSIGNMENT_STEPS[0]);
+    // Try auto-assignment with escalating radius
+    for (let step = 0; step < ASSIGNMENT_STEPS.length; step++) {
+      const config = ASSIGNMENT_STEPS[step];
+      const candidates = await findDriversInRadius(location.lat, location.lng, config);
 
-    if (drivers.length === 0) {
-      // No drivers in 500m, try 1km
-      const driversWider = await findDriversInRadius(location.lat, location.lng, ASSIGNMENT_STEPS[1]);
-      return {
-        success: true,
-        message: driversWider.length > 0
-          ? `Orden lista. ${driversWider.length} repartidores notificados en 1km`
-          : 'Orden lista. Buscando repartidores disponibles...',
-        driversNotified: driversWider.length,
-      };
+      if (candidates.length > 0) {
+        const bestDriver = candidates[0];
+
+        // Actually assign the driver
+        const { error: assignError } = await supabase
+          .from('orders')
+          .update({
+            driver_id: bestDriver.id,
+            status: 'assigned',
+          })
+          .eq('id', orderId);
+
+        if (assignError) {
+          console.error('Auto-assign failed:', assignError);
+          // Order stays as 'ready' for manual pickup
+          return {
+            success: true,
+            message: 'Orden lista. Error al asignar automaticamente, disponible para repartidores.',
+            driversNotified: candidates.length,
+          };
+        }
+
+        // Create notification for the assigned driver
+        try {
+          await supabase.from('notifications').insert({
+            user_id: bestDriver.userId,
+            title: 'Nueva orden asignada',
+            body: `Tienes una orden para recoger. Distancia: ${bestDriver.distanceMeters}m`,
+            type: 'order_assigned',
+            data: { orderId },
+          });
+        } catch {
+          // Non-critical, continue
+        }
+
+        // Tonalli Bridge: notify driver_assigned if order is linked to Tonalli
+        try {
+          const { data: orderData } = await supabase
+            .from('orders')
+            .select('tonalli_order_id, driver_code, pickup_code, businesses(tonalli_slug, tonalli_linked, tonalli_api_key)')
+            .eq('id', orderId)
+            .single();
+
+          if (orderData?.tonalli_order_id && (orderData as any).businesses?.tonalli_linked) {
+            const biz = (orderData as any).businesses;
+            sendTonalliWebhook(biz.tonalli_api_key, {
+              slug: biz.tonalli_slug,
+              event: 'driver_assigned',
+              externalOrderId: orderId,
+              data: {
+                driverName: bestDriver.name,
+                driverPhone: bestDriver.phone || '',
+                driverVehicle: bestDriver.vehicleType,
+                estimatedMinutes: Math.ceil(bestDriver.distanceMeters / 250), // ~15km/h avg
+                driverCode: orderData.driver_code,
+                pickupCode: orderData.pickup_code,
+              },
+            }).catch((err: any) => console.warn('Tonalli webhook (auto-assign) error:', err));
+          }
+        } catch {
+          // Non-critical — don't block assignment
+        }
+
+        return {
+          success: true,
+          message: `Orden asignada a ${bestDriver.name} (${bestDriver.distanceMeters}m, rating ${bestDriver.rating.toFixed(1)})`,
+          assignedDriver: bestDriver,
+          driversNotified: 1,
+        };
+      }
     }
 
-    // TODO: Send push notifications to these drivers
-    // This would use the notification service with push tokens
-
+    // No drivers found in any radius — order stays as 'ready' for manual pickup
     return {
       success: true,
-      message: `Orden lista. ${drivers.length} repartidores notificados`,
-      driversNotified: drivers.length,
+      message: 'Orden lista. No hay repartidores cerca, se mostrara en el pool general.',
+      driversNotified: 0,
     };
   } catch (error) {
     console.error('markOrderReadyAndAssign error:', error);

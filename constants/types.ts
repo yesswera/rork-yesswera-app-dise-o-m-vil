@@ -109,6 +109,8 @@ export interface Order {
   // Driver transfer
   needsDriverTransfer?: boolean;
   transferReason?: string;
+  // Tonalli integration
+  tonalliPickupConfirmed?: boolean;
 }
 
 export interface PackageDetails {

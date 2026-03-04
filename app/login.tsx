@@ -1,5 +1,5 @@
 import TouchableSound from '@/components/TouchableSound';
-import { useState } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import {
   View,
   Text,
@@ -7,9 +7,11 @@ import {
   StyleSheet,
   KeyboardAvoidingView,
   Platform,
-  ScrollView,
   StatusBar,
+  Animated,
 } from 'react-native';
+import { Image } from 'expo-image';
+import { ScrollView } from 'react-native-gesture-handler';
 import { useRouter } from 'expo-router';
 import { Mail, Lock } from 'lucide-react-native';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -29,7 +31,20 @@ export default function LoginScreen() {
   const [password, setPassword] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [errors, setErrors] = useState({ email: '', password: '' });
-  const [focusedField, setFocusedField] = useState<string | null>(null);
+  // focusedField removido: en Android, cambiar shadowColor/shadowOpacity
+  // en onFocus causa un re-layout nativo que cierra el teclado
+
+  // Logo animation
+  const logoScale = useRef(new Animated.Value(0.9)).current;
+
+  useEffect(() => {
+    Animated.spring(logoScale, {
+      toValue: 1,
+      tension: 60,
+      friction: 7,
+      useNativeDriver: true,
+    }).start();
+  }, []);
 
   const bg = isDark ? '#1C1917' : '#FAFAF9';
   const cardBg = isDark ? '#292524' : '#FFFFFF';
@@ -78,9 +93,8 @@ export default function LoginScreen() {
     }
   };
 
-  const getInputBorder = (field: string, error: string) => {
+  const getInputBorder = (error: string) => {
     if (error) return '#EF4444';
-    if (focusedField === field) return '#16A34A';
     return borderColor;
   };
 
@@ -97,18 +111,30 @@ export default function LoginScreen() {
       >
         {/* Logo */}
         <View style={styles.logoSection}>
-          <View style={[styles.logoBox, {
-            backgroundColor: '#16A34A',
+          <Animated.View style={[styles.logoBox, {
             shadowColor: '#16A34A',
+            transform: [{ scale: logoScale }],
           }]}>
-            <Text style={styles.logoLetter}>Y</Text>
-          </View>
+            <Image
+              source={require('@/assets/images/icon.png')}
+              style={styles.logoImage}
+              contentFit="contain"
+            />
+          </Animated.View>
           <Text style={[styles.appName, { color: textPrimary, fontSize: fonts['3xl'] }]}>
             Yesswera
           </Text>
           <Text style={[styles.tagline, { color: textMuted, fontSize: fonts.base }]}>
             Lo que quieras, cuando quieras
           </Text>
+          <View style={[styles.jaliscoBadge, {
+            backgroundColor: isDark ? 'rgba(22, 163, 74, 0.15)' : 'rgba(22, 163, 74, 0.08)',
+            borderColor: isDark ? 'rgba(22, 163, 74, 0.3)' : 'rgba(22, 163, 74, 0.2)',
+          }]}>
+            <Text style={[styles.jaliscoBadgeText, { color: '#16A34A', fontSize: fonts.xs }]}>
+              Hecho en Tomatlan, Jalisco
+            </Text>
+          </View>
         </View>
 
         {/* Form */}
@@ -120,19 +146,15 @@ export default function LoginScreen() {
             </Text>
             <View style={[styles.inputWrap, {
               backgroundColor: cardBg,
-              borderColor: getInputBorder('email', errors.email),
-              shadowColor: focusedField === 'email' ? '#16A34A' : 'transparent',
-              shadowOpacity: focusedField === 'email' ? 0.1 : 0,
+              borderColor: getInputBorder(errors.email),
             }]}>
-              <Mail size={18} color={focusedField === 'email' ? '#16A34A' : textMuted} />
+              <Mail size={18} color={textMuted} />
               <TextInput
                 style={[styles.input, { color: textPrimary, fontSize: fonts.base }]}
                 placeholder="tu@email.com"
                 placeholderTextColor={textMuted}
                 value={email}
                 onChangeText={(v) => { setEmail(v.toLowerCase()); setErrors(p => ({ ...p, email: '' })); }}
-                onFocus={() => setFocusedField('email')}
-                onBlur={() => setFocusedField(null)}
                 keyboardType="email-address"
                 autoCapitalize="none"
                 editable={!isLoading}
@@ -148,19 +170,15 @@ export default function LoginScreen() {
             </Text>
             <View style={[styles.inputWrap, {
               backgroundColor: cardBg,
-              borderColor: getInputBorder('password', errors.password),
-              shadowColor: focusedField === 'password' ? '#16A34A' : 'transparent',
-              shadowOpacity: focusedField === 'password' ? 0.1 : 0,
+              borderColor: getInputBorder(errors.password),
             }]}>
-              <Lock size={18} color={focusedField === 'password' ? '#16A34A' : textMuted} />
+              <Lock size={18} color={textMuted} />
               <TextInput
                 style={[styles.input, { color: textPrimary, fontSize: fonts.base }]}
                 placeholder="Tu contrasena"
                 placeholderTextColor={textMuted}
                 value={password}
                 onChangeText={(v) => { setPassword(v); setErrors(p => ({ ...p, password: '' })); }}
-                onFocus={() => setFocusedField('password')}
-                onBlur={() => setFocusedField(null)}
                 secureTextEntry
                 autoCapitalize="none"
                 editable={!isLoading}
@@ -220,7 +238,7 @@ export default function LoginScreen() {
 
         {/* Footer */}
         <Text style={[styles.footer, { color: textMuted, fontSize: fonts.xs }]}>
-          Tomatlan, Jalisco
+          Yesswera - Tomatlan, Jalisco
         </Text>
       </ScrollView>
     </KeyboardAvoidingView>
@@ -247,18 +265,27 @@ const styles = StyleSheet.create({
     width: 72,
     height: 72,
     borderRadius: 20,
-    justifyContent: 'center',
-    alignItems: 'center',
     marginBottom: 16,
     shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.25,
+    shadowOpacity: 0.2,
     shadowRadius: 12,
     elevation: 6,
+    overflow: 'hidden',
   },
-  logoLetter: {
-    fontSize: 36,
-    fontWeight: '800',
-    color: '#FFFFFF',
+  logoImage: {
+    width: 72,
+    height: 72,
+    borderRadius: 20,
+  },
+  jaliscoBadge: {
+    marginTop: 12,
+    paddingHorizontal: 14,
+    paddingVertical: 6,
+    borderRadius: 20,
+    borderWidth: 1,
+  },
+  jaliscoBadgeText: {
+    fontWeight: '500',
   },
   appName: {
     fontWeight: '700',
@@ -283,18 +310,16 @@ const styles = StyleSheet.create({
   inputWrap: {
     flexDirection: 'row',
     alignItems: 'center',
-    height: 52,
+    minHeight: 52,
     paddingHorizontal: 14,
+    paddingVertical: Platform.OS === 'android' ? 4 : 0,
     borderWidth: 1.5,
     borderRadius: 12,
     gap: 10,
-    shadowOffset: { width: 0, height: 0 },
-    shadowRadius: 8,
-    elevation: 0,
   },
   input: {
     flex: 1,
-    height: '100%',
+    paddingVertical: Platform.OS === 'android' ? 8 : 14,
   },
   errorText: {
     fontSize: 12,

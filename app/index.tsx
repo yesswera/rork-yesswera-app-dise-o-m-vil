@@ -29,7 +29,7 @@ const services = [
   {
     id: 'food',
     title: 'Alimentos y Bebidas',
-    subtitle: 'Restaurantes y cafes cerca de ti',
+    subtitle: 'Restaurantes, bebidas y mas',
     icon: UtensilsCrossed,
     iconBg: '#D1FAE5',
     iconColor: '#16A34A',
@@ -72,6 +72,12 @@ export default function HomeScreen() {
   const headerFade = useRef(new Animated.Value(0)).current;
   const pulseAnim = useRef(new Animated.Value(1)).current;
 
+  // Logo branding animations
+  const logoScale = useRef(new Animated.Value(0.85)).current;
+  const brandFade = useRef(new Animated.Value(0)).current;
+  const badgeFade = useRef(new Animated.Value(0)).current;
+  const badgeSlide = useRef(new Animated.Value(8)).current;
+
   // Theme colors
   const bg = isDark ? '#1C1917' : '#FAFAF9';
   const cardBg = isDark ? '#292524' : '#FFFFFF';
@@ -99,6 +105,34 @@ export default function HomeScreen() {
       duration: 500,
       useNativeDriver: true,
     }).start();
+
+    // Logo branding entry animations
+    Animated.spring(logoScale, {
+      toValue: 1,
+      tension: 80,
+      friction: 8,
+      useNativeDriver: true,
+    }).start();
+    Animated.timing(brandFade, {
+      toValue: 1,
+      duration: 400,
+      delay: 150,
+      useNativeDriver: true,
+    }).start();
+    Animated.parallel([
+      Animated.timing(badgeFade, {
+        toValue: 1,
+        duration: 400,
+        delay: 300,
+        useNativeDriver: true,
+      }),
+      Animated.timing(badgeSlide, {
+        toValue: 0,
+        duration: 400,
+        delay: 300,
+        useNativeDriver: true,
+      }),
+    ]).start();
 
     services.forEach((_, index) => {
       Animated.parallel([
@@ -374,6 +408,38 @@ export default function HomeScreen() {
           )}
         </Animated.View>
 
+        {/* Logo Branding */}
+        <View style={styles.brandingSection}>
+          <Animated.View style={[styles.brandingRow, { transform: [{ scale: logoScale }] }]}>
+            <Image
+              source={require('@/assets/images/icon.png')}
+              style={styles.brandingLogo}
+              contentFit="contain"
+            />
+            <Animated.View style={{ opacity: brandFade }}>
+              <Text style={[styles.brandingName, { color: textPrimary, fontSize: fonts['2xl'] }]}>
+                Yesswera
+              </Text>
+              <Text style={[styles.brandingTagline, { color: textMuted, fontSize: fonts.sm }]}>
+                Lo que quieras, cuando quieras
+              </Text>
+            </Animated.View>
+          </Animated.View>
+          <Animated.View style={[
+            styles.brandingBadge,
+            {
+              backgroundColor: isDark ? 'rgba(22, 163, 74, 0.15)' : 'rgba(22, 163, 74, 0.08)',
+              borderColor: isDark ? 'rgba(22, 163, 74, 0.3)' : 'rgba(22, 163, 74, 0.2)',
+              opacity: badgeFade,
+              transform: [{ translateY: badgeSlide }],
+            },
+          ]}>
+            <Text style={[styles.brandingBadgeText, { color: '#16A34A', fontSize: fonts.xs }]}>
+              Hecho en Tomatlan, Jalisco
+            </Text>
+          </Animated.View>
+        </View>
+
         {/* Banner de orden cancelada */}
         {cancelledOrder && user && (
           <View style={[styles.cancelledBanner, { backgroundColor: cardBg, borderColor: '#FEE2E2' }]}>
@@ -620,6 +686,39 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     borderWidth: 1,
+  },
+
+  // Branding
+  brandingSection: {
+    alignItems: 'center',
+    marginBottom: 24,
+  },
+  brandingRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 14,
+    marginBottom: 10,
+  },
+  brandingLogo: {
+    width: 56,
+    height: 56,
+    borderRadius: 16,
+  },
+  brandingName: {
+    fontWeight: '700',
+    marginBottom: 2,
+  },
+  brandingTagline: {
+    fontWeight: '400',
+  },
+  brandingBadge: {
+    paddingHorizontal: 14,
+    paddingVertical: 6,
+    borderRadius: 20,
+    borderWidth: 1,
+  },
+  brandingBadgeText: {
+    fontWeight: '500',
   },
 
   // Active order banner

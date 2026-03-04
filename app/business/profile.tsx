@@ -32,30 +32,6 @@ import {
 import { Toast } from '@/utils/toast';
 import { SoundFeedback } from '@/services/sounds';
 
-// ============================================================================
-// COLORES EXPLICITOS PARA MODO OSCURO
-// ============================================================================
-
-const COLORS = {
-  light: {
-    card: '#FFFFFF',
-    cardAlt: '#F5F5F4',
-    border: '#E7E5E4',
-    text: '#1C1917',
-    textSecondary: '#57534E',
-    textMuted: '#A8A29E',
-    inputBg: '#F5F5F4',
-  },
-  dark: {
-    card: '#292524',
-    cardAlt: '#44403C',
-    border: '#44403C',
-    text: '#FAFAFA',
-    textSecondary: '#D6D3D1',
-    textMuted: '#78716C',
-    inputBg: '#44403C',
-  },
-};
 
 // ============================================================================
 // DURACIONES DE PAUSA
@@ -89,8 +65,7 @@ interface BusinessData {
 export default function BusinessProfileScreen() {
   const router = useRouter();
   const { user } = useAuth();
-  const { isDark, colors, space, radius } = useTheme();
-  const theme = isDark ? COLORS.dark : COLORS.light;
+  const { colors, space, radius } = useTheme();
 
   // Estado de carga
   const [loading, setLoading] = useState(true);
@@ -351,9 +326,9 @@ export default function BusinessProfileScreen() {
         style={[
           styles.input,
           {
-            backgroundColor: theme.inputBg,
-            color: theme.text,
-            borderColor: theme.border,
+            backgroundColor: colors.background.secondary,
+            color: colors.text.primary,
+            borderColor: colors.border.light,
             borderRadius: radius.md,
           },
           options?.multiline && styles.inputMultiline,
@@ -362,7 +337,7 @@ export default function BusinessProfileScreen() {
         value={value}
         onChangeText={onChangeText}
         placeholder={options?.placeholder || ''}
-        placeholderTextColor={theme.textMuted}
+        placeholderTextColor={colors.text.muted}
         multiline={options?.multiline}
         numberOfLines={options?.multiline ? 3 : 1}
         keyboardType={options?.numeric ? 'numeric' : 'default'}
@@ -431,7 +406,7 @@ export default function BusinessProfileScreen() {
       {/* ================================================================== */}
       {renderSectionTitle('Imagen del Negocio')}
 
-      <View style={[styles.card, { backgroundColor: theme.card, borderRadius: radius.md }]}>
+      <View style={[styles.card, { backgroundColor: colors.card, borderRadius: radius.md }]}>
         {/* Logo (circular) */}
         <BusinessImagePicker
           imageUri={logoUri}
@@ -470,7 +445,7 @@ export default function BusinessProfileScreen() {
       {/* ================================================================== */}
       {renderSectionTitle('Informacion del Negocio')}
 
-      <View style={[styles.card, { backgroundColor: theme.card, borderRadius: radius.md }]}>
+      <View style={[styles.card, { backgroundColor: colors.card, borderRadius: radius.md }]}>
         {renderInputField('Nombre del negocio', name, setName, {
           placeholder: 'Ej: La Tiendita de Juan',
         })}
@@ -499,8 +474,8 @@ export default function BusinessProfileScreen() {
               style={[
                 styles.readOnlyField,
                 {
-                  backgroundColor: theme.cardAlt,
-                  borderColor: theme.border,
+                  backgroundColor: colors.background.secondary,
+                  borderColor: colors.border.light,
                   borderRadius: radius.md,
                 },
               ]}
@@ -518,7 +493,7 @@ export default function BusinessProfileScreen() {
       {/* ================================================================== */}
       {renderSectionTitle('Estado Operativo')}
 
-      <View style={[styles.card, { backgroundColor: theme.card, borderRadius: radius.md }]}>
+      <View style={[styles.card, { backgroundColor: colors.card, borderRadius: radius.md }]}>
         {/* Toggle Abierto/Cerrado */}
         <View style={styles.toggleRow}>
           <View style={styles.toggleInfo}>
@@ -535,8 +510,8 @@ export default function BusinessProfileScreen() {
           <Switch
             value={isOpen}
             onValueChange={handleToggleOpen}
-            trackColor={{ false: theme.border, true: colors.success + '80' }}
-            thumbColor={isOpen ? colors.success : theme.textMuted}
+            trackColor={{ false: colors.border.light, true: colors.success + '80' }}
+            thumbColor={isOpen ? colors.success : colors.text.muted}
           />
         </View>
 
@@ -615,7 +590,7 @@ export default function BusinessProfileScreen() {
                 style={[
                   styles.pauseOptionsContainer,
                   {
-                    backgroundColor: theme.cardAlt,
+                    backgroundColor: colors.background.secondary,
                     borderRadius: radius.md,
                     marginTop: space.sm,
                   },
@@ -636,7 +611,7 @@ export default function BusinessProfileScreen() {
                           borderColor:
                             selectedPauseDuration === duration
                               ? colors.warning
-                              : theme.border,
+                              : colors.border.light,
                           backgroundColor:
                             selectedPauseDuration === duration
                               ? colors.warning + '20'
@@ -652,7 +627,7 @@ export default function BusinessProfileScreen() {
                           color:
                             selectedPauseDuration === duration
                               ? colors.warning
-                              : theme.textSecondary,
+                              : colors.text.secondary,
                         }}
                       >
                         {duration} min
@@ -680,7 +655,7 @@ export default function BusinessProfileScreen() {
                           borderColor:
                             selectedPauseReason === reason
                               ? colors.warning
-                              : theme.border,
+                              : colors.border.light,
                           backgroundColor:
                             selectedPauseReason === reason
                               ? colors.warning + '20'
@@ -695,7 +670,7 @@ export default function BusinessProfileScreen() {
                           color:
                             selectedPauseReason === reason
                               ? colors.warning
-                              : theme.textSecondary,
+                              : colors.text.secondary,
                         }}
                       >
                         {PAUSE_REASONS[reason]}
@@ -732,7 +707,7 @@ export default function BusinessProfileScreen() {
       {/* ================================================================== */}
       {renderSectionTitle('Configuracion de Entregas')}
 
-      <View style={[styles.card, { backgroundColor: theme.card, borderRadius: radius.md }]}>
+      <View style={[styles.card, { backgroundColor: colors.card, borderRadius: radius.md }]}>
         <View style={styles.deliveryRow}>
           <MapPin size={20} color={colors.secondary} />
           <View style={styles.deliveryInputContainer}>
@@ -769,7 +744,7 @@ export default function BusinessProfileScreen() {
       {/* ================================================================== */}
       {renderSectionTitle('Estadisticas')}
 
-      <View style={[styles.card, { backgroundColor: theme.card, borderRadius: radius.md }]}>
+      <View style={[styles.card, { backgroundColor: colors.card, borderRadius: radius.md }]}>
         {/* Rating */}
         <View style={styles.statRow}>
           <View style={styles.statInfo}>
@@ -789,7 +764,7 @@ export default function BusinessProfileScreen() {
         </View>
 
         {/* Productos */}
-        <View style={[styles.statRow, { borderTopWidth: 1, borderTopColor: theme.border }]}>
+        <View style={[styles.statRow, { borderTopWidth: 1, borderTopColor: colors.border.light }]}>
           <View style={styles.statInfo}>
             <Package size={20} color={colors.secondary} />
             <ThemedText variant="body" style={{ marginLeft: space.sm }}>

@@ -85,7 +85,14 @@ export interface TonalliOrderResponse {
   deliveryMeta?: {
     driverName: string | null;
     driverPhone: string | null;
+    driverVehicle: string | null;
     estimatedMinutes: number | null;
+    driverCode: string | null;
+    pickupCode: string | null;
+    pickupConfirmed: boolean | null;
+    pickupConfirmedAt: string | null;
+    deliveryCodeUsed: boolean | null;
+    deliveryVerifiedAt: string | null;
   };
 }
 
@@ -135,7 +142,10 @@ function sha256(bytes: number[]): number[] {
   bytes.push(0x80);
   while (bytes.length % 64 !== 56) bytes.push(0);
   // Append length as 64-bit big-endian
-  for (let i = 56; i >= 0; i -= 8) bytes.push((l >>> i) & 0xff);
+  // High 32 bits (always 0 for messages < 512MB)
+  bytes.push(0, 0, 0, 0);
+  // Low 32 bits
+  bytes.push((l >>> 24) & 0xff, (l >>> 16) & 0xff, (l >>> 8) & 0xff, l & 0xff);
 
   let h0 = 0x6a09e667, h1 = 0xbb67ae85, h2 = 0x3c6ef372, h3 = 0xa54ff53a;
   let h4 = 0x510e527f, h5 = 0x9b05688c, h6 = 0x1f83d9ab, h7 = 0x5be0cd19;
