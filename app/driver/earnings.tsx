@@ -12,12 +12,14 @@ import {
   ScrollView,
 } from 'react-native';
 import { useRouter } from 'expo-router';
-import { DollarSign, Package, TrendingUp, Clock } from 'lucide-react-native';
+import { DollarSign, Package, TrendingUp, Clock, AlertTriangle, ChevronRight } from 'lucide-react-native';
 import { useAuth } from '@/contexts/auth';
 import { useTheme } from '@/contexts/theme';
 import { ThemedText } from '@/components/themed';
 import ScreenContainer, { ScreenCard } from '@/components/ScreenContainer';
 import { supabase } from '@/constants/supabase';
+import { getDriverAllDebts } from '@/services/driver-debt';
+import { DriverDebtSummary } from '@/constants/types';
 
 
 type Period = 'today' | 'week' | 'month';
@@ -53,6 +55,7 @@ export default function EarningsScreen() {
     orders: [],
   });
   const [pendingSettlements, setPendingSettlements] = useState<PendingSettlement[]>([]);
+  const [driverDebts, setDriverDebts] = useState<DriverDebtSummary[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [driverId, setDriverId] = useState<string | null>(null);
@@ -155,6 +158,14 @@ export default function EarningsScreen() {
             amount,
           }))
         );
+      }
+
+      // Load driver debts from debt system
+      try {
+        const debts = await getDriverAllDebts(driverId);
+        setDriverDebts(debts);
+      } catch {
+        // Non-critical
       }
     } catch (error) {
       console.error('Error loading earnings:', error);
@@ -308,6 +319,51 @@ export default function EarningsScreen() {
         ))
       )}
 
+      {/* Driver Debts (new debt system) */}
+      {driverDebts.length > 0 && (
+        <>
+          <ThemedText variant="h3" style={[styles.sectionTitle, { color: colors.text.primary }]}>
+            Deudas Pendientes
+          </ThemedText>
+          {driverDebts.map((debt) => (
+            <TouchableSound
+              key={debt.businessId}
+              style={[styles.debtCard, {
+                backgroundColor: colors.card,
+                borderColor: debt.percentUsed >= 90 ? colors.error : debt.percentUsed >= 70 ? colors.warning : colors.border.light,
+              }]}
+              onPress={() => router.push('/driver/debts' as any)}
+            >
+              <View style={[styles.debtIcon, { backgroundColor: (debt.percentUsed >= 70 ? colors.warning : colors.primary) + '15' }]}>
+                <AlertTriangle size={20} color={debt.percentUsed >= 70 ? colors.warning : colors.primary} />
+              </View>
+              <View style={styles.settlementInfo}>
+                <ThemedText variant="subtitle" bold style={{ color: colors.text.primary }}>
+                  {debt.businessName}
+                </ThemedText>
+                <ThemedText variant="caption" style={{ color: colors.text.secondary }}>
+                  {debt.debtsCount} orden(es) - {Math.round(debt.percentUsed)}% del limite
+                </ThemedText>
+              </View>
+              <View style={{ alignItems: 'flex-end' }}>
+                <ThemedText variant="h3" style={{ color: colors.error }}>
+                  ${debt.totalPending.toFixed(2)}
+                </ThemedText>
+                <ChevronRight size={16} color={colors.text.muted} />
+              </View>
+            </TouchableSound>
+          ))}
+          <TouchableSound
+            style={[styles.viewAllDebts, { borderColor: colors.primary, borderRadius: radius.md }]}
+            onPress={() => router.push('/driver/debts' as any)}
+          >
+            <ThemedText variant="label" bold style={{ color: colors.primary }}>
+              Ver todas las deudas y liquidar
+            </ThemedText>
+          </TouchableSound>
+        </>
+      )}
+
       {/* Pending Settlements */}
       {pendingSettlements.length > 0 && (
         <>
@@ -452,5 +508,27 @@ const styles = StyleSheet.create({
   },
   bottomPadding: {
     height: 40,
+  },
+  debtCard: {
+    borderRadius: 12,
+    padding: 16,
+    marginBottom: 12,
+    flexDirection: 'row',
+    alignItems: 'center',
+    borderWidth: 1.5,
+  },
+  debtIcon: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 12,
+  },
+  viewAllDebts: {
+    alignItems: 'center',
+    padding: 14,
+    borderWidth: 1.5,
+    marginBottom: 16,
   },
 });

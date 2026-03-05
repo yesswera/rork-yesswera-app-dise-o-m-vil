@@ -9,6 +9,17 @@ import {
   type TonalliOrderItem,
 } from '@/services/tonalli-bridge';
 
+// Haversine distance in km (for payment routing)
+function calculateHaversineKm(lat1: number, lng1: number, lat2: number, lng2: number): number {
+  const R = 6371;
+  const phi1 = (lat1 * Math.PI) / 180;
+  const phi2 = (lat2 * Math.PI) / 180;
+  const dPhi = ((lat2 - lat1) * Math.PI) / 180;
+  const dLam = ((lng2 - lng1) * Math.PI) / 180;
+  const a = Math.sin(dPhi / 2) ** 2 + Math.cos(phi1) * Math.cos(phi2) * Math.sin(dLam / 2) ** 2;
+  return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+}
+
 // Safe characters (no O/0/I/1 to avoid confusion)
 const CODE_CHARS = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
 
@@ -95,6 +106,9 @@ function mapOrder(dbOrder: any): Order {
     pickupLocation: parseLocation(dbOrder.pickup_location) || undefined,
     deliveryLocation: parseLocation(dbOrder.delivery_location) || { latitude: 0, longitude: 0 },
     driverAtBusiness: !!dbOrder.driver_at_business,
+    // Distance & payment routing
+    distanceKm: dbOrder.distance_km ? Number(dbOrder.distance_km) : undefined,
+    paymentRouting: dbOrder.payment_routing || 'cash_debt',
     // Priority client system
     isPriorityClient: dbOrder.is_priority_client || false,
     priorityReason: dbOrder.priority_reason,
@@ -222,6 +236,40 @@ export async function createOrder(orderData: {
       ? `POINT(${orderData.deliveryLocation.longitude} ${orderData.deliveryLocation.latitude})`
       : null;
 
+    // Calculate distance between pickup and delivery if both coordinates available
+    let distanceKm: number | null = null;
+    let paymentRouting: 'cash_debt' | 'prepaid_transfer' = 'cash_debt';
+
+    if (orderData.pickupLocation && orderData.deliveryLocation) {
+      distanceKm = calculateHaversineKm(
+        orderData.pickupLocation.latitude,
+        orderData.pickupLocation.longitude,
+        orderData.deliveryLocation.latitude,
+        orderData.deliveryLocation.longitude
+      );
+      paymentRouting = distanceKm < 5 ? 'cash_debt' : 'prepaid_transfer';
+    } else if (orderData.businessId) {
+      // Try to get business location for distance calculation
+      try {
+        const { data: bizLoc } = await supabase
+          .from('businesses')
+          .select('location')
+          .eq('id', orderData.businessId)
+          .single();
+        if (bizLoc?.location?.coordinates && orderData.deliveryLocation) {
+          distanceKm = calculateHaversineKm(
+            bizLoc.location.coordinates[1],
+            bizLoc.location.coordinates[0],
+            orderData.deliveryLocation.latitude,
+            orderData.deliveryLocation.longitude
+          );
+          paymentRouting = distanceKm < 5 ? 'cash_debt' : 'prepaid_transfer';
+        }
+      } catch {
+        // Non-critical, default to cash_debt
+      }
+    }
+
     // Create order
     const insertData: Record<string, any> = {
       client_id: orderData.clientId,
@@ -241,6 +289,8 @@ export async function createOrder(orderData: {
       total: total,
       payment_method: orderData.paymentMethod,
       payment_status: 'pending',
+      distance_km: distanceKm ? Math.round(distanceKm * 100) / 100 : null,
+      payment_routing: paymentRouting,
     };
 
     // Add location points if available

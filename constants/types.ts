@@ -111,6 +111,9 @@ export interface Order {
   transferReason?: string;
   // Tonalli integration
   tonalliPickupConfirmed?: boolean;
+  // Distance & payment routing
+  distanceKm?: number;
+  paymentRouting?: 'cash_debt' | 'prepaid_transfer';
 }
 
 export interface PackageDetails {
@@ -568,6 +571,74 @@ export interface UserBehaviorEvent {
   sessionId: string;
   timestamp: string;
   location?: { latitude: number; longitude: number };
+}
+
+// =============================================
+// DRIVER DEBT SYSTEM
+// =============================================
+
+export type DebtStatus = 'pending' | 'settled' | 'guaranteed' | 'written_off';
+export type TrustTier = 'new' | 'trusted' | 'verified' | 'blocked';
+export type SettlementStatus = 'pending' | 'confirmed' | 'disputed';
+
+export interface DriverDebt {
+  id: string;
+  driverId: string;
+  businessId: string;
+  businessName?: string;
+  orderId: string;
+  foodAmount: number;
+  status: DebtStatus;
+  createdAt: string;
+  settledAt?: string;
+  settlementId?: string;
+}
+
+export interface DebtSettlement {
+  id: string;
+  driverId: string;
+  businessId: string;
+  businessName?: string;
+  totalAmount: number;
+  ordersCount: number;
+  paymentMethod: 'cash' | 'transfer';
+  status: SettlementStatus;
+  confirmedBy?: string;
+  confirmedAt?: string;
+  notes?: string;
+  createdAt: string;
+}
+
+export interface DriverTrustLevel {
+  id: string;
+  driverId: string;
+  businessId: string;
+  businessName?: string;
+  maxDebtAmount: number;
+  maxDebtHours: number;
+  trustTier: TrustTier;
+  totalSettled: number;
+  settlementsCount: number;
+  lastSettledAt?: string;
+  blockedReason?: string;
+}
+
+export interface DriverDebtSummary {
+  businessId: string;
+  businessName: string;
+  totalPending: number;
+  debtsCount: number;
+  oldestDebtAt: string;
+  trustTier: TrustTier;
+  maxDebtAmount: number;
+  percentUsed: number;
+  isBlocked: boolean;
+}
+
+export interface CoverageCheck {
+  hasDrivers: boolean;
+  count: number;
+  nearestKm: number | null;
 }
 
 export interface AnalyticsInsight {

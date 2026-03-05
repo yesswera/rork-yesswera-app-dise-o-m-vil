@@ -24,8 +24,9 @@ import AccessibilityControls from '@/components/AccessibilityControls';
 import PanicModal from '@/components/PanicModal';
 import SurveyPopup from '@/components/SurveyPopup';
 import { getAvailableOrdersForDriver, assignOrderToDriver } from '@/services/orders';
+import { getDriverAllDebts } from '@/services/driver-debt';
 import { supabase } from '@/constants/supabase';
-import { Order } from '@/constants/types';
+import { Order, DriverDebtSummary } from '@/constants/types';
 import { useDriverOrderSubscription } from '@/hooks/useRealtimeOrders';
 import { useDriverMonitoring } from '@/hooks/useDriverMonitoring';
 import { Toast } from '@/utils/toast';
@@ -51,6 +52,7 @@ export default function DriverDashboardScreen() {
   const [showPanicModal, setShowPanicModal] = useState(false);
   const [activeOrderId, setActiveOrderId] = useState<string | null>(null);
   const [refreshing, setRefreshing] = useState(false);
+  const [debtAlerts, setDebtAlerts] = useState<DriverDebtSummary[]>([]);
 
   // GPS Monitoring hook
   const { isTracking, goOnline, goOffline } = useDriverMonitoring({
@@ -146,6 +148,14 @@ export default function DriverDashboardScreen() {
         rating: driver?.rating_average || 0,
         totalBalance: earnings,
       });
+
+      // Load debt alerts (> 70% of limit)
+      try {
+        const allDebts = await getDriverAllDebts(driverId);
+        setDebtAlerts(allDebts.filter(d => d.percentUsed >= 70));
+      } catch {
+        // Non-critical
+      }
     } catch {
       console.log('Stats not available');
     }
@@ -383,6 +393,32 @@ export default function DriverDashboardScreen() {
         ))}
       </View>
 
+      {/* Debt Alert Banners */}
+      {debtAlerts.map((debt) => (
+        <TouchableSound
+          key={debt.businessId}
+          style={[styles.debtBanner, {
+            backgroundColor: debt.isBlocked ? colors.error + '15' : colors.warning + '15',
+            borderColor: debt.isBlocked ? colors.error : colors.warning,
+            borderRadius: radius.md,
+            padding: space.sm,
+            marginBottom: space.sm,
+          }]}
+          onPress={() => router.push('/driver/debts' as any)}
+        >
+          <AlertTriangle size={20} color={debt.isBlocked ? colors.error : colors.warning} />
+          <View style={{ flex: 1, marginLeft: space.sm }}>
+            <ThemedText variant="label" bold style={{ color: debt.isBlocked ? colors.error : colors.warning }}>
+              {debt.isBlocked ? 'BLOQUEADO' : 'Deuda alta'}
+            </ThemedText>
+            <ThemedText variant="caption" style={{ color: colors.text.primary }}>
+              Debes ${debt.totalPending.toFixed(0)} a {debt.businessName} ({Math.round(debt.percentUsed)}%)
+            </ThemedText>
+          </View>
+          <ThemedText variant="caption" bold style={{ color: colors.primary }}>Ver</ThemedText>
+        </TouchableSound>
+      ))}
+
       {/* Action Buttons */}
       <View style={[styles.actionButtonsRow, { gap: space.sm, marginBottom: space.lg }]}>
         <TouchableSound
@@ -421,8 +457,8 @@ export default function DriverDashboardScreen() {
         {[
           { icon: History, label: 'Historial', color: colors.primary, route: '/driver/history' },
           { icon: User, label: 'Mi Perfil', color: colors.accent, route: '/driver/profile' },
+          { icon: DollarSign, label: 'Deudas', color: colors.error, route: '/driver/debts' },
           { icon: MessageCircle, label: 'Mensajes', color: colors.success, route: '/driver/messages' },
-          { icon: HelpCircle, label: 'Ayuda', color: colors.warning, route: null },
         ].map((action, index) => (
           <TouchableSound
             key={index}
@@ -680,5 +716,10 @@ const styles = StyleSheet.create({
   logoutButton: {
     borderWidth: 1.5,
     backgroundColor: 'transparent',
+  },
+  debtBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    borderWidth: 1.5,
   },
 });

@@ -6,6 +6,7 @@ import { ref, get } from 'firebase/database';
 import { realtimeDb } from '@/constants/firebase';
 import { DriverLocation } from './gps';
 import { sendTonalliWebhook } from '@/services/tonalli-bridge';
+import { canDriverTakeOrder } from '@/services/driver-debt';
 
 export interface DriverCandidate {
   id: string;
@@ -93,10 +94,12 @@ function calculateDistance(
 }
 
 // Find drivers within radius, sorted by rating and distance
+// businessId is optional — when provided, checks driver debt limits
 export async function findDriversInRadius(
   businessLat: number,
   businessLng: number,
-  config: AssignmentConfig
+  config: AssignmentConfig,
+  businessId?: string
 ): Promise<DriverCandidate[]> {
   try {
     // 1. Get online drivers from Firebase
@@ -162,6 +165,19 @@ export async function findDriversInRadius(
       // Check active orders limit
       const activeOrders = activeOrdersCount.get(driver.id) || 0;
       if (activeOrders >= config.maxActiveOrders) continue;
+
+      // Check driver debt limit with this business
+      if (businessId) {
+        try {
+          const debtCheck = await canDriverTakeOrder(driver.id, businessId);
+          if (!debtCheck.allowed) {
+            console.log(`Driver ${driver.id} excluded: ${debtCheck.reason}`);
+            continue;
+          }
+        } catch {
+          // Non-critical, allow driver if debt check fails
+        }
+      }
 
       const userData = driver.users as any;
       candidates.push({
@@ -304,6 +320,14 @@ export async function markOrderReadyAndAssign(orderId: string): Promise<{
       return { success: true, message: 'Orden lista. Sin ubicacion para asignacion automatica.' };
     }
 
+    // Get business ID for debt checking
+    const { data: orderForBiz } = await supabase
+      .from('orders')
+      .select('business_id')
+      .eq('id', orderId)
+      .single();
+    const orderBusinessId = orderForBiz?.business_id || undefined;
+
     // Update order status to ready
     const { error: updateError } = await supabase
       .from('orders')
@@ -315,7 +339,7 @@ export async function markOrderReadyAndAssign(orderId: string): Promise<{
     // Try auto-assignment with escalating radius
     for (let step = 0; step < ASSIGNMENT_STEPS.length; step++) {
       const config = ASSIGNMENT_STEPS[step];
-      const candidates = await findDriversInRadius(location.lat, location.lng, config);
+      const candidates = await findDriversInRadius(location.lat, location.lng, config, orderBusinessId);
 
       if (candidates.length > 0) {
         const bestDriver = candidates[0];

@@ -103,7 +103,9 @@ export type TonalliWebhookEvent =
   | 'in_transit'
   | 'arrived'
   | 'delivered'
-  | 'cancelled';
+  | 'cancelled'
+  | 'debt_created'
+  | 'debt_settled';
 
 export interface TonalliWebhookPayload {
   slug: string; // Requerido por middleware HMAC de Tonalli
@@ -383,6 +385,59 @@ export async function sendTonalliWebhook(
     console.error('sendTonalliWebhook network error:', error);
     return false;
   }
+}
+
+// =============================================
+// DEBT WEBHOOKS
+// =============================================
+
+/**
+ * Notifica a Tonalli que se creo una deuda del repartidor
+ */
+export async function sendDebtCreatedWebhook(
+  businessId: string,
+  data: {
+    orderId: string;
+    driverName: string;
+    driverPhone: string;
+    foodAmount: number;
+    totalAccumulatedDebt: number;
+    trustTier: string;
+  }
+): Promise<void> {
+  const config = await getBusinessTonalliConfig(businessId);
+  if (!config) return;
+
+  sendTonalliWebhook(config.tonalli_api_key, {
+    slug: config.tonalli_slug,
+    event: 'debt_created',
+    externalOrderId: data.orderId,
+    data,
+  }).catch((err: any) => console.warn('Tonalli debt_created webhook error:', err));
+}
+
+/**
+ * Notifica a Tonalli que el repartidor liquido su deuda
+ */
+export async function sendDebtSettledWebhook(
+  businessId: string,
+  data: {
+    driverName: string;
+    amountSettled: number;
+    paymentMethod: string;
+    remainingDebt: number;
+    ordersCount: number;
+  }
+): Promise<void> {
+  const config = await getBusinessTonalliConfig(businessId);
+  if (!config) return;
+
+  sendTonalliWebhook(config.tonalli_api_key, {
+    slug: config.tonalli_slug,
+    event: 'debt_settled',
+    externalOrderId: '', // No specific order
+    data,
+  }).catch((err: any) => console.warn('Tonalli debt_settled webhook error:', err));
 }
 
 // =============================================
