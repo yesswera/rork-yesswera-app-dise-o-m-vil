@@ -15,6 +15,7 @@ import {
   Keyboard,
   Linking,
   Animated,
+  Dimensions,
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { MapPin, Clock, Package, CheckCircle, Navigation, Phone, Store, AlertTriangle, Box, Scale, Shield, User } from 'lucide-react-native';
@@ -36,8 +37,11 @@ import {
 } from '@/services/orders';
 import { supabase } from '@/constants/supabase';
 import { Order } from '@/constants/types';
+import MapView, { Marker, Polyline, PROVIDER_GOOGLE } from 'react-native-maps';
+import * as Location from 'expo-location';
 
-// Theme colors via useTheme() — no local COLORS needed
+const { width: SCREEN_WIDTH } = Dimensions.get('window');
+const MAP_HEIGHT = 220;
 
 export default function ActiveOrderScreen() {
   const router = useRouter();
@@ -48,8 +52,10 @@ export default function ActiveOrderScreen() {
   const [deliveryCodeInput, setDeliveryCodeInput] = useState('');
   const [loading, setLoading] = useState(true);
   const [validating, setValidating] = useState(false);
+  const [driverLocation, setDriverLocation] = useState<{ latitude: number; longitude: number } | null>(null);
 
   const deliveryInputRef = useRef<TextInput>(null);
+  const mapRef = useRef<MapView>(null);
   const pulseAnim = useRef(new Animated.Value(1)).current;
 
   // Hook para detectar si el driver esta detenido y mostrar pregunta
@@ -81,6 +87,40 @@ export default function ActiveOrderScreen() {
       return () => pulse.stop();
     }
   }, [order?.status, order?.driverAtBusiness, pulseAnim]);
+
+  // Track driver location for the map
+  useEffect(() => {
+    let subscription: Location.LocationSubscription | null = null;
+
+    (async () => {
+      const { status } = await Location.requestForegroundPermissionsAsync();
+      if (status !== 'granted') return;
+
+      const loc = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced });
+      setDriverLocation({ latitude: loc.coords.latitude, longitude: loc.coords.longitude });
+
+      subscription = await Location.watchPositionAsync(
+        { accuracy: Location.Accuracy.Balanced, distanceInterval: 20, timeInterval: 5000 },
+        (loc) => setDriverLocation({ latitude: loc.coords.latitude, longitude: loc.coords.longitude }),
+      );
+    })();
+
+    return () => { subscription?.remove(); };
+  }, []);
+
+  // Fit map to show both markers when destination changes
+  useEffect(() => {
+    if (!mapRef.current || !driverLocation || !order) return;
+
+    const isGoingToClient = order.status === 'in_transit' || order.status === 'arrived';
+    const dest = isGoingToClient ? order.deliveryLocation : order.pickupLocation;
+    if (!dest?.latitude || !dest?.longitude) return;
+
+    mapRef.current.fitToCoordinates(
+      [driverLocation, { latitude: dest.latitude, longitude: dest.longitude }],
+      { edgePadding: { top: 60, right: 60, bottom: 60, left: 60 }, animated: true },
+    );
+  }, [driverLocation?.latitude, order?.status]);
 
   const loadActiveOrder = useCallback(async () => {
     if (!user || !token) return;
@@ -301,6 +341,64 @@ export default function ActiveOrderScreen() {
           </ThemedText>
         </View>
       </View>
+
+      {/* Route Map */}
+      {driverLocation && (() => {
+        const isGoingToClient = status === 'in_transit' || status === 'arrived';
+        const dest = isGoingToClient ? order.deliveryLocation : order.pickupLocation;
+        const destLabel = isGoingToClient ? 'Cliente' : 'Negocio';
+        const destColor = isGoingToClient ? colors.success : colors.primary;
+
+        if (!dest?.latitude || !dest?.longitude) return null;
+
+        return (
+          <View style={[styles.mapContainer, { borderRadius: radius.lg }]}>
+            <MapView
+              ref={mapRef}
+              style={styles.map}
+              provider={Platform.OS === 'android' ? PROVIDER_GOOGLE : undefined}
+              initialRegion={{
+                latitude: (driverLocation.latitude + dest.latitude) / 2,
+                longitude: (driverLocation.longitude + dest.longitude) / 2,
+                latitudeDelta: Math.abs(driverLocation.latitude - dest.latitude) * 2 + 0.005,
+                longitudeDelta: Math.abs(driverLocation.longitude - dest.longitude) * 2 + 0.005,
+              }}
+              showsUserLocation={false}
+              showsMyLocationButton={false}
+              scrollEnabled={true}
+              zoomEnabled={true}
+              pitchEnabled={false}
+              rotateEnabled={false}
+            >
+              {/* Driver marker */}
+              <Marker
+                coordinate={driverLocation}
+                title="Tu ubicacion"
+                pinColor="#3B82F6"
+              />
+              {/* Destination marker */}
+              <Marker
+                coordinate={{ latitude: dest.latitude, longitude: dest.longitude }}
+                title={destLabel}
+                pinColor={isGoingToClient ? '#16A34A' : '#F59E0B'}
+              />
+              {/* Route line */}
+              <Polyline
+                coordinates={[driverLocation, { latitude: dest.latitude, longitude: dest.longitude }]}
+                strokeColor={destColor}
+                strokeWidth={3}
+                lineDashPattern={[8, 4]}
+              />
+            </MapView>
+            <View style={[styles.mapOverlay, { backgroundColor: colors.card }]}>
+              <Navigation size={14} color={destColor} />
+              <ThemedText variant="caption" bold style={{ color: destColor }}>
+                {destLabel}
+              </ThemedText>
+            </View>
+          </View>
+        );
+      })()}
 
       {/* Order Details Card */}
       <ScreenCard>
@@ -711,6 +809,32 @@ function getStatusLabel(status: string, driverAtBusiness?: boolean): string {
 }
 
 const styles = StyleSheet.create({
+  mapContainer: {
+    marginBottom: 16,
+    overflow: 'hidden',
+    borderWidth: 1,
+    borderColor: 'rgba(0,0,0,0.08)',
+  },
+  map: {
+    width: '100%',
+    height: MAP_HEIGHT,
+  },
+  mapOverlay: {
+    position: 'absolute',
+    top: 10,
+    right: 10,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 8,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.15,
+    shadowRadius: 3,
+    elevation: 3,
+  },
   loadingContainer: {
     flex: 1,
     justifyContent: 'center',
