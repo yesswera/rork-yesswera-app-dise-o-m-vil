@@ -187,6 +187,7 @@ export default function AddressSelector({ selectedAddress, onAddressSelect, onAd
       latitude: tempMapRegion.latitude,
       longitude: tempMapRegion.longitude,
       isDefault: false,
+      createdAt: new Date().toISOString(),
     };
 
     onAddressSelect(tempAddress);

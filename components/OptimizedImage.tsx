@@ -106,7 +106,7 @@ export function ProductImage({
   return (
     <OptimizedImage
       source={source}
-      style={{ width, height, borderRadius: 8 }}
+      style={{ width: width as number, height, borderRadius: 8 }}
       fallbackIcon={fallbackIcon}
       contentFit="cover"
     />

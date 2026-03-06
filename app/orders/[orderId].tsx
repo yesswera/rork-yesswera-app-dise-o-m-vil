@@ -140,6 +140,7 @@ export default function OrderDetailsScreen() {
     const interval = setInterval(async () => {
       try {
         const updatedOrder = await getOrderById(orderId as string);
+        if (!updatedOrder) return;
         // Check if status changed and play sound
         if (updatedOrder.status !== order.status) {
           playStatusChangeSound(updatedOrder.status);

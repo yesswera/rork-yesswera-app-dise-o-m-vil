@@ -371,7 +371,7 @@ const styles = StyleSheet.create({
   },
   note: {
     fontSize: 12,
-    color: Colors.text.tertiary,
+    color: Colors.text.muted,
     textAlign: 'center',
     marginTop: 16,
   },

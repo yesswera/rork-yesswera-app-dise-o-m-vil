@@ -7,10 +7,12 @@ import { getClientTransferMessage } from '@/services/driver-monitoring';
 
 type OrderStatus =
   | 'pending'
+  | 'confirmed'
   | 'accepted'
   | 'preparing'
   | 'ready'
   | 'assigned'
+  | 'driver_verified'
   | 'handed_to_driver'
   | 'in_transit'
   | 'arrived'
@@ -31,6 +33,7 @@ interface OrderChange {
 // Status messages for each role
 const CLIENT_MESSAGES: Record<OrderStatus, string> = {
   pending: 'Orden enviada, esperando confirmacion del negocio...',
+  confirmed: 'Orden confirmada por el negocio',
   accepted: 'El negocio acepto tu orden',
   preparing: 'Tu orden esta siendo preparada',
   ready: 'Tu orden esta lista, buscando repartidor...',
@@ -45,10 +48,12 @@ const CLIENT_MESSAGES: Record<OrderStatus, string> = {
 
 const BUSINESS_MESSAGES: Record<OrderStatus, string> = {
   pending: 'Nueva orden recibida',
+  confirmed: 'Orden confirmada',
   accepted: 'Orden aceptada',
   preparing: 'Orden en preparacion',
   ready: 'Orden lista para recoger',
   assigned: 'Repartidor asignado',
+  driver_verified: 'Repartidor verificado en negocio',
   handed_to_driver: 'Orden entregada al repartidor',
   in_transit: 'Orden en camino al cliente',
   arrived: 'Repartidor en domicilio del cliente',
@@ -58,10 +63,12 @@ const BUSINESS_MESSAGES: Record<OrderStatus, string> = {
 
 const DRIVER_MESSAGES: Record<OrderStatus, string> = {
   pending: '',
+  confirmed: '',
   accepted: 'Orden aceptada por negocio',
   preparing: 'Negocio preparando orden',
   ready: 'Orden lista - ve a recoger',
   assigned: 'Te asignaron una orden',
+  driver_verified: 'Verificado en el negocio',
   handed_to_driver: 'Orden recibida - ve al cliente',
   in_transit: 'En camino al cliente',
   arrived: 'Llegaste al cliente',

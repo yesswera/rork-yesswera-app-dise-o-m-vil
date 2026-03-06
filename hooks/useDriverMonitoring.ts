@@ -48,7 +48,7 @@ export function useDriverMonitoring({
 
   const locationSubscription = useRef<Location.LocationSubscription | null>(null);
   const statusUnsubscribe = useRef<(() => void) | null>(null);
-  const checkInterval = useRef<NodeJS.Timeout | null>(null);
+  const checkInterval = useRef<ReturnType<typeof setInterval> | null>(null);
 
   // Subscribe to status updates
   useEffect(() => {

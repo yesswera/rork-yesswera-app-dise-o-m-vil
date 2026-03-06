@@ -359,7 +359,7 @@ export async function createOrder(orderData: {
             tonalliItems.push({
               productId: tonalliProductId,
               quantity: item.quantity,
-              notes: item.specialInstructions,
+              notes: item.specialInstructions || '',
             });
           }
 
@@ -379,8 +379,8 @@ export async function createOrder(orderData: {
                 items: tonalliItems,
                 customerName: clientData?.full_name || 'Cliente Yesswera',
                 customerPhone: clientData?.phone || '',
-                deliveryAddress: orderData.deliveryAddress,
-                notes: orderData.deliveryInstructions,
+                deliveryAddress: orderData.deliveryAddress || '',
+                notes: orderData.deliveryInstructions || '',
               }
             );
 

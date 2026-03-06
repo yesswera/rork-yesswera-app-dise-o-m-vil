@@ -320,7 +320,7 @@ async function preloadCriticalSounds(): Promise<void> {
   }
 }
 
-async function loadSound(type: SoundType): Promise<Audio.Sound | null> {
+async function loadSound(type: SoundType): Promise<Audio.Sound | undefined> {
   if (soundCache.has(type)) {
     return soundCache.get(type)!;
   }
@@ -336,7 +336,7 @@ async function loadSound(type: SoundType): Promise<Audio.Sound | null> {
     return sound;
   } catch (error) {
     console.error(`[Sounds] Error cargando ${type}:`, error);
-    return null;
+    return undefined;
   }
 }
 

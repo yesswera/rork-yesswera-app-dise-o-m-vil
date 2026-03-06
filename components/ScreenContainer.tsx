@@ -51,10 +51,10 @@ const THEME_COLORS = {
 
 // Colores de gradiente premium
 const GRADIENT_COLORS = {
-  primary: ['#16A34A', '#15803D'],      // Verde premium
-  secondary: ['#EA580C', '#C2410C'],    // Naranja contenido
-  accent: ['#2563EB', '#1D4ED8'],       // Azul profesional
-  tertiary: ['#F59E0B', '#D97706'],     // Amarillo/Dorado
+  primary: ['#16A34A', '#15803D'] as const,
+  secondary: ['#EA580C', '#C2410C'] as const,
+  accent: ['#2563EB', '#1D4ED8'] as const,
+  tertiary: ['#F59E0B', '#D97706'] as const,
 };
 
 // ============================================================================
@@ -208,7 +208,7 @@ export default function ScreenContainer({
   // ============================================================================
 
   const renderContent = () => {
-    const contentStyle = [
+    const contentStyle: any[] = [
       styles.content,
       !noPadding && { padding: contentPadding },
       footer && { paddingBottom: footerPadding },

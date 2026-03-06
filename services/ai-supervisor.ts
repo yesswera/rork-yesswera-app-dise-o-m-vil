@@ -372,7 +372,7 @@ export async function applyAIRecommendation(
 // INICIAR SUPERVISIÓN PERIÓDICA
 // ============================================================================
 
-let supervisionInterval: NodeJS.Timeout | null = null;
+let supervisionInterval: ReturnType<typeof setInterval> | null = null;
 
 export async function startAISupervision(): Promise<void> {
   const config = await getAISupervisorConfig();

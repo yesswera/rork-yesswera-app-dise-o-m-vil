@@ -324,10 +324,10 @@ export async function sendMessage(
       const isParticipant1 = conv.participant_1_id === data.senderId;
       const unreadField = isParticipant1 ? 'unread_count_2' : 'unread_count_1';
 
-      await supabase.rpc('increment_unread', {
+      await (supabase.rpc('increment_unread', {
         conv_id: conversationId,
         field_name: unreadField,
-      }).catch(() => {
+      }) as any).catch(() => {
         // Fallback if RPC doesn't exist
         supabase
           .from('chat_conversations')

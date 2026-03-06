@@ -133,7 +133,7 @@ export default function ShoppingListScreen() {
         }],
         subtotal: estimatedCost,
         deliveryFee: deliveryCost,
-        paymentMethod: paymentMethod === 'cash' ? 'cash' : paymentMethod === 'card' ? 'card' : 'wallet',
+        paymentMethod: paymentMethod === 'cash' ? 'cash' : paymentMethod === 'card' ? 'card' : 'transfer',
       });
 
       // Track service usage for analytics/personalization

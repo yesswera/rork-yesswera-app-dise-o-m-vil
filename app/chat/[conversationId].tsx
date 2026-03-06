@@ -93,7 +93,16 @@ export default function ChatScreen() {
       }
       previousMessageCountRef.current = reversedData.length;
 
-      setMessages(reversedData);
+      setMessages(reversedData.map(m => ({
+        id: m.id,
+        conversationId: m.conversationId,
+        senderId: m.senderId,
+        senderName: m.senderName || '',
+        senderType: m.senderType as any,
+        content: m.content,
+        createdAt: m.createdAt,
+        read: m.isRead,
+      })));
       setError(null);
 
       await markMessagesAsRead(conversationId as string, user?.id || '');

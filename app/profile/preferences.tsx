@@ -205,7 +205,7 @@ export default function PreferencesScreen() {
     }
   };
 
-  const handleToggleNotification = async (key: keyof typeof prefs.notifications) => {
+  const handleToggleNotification = async (key: keyof NonNullable<typeof prefs>['notifications']) => {
     if (!user || !prefs) return;
 
     setIsSaving(true);

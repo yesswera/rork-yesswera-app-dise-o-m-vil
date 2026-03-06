@@ -26,7 +26,7 @@ function initNotifications() {
     Notifications = require('expo-notifications');
     Device = require('expo-device');
 
-    Notifications.setNotificationHandler({
+    Notifications!.setNotificationHandler({
       handleNotification: async () => ({
         shouldShowAlert: true,
         shouldPlaySound: true,
