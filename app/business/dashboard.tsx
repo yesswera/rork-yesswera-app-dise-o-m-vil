@@ -13,7 +13,7 @@ import {
   StyleSheet,
 } from 'react-native';
 import { useRouter, useFocusEffect } from 'expo-router';
-import { DollarSign, Package, TrendingUp, LogOut, ShoppingBag, Monitor, Store, Settings, BarChart3, User } from 'lucide-react-native';
+import { DollarSign, Package, TrendingUp, LogOut, ShoppingBag, Monitor, Store, Settings, BarChart3, User, Crown } from 'lucide-react-native';
 import { useAuth } from '@/contexts/auth';
 import { useTheme } from '@/contexts/theme';
 import { ThemedText } from '@/components/themed';
@@ -225,6 +225,19 @@ export default function BusinessDashboardScreen() {
             >
               <BarChart3 size={22} color={colors.success} />
               <ThemedText variant="subtitle" style={{ color: colors.success, fontWeight: '700' }}>Ganancias</ThemedText>
+            </TouchableSound>
+
+            <TouchableSound
+              style={[styles.secondaryButton, {
+                backgroundColor: colors.card,
+                borderColor: '#8B5CF6',
+                borderRadius: radius.md,
+                padding: space.md,
+              }]}
+              onPress={() => router.push('/business/reports' as any)}
+            >
+              <Crown size={22} color="#8B5CF6" />
+              <ThemedText variant="subtitle" style={{ color: '#8B5CF6', fontWeight: '700' }}>Reportes</ThemedText>
             </TouchableSound>
 
             <TouchableSound
