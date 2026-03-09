@@ -374,20 +374,25 @@ export default function CartScreen() {
             />
             <View style={styles.itemInfo}>
               <ThemedText variant="subtitle" bold>{item.name}</ThemedText>
+              {item.selectedVariants && item.selectedVariants.length > 0 && (
+                <ThemedText variant="caption" color="secondary">
+                  {item.selectedVariants.map(v => v.name).join(', ')}
+                </ThemedText>
+              )}
               <ThemedText variant="body" style={{ color: colors.primary }}>
                 {formatPriceWithUnit(item.price, (item as any).unit || 'pieza')}
               </ThemedText>
               <View style={[styles.itemControls, { gap: space.xs }]}>
                 <TouchableSound
                   style={[styles.controlButton, { backgroundColor: colors.primary + '15' }]}
-                  onPress={() => updateQuantity(item.id, item.quantity - 1)}
+                  onPress={() => updateQuantity(item.cartItemKey || item.id, item.quantity - 1)}
                 >
                   <Minus size={16} color={colors.primary} strokeWidth={3} />
                 </TouchableSound>
                 <ThemedText variant="body" bold style={styles.quantityText}>{item.quantity}</ThemedText>
                 <TouchableSound
                   style={[styles.controlButton, { backgroundColor: colors.primary + '15' }]}
-                  onPress={() => updateQuantity(item.id, item.quantity + 1)}
+                  onPress={() => updateQuantity(item.cartItemKey || item.id, item.quantity + 1)}
                 >
                   <Plus size={16} color={colors.primary} strokeWidth={3} />
                 </TouchableSound>
@@ -395,7 +400,7 @@ export default function CartScreen() {
             </View>
             <TouchableSound
               style={styles.deleteButton}
-              onPress={() => removeItem(item.id)}
+              onPress={() => removeItem(item.cartItemKey || item.id)}
             >
               <Trash2 size={20} color={colors.error} />
             </TouchableSound>

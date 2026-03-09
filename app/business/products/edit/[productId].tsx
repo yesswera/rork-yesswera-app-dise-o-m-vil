@@ -15,11 +15,11 @@ import {
 } from 'react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { useState, useEffect, useCallback } from 'react';
-import { Edit2, DollarSign, Clock, Tag, FileText, Type } from 'lucide-react-native';
+import { Edit2, DollarSign, Clock, Tag, FileText, Type, Plus, Trash2, Layers } from 'lucide-react-native';
 import { useAuth } from '@/contexts/auth';
 import { useTheme } from '@/contexts/theme';
-import { getBusinessCategories, updateProduct } from '@/services/products';
-import { ProductCategory } from '@/constants/types';
+import { getBusinessCategories, updateProduct, getAllProductVariants, createVariant, deleteVariant } from '@/services/products';
+import { ProductCategory, ProductVariant } from '@/constants/types';
 import { PRODUCT_UNITS, formatPriceWithUnit } from '@/constants/units';
 import { Toast } from '@/utils/toast';
 import { SoundFeedback } from '@/services/sounds';
@@ -79,6 +79,12 @@ export default function EditProductScreen() {
   const [imageLocalUri, setImageLocalUri] = useState('');
   const [existingImageUrl, setExistingImageUrl] = useState('');
 
+  // Variants state
+  const [variants, setVariants] = useState<ProductVariant[]>([]);
+  const [newVariantGroup, setNewVariantGroup] = useState('');
+  const [newVariantName, setNewVariantName] = useState('');
+  const [newVariantPrice, setNewVariantPrice] = useState('');
+
   // UI state
   const [categories, setCategories] = useState<ProductCategory[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -109,14 +115,15 @@ export default function EditProductScreen() {
 
     setIsLoading(true);
     try {
-      // Load product and categories in parallel
-      const [productResult, categoriesData] = await Promise.all([
+      // Load product, categories, and variants in parallel
+      const [productResult, categoriesData, variantsData] = await Promise.all([
         supabase
           .from('products')
           .select('*')
           .eq('id', productId)
           .single(),
         getBusinessCategories(businessId),
+        getAllProductVariants(productId),
       ]);
 
       if (productResult.error) {
@@ -158,8 +165,9 @@ export default function EditProductScreen() {
         setImageUrl(product.image_url);
       }
 
-      // Set categories
+      // Set categories and variants
       setCategories(categoriesData);
+      setVariants(variantsData);
     } catch (error) {
       console.error('Error loading product:', error);
       Toast.error('Error al cargar el producto');
@@ -553,6 +561,105 @@ export default function EditProductScreen() {
         />
       </View>
 
+      {/* Variantes */}
+      <View style={styles.section}>
+        <View style={styles.labelRow}>
+          <Layers size={16} color={colors.primary} />
+          <Text style={[styles.sectionTitle, { color: theme.text }]}>
+            Variantes (Tamanos, Extras)
+          </Text>
+        </View>
+
+        {/* Existing variants */}
+        {variants.length > 0 ? (
+          <View style={{ marginBottom: 12 }}>
+            {variants.map((v) => (
+              <View key={v.id} style={[styles.variantRow, { backgroundColor: theme.card, borderColor: theme.border }]}>
+                <View style={{ flex: 1 }}>
+                  <Text style={[styles.variantGroup, { color: theme.textMuted }]}>{v.group}</Text>
+                  <Text style={[styles.variantName, { color: theme.text }]}>{v.name}</Text>
+                </View>
+                <Text style={[styles.variantPrice, { color: v.priceAdjustment > 0 ? colors.primary : v.priceAdjustment < 0 ? colors.success : theme.textMuted }]}>
+                  {v.priceAdjustment > 0 ? '+' : ''}{v.priceAdjustment === 0 ? 'Incluido' : `$${v.priceAdjustment.toFixed(2)}`}
+                </Text>
+                <TouchableSound
+                  onPress={async () => {
+                    try {
+                      await deleteVariant(v.id);
+                      setVariants(prev => prev.filter(x => x.id !== v.id));
+                      Toast.success('Variante eliminada');
+                    } catch {
+                      Toast.error('Error al eliminar');
+                    }
+                  }}
+                  style={{ padding: 8 }}
+                >
+                  <Trash2 size={16} color={colors.error} />
+                </TouchableSound>
+              </View>
+            ))}
+          </View>
+        ) : (
+          <Text style={[styles.charCount, { color: theme.textMuted, textAlign: 'left', marginBottom: 12 }]}>
+            Sin variantes. Agrega tamanos, extras o bebidas.
+          </Text>
+        )}
+
+        {/* Add new variant */}
+        <View style={[styles.addVariantBox, { backgroundColor: theme.cardAlt, borderColor: theme.border }]}>
+          <TextInput
+            style={[styles.variantInput, { backgroundColor: theme.card, borderColor: theme.border, color: theme.text }]}
+            placeholder="Grupo (ej: Tamano)"
+            placeholderTextColor={theme.textMuted}
+            value={newVariantGroup}
+            onChangeText={setNewVariantGroup}
+          />
+          <View style={{ flexDirection: 'row', gap: 8 }}>
+            <TextInput
+              style={[styles.variantInput, { flex: 1, backgroundColor: theme.card, borderColor: theme.border, color: theme.text }]}
+              placeholder="Nombre (ej: Grande)"
+              placeholderTextColor={theme.textMuted}
+              value={newVariantName}
+              onChangeText={setNewVariantName}
+            />
+            <TextInput
+              style={[styles.variantInput, { width: 80, backgroundColor: theme.card, borderColor: theme.border, color: theme.text }]}
+              placeholder="+$"
+              placeholderTextColor={theme.textMuted}
+              value={newVariantPrice}
+              onChangeText={setNewVariantPrice}
+              keyboardType="decimal-pad"
+            />
+          </View>
+          <TouchableSound
+            style={[styles.addVariantBtn, { backgroundColor: colors.primary }]}
+            onPress={async () => {
+              if (!newVariantGroup.trim() || !newVariantName.trim()) {
+                Toast.error('Grupo y nombre son obligatorios');
+                return;
+              }
+              try {
+                const v = await createVariant(productId!, {
+                  group: newVariantGroup.trim(),
+                  name: newVariantName.trim(),
+                  priceAdjustment: parseFloat(newVariantPrice) || 0,
+                });
+                setVariants(prev => [...prev, v]);
+                setNewVariantGroup('');
+                setNewVariantName('');
+                setNewVariantPrice('');
+                Toast.success('Variante agregada');
+              } catch {
+                Toast.error('Error al crear variante');
+              }
+            }}
+          >
+            <Plus size={16} color="#FFFFFF" />
+            <Text style={{ color: '#FFFFFF', fontWeight: '600', fontSize: 14 }}>Agregar</Text>
+          </TouchableSound>
+        </View>
+      </View>
+
       {/* Disponibilidad */}
       <View style={styles.section}>
         <View
@@ -690,5 +797,49 @@ const styles = StyleSheet.create({
   submitButton: {
     height: 52,
     borderRadius: 12,
+  },
+  // Variants
+  variantRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 12,
+    borderRadius: 10,
+    borderWidth: 1,
+    marginBottom: 8,
+    gap: 8,
+  },
+  variantGroup: {
+    fontSize: 11,
+    fontWeight: '600',
+    textTransform: 'uppercase',
+  },
+  variantName: {
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  variantPrice: {
+    fontSize: 14,
+    fontWeight: '700',
+  },
+  addVariantBox: {
+    borderRadius: 12,
+    borderWidth: 1,
+    padding: 12,
+    gap: 8,
+  },
+  variantInput: {
+    borderRadius: 8,
+    padding: 10,
+    fontSize: 14,
+    borderWidth: 1,
+    height: 42,
+  },
+  addVariantBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    height: 40,
+    borderRadius: 10,
   },
 });

@@ -1,5 +1,5 @@
 import { supabase } from '@/constants/supabase';
-import { Business, Product, ProductFull, ProductCategory } from '@/constants/types';
+import { Business, Product, ProductFull, ProductCategory, ProductVariant } from '@/constants/types';
 import { parseLocation } from '@/utils/geo';
 
 function mapBusiness(db: any): Business {
@@ -462,6 +462,136 @@ export async function getSimilarBusinesses(currentBusinessId: string): Promise<B
     return data.map(mapBusiness);
   } catch (error) {
     console.error('getSimilarBusinesses error:', error);
+    return [];
+  }
+}
+
+// ============================================================================
+// PRODUCT VARIANTS
+// ============================================================================
+
+function mapVariant(db: any): ProductVariant {
+  return {
+    id: db.id,
+    productId: db.product_id,
+    group: db.variant_group || '',
+    name: db.name,
+    priceAdjustment: Number(db.price_adjustment) || 0,
+    isAvailable: db.is_available ?? true,
+  };
+}
+
+export async function getProductVariants(productId: string): Promise<ProductVariant[]> {
+  try {
+    const { data, error } = await supabase
+      .from('product_variants')
+      .select('*')
+      .eq('product_id', productId)
+      .eq('is_available', true)
+      .order('variant_group')
+      .order('name');
+
+    if (error) throw error;
+    return (data || []).map(mapVariant);
+  } catch (error) {
+    console.error('getProductVariants error:', error);
+    return [];
+  }
+}
+
+export async function getAllProductVariants(productId: string): Promise<ProductVariant[]> {
+  try {
+    const { data, error } = await supabase
+      .from('product_variants')
+      .select('*')
+      .eq('product_id', productId)
+      .order('variant_group')
+      .order('name');
+
+    if (error) throw error;
+    return (data || []).map(mapVariant);
+  } catch (error) {
+    console.error('getAllProductVariants error:', error);
+    return [];
+  }
+}
+
+export async function createVariant(
+  productId: string,
+  variant: { group: string; name: string; priceAdjustment: number }
+): Promise<ProductVariant> {
+  const { data, error } = await supabase
+    .from('product_variants')
+    .insert({
+      product_id: productId,
+      variant_group: variant.group,
+      name: variant.name,
+      price_adjustment: variant.priceAdjustment,
+      is_available: true,
+    })
+    .select()
+    .single();
+
+  if (error) throw error;
+  return mapVariant(data);
+}
+
+export async function updateVariant(
+  variantId: string,
+  updates: { group?: string; name?: string; priceAdjustment?: number; isAvailable?: boolean }
+): Promise<ProductVariant> {
+  const updateData: any = {};
+  if (updates.group !== undefined) updateData.variant_group = updates.group;
+  if (updates.name !== undefined) updateData.name = updates.name;
+  if (updates.priceAdjustment !== undefined) updateData.price_adjustment = updates.priceAdjustment;
+  if (updates.isAvailable !== undefined) updateData.is_available = updates.isAvailable;
+
+  const { data, error } = await supabase
+    .from('product_variants')
+    .update(updateData)
+    .eq('id', variantId)
+    .select()
+    .single();
+
+  if (error) throw error;
+  return mapVariant(data);
+}
+
+export async function deleteVariant(variantId: string): Promise<void> {
+  const { error } = await supabase
+    .from('product_variants')
+    .delete()
+    .eq('id', variantId);
+
+  if (error) throw error;
+}
+
+// Get menu with variants included (for client-facing menu)
+export async function getBusinessMenuWithVariants(businessId: string): Promise<(Product & { variants: ProductVariant[]; unit?: string })[]> {
+  try {
+    const { data: business } = await supabase
+      .from('businesses')
+      .select('business_name')
+      .eq('id', businessId)
+      .single();
+
+    const { data, error } = await supabase
+      .from('products')
+      .select('*, product_variants(*)')
+      .eq('business_id', businessId)
+      .eq('is_available', true)
+      .order('name');
+
+    if (error) throw error;
+
+    return (data || []).map((p: any) => ({
+      ...mapProductToSimple(p, business?.business_name || ''),
+      variants: (p.product_variants || [])
+        .filter((v: any) => v.is_available)
+        .map(mapVariant),
+    }));
+  } catch (error) {
+    console.error('getBusinessMenuWithVariants error:', error);
     return [];
   }
 }

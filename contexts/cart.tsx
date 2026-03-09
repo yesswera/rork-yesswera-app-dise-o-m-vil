@@ -1,12 +1,19 @@
 import createContextHook from '@nkzw/create-context-hook';
 import { useState, useMemo } from 'react';
-import type { CartItem, Product } from '@/constants/types';
+import type { CartItem, Product, SelectedVariant } from '@/constants/types';
+
+// Generate unique key for cart item (product + specific variants)
+function makeCartKey(productId: string, variants?: SelectedVariant[]): string {
+  if (!variants || variants.length === 0) return productId;
+  const sortedIds = variants.map(v => v.variantId).sort().join(',');
+  return `${productId}__${sortedIds}`;
+}
 
 interface CartState {
   items: CartItem[];
-  addItem: (product: Product) => void;
-  removeItem: (productId: string) => void;
-  updateQuantity: (productId: string, quantity: number) => void;
+  addItem: (product: Product, variants?: SelectedVariant[]) => void;
+  removeItem: (cartItemKey: string) => void;
+  updateQuantity: (cartItemKey: string, quantity: number) => void;
   clearCart: () => void;
   total: number;
   itemCount: number;
@@ -15,32 +22,41 @@ interface CartState {
 export const [CartProvider, useCart] = createContextHook<CartState>(() => {
   const [items, setItems] = useState<CartItem[]>([]);
 
-  const addItem = (product: Product) => {
+  const addItem = (product: Product, variants?: SelectedVariant[]) => {
+    const key = makeCartKey(product.id, variants);
+    const variantExtra = (variants || []).reduce((sum, v) => sum + v.priceAdjustment, 0);
+
     setItems((prev) => {
-      const existing = prev.find((item) => item.id === product.id);
+      const existing = prev.find((item) => (item.cartItemKey || item.id) === key);
       if (existing) {
         return prev.map((item) =>
-          item.id === product.id
+          (item.cartItemKey || item.id) === key
             ? { ...item, quantity: item.quantity + 1 }
             : item
         );
       }
-      return [...prev, { ...product, quantity: 1 }];
+      return [...prev, {
+        ...product,
+        price: product.price + variantExtra,
+        quantity: 1,
+        selectedVariants: variants,
+        cartItemKey: key,
+      }];
     });
   };
 
-  const removeItem = (productId: string) => {
-    setItems((prev) => prev.filter((item) => item.id !== productId));
+  const removeItem = (cartItemKey: string) => {
+    setItems((prev) => prev.filter((item) => (item.cartItemKey || item.id) !== cartItemKey));
   };
 
-  const updateQuantity = (productId: string, quantity: number) => {
+  const updateQuantity = (cartItemKey: string, quantity: number) => {
     if (quantity <= 0) {
-      removeItem(productId);
+      removeItem(cartItemKey);
       return;
     }
     setItems((prev) =>
       prev.map((item) =>
-        item.id === productId ? { ...item, quantity } : item
+        (item.cartItemKey || item.id) === cartItemKey ? { ...item, quantity } : item
       )
     );
   };

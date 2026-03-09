@@ -402,6 +402,29 @@ export async function createOrder(orderData: {
       }
     }
 
+    // === PUSH NOTIFICATION: Notificar al negocio de nueva orden ===
+    if (orderData.businessId) {
+      try {
+        const { data: biz } = await supabase
+          .from('businesses')
+          .select('user_id, business_name')
+          .eq('id', orderData.businessId)
+          .single();
+
+        if (biz?.user_id) {
+          await supabase.from('notifications').insert({
+            user_id: biz.user_id,
+            type: 'new_order',
+            title: 'Nueva orden recibida',
+            body: `Tienes un nuevo pedido por $${total.toFixed(2)}`,
+            data_json: { orderId: order.id, total },
+          });
+        }
+      } catch {
+        // Non-critical
+      }
+    }
+
     return mapOrder(order);
   } catch (error) {
     console.error('createOrder error:', error);
@@ -919,6 +942,21 @@ export async function acceptOrder(
 
     if (error) throw error;
 
+    // === PUSH NOTIFICATION: Notificar al cliente que su orden fue aceptada ===
+    try {
+      if (data.client_id) {
+        await supabase.from('notifications').insert({
+          user_id: data.client_id,
+          type: 'order_accepted',
+          title: 'Orden aceptada',
+          body: `Tu pedido esta siendo preparado. Tiempo estimado: ${estimatedPrepTime} min`,
+          data_json: { orderId, estimatedPrepTime },
+        });
+      }
+    } catch {
+      // Non-critical
+    }
+
     return mapOrder(data);
   } catch (error) {
     console.error('acceptOrder error:', error);
@@ -1010,6 +1048,21 @@ export async function assignOrderToDriver(orderId: string, driverId: string): Pr
 
     if (error) throw error;
 
+    // === PUSH NOTIFICATION: Notificar al cliente que un repartidor tomó su orden ===
+    try {
+      if (data.client_id) {
+        await supabase.from('notifications').insert({
+          user_id: data.client_id,
+          type: 'driver_assigned',
+          title: 'Repartidor asignado',
+          body: 'Un repartidor recogerá tu pedido pronto',
+          data_json: { orderId },
+        });
+      }
+    } catch {
+      // Non-critical
+    }
+
     return mapOrder(data);
   } catch (error) {
     console.error('assignOrderToDriver error:', error);
@@ -1070,6 +1123,67 @@ export async function updateOrderStatus(
       .single();
 
     if (error) throw error;
+
+    // === PUSH NOTIFICATIONS: Notificar al cliente/driver segun status ===
+    try {
+      const pushNotifs: Array<{ user_id: string; type: string; title: string; body: string; data_json: any }> = [];
+
+      if (status === 'ready' && data.client_id) {
+        pushNotifs.push({
+          user_id: data.client_id,
+          type: 'order_ready',
+          title: 'Tu pedido esta listo',
+          body: 'Un repartidor lo recogerá pronto',
+          data_json: { orderId },
+        });
+      }
+
+      if ((status === 'picked_up' || status === 'in_transit') && data.client_id) {
+        pushNotifs.push({
+          user_id: data.client_id,
+          type: 'order_in_transit',
+          title: 'Tu pedido va en camino',
+          body: 'El repartidor recogió tu pedido y se dirige hacia ti',
+          data_json: { orderId },
+        });
+      }
+
+      if (status === 'driver_arrived' && data.client_id) {
+        pushNotifs.push({
+          user_id: data.client_id,
+          type: 'driver_arrived',
+          title: 'El repartidor llego',
+          body: 'Tu repartidor esta en tu ubicacion',
+          data_json: { orderId },
+        });
+      }
+
+      if (status === 'delivered' && data.client_id) {
+        pushNotifs.push({
+          user_id: data.client_id,
+          type: 'order_delivered',
+          title: 'Pedido entregado',
+          body: 'Tu pedido fue entregado. Califica el servicio!',
+          data_json: { orderId },
+        });
+      }
+
+      if (status === 'cancelled' && data.client_id) {
+        pushNotifs.push({
+          user_id: data.client_id,
+          type: 'order_cancelled',
+          title: 'Pedido cancelado',
+          body: 'Tu pedido fue cancelado',
+          data_json: { orderId },
+        });
+      }
+
+      if (pushNotifs.length > 0) {
+        await supabase.from('notifications').insert(pushNotifs);
+      }
+    } catch {
+      // Non-critical, don't block order status update
+    }
 
     // === TONALLI BRIDGE: Notificar a Tonalli de cambios de status del driver ===
     if (data.tonalli_order_id && data.businesses?.tonalli_linked) {

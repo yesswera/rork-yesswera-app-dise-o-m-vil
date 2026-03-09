@@ -25,8 +25,26 @@ export interface Product {
   category: string;
 }
 
+export interface ProductVariant {
+  id: string;
+  productId: string;
+  group: string;      // "Tamaño", "Extras", "Bebida"
+  name: string;       // "Grande", "Extra queso"
+  priceAdjustment: number;
+  isAvailable: boolean;
+}
+
+export interface SelectedVariant {
+  variantId: string;
+  group: string;
+  name: string;
+  priceAdjustment: number;
+}
+
 export interface CartItem extends Product {
   quantity: number;
+  selectedVariants?: SelectedVariant[];
+  cartItemKey?: string; // unique key: productId + sorted variant ids
 }
 
 export interface Business {
