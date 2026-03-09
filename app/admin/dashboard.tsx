@@ -479,6 +479,14 @@ export default function AdminDashboard() {
           </TouchableSound>
 
           <TouchableSound
+            style={[styles.actionCard, { backgroundColor: theme.card }]}
+            onPress={() => router.push('/admin/analytics' as any)}
+          >
+            <BarChart3 size={24} color={FIXED_COLORS.warning} />
+            <Text style={[styles.actionText, { color: theme.text }]}>Analytics</Text>
+          </TouchableSound>
+
+          <TouchableSound
             style={[styles.actionCard, { backgroundColor: theme.card }, seeding && styles.actionCardDisabled]}
             onPress={handleSeedProducts}
             disabled={seeding}
