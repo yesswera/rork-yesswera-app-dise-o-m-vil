@@ -16,7 +16,7 @@ import {
   ScrollView,
 } from 'react-native';
 import { useRouter } from 'expo-router';
-import { Plus, Tag, ChevronDown } from 'lucide-react-native';
+import { Plus, Tag, ChevronDown, Layers } from 'lucide-react-native';
 import { useAuth } from '@/contexts/auth';
 import { useTheme } from '@/contexts/theme';
 import {
@@ -625,6 +625,19 @@ export default function AddProductScreen() {
         </Text>
       </View>
 
+      {/* Variantes (info) */}
+      <View style={styles.section}>
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 8 }}>
+          <Layers size={16} color={colors.primary} />
+          <Text style={[styles.label, { color: theme.text, marginBottom: 0 }]}>Variantes (Tamanos, Extras)</Text>
+        </View>
+        <View style={[styles.variantInfoBox, { backgroundColor: theme.cardAlt, borderColor: theme.border, borderRadius: radius.md }]}>
+          <Text style={[styles.helperText, { color: theme.textSecondary, marginTop: 0 }]}>
+            Podras agregar variantes (tamanos, extras, bebidas) despues de crear el producto, desde la pantalla de edicion.
+          </Text>
+        </View>
+      </View>
+
       {/* Disponibilidad */}
       <View style={styles.section}>
         <View style={[styles.switchRow, { backgroundColor: theme.card, borderColor: theme.border, borderRadius: radius.md }]}>
@@ -813,5 +826,9 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '700',
     color: '#FFFFFF',
+  },
+  variantInfoBox: {
+    padding: 14,
+    borderWidth: 1,
   },
 });

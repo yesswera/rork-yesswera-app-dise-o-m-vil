@@ -327,7 +327,7 @@ export default function BusinessOnboardingScreen() {
         Nombre del negocio *
       </ThemedText>
       <TextInput
-        style={[styles.input, { backgroundColor: colors.card, borderColor: colors.border, color: colors.text.primary, borderRadius: radius.md }]}
+        style={[styles.input, { backgroundColor: colors.card, borderColor: colors.border.medium, color: colors.text.primary, borderRadius: radius.md }]}
         value={businessName}
         onChangeText={setBusinessName}
         placeholder="Ej: Tacos El Compa"
@@ -343,7 +343,7 @@ export default function BusinessOnboardingScreen() {
             key={cat.value}
             style={[styles.categoryChip, {
               backgroundColor: category === cat.value ? colors.secondary : colors.card,
-              borderColor: category === cat.value ? colors.secondary : colors.border,
+              borderColor: category === cat.value ? colors.secondary : colors.border.medium,
               borderRadius: radius.sm,
             }]}
             onPress={() => setCategory(cat.value)}
@@ -362,7 +362,7 @@ export default function BusinessOnboardingScreen() {
         Telefono de contacto *
       </ThemedText>
       <TextInput
-        style={[styles.input, { backgroundColor: colors.card, borderColor: colors.border, color: colors.text.primary, borderRadius: radius.md }]}
+        style={[styles.input, { backgroundColor: colors.card, borderColor: colors.border.medium, color: colors.text.primary, borderRadius: radius.md }]}
         value={phone}
         onChangeText={setPhone}
         placeholder="3171234567"
@@ -374,7 +374,7 @@ export default function BusinessOnboardingScreen() {
         Descripcion (opcional)
       </ThemedText>
       <TextInput
-        style={[styles.input, styles.textArea, { backgroundColor: colors.card, borderColor: colors.border, color: colors.text.primary, borderRadius: radius.md }]}
+        style={[styles.input, styles.textArea, { backgroundColor: colors.card, borderColor: colors.border.medium, color: colors.text.primary, borderRadius: radius.md }]}
         value={description}
         onChangeText={setDescription}
         placeholder="Los mejores tacos de Tomatlan desde 1995..."
@@ -399,7 +399,7 @@ export default function BusinessOnboardingScreen() {
         Direccion *
       </ThemedText>
       <TextInput
-        style={[styles.input, { backgroundColor: colors.card, borderColor: colors.border, color: colors.text.primary, borderRadius: radius.md }]}
+        style={[styles.input, { backgroundColor: colors.card, borderColor: colors.border.medium, color: colors.text.primary, borderRadius: radius.md }]}
         value={address}
         onChangeText={setAddress}
         placeholder="Calle, numero, colonia"
@@ -412,7 +412,7 @@ export default function BusinessOnboardingScreen() {
             Tiempo de preparacion (min)
           </ThemedText>
           <TextInput
-            style={[styles.input, { backgroundColor: colors.card, borderColor: colors.border, color: colors.text.primary, borderRadius: radius.md }]}
+            style={[styles.input, { backgroundColor: colors.card, borderColor: colors.border.medium, color: colors.text.primary, borderRadius: radius.md }]}
             value={prepTime}
             onChangeText={setPrepTime}
             keyboardType="numeric"
@@ -424,7 +424,7 @@ export default function BusinessOnboardingScreen() {
             Radio de entrega (km)
           </ThemedText>
           <TextInput
-            style={[styles.input, { backgroundColor: colors.card, borderColor: colors.border, color: colors.text.primary, borderRadius: radius.md }]}
+            style={[styles.input, { backgroundColor: colors.card, borderColor: colors.border.medium, color: colors.text.primary, borderRadius: radius.md }]}
             value={deliveryRadius}
             onChangeText={setDeliveryRadius}
             keyboardType="numeric"
@@ -444,7 +444,7 @@ export default function BusinessOnboardingScreen() {
               key={day.key}
               style={[styles.dayChip, {
                 backgroundColor: active ? colors.secondary : colors.card,
-                borderColor: active ? colors.secondary : colors.border,
+                borderColor: active ? colors.secondary : colors.border.medium,
               }]}
               onPress={() => {
                 setActiveDays(prev =>
@@ -470,7 +470,7 @@ export default function BusinessOnboardingScreen() {
             Hora de apertura
           </ThemedText>
           <TextInput
-            style={[styles.input, { backgroundColor: colors.card, borderColor: colors.border, color: colors.text.primary, borderRadius: radius.md }]}
+            style={[styles.input, { backgroundColor: colors.card, borderColor: colors.border.medium, color: colors.text.primary, borderRadius: radius.md }]}
             value={openTime}
             onChangeText={setOpenTime}
             placeholder="09:00"
@@ -482,7 +482,7 @@ export default function BusinessOnboardingScreen() {
             Hora de cierre
           </ThemedText>
           <TextInput
-            style={[styles.input, { backgroundColor: colors.card, borderColor: colors.border, color: colors.text.primary, borderRadius: radius.md }]}
+            style={[styles.input, { backgroundColor: colors.card, borderColor: colors.border.medium, color: colors.text.primary, borderRadius: radius.md }]}
             value={closeTime}
             onChangeText={setCloseTime}
             placeholder="21:00"
@@ -507,7 +507,7 @@ export default function BusinessOnboardingScreen() {
         Logo
       </ThemedText>
       <TouchableSound
-        style={[styles.imagePicker, { borderColor: colors.border, borderRadius: radius.md, backgroundColor: colors.card }]}
+        style={[styles.imagePicker, { borderColor: colors.border.medium, borderRadius: radius.md, backgroundColor: colors.card }]}
         onPress={() => pickImage('logo')}
       >
         {logoUri ? (
@@ -527,7 +527,7 @@ export default function BusinessOnboardingScreen() {
         Foto de portada
       </ThemedText>
       <TouchableSound
-        style={[styles.coverPicker, { borderColor: colors.border, borderRadius: radius.md, backgroundColor: colors.card }]}
+        style={[styles.coverPicker, { borderColor: colors.border.medium, borderRadius: radius.md, backgroundColor: colors.card }]}
         onPress={() => pickImage('cover')}
       >
         {coverUri ? (
@@ -554,7 +554,7 @@ export default function BusinessOnboardingScreen() {
       </ThemedText>
 
       <TouchableSound
-        style={[styles.productImagePicker, { borderColor: colors.border, borderRadius: radius.md, backgroundColor: colors.card }]}
+        style={[styles.productImagePicker, { borderColor: colors.border.medium, borderRadius: radius.md, backgroundColor: colors.card }]}
         onPress={() => pickImage('product')}
       >
         {productImageUri ? (
@@ -573,7 +573,7 @@ export default function BusinessOnboardingScreen() {
         Nombre del producto
       </ThemedText>
       <TextInput
-        style={[styles.input, { backgroundColor: colors.card, borderColor: colors.border, color: colors.text.primary, borderRadius: radius.md }]}
+        style={[styles.input, { backgroundColor: colors.card, borderColor: colors.border.medium, color: colors.text.primary, borderRadius: radius.md }]}
         value={productName}
         onChangeText={setProductName}
         placeholder="Ej: Taco al Pastor"
@@ -584,7 +584,7 @@ export default function BusinessOnboardingScreen() {
         Precio (MXN)
       </ThemedText>
       <TextInput
-        style={[styles.input, { backgroundColor: colors.card, borderColor: colors.border, color: colors.text.primary, borderRadius: radius.md }]}
+        style={[styles.input, { backgroundColor: colors.card, borderColor: colors.border.medium, color: colors.text.primary, borderRadius: radius.md }]}
         value={productPrice}
         onChangeText={setProductPrice}
         placeholder="25"
@@ -596,7 +596,7 @@ export default function BusinessOnboardingScreen() {
         Descripcion (opcional)
       </ThemedText>
       <TextInput
-        style={[styles.input, styles.textArea, { backgroundColor: colors.card, borderColor: colors.border, color: colors.text.primary, borderRadius: radius.md }]}
+        style={[styles.input, styles.textArea, { backgroundColor: colors.card, borderColor: colors.border.medium, color: colors.text.primary, borderRadius: radius.md }]}
         value={productDesc}
         onChangeText={setProductDesc}
         placeholder="Tortilla de maiz, carne al pastor, pina, cilantro..."
@@ -640,7 +640,7 @@ export default function BusinessOnboardingScreen() {
       <View style={styles.stepLabelsRow}>
         {stepLabels.map((label, i) => (
           <View key={i} style={[styles.stepDot, {
-            backgroundColor: i <= step ? colors.secondary : colors.border,
+            backgroundColor: i <= step ? colors.secondary : colors.border.medium,
           }]}>
             {i < step ? (
               <CheckCircle size={14} color="#FFF" />
@@ -662,7 +662,7 @@ export default function BusinessOnboardingScreen() {
       <View style={[styles.navRow, { marginTop: 24, marginBottom: 40 }]}>
         {step > 0 && (
           <TouchableSound
-            style={[styles.backBtn, { borderColor: colors.border, borderRadius: radius.md }]}
+            style={[styles.backBtn, { borderColor: colors.border.medium, borderRadius: radius.md }]}
             onPress={() => setStep(step - 1)}
           >
             <ChevronLeft size={18} color={colors.text.secondary} />

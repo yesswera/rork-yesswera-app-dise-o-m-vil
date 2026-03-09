@@ -234,6 +234,9 @@ export default function CartScreen() {
           productName: item.name,
           quantity: item.quantity,
           unitPrice: item.price,
+          variants: item.selectedVariants && item.selectedVariants.length > 0
+            ? item.selectedVariants.map(v => ({ name: v.name, group: v.group, price: v.priceAdjustment }))
+            : undefined,
         })),
         subtotal: total,
         deliveryFee: deliveryCost,
