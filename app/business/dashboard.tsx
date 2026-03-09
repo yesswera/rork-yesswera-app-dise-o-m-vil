@@ -64,13 +64,21 @@ export default function BusinessDashboardScreen() {
     try {
       const { data: businessRows } = await supabase
         .from('businesses')
-        .select('id, rating_average, logo_url, business_name')
+        .select('id, rating_average, logo_url, business_name, category, address, onboarding_completed')
         .eq('user_id', user.id)
         .limit(1);
 
       const business = businessRows?.[0];
       if (!business) {
         setLoading(false);
+        return;
+      }
+
+      // Check if onboarding needed
+      const needsOnboarding = !business.onboarding_completed &&
+        (!business.category || !business.address || business.address === 'Por configurar');
+      if (needsOnboarding) {
+        router.replace('/business/onboarding' as any);
         return;
       }
 

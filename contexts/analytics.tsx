@@ -1,14 +1,73 @@
-import React, { createContext, useContext, useEffect, useState, useCallback } from 'react';
+import React, { createContext, useContext, useEffect, useState, useCallback, useRef } from 'react';
 import { AppState, Platform } from 'react-native';
 import * as Location from 'expo-location';
 import createContextHook from '@nkzw/create-context-hook';
 import { useAuth } from './auth';
 import { Survey, SurveyResponse, UserBehaviorEvent } from '@/constants/types';
-// Analytics service stubs (TODO: connect to Supabase when ready)
+import { supabase } from '@/constants/supabase';
+
+// ============================================================================
+// ANALYTICS SERVICE — Persists events to Supabase with batching
+// ============================================================================
+
+const EVENT_BATCH_SIZE = 10;
+const EVENT_FLUSH_INTERVAL = 30000; // 30 seconds
+
+let eventQueue: any[] = [];
+let flushTimer: ReturnType<typeof setTimeout> | null = null;
+
+async function flushEvents() {
+  if (eventQueue.length === 0) return;
+
+  const batch = [...eventQueue];
+  eventQueue = [];
+
+  try {
+    const rows = batch.map(e => ({
+      user_id: e.userId,
+      user_type: e.userType,
+      event_type: e.eventType,
+      event_data: e.eventData || {},
+      session_id: e.sessionId,
+      location: e.location
+        ? `SRID=4326;POINT(${e.location.longitude} ${e.location.latitude})`
+        : null,
+      created_at: e.timestamp,
+    }));
+
+    const { error } = await supabase.from('analytics_events').insert(rows);
+    if (error) {
+      console.warn('Analytics flush error:', error.message);
+      // Put events back in queue on failure (max 100 to avoid memory leak)
+      if (eventQueue.length < 100) {
+        eventQueue.unshift(...batch);
+      }
+    }
+  } catch (err) {
+    console.warn('Analytics flush exception:', err);
+  }
+}
+
+function scheduleFlush() {
+  if (flushTimer) return;
+  flushTimer = setTimeout(() => {
+    flushTimer = null;
+    flushEvents();
+  }, EVENT_FLUSH_INTERVAL);
+}
+
 const analyticsService = {
-  trackEvent: (_event: any) => {},
+  trackEvent: (event: any) => {
+    eventQueue.push(event);
+    if (eventQueue.length >= EVENT_BATCH_SIZE) {
+      flushEvents();
+    } else {
+      scheduleFlush();
+    }
+  },
   getActiveSurveys: async (_userType: string): Promise<Survey[]> => [],
   submitSurveyResponse: async (_response: any) => {},
+  flush: flushEvents,
 };
 
 interface AnalyticsContextValue {
@@ -39,6 +98,7 @@ const [AnalyticsProvider, useAnalytics] = createContextHook(() => {
     const subscription = AppState.addEventListener('change', (nextAppState) => {
       if (nextAppState === 'background' || nextAppState === 'inactive') {
         trackEvent('app_close');
+        analyticsService.flush(); // Persist pending events before background
       } else if (nextAppState === 'active') {
         trackEvent('app_open');
       }
@@ -47,6 +107,7 @@ const [AnalyticsProvider, useAnalytics] = createContextHook(() => {
     return () => {
       subscription.remove();
       trackEvent('app_close');
+      analyticsService.flush();
     };
   }, [user]);
 

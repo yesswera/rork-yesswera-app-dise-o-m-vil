@@ -473,3 +473,346 @@ export async function getBusinessesPerformance(): Promise<{
     return [];
   }
 }
+
+// ============================================
+// COHORT ANALYSIS — Retencion de clientes
+// ============================================
+
+export interface CohortData {
+  totalClients: number;
+  repeatClients: number;
+  repeatRate: number;
+  avgOrdersPerClient: number;
+  avgRevenuePerClient: number;
+  cohorts: {
+    label: string;
+    clients: number;
+    percentage: number;
+  }[];
+  topClients: {
+    userId: string;
+    name: string;
+    orderCount: number;
+    totalSpent: number;
+    lastOrder: string;
+  }[];
+}
+
+export async function getCohortAnalysis(): Promise<CohortData> {
+  try {
+    // All delivered orders with client info
+    const { data: orders } = await supabase
+      .from('orders')
+      .select('customer_id, total, created_at, users:customer_id(full_name)')
+      .eq('status', 'delivered')
+      .order('created_at', { ascending: true });
+
+    const ordersList = orders || [];
+
+    // Group by client
+    const clientMap = new Map<string, {
+      name: string;
+      orders: number;
+      spent: number;
+      firstOrder: string;
+      lastOrder: string;
+    }>();
+
+    ordersList.forEach((o: any) => {
+      const id = o.customer_id;
+      if (!id) return;
+      const existing = clientMap.get(id) || {
+        name: o.users?.full_name || 'Cliente',
+        orders: 0,
+        spent: 0,
+        firstOrder: o.created_at,
+        lastOrder: o.created_at,
+      };
+      existing.orders++;
+      existing.spent += o.total || 0;
+      if (o.created_at > existing.lastOrder) existing.lastOrder = o.created_at;
+      clientMap.set(id, existing);
+    });
+
+    const totalClients = clientMap.size;
+    const repeatClients = Array.from(clientMap.values()).filter(c => c.orders > 1).length;
+    const totalOrders = ordersList.length;
+    const totalRevenue = ordersList.reduce((s, o) => s + (o.total || 0), 0);
+
+    // Cohort buckets
+    const buckets = [
+      { label: '1 orden', min: 1, max: 1 },
+      { label: '2-3 ordenes', min: 2, max: 3 },
+      { label: '4-6 ordenes', min: 4, max: 6 },
+      { label: '7-10 ordenes', min: 7, max: 10 },
+      { label: '10+ ordenes', min: 11, max: Infinity },
+    ];
+
+    const cohorts = buckets.map(b => {
+      const clients = Array.from(clientMap.values()).filter(c => c.orders >= b.min && c.orders <= b.max).length;
+      return {
+        label: b.label,
+        clients,
+        percentage: totalClients > 0 ? Math.round((clients / totalClients) * 100) : 0,
+      };
+    });
+
+    // Top 10 clients
+    const topClients = Array.from(clientMap.entries())
+      .map(([userId, data]) => ({
+        userId,
+        name: data.name,
+        orderCount: data.orders,
+        totalSpent: data.spent,
+        lastOrder: data.lastOrder,
+      }))
+      .sort((a, b) => b.orderCount - a.orderCount)
+      .slice(0, 10);
+
+    return {
+      totalClients,
+      repeatClients,
+      repeatRate: totalClients > 0 ? Math.round((repeatClients / totalClients) * 100) : 0,
+      avgOrdersPerClient: totalClients > 0 ? Math.round((totalOrders / totalClients) * 10) / 10 : 0,
+      avgRevenuePerClient: totalClients > 0 ? Math.round(totalRevenue / totalClients) : 0,
+      cohorts,
+      topClients,
+    };
+  } catch (error) {
+    console.error('getCohortAnalysis error:', error);
+    return {
+      totalClients: 0,
+      repeatClients: 0,
+      repeatRate: 0,
+      avgOrdersPerClient: 0,
+      avgRevenuePerClient: 0,
+      cohorts: [],
+      topClients: [],
+    };
+  }
+}
+
+// ============================================
+// DRIVER PERFORMANCE METRICS
+// ============================================
+
+export interface DriverPerformance {
+  driverId: string;
+  name: string;
+  vehicleType: string;
+  totalDeliveries: number;
+  rating: number;
+  avgDeliveryTime: number; // minutes
+  acceptanceRate: number; // %
+  cancelRate: number; // %
+  totalEarned: number;
+  onlineHoursToday: number;
+  deliveriesPerHour: number;
+  pendingDebt: number;
+}
+
+export async function getDriverPerformanceList(): Promise<DriverPerformance[]> {
+  try {
+    // Get all drivers with user info
+    const { data: drivers } = await supabase
+      .from('drivers')
+      .select('id, user_id, vehicle_type, rating_average, total_deliveries, users:user_id(full_name)')
+      .eq('is_active', true);
+
+    if (!drivers || drivers.length === 0) return [];
+
+    const driverIds = drivers.map(d => d.id);
+
+    // Get delivered orders per driver (last 30 days)
+    const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString();
+    const { data: deliveredOrders } = await supabase
+      .from('orders')
+      .select('driver_id, total, delivery_fee, tip, created_at, delivered_at')
+      .eq('status', 'delivered')
+      .in('driver_id', driverIds)
+      .gte('created_at', thirtyDaysAgo);
+
+    // Get cancelled orders per driver (last 30 days)
+    const { data: cancelledOrders } = await supabase
+      .from('orders')
+      .select('driver_id')
+      .eq('status', 'cancelled')
+      .in('driver_id', driverIds)
+      .gte('created_at', thirtyDaysAgo);
+
+    // Get pending debts
+    const { data: debts } = await supabase
+      .from('driver_debts')
+      .select('driver_id, food_amount')
+      .in('driver_id', driverIds)
+      .eq('status', 'pending');
+
+    // Build performance map
+    const deliveryMap = new Map<string, { count: number; earned: number; totalMinutes: number }>();
+    (deliveredOrders || []).forEach((o: any) => {
+      if (!o.driver_id) return;
+      const existing = deliveryMap.get(o.driver_id) || { count: 0, earned: 0, totalMinutes: 0 };
+      existing.count++;
+      existing.earned += (o.delivery_fee || 0) + (o.tip || 0);
+      if (o.created_at && o.delivered_at) {
+        const mins = (new Date(o.delivered_at).getTime() - new Date(o.created_at).getTime()) / 60000;
+        if (mins > 0 && mins < 240) existing.totalMinutes += mins;
+      }
+      deliveryMap.set(o.driver_id, existing);
+    });
+
+    const cancelMap = new Map<string, number>();
+    (cancelledOrders || []).forEach((o: any) => {
+      if (!o.driver_id) return;
+      cancelMap.set(o.driver_id, (cancelMap.get(o.driver_id) || 0) + 1);
+    });
+
+    const debtMap = new Map<string, number>();
+    (debts || []).forEach((d: any) => {
+      if (!d.driver_id) return;
+      debtMap.set(d.driver_id, (debtMap.get(d.driver_id) || 0) + (d.food_amount || 0));
+    });
+
+    return drivers.map((driver: any) => {
+      const stats = deliveryMap.get(driver.id) || { count: 0, earned: 0, totalMinutes: 0 };
+      const cancels = cancelMap.get(driver.id) || 0;
+      const totalAssigned = stats.count + cancels;
+
+      return {
+        driverId: driver.id,
+        name: driver.users?.full_name || 'Sin nombre',
+        vehicleType: driver.vehicle_type || 'N/A',
+        totalDeliveries: stats.count,
+        rating: driver.rating_average || 0,
+        avgDeliveryTime: stats.count > 0 ? Math.round(stats.totalMinutes / stats.count) : 0,
+        acceptanceRate: totalAssigned > 0 ? Math.round((stats.count / totalAssigned) * 100) : 100,
+        cancelRate: totalAssigned > 0 ? Math.round((cancels / totalAssigned) * 100) : 0,
+        totalEarned: stats.earned,
+        onlineHoursToday: 0, // Would need online tracking
+        deliveriesPerHour: 0, // Would need shift tracking
+        pendingDebt: debtMap.get(driver.id) || 0,
+      };
+    }).sort((a, b) => b.totalDeliveries - a.totalDeliveries);
+  } catch (error) {
+    console.error('getDriverPerformanceList error:', error);
+    return [];
+  }
+}
+
+// ============================================
+// EVENT ANALYTICS — Behavior insights
+// ============================================
+
+export interface EventInsights {
+  totalEvents: number;
+  uniqueUsers: number;
+  topEventTypes: { type: string; count: number }[];
+  topSearches: { term: string; count: number }[];
+  topViewedBusinesses: { businessId: string; name: string; views: number }[];
+  eventsByHour: { hour: number; count: number }[];
+  eventsByDay: { day: string; count: number }[];
+}
+
+export async function getEventInsights(days: number = 30): Promise<EventInsights> {
+  try {
+    const since = new Date(Date.now() - days * 24 * 60 * 60 * 1000).toISOString();
+
+    const { data: events } = await supabase
+      .from('analytics_events')
+      .select('event_type, event_data, user_id, created_at')
+      .gte('created_at', since)
+      .limit(5000);
+
+    const eventsList = events || [];
+    const uniqueUsers = new Set(eventsList.map(e => e.user_id).filter(Boolean)).size;
+
+    // Top event types
+    const typeMap = new Map<string, number>();
+    eventsList.forEach(e => {
+      typeMap.set(e.event_type, (typeMap.get(e.event_type) || 0) + 1);
+    });
+    const topEventTypes = Array.from(typeMap.entries())
+      .map(([type, count]) => ({ type, count }))
+      .sort((a, b) => b.count - a.count)
+      .slice(0, 10);
+
+    // Top searches
+    const searchMap = new Map<string, number>();
+    eventsList.filter(e => e.event_type === 'search').forEach(e => {
+      const term = e.event_data?.term;
+      if (term) searchMap.set(term, (searchMap.get(term) || 0) + 1);
+    });
+    const topSearches = Array.from(searchMap.entries())
+      .map(([term, count]) => ({ term, count }))
+      .sort((a, b) => b.count - a.count)
+      .slice(0, 15);
+
+    // Top viewed businesses
+    const bizViewMap = new Map<string, number>();
+    eventsList.filter(e => e.event_type === 'business_view').forEach(e => {
+      const bizId = e.event_data?.business_id;
+      if (bizId) bizViewMap.set(bizId, (bizViewMap.get(bizId) || 0) + 1);
+    });
+
+    const bizIds = Array.from(bizViewMap.keys()).slice(0, 10);
+    let bizNames: Record<string, string> = {};
+    if (bizIds.length > 0) {
+      const { data: businesses } = await supabase
+        .from('businesses')
+        .select('id, business_name')
+        .in('id', bizIds);
+      (businesses || []).forEach(b => { bizNames[b.id] = b.business_name; });
+    }
+
+    const topViewedBusinesses = Array.from(bizViewMap.entries())
+      .map(([businessId, views]) => ({
+        businessId,
+        name: bizNames[businessId] || 'Desconocido',
+        views,
+      }))
+      .sort((a, b) => b.views - a.views)
+      .slice(0, 10);
+
+    // Events by hour
+    const hourMap = new Map<number, number>();
+    for (let h = 0; h < 24; h++) hourMap.set(h, 0);
+    eventsList.forEach(e => {
+      const hour = new Date(e.created_at).getHours();
+      hourMap.set(hour, (hourMap.get(hour) || 0) + 1);
+    });
+    const eventsByHour = Array.from(hourMap.entries())
+      .map(([hour, count]) => ({ hour, count }));
+
+    // Events by day
+    const dayNames = ['Dom', 'Lun', 'Mar', 'Mie', 'Jue', 'Vie', 'Sab'];
+    const dayMap = new Map<number, number>();
+    for (let d = 0; d < 7; d++) dayMap.set(d, 0);
+    eventsList.forEach(e => {
+      const day = new Date(e.created_at).getDay();
+      dayMap.set(day, (dayMap.get(day) || 0) + 1);
+    });
+    const eventsByDay = Array.from(dayMap.entries())
+      .map(([d, count]) => ({ day: dayNames[d], count }));
+
+    return {
+      totalEvents: eventsList.length,
+      uniqueUsers,
+      topEventTypes,
+      topSearches,
+      topViewedBusinesses,
+      eventsByHour,
+      eventsByDay,
+    };
+  } catch (error) {
+    console.error('getEventInsights error:', error);
+    return {
+      totalEvents: 0,
+      uniqueUsers: 0,
+      topEventTypes: [],
+      topSearches: [],
+      topViewedBusinesses: [],
+      eventsByHour: [],
+      eventsByDay: [],
+    };
+  }
+}
