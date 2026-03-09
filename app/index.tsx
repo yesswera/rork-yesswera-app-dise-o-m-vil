@@ -9,7 +9,7 @@ import {
 } from 'react-native';
 import { Image } from 'expo-image';
 import { useRouter, useFocusEffect } from 'expo-router';
-import { UtensilsCrossed, ShoppingCart, Package, User, ChevronRight, ShoppingBag, RefreshCw, Clock, XCircle } from 'lucide-react-native';
+import { UtensilsCrossed, ShoppingCart, Package, User, ChevronRight, ShoppingBag, RefreshCw, Clock, XCircle, Star, TrendingUp, Flame } from 'lucide-react-native';
 import { StatusBar } from 'expo-status-bar';
 import { Swipeable } from 'react-native-gesture-handler';
 import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
@@ -24,6 +24,7 @@ import { Toast } from '@/utils/toast';
 import { supabase } from '@/constants/supabase';
 import { getUserPreferences, DisplayPreferences, ServiceType } from '@/services/user-preferences';
 import { useAnalytics } from '@/contexts/analytics';
+import { getRecommendations, RecommendationSet, ProductRecommendation, BusinessRecommendation } from '@/services/recommendations';
 
 // Servicios disponibles
 const services = [
@@ -66,6 +67,7 @@ export default function HomeScreen() {
   const [recentOrders, setRecentOrders] = useState<Order[]>([]);
   const [displayPrefs, setDisplayPrefs] = useState<DisplayPreferences | null>(null);
   const [reorderDismissed, setReorderDismissed] = useState(false);
+  const [recommendations, setRecommendations] = useState<RecommendationSet | null>(null);
   const swipeableRef = useRef<Swipeable>(null);
 
   // Fade-in staggered animations (no loops)
@@ -241,6 +243,7 @@ export default function HomeScreen() {
         getUserPreferences(user.id).then(prefs => {
           setDisplayPrefs(prefs.display);
         }).catch(console.error);
+        getRecommendations(user.id).then(setRecommendations).catch(console.error);
       }
     }, [user, token, loadOrderData])
   );
@@ -619,6 +622,167 @@ export default function HomeScreen() {
           </Swipeable>
         )}
 
+        {/* Recomendaciones: Para Ti */}
+        {user && recommendations && recommendations.forYou.length > 0 && (
+          <View style={styles.recoSection}>
+            <View style={styles.recoHeader}>
+              <Star size={18} color="#F59E0B" fill="#F59E0B" />
+              <Text style={[styles.sectionTitle, { color: textPrimary, fontSize: fonts.lg, marginBottom: 0 }]}>
+                Para Ti
+              </Text>
+            </View>
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.recoScroll}>
+              {recommendations.forYou.slice(0, 6).map((item) => (
+                <TouchableSound
+                  key={item.productId}
+                  style={[styles.recoCard, { backgroundColor: cardBg, borderColor: borderColor }]}
+                  onPress={() => {
+                    trackEvent('recommendation_tap', { type: 'for_you', product_id: item.productId, business_id: item.businessId });
+                    router.push(`/food/menu/${item.businessId}` as any);
+                  }}
+                >
+                  {item.imageUrl ? (
+                    <Image source={{ uri: item.imageUrl }} style={styles.recoImage} contentFit="cover" />
+                  ) : (
+                    <View style={[styles.recoImage, styles.recoImagePlaceholder, { backgroundColor: isDark ? '#44403C' : '#E7E5E4' }]}>
+                      <Text style={[styles.recoPlaceholderText, { color: textMuted }]}>{item.productName.charAt(0)}</Text>
+                    </View>
+                  )}
+                  <View style={styles.recoInfo}>
+                    <Text style={[styles.recoName, { color: textPrimary }]} numberOfLines={1}>{item.productName}</Text>
+                    <Text style={[styles.recoBiz, { color: textMuted }]} numberOfLines={1}>{item.businessName}</Text>
+                    <View style={styles.recoFooter}>
+                      <Text style={[styles.recoPrice, { color: '#16A34A' }]}>${item.price.toFixed(0)}</Text>
+                      <Text style={[styles.recoReason, { color: textMuted }]} numberOfLines={1}>{item.reason}</Text>
+                    </View>
+                  </View>
+                </TouchableSound>
+              ))}
+            </ScrollView>
+          </View>
+        )}
+
+        {/* Recomendaciones: Popular */}
+        {user && recommendations && recommendations.popular.length > 0 && (
+          <View style={styles.recoSection}>
+            <View style={styles.recoHeader}>
+              <Flame size={18} color="#EF4444" />
+              <Text style={[styles.sectionTitle, { color: textPrimary, fontSize: fonts.lg, marginBottom: 0 }]}>
+                Popular en Tomatlan
+              </Text>
+            </View>
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.recoScroll}>
+              {recommendations.popular.slice(0, 6).map((item) => (
+                <TouchableSound
+                  key={item.productId}
+                  style={[styles.recoCard, { backgroundColor: cardBg, borderColor: borderColor }]}
+                  onPress={() => {
+                    trackEvent('recommendation_tap', { type: 'popular', product_id: item.productId, business_id: item.businessId });
+                    router.push(`/food/menu/${item.businessId}` as any);
+                  }}
+                >
+                  {item.imageUrl ? (
+                    <Image source={{ uri: item.imageUrl }} style={styles.recoImage} contentFit="cover" />
+                  ) : (
+                    <View style={[styles.recoImage, styles.recoImagePlaceholder, { backgroundColor: isDark ? '#44403C' : '#E7E5E4' }]}>
+                      <Text style={[styles.recoPlaceholderText, { color: textMuted }]}>{item.productName.charAt(0)}</Text>
+                    </View>
+                  )}
+                  <View style={styles.recoInfo}>
+                    <Text style={[styles.recoName, { color: textPrimary }]} numberOfLines={1}>{item.productName}</Text>
+                    <Text style={[styles.recoBiz, { color: textMuted }]} numberOfLines={1}>{item.businessName}</Text>
+                    <View style={styles.recoFooter}>
+                      <Text style={[styles.recoPrice, { color: '#16A34A' }]}>${item.price.toFixed(0)}</Text>
+                      <Text style={[styles.recoReason, { color: textMuted }]} numberOfLines={1}>{item.reason}</Text>
+                    </View>
+                  </View>
+                </TouchableSound>
+              ))}
+            </ScrollView>
+          </View>
+        )}
+
+        {/* Recomendaciones: Trending */}
+        {user && recommendations && recommendations.trending.length > 0 && (
+          <View style={styles.recoSection}>
+            <View style={styles.recoHeader}>
+              <TrendingUp size={18} color="#8B5CF6" />
+              <Text style={[styles.sectionTitle, { color: textPrimary, fontSize: fonts.lg, marginBottom: 0 }]}>
+                En Tendencia
+              </Text>
+            </View>
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.recoScroll}>
+              {recommendations.trending.slice(0, 6).map((item) => (
+                <TouchableSound
+                  key={item.productId}
+                  style={[styles.recoCard, { backgroundColor: cardBg, borderColor: borderColor }]}
+                  onPress={() => {
+                    trackEvent('recommendation_tap', { type: 'trending', product_id: item.productId, business_id: item.businessId });
+                    router.push(`/food/menu/${item.businessId}` as any);
+                  }}
+                >
+                  {item.imageUrl ? (
+                    <Image source={{ uri: item.imageUrl }} style={styles.recoImage} contentFit="cover" />
+                  ) : (
+                    <View style={[styles.recoImage, styles.recoImagePlaceholder, { backgroundColor: isDark ? '#44403C' : '#E7E5E4' }]}>
+                      <Text style={[styles.recoPlaceholderText, { color: textMuted }]}>{item.productName.charAt(0)}</Text>
+                    </View>
+                  )}
+                  <View style={styles.recoInfo}>
+                    <Text style={[styles.recoName, { color: textPrimary }]} numberOfLines={1}>{item.productName}</Text>
+                    <Text style={[styles.recoBiz, { color: textMuted }]} numberOfLines={1}>{item.businessName}</Text>
+                    <View style={styles.recoFooter}>
+                      <Text style={[styles.recoPrice, { color: '#16A34A' }]}>${item.price.toFixed(0)}</Text>
+                      <Text style={[styles.recoReason, { color: textMuted }]} numberOfLines={1}>{item.reason}</Text>
+                    </View>
+                  </View>
+                </TouchableSound>
+              ))}
+            </ScrollView>
+          </View>
+        )}
+
+        {/* Negocios Sugeridos */}
+        {user && recommendations && recommendations.suggestedBusinesses.length > 0 && (
+          <View style={styles.recoSection}>
+            <View style={styles.recoHeader}>
+              <UtensilsCrossed size={18} color="#16A34A" />
+              <Text style={[styles.sectionTitle, { color: textPrimary, fontSize: fonts.lg, marginBottom: 0 }]}>
+                Negocios para Descubrir
+              </Text>
+            </View>
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.recoScroll}>
+              {recommendations.suggestedBusinesses.map((biz) => (
+                <TouchableSound
+                  key={biz.businessId}
+                  style={[styles.bizCard, { backgroundColor: cardBg, borderColor: borderColor }]}
+                  onPress={() => {
+                    trackEvent('recommendation_tap', { type: 'suggested_business', business_id: biz.businessId });
+                    router.push(`/food/menu/${biz.businessId}` as any);
+                  }}
+                >
+                  {biz.imageUrl ? (
+                    <Image source={{ uri: biz.imageUrl }} style={styles.bizImage} contentFit="cover" />
+                  ) : (
+                    <View style={[styles.bizImage, styles.recoImagePlaceholder, { backgroundColor: isDark ? '#44403C' : '#E7E5E4' }]}>
+                      <Text style={{ fontSize: 24, color: textMuted }}>{biz.businessName.charAt(0)}</Text>
+                    </View>
+                  )}
+                  <View style={styles.bizInfo}>
+                    <Text style={[styles.recoName, { color: textPrimary }]} numberOfLines={1}>{biz.businessName}</Text>
+                    <View style={styles.bizMeta}>
+                      <Star size={12} color="#F59E0B" fill="#F59E0B" />
+                      <Text style={[styles.bizRating, { color: textPrimary }]}>{biz.rating.toFixed(1)}</Text>
+                      <Text style={[styles.bizCategory, { color: textMuted }]}>{biz.category}</Text>
+                    </View>
+                    <Text style={[styles.recoReason, { color: textMuted }]} numberOfLines={1}>{biz.reason}</Text>
+                  </View>
+                </TouchableSound>
+              ))}
+            </ScrollView>
+          </View>
+        )}
+
         {/* Auth prompt */}
         {!user && (
           <View style={styles.authPrompt}>
@@ -982,5 +1146,94 @@ const styles = StyleSheet.create({
   outlineBtnText: {
     fontSize: 15,
     fontWeight: '600',
+  },
+
+  // Recommendations
+  recoSection: {
+    marginBottom: 24,
+  },
+  recoHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginBottom: 14,
+  },
+  recoScroll: {
+    paddingRight: 20,
+  },
+  recoCard: {
+    width: 160,
+    borderRadius: 14,
+    borderWidth: 1,
+    overflow: 'hidden',
+    marginRight: 12,
+  },
+  recoImage: {
+    width: '100%',
+    height: 100,
+  },
+  recoImagePlaceholder: {
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  recoPlaceholderText: {
+    fontSize: 24,
+    fontWeight: '600',
+  },
+  recoInfo: {
+    padding: 10,
+  },
+  recoName: {
+    fontSize: 14,
+    fontWeight: '600',
+    marginBottom: 2,
+  },
+  recoBiz: {
+    fontSize: 12,
+    marginBottom: 6,
+  },
+  recoFooter: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  recoPrice: {
+    fontSize: 15,
+    fontWeight: '700',
+  },
+  recoReason: {
+    fontSize: 10,
+    flex: 1,
+    marginLeft: 6,
+    textAlign: 'right',
+  },
+  bizCard: {
+    width: 180,
+    borderRadius: 14,
+    borderWidth: 1,
+    overflow: 'hidden',
+    marginRight: 12,
+  },
+  bizImage: {
+    width: '100%',
+    height: 90,
+  },
+  bizInfo: {
+    padding: 10,
+  },
+  bizMeta: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    marginTop: 4,
+    marginBottom: 4,
+  },
+  bizRating: {
+    fontSize: 12,
+    fontWeight: '600',
+    marginRight: 6,
+  },
+  bizCategory: {
+    fontSize: 11,
   },
 });
