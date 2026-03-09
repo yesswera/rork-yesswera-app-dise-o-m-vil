@@ -139,7 +139,7 @@ export default function UpgradeScreen() {
           <View>
             <Text style={[styles.planName, { color: theme.text }]}>Basico</Text>
             <View style={styles.priceRow}>
-              <Text style={[styles.planPrice, { color: theme.text }]}>$149</Text>
+              <Text style={[styles.planPrice, { color: theme.text }]}>$99</Text>
               <Text style={[styles.planPeriod, { color: theme.textMuted }]}>/mes MXN</Text>
             </View>
           </View>
@@ -189,7 +189,7 @@ export default function UpgradeScreen() {
           <View>
             <Text style={[styles.planName, { color: theme.text }]}>Pro</Text>
             <View style={styles.priceRow}>
-              <Text style={[styles.planPrice, { color: theme.text }]}>$299</Text>
+              <Text style={[styles.planPrice, { color: theme.text }]}>$249</Text>
               <Text style={[styles.planPeriod, { color: theme.textMuted }]}>/mes MXN</Text>
             </View>
           </View>

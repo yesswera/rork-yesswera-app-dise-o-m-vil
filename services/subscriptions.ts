@@ -56,14 +56,14 @@ const PLAN_FEATURES: Record<SubscriptionPlan, Feature[]> = {
     'dashboard_basic', 'manage_products', 'manage_orders', 'notifications',
   ],
 
-  // Basico ($149 MXN/mes): herramientas + compromiso formal
+  // Basico ($99 MXN/mes): herramientas + compromiso formal
   basic: [
     'dashboard_basic', 'manage_products', 'manage_orders', 'notifications',
     'reports_basic', 'reports_advanced', 'customer_insights',
     'unlimited_products',
   ],
 
-  // Pro ($299+ MXN/mes): todo + IA + prioridad
+  // Pro ($249 MXN/mes): todo + IA + prioridad
   pro: [
     'dashboard_basic', 'manage_products', 'manage_orders', 'notifications',
     'reports_basic', 'reports_advanced', 'analytics_ai', 'customer_insights',
@@ -78,7 +78,7 @@ const PLAN_FEATURES: Record<SubscriptionPlan, Feature[]> = {
 export const PLAN_PRICES: Record<string, { name: string; price: number; currency: string; features: string[]; stripePriceId: string }> = {
   basic: {
     name: 'Yesswera Basico',
-    price: 149,
+    price: 99,
     currency: 'MXN',
     stripePriceId: '', // Se configura cuando se cree en Stripe
     features: [
@@ -93,7 +93,7 @@ export const PLAN_PRICES: Record<string, { name: string; price: number; currency
   },
   pro: {
     name: 'Yesswera Pro',
-    price: 299,
+    price: 249,
     currency: 'MXN',
     stripePriceId: '', // Se configura cuando se cree en Stripe
     features: [
