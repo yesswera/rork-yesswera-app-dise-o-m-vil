@@ -159,6 +159,10 @@ export default function TrackingScreen() {
           // Play sound for status change
           playStatusSound(updatedOrder.status, order?.status || null);
           setOrder(updatedOrder);
+          // Auto-show rating when order is delivered and not yet rated
+          if (updatedOrder.status === 'delivered' && !updatedOrder.rated) {
+            setTimeout(() => setShowRating(true), 1500);
+          }
         }
       } catch (err) {
         console.error('Error reloading order:', err);
@@ -257,6 +261,10 @@ export default function TrackingScreen() {
         const orderData = await getOrderById(orderId as string);
         setOrder(orderData);
         setError(null);
+        // Auto-show rating if order is already delivered and not rated
+        if (orderData && orderData.status === 'delivered' && !orderData.rated) {
+          setTimeout(() => setShowRating(true), 800);
+        }
       } catch (err) {
         console.error('Error cargando orden:', err);
         setError('No se pudo cargar la orden');
@@ -725,6 +733,7 @@ function RatingComponent({
 }) {
   const { user } = useAuth();
   const [rating, setRating] = useState(0);
+  const [comment, setComment] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const handleSubmit = async () => {
@@ -737,12 +746,26 @@ function RatingComponent({
         ratedId: driverId,
         ratedType: 'driver',
         stars: rating,
+        comment: comment.trim() || undefined,
       });
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       onComplete();
     } catch (err) {
       console.error('Error enviando calificacion:', err);
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
     } finally {
       setIsSubmitting(false);
+    }
+  };
+
+  const getRatingLabel = () => {
+    switch (rating) {
+      case 1: return 'Muy malo';
+      case 2: return 'Malo';
+      case 3: return 'Regular';
+      case 4: return 'Bueno';
+      case 5: return 'Excelente';
+      default: return 'Toca una estrella para calificar';
     }
   };
 
@@ -750,13 +773,21 @@ function RatingComponent({
     <ScrollView
       style={[styles.ratingContainer, { backgroundColor: theme.cardAlt }]}
       contentContainerStyle={styles.ratingContent}
+      keyboardShouldPersistTaps="handled"
     >
       <Text style={[styles.ratingTitle, { color: theme.text }]}>Como estuvo tu entrega?</Text>
       <Text style={[styles.ratingSubtitle, { color: theme.textSecondary }]}>Califica a {driverName}</Text>
 
       <View style={styles.starsContainer}>
         {[1, 2, 3, 4, 5].map((star) => (
-          <TouchableSound key={star} onPress={() => setRating(star)} style={styles.starButton}>
+          <TouchableSound
+            key={star}
+            onPress={() => {
+              setRating(star);
+              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+            }}
+            style={styles.starButton}
+          >
             <Star
               size={40}
               color={star <= rating ? STATUS_COLORS.warning : theme.border}
@@ -766,25 +797,38 @@ function RatingComponent({
         ))}
       </View>
 
+      <Text style={[styles.ratingLabelText, { color: theme.text }]}>{getRatingLabel()}</Text>
+
       <View style={styles.commentSection}>
         <Text style={[styles.commentLabel, { color: theme.text }]}>Comentarios (opcional)</Text>
-        <View style={[styles.commentInput, { backgroundColor: theme.card, borderColor: theme.border }]}>
-          <Text style={[styles.commentPlaceholder, { color: theme.textMuted }]}>
-            Cuentanos tu experiencia...
-          </Text>
-        </View>
+        <TextInput
+          style={[styles.commentInput, { backgroundColor: theme.card, borderColor: theme.border, color: theme.text }]}
+          value={comment}
+          onChangeText={setComment}
+          placeholder="Cuentanos tu experiencia..."
+          placeholderTextColor={theme.textMuted}
+          multiline
+          numberOfLines={4}
+          textAlignVertical="top"
+          maxLength={200}
+        />
+        <Text style={[styles.commentCounter, { color: theme.textMuted }]}>{comment.length}/200</Text>
       </View>
 
       <TouchableSound
         style={[
           styles.submitButton,
           { backgroundColor: colors.primary },
-          rating === 0 && styles.submitButtonDisabled,
+          (rating === 0 || isSubmitting) && styles.submitButtonDisabled,
         ]}
         onPress={handleSubmit}
-        disabled={rating === 0}
+        disabled={rating === 0 || isSubmitting}
       >
-        <Text style={styles.submitButtonText}>Enviar Calificacion</Text>
+        {isSubmitting ? (
+          <ActivityIndicator size="small" color="#FFFFFF" />
+        ) : (
+          <Text style={styles.submitButtonText}>Enviar Calificacion</Text>
+        )}
       </TouchableSound>
 
       <TouchableSound style={styles.skipButton} onPress={onComplete}>
@@ -1020,9 +1064,18 @@ const styles = StyleSheet.create({
     padding: 16,
     minHeight: 100,
     borderWidth: 1.5,
-  },
-  commentPlaceholder: {
     fontSize: 15,
+  },
+  commentCounter: {
+    fontSize: 12,
+    textAlign: 'right' as const,
+    marginTop: 4,
+  },
+  ratingLabelText: {
+    fontSize: 16,
+    fontWeight: '600' as const,
+    textAlign: 'center' as const,
+    marginBottom: 24,
   },
   submitButton: {
     width: '100%',

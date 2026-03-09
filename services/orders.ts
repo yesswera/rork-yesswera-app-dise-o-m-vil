@@ -83,7 +83,7 @@ function mapOrder(dbOrder: any): Order {
     deliveryAddress: dbOrder.delivery_address,
     notes: dbOrder.delivery_instructions,
     cancelReason: dbOrder.cancellation_reason,
-    rated: false,
+    rated: dbOrder.rated || false,
     paymentMethod: dbOrder.payment_method || 'cash',
     paymentStatus: dbOrder.payment_status || 'pending',
     driverCode: dbOrder.driver_code || '',
@@ -121,6 +121,7 @@ function mapOrder(dbOrder: any): Order {
     // Package details (for delivery orders)
     packageDetails: dbOrder.package_details,
     // Tonalli integration
+    tonalliOrderId: dbOrder.tonalli_order_id || undefined,
     tonalliPickupConfirmed: dbOrder.tonalli_pickup_confirmed || false,
   };
 }

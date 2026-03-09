@@ -50,6 +50,12 @@ export async function createRating(data: CreateRatingData): Promise<Rating> {
 
     if (error) throw error;
 
+    // Mark order as rated to prevent duplicate prompts
+    await supabase
+      .from('orders')
+      .update({ rated: true })
+      .eq('id', data.orderId);
+
     // Update the rated entity's average rating
     await updateAverageRating(data.ratedId, data.ratedType);
 

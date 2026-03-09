@@ -606,14 +606,20 @@ export default function ActiveOrderScreen() {
             <ThemedText variant="h2" style={styles.pickupCodeTitle}>Pedido Listo!</ThemedText>
           </View>
           <ThemedText variant="body" style={styles.pickupCodeSubtitle}>
-            Muestra este codigo al negocio:
+            {order.tonalliOrderId
+              ? 'Muestra este codigo al restaurante:'
+              : 'Muestra este codigo al negocio:'}
           </ThemedText>
           <View style={styles.pickupCodeBox}>
-            <ThemedText variant="h1" style={[styles.pickupCodeValue, { color: colors.success }]}>{order.comandaCode}</ThemedText>
+            <ThemedText variant="h1" style={[styles.pickupCodeValue, { color: colors.success }]}>
+              {order.tonalliOrderId ? order.driverCode : order.comandaCode}
+            </ThemedText>
           </View>
           <View style={styles.pickupCodeFooter}>
             <ThemedText variant="caption" style={styles.pickupCodeHint}>
-              El negocio validara tu codigo y te entregara el pedido
+              {order.tonalliOrderId
+                ? 'El staff verificara tu codigo en su sistema y te entregara el pedido'
+                : 'El negocio validara tu codigo y te entregara el pedido'}
             </ThemedText>
           </View>
         </Animated.View>

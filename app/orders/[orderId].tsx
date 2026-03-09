@@ -27,6 +27,7 @@ import { useState, useEffect } from 'react';
 import { Order } from '@/constants/types';
 import { getOrderById } from '@/services/orders';
 import RatingStars from '@/components/RatingStars';
+import RatingModal from '@/components/RatingModal';
 import ChatButton from '@/components/ChatButton';
 import SupportButton from '@/components/SupportButton';
 import LoadingButton from '@/components/LoadingButton';
@@ -80,6 +81,7 @@ export default function OrderDetailsScreen() {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [previousStatus, setPreviousStatus] = useState<string | null>(null);
+  const [showRatingModal, setShowRatingModal] = useState(false);
 
   useEffect(() => {
     const loadOrder = async () => {
@@ -89,6 +91,10 @@ export default function OrderDetailsScreen() {
         const orderData = await getOrderById(orderId as string);
         setOrder(orderData);
         setError(null);
+        // Auto-show rating if delivered and not rated
+        if (orderData && orderData.status === 'delivered' && !orderData.rated) {
+          setTimeout(() => setShowRatingModal(true), 800);
+        }
       } catch (err) {
         console.error('Error cargando orden:', err);
         setError('No se pudo cargar la orden');
@@ -537,7 +543,7 @@ export default function OrderDetailsScreen() {
               <View style={styles.rateButtonContainer}>
                 <LoadingButton
                   title="Calificar Repartidor"
-                  onPress={() => router.push(`/ratings/create/${order.id}` as any)}
+                  onPress={() => setShowRatingModal(true)}
                   variant="primary"
                 />
               </View>
@@ -565,6 +571,22 @@ export default function OrderDetailsScreen() {
         <View style={styles.section}>
           <SupportButton orderId={order.id} variant="banner" label="Necesitas ayuda con esta orden?" />
         </View>
+      )}
+
+      {/* Rating Modal */}
+      {order.driverId && (
+        <RatingModal
+          visible={showRatingModal}
+          orderId={order.id}
+          driverId={order.driverId}
+          driverName={order.driverName || 'Repartidor'}
+          onClose={() => setShowRatingModal(false)}
+          onSuccess={() => {
+            setShowRatingModal(false);
+            // Reload order to update rated status
+            getOrderById(order.id).then(setOrder).catch(console.error);
+          }}
+        />
       )}
     </ScreenContainer>
   );

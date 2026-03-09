@@ -110,6 +110,7 @@ export interface Order {
   needsDriverTransfer?: boolean;
   transferReason?: string;
   // Tonalli integration
+  tonalliOrderId?: string;
   tonalliPickupConfirmed?: boolean;
   // Distance & payment routing
   distanceKm?: number;

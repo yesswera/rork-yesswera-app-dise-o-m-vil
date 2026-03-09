@@ -30,6 +30,7 @@ export default function DriverProfileScreen() {
   const [driverData, setDriverData] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [docCounts, setDocCounts] = useState({ total: 0, approved: 0, pending: 0, rejected: 0 });
 
   useEffect(() => {
     if (!user) return;
@@ -51,6 +52,23 @@ export default function DriverProfileScreen() {
         .select('*', { count: 'exact', head: true })
         .eq('driver_id', driver?.id)
         .eq('status', 'delivered');
+
+      // Get document counts
+      if (driver) {
+        const { data: docs } = await supabase
+          .from('driver_documents')
+          .select('status')
+          .eq('driver_id', driver.id);
+
+        if (docs) {
+          setDocCounts({
+            total: docs.length,
+            approved: docs.filter(d => d.status === 'approved').length,
+            pending: docs.filter(d => d.status === 'pending').length,
+            rejected: docs.filter(d => d.status === 'rejected').length,
+          });
+        }
+      }
 
       setDriverData({
         ...driver,
@@ -86,7 +104,7 @@ export default function DriverProfileScreen() {
   };
 
   const handleUpdateDocuments = () => {
-    Alert.alert('Actualizar Documentos', 'Disponible proximamente');
+    router.push('/driver/documents' as any);
   };
 
   const handleEditBankAccount = () => {
@@ -222,31 +240,48 @@ export default function DriverProfileScreen() {
         <ThemedText variant="h3" style={{ color: colors.text.primary }}>Mis Documentos</ThemedText>
       </View>
       <ScreenCard>
-        <View style={styles.documentRow}>
-          <ThemedText variant="label" style={{ color: colors.text.secondary }}>INE:</ThemedText>
-          <View style={styles.documentStatus}>
-            <Clock size={16} color={colors.warning} />
-            <ThemedText variant="body" style={{ color: colors.text.secondary }}>Pendiente</ThemedText>
+        {driverData?.verification_status === 'approved' ? (
+          <View style={styles.documentRow}>
+            <CheckCircle size={18} color="#22C55E" />
+            <ThemedText variant="body" bold style={{ color: '#22C55E', marginLeft: 8 }}>Verificacion aprobada</ThemedText>
           </View>
-        </View>
-        <View style={[styles.divider, { backgroundColor: colors.border.light }]} />
-        <View style={styles.documentRow}>
-          <ThemedText variant="label" style={{ color: colors.text.secondary }}>Licencia:</ThemedText>
-          <View style={styles.documentStatus}>
-            <Clock size={16} color={colors.warning} />
-            <ThemedText variant="body" style={{ color: colors.text.secondary }}>Pendiente</ThemedText>
+        ) : docCounts.total === 0 ? (
+          <View style={styles.documentRow}>
+            <Clock size={18} color={colors.warning} />
+            <ThemedText variant="body" style={{ color: colors.text.secondary, marginLeft: 8 }}>Sin documentos — sube tus documentos para verificarte</ThemedText>
           </View>
-        </View>
-        <View style={[styles.divider, { backgroundColor: colors.border.light }]} />
-        <View style={styles.documentRow}>
-          <ThemedText variant="label" style={{ color: colors.text.secondary }}>Comprobante:</ThemedText>
-          <View style={styles.documentStatus}>
-            <Clock size={16} color={colors.warning} />
-            <ThemedText variant="body" style={{ color: colors.text.secondary }}>Pendiente</ThemedText>
-          </View>
-        </View>
+        ) : (
+          <>
+            {docCounts.approved > 0 && (
+              <View style={styles.documentRow}>
+                <ThemedText variant="label" style={{ color: colors.text.secondary }}>Aprobados:</ThemedText>
+                <ThemedText variant="body" bold style={{ color: '#22C55E' }}>{docCounts.approved}</ThemedText>
+              </View>
+            )}
+            {docCounts.pending > 0 && (
+              <>
+                {docCounts.approved > 0 && <View style={[styles.divider, { backgroundColor: colors.border.light }]} />}
+                <View style={styles.documentRow}>
+                  <ThemedText variant="label" style={{ color: colors.text.secondary }}>En revision:</ThemedText>
+                  <ThemedText variant="body" bold style={{ color: '#F59E0B' }}>{docCounts.pending}</ThemedText>
+                </View>
+              </>
+            )}
+            {docCounts.rejected > 0 && (
+              <>
+                <View style={[styles.divider, { backgroundColor: colors.border.light }]} />
+                <View style={styles.documentRow}>
+                  <ThemedText variant="label" style={{ color: colors.text.secondary }}>Rechazados:</ThemedText>
+                  <ThemedText variant="body" bold style={{ color: '#EF4444' }}>{docCounts.rejected}</ThemedText>
+                </View>
+              </>
+            )}
+          </>
+        )}
         <TouchableSound style={styles.linkButton} onPress={handleUpdateDocuments}>
-          <ThemedText variant="label" style={{ color: colors.primary }}>Subir documentos</ThemedText>
+          <ThemedText variant="label" style={{ color: colors.primary }}>
+            {driverData?.verification_status === 'approved' ? 'Ver documentos' : 'Subir documentos'}
+          </ThemedText>
         </TouchableSound>
       </ScreenCard>
 
