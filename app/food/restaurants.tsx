@@ -15,13 +15,14 @@ import {
 import { useRouter } from 'expo-router';
 import { Search, Star, Clock, UtensilsCrossed } from 'lucide-react-native';
 import { Image } from 'expo-image';
-import { useState, useEffect, useCallback, useMemo } from 'react';
+import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { useTheme } from '@/contexts/theme';
 import { ThemedText } from '@/components/themed';
 import { Business } from '@/constants/types';
 import { getBusinesses } from '@/services/products';
 import EmptyState from '@/components/EmptyState';
 import ScreenContainer from '@/components/ScreenContainer';
+import { useAnalytics } from '@/contexts/analytics';
 
 // ============================================================================
 // CATEGORIAS CON NOMBRES LEGIBLES
@@ -57,11 +58,13 @@ export default function RestaurantsScreen() {
   const chipBg = isDark ? '#44403C' : '#F5F5F4';
   const chipActiveBg = isDark ? '#16A34A' : '#16A34A';
 
+  const { trackEvent } = useAnalytics();
   const [search, setSearch] = useState('');
   const [businesses, setBusinesses] = useState<Business[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
+  const searchTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const loadBusinesses = useCallback(async () => {
     try {
@@ -120,7 +123,16 @@ export default function RestaurantsScreen() {
         placeholder="Buscar negocios..."
         placeholderTextColor="rgba(255, 255, 255, 0.6)"
         value={search}
-        onChangeText={setSearch}
+        onChangeText={(text) => {
+          setSearch(text);
+          // Debounced search tracking (1.5s after typing stops)
+          if (searchTimerRef.current) clearTimeout(searchTimerRef.current);
+          if (text.trim().length >= 2) {
+            searchTimerRef.current = setTimeout(() => {
+              trackEvent('search', { term: text.trim().toLowerCase(), source: 'restaurants', results_count: filteredBusinesses.length });
+            }, 1500);
+          }
+        }}
       />
     </View>
   );
@@ -180,7 +192,11 @@ export default function RestaurantsScreen() {
                 backgroundColor: selectedCategory === cat ? chipActiveBg : chipBg,
                 borderColor: selectedCategory === cat ? chipActiveBg : borderColor,
               }]}
-              onPress={() => setSelectedCategory(selectedCategory === cat ? null : cat)}
+              onPress={() => {
+              const newCat = selectedCategory === cat ? null : cat;
+              setSelectedCategory(newCat);
+              trackEvent('category_filter', { category: newCat || 'all', source: 'restaurants' });
+            }}
             >
               <ThemedText
                 variant="caption"
@@ -212,7 +228,10 @@ export default function RestaurantsScreen() {
                 width: CARD_WIDTH,
               }]}
               activeOpacity={0.8}
-              onPress={() => router.push(`/food/menu/${business.id}` as any)}
+              onPress={() => {
+                trackEvent('business_view', { business_id: business.id, business_name: business.name, category: business.category });
+                router.push(`/food/menu/${business.id}` as any);
+              }}
             >
               {/* Image or placeholder */}
               {business.image ? (

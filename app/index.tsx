@@ -23,6 +23,7 @@ import { Order, OrderStatus } from '@/constants/types';
 import { Toast } from '@/utils/toast';
 import { supabase } from '@/constants/supabase';
 import { getUserPreferences, DisplayPreferences, ServiceType } from '@/services/user-preferences';
+import { useAnalytics } from '@/contexts/analytics';
 
 // Servicios disponibles
 const services = [
@@ -59,6 +60,7 @@ export default function HomeScreen() {
   const router = useRouter();
   const { user, token, isLoading } = useAuth();
   const { isDark, colors, fonts, space, radius } = useTheme();
+  const { trackEvent, trackPageView } = useAnalytics();
   const [activeOrder, setActiveOrder] = useState<Order | null>(null);
   const [cancelledOrder, setCancelledOrder] = useState<Order | null>(null);
   const [recentOrders, setRecentOrders] = useState<Order[]>([]);
@@ -525,7 +527,10 @@ export default function HomeScreen() {
             >
               <TouchableSound
                 activeOpacity={0.7}
-                onPress={() => router.push(service.route as any)}
+                onPress={() => {
+                  trackEvent('service_select', { service_id: service.id, service_title: service.title });
+                  router.push(service.route as any);
+                }}
                 style={[styles.serviceCard, {
                   backgroundColor: cardBg,
                   borderColor: borderColor,

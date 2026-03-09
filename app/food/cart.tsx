@@ -14,7 +14,7 @@ import {
 import { useRouter } from 'expo-router';
 import { Trash2, Plus, Minus, Users, Shield, Check, ShoppingCart } from 'lucide-react-native';
 import { Image } from 'expo-image';
-import { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { useTheme } from '@/contexts/theme';
 import { ThemedText } from '@/components/themed';
 import { useCart } from '@/contexts/cart';
@@ -30,6 +30,7 @@ import { calculateDistance, calculateDeliveryFee, formatDistance } from '@/utils
 import ScreenContainer from '@/components/ScreenContainer';
 import { OrderSounds, SoundFeedback } from '@/services/sounds';
 import { trackServiceUsage } from '@/services/user-preferences';
+import { useAnalytics } from '@/contexts/analytics';
 
 // ============================================================================
 // COLORES EXPLÍCITOS PARA MODO OSCURO
@@ -54,6 +55,31 @@ export default function CartScreen() {
 
   const { items, updateQuantity, removeItem, total, clearCart } = useCart();
   const { user, token } = useAuth();
+  const { trackEvent } = useAnalytics();
+  const cartOpenTime = React.useRef(Date.now());
+
+  // Track cart abandonment on unmount (if items remain and no checkout)
+  const checkoutCompleted = React.useRef(false);
+  React.useEffect(() => {
+    cartOpenTime.current = Date.now();
+    trackEvent('cart_view', {
+      items_count: items.length,
+      total,
+      business_id: items[0]?.businessId,
+    });
+    return () => {
+      if (!checkoutCompleted.current && items.length > 0) {
+        const seconds = Math.round((Date.now() - cartOpenTime.current) / 1000);
+        trackEvent('cart_abandon', {
+          items_count: items.length,
+          total,
+          business_id: items[0]?.businessId,
+          seconds_in_cart: seconds,
+          products: items.map(i => ({ id: i.id, name: i.name, qty: i.quantity, price: i.price })),
+        });
+      }
+    };
+  }, []);
   const [selectedAddress, setSelectedAddress] = useState<SavedAddress | null>(null);
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>('cash');
   const [tip, setTip] = useState<number>(0);
@@ -217,6 +243,20 @@ export default function CartScreen() {
       });
 
       console.log('Orden creada exitosamente:', order);
+      checkoutCompleted.current = true;
+
+      // Track checkout completion
+      trackEvent('checkout_complete', {
+        order_id: order.id,
+        business_id: items[0]?.businessId,
+        items_count: items.length,
+        subtotal: total,
+        delivery_fee: deliveryCost,
+        tip,
+        total: finalTotal,
+        payment_method: paymentMethod,
+        products: items.map(i => ({ id: i.id, name: i.name, qty: i.quantity, price: i.price })),
+      });
 
       // Play success sound for order creation
       OrderSounds.accepted();

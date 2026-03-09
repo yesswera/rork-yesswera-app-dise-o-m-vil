@@ -13,7 +13,7 @@ import {
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { ShoppingCart, Plus, Minus, Store } from 'lucide-react-native';
 import { Image } from 'expo-image';
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { useTheme } from '@/contexts/theme';
 import { ThemedText } from '@/components/themed';
 import { Business, Product } from '@/constants/types';
@@ -22,6 +22,7 @@ import { getBusinessById, getBusinessMenu } from '@/services/products';
 import { useCart } from '@/contexts/cart';
 import EmptyState from '@/components/EmptyState';
 import ScreenContainer from '@/components/ScreenContainer';
+import { useAnalytics } from '@/contexts/analytics';
 
 // ============================================================================
 // COLORES EXPLÍCITOS PARA MODO OSCURO
@@ -38,6 +39,8 @@ export default function MenuScreen() {
   const theme = isDark ? COLORS.dark : COLORS.light;
 
   const { items, addItem, updateQuantity, itemCount } = useCart();
+  const { trackEvent } = useAnalytics();
+  const menuOpenTime = useRef(Date.now());
   const [business, setBusiness] = useState<Business | null>(null);
   const [products, setProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
@@ -66,8 +69,16 @@ export default function MenuScreen() {
   useEffect(() => {
     const signal = { cancelled: false };
     setLoading(true);
+    menuOpenTime.current = Date.now();
     loadData(signal);
-    return () => { signal.cancelled = true; };
+    return () => {
+      signal.cancelled = true;
+      // Track time spent on menu when leaving
+      const seconds = Math.round((Date.now() - menuOpenTime.current) / 1000);
+      if (businessId && seconds > 2) {
+        trackEvent('menu_view_duration', { business_id: businessId, seconds, products_seen: products.length });
+      }
+    };
   }, [loadData]);
 
   const onRefresh = () => {
@@ -81,6 +92,13 @@ export default function MenuScreen() {
 
   const handleAddToCart = (product: Product) => {
     addItem(product);
+    trackEvent('add_to_cart', {
+      product_id: product.id,
+      product_name: product.name,
+      price: product.price,
+      business_id: businessId,
+      business_name: business?.name,
+    });
   };
 
   const handleGoToCart = () => {
