@@ -136,6 +136,12 @@ export default function RegisterScreen() {
   };
 
   const handleRegister = async () => {
+    // If driver, redirect to dedicated registration with onboarding
+    if (userType === 'driver') {
+      router.push('/auth/register-driver' as any);
+      return;
+    }
+
     const nameError = validateName(name);
     const emailError = validateEmail(email);
     const passwordError = validatePassword(password);

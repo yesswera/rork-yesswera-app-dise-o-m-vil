@@ -17,6 +17,7 @@ import { Mail, Lock } from 'lucide-react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useAuth } from '@/contexts/auth';
 import { useTheme } from '@/contexts/theme';
+import { supabase } from '@/constants/supabase';
 import { Toast } from '@/utils/toast';
 import { Validator } from '@/utils/validation';
 import { HapticFeedback } from '@/utils/haptics';
@@ -75,7 +76,26 @@ export default function LoginScreen() {
       Toast.success('Bienvenido de nuevo');
 
       if (userData?.userType === 'driver') {
-        router.replace('/driver/dashboard' as any);
+        // Check driver registration status
+        try {
+          const { data: driver } = await supabase
+            .from('drivers')
+            .select('registration_status')
+            .eq('user_id', userData.id)
+            .maybeSingle();
+
+          if (driver?.registration_status === 'waitlisted') {
+            router.replace('/driver/waiting' as any);
+          } else if (driver?.registration_status === 'pending_documents' || driver?.registration_status === 'documents_submitted') {
+            router.replace('/driver/documents' as any);
+          } else if (driver?.registration_status === 'rejected') {
+            router.replace('/driver/waiting' as any);
+          } else {
+            router.replace('/driver/dashboard' as any);
+          }
+        } catch {
+          router.replace('/driver/dashboard' as any);
+        }
       } else if (userData?.userType === 'business') {
         router.replace('/business/dashboard' as any);
       } else if (userData?.userType === 'admin') {

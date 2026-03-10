@@ -54,6 +54,7 @@ function RootLayoutNav() {
       <Stack.Screen name="index" options={{ headerShown: false }} />
       <Stack.Screen name="login" options={{ title: "Iniciar Sesión", headerShown: false }} />
       <Stack.Screen name="register" options={{ title: "Crear Cuenta", headerShown: false }} />
+      <Stack.Screen name="auth/register-driver" options={{ title: "Registro Repartidor", headerShown: false }} />
       <Stack.Screen name="food/restaurants" options={{ title: "Restaurantes" }} />
       <Stack.Screen name="food/menu/[businessId]" options={{ title: "Menú" }} />
       <Stack.Screen name="food/cart" options={{ title: "Carrito" }} />
@@ -66,6 +67,7 @@ function RootLayoutNav() {
       <Stack.Screen name="tracking/[orderId]" options={{ title: "Seguimiento" }} />
       <Stack.Screen name="admin" options={{ headerShown: false, gestureEnabled: false }} />
       <Stack.Screen name="driver/dashboard" options={{ title: "Portal Repartidor", headerShown: false, gestureEnabled: false }} />
+      <Stack.Screen name="driver/waiting" options={{ title: "En Espera", headerShown: false, gestureEnabled: false }} />
       <Stack.Screen name="business/dashboard" options={{ title: "Portal Negocio", headerShown: false, gestureEnabled: false }} />
       <Stack.Screen name="business/comanda/[orderId]" options={{ title: "Comanda", headerShown: false }} />
       <Stack.Screen name="business/comanda-mode" options={{ title: "Modo Comanda", headerShown: false, gestureEnabled: false }} />
