@@ -80,7 +80,7 @@ export const PLAN_PRICES: Record<string, { name: string; price: number; currency
     name: 'Yesswera Basico',
     price: 99,
     currency: 'MXN',
-    stripePriceId: '', // Se configura cuando se cree en Stripe
+    stripePriceId: 'price_1T9AHx2QogbirSNpUcI59Rro',
     features: [
       'Gestion completa de pedidos',
       'Reportes de ventas semanales',
@@ -95,7 +95,7 @@ export const PLAN_PRICES: Record<string, { name: string; price: number; currency
     name: 'Yesswera Pro',
     price: 249,
     currency: 'MXN',
-    stripePriceId: '', // Se configura cuando se cree en Stripe
+    stripePriceId: 'price_1T9C4w2QogbirSNpGCivfSPb',
     features: [
       'Todo lo de Basico +',
       'Analitica avanzada con IA',
