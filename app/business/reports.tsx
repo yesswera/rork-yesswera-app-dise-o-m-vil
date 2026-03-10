@@ -85,7 +85,7 @@ export default function BusinessReportsScreen() {
       const { data: biz } = await supabase
         .from('businesses')
         .select('id')
-        .eq('owner_id', user.id)
+        .eq('user_id', user.id)
         .maybeSingle();
 
       if (!biz) { setLoading(false); return; }

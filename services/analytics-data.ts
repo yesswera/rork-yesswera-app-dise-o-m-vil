@@ -149,7 +149,7 @@ export async function getBusinessAnalytics(
       .from('businesses')
       .select('business_name')
       .eq('id', businessId)
-      .single();
+      .maybeSingle();
 
     if (!business) return null;
 
