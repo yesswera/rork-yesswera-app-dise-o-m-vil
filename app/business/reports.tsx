@@ -26,8 +26,10 @@ import {
   ShoppingBag,
   Crown,
   Lock,
+  Download,
 } from 'lucide-react-native';
 import { useRouter } from 'expo-router';
+import { Alert } from 'react-native';
 import { useAuth } from '@/contexts/auth';
 import { useTheme } from '@/contexts/theme';
 import ScreenContainer from '@/components/ScreenContainer';
@@ -41,6 +43,7 @@ import {
   getPlanDisplayName,
   getPlanColor,
 } from '@/services/subscriptions';
+import { exportBusinessOrders, exportBusinessProducts, exportSalesSummary } from '@/services/csv-export';
 
 // ============================================================================
 // COLORES
@@ -133,6 +136,7 @@ export default function BusinessReportsScreen() {
   const hasCustomerInsights = checkFeatureAccess(plan, 'customer_insights');
   const hasAI = checkFeatureAccess(plan, 'analytics_ai');
   const hasSearchAnalytics = checkFeatureAccess(plan, 'search_analytics');
+  const hasExport = checkFeatureAccess(plan, 'export_csv');
 
   const fmt = (n: number) => `$${n.toLocaleString('es-MX', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`;
   const fmtHour = (h: number) => h === 0 ? '12am' : h === 12 ? '12pm' : h < 12 ? `${h}am` : `${h - 12}pm`;
@@ -334,6 +338,45 @@ export default function BusinessReportsScreen() {
         />
       )}
 
+      {/* Export CSV Section */}
+      {hasExport && businessId && (
+        <View style={[styles.exportSection, { backgroundColor: theme.card }]}>
+          <Text style={[styles.exportTitle, { color: theme.text }]}>Exportar datos</Text>
+          <View style={styles.exportButtons}>
+            <TouchableSound
+              style={[styles.exportBtn, { backgroundColor: FIX.primary + '15' }]}
+              onPress={async () => {
+                const ok = await exportSalesSummary(businessId, timeRange === '7d' ? 7 : 30);
+                if (!ok) Alert.alert('Error', 'No se pudo exportar el reporte');
+              }}
+            >
+              <Download size={16} color={FIX.primary} />
+              <Text style={[styles.exportBtnText, { color: FIX.primary }]}>Ventas CSV</Text>
+            </TouchableSound>
+            <TouchableSound
+              style={[styles.exportBtn, { backgroundColor: FIX.accent + '15' }]}
+              onPress={async () => {
+                const ok = await exportBusinessOrders(businessId);
+                if (!ok) Alert.alert('Error', 'No se pudo exportar las ordenes');
+              }}
+            >
+              <Download size={16} color={FIX.accent} />
+              <Text style={[styles.exportBtnText, { color: FIX.accent }]}>Ordenes CSV</Text>
+            </TouchableSound>
+            <TouchableSound
+              style={[styles.exportBtn, { backgroundColor: FIX.purple + '15' }]}
+              onPress={async () => {
+                const ok = await exportBusinessProducts(businessId);
+                if (!ok) Alert.alert('Error', 'No se pudo exportar los productos');
+              }}
+            >
+              <Download size={16} color={FIX.purple} />
+              <Text style={[styles.exportBtnText, { color: FIX.purple }]}>Productos CSV</Text>
+            </TouchableSound>
+          </View>
+        </View>
+      )}
+
       <View style={{ height: 40 }} />
     </ScreenContainer>
   );
@@ -423,4 +466,11 @@ const styles = StyleSheet.create({
   lockedDesc: { fontSize: 13, textAlign: 'center', marginTop: 6, marginBottom: 14 },
   lockedBtn: { flexDirection: 'row', alignItems: 'center', gap: 6, paddingHorizontal: 20, paddingVertical: 10, borderRadius: 20 },
   lockedBtnText: { fontSize: 13, fontWeight: '600', color: '#FFFFFF' },
+
+  // Export Section
+  exportSection: { borderRadius: 12, padding: 16, marginBottom: 20 },
+  exportTitle: { fontSize: 16, fontWeight: '700', marginBottom: 12 },
+  exportButtons: { flexDirection: 'row', gap: 8 },
+  exportBtn: { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, paddingVertical: 12, borderRadius: 10 },
+  exportBtnText: { fontSize: 12, fontWeight: '600' },
 });
