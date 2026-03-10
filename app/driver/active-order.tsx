@@ -39,6 +39,7 @@ import { supabase } from '@/constants/supabase';
 import { Order } from '@/constants/types';
 import MapView, { Marker, Polyline, PROVIDER_GOOGLE } from 'react-native-maps';
 import * as Location from 'expo-location';
+import { getRoute } from '@/services/routing';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 const MAP_HEIGHT = 220;
@@ -53,10 +54,32 @@ export default function ActiveOrderScreen() {
   const [loading, setLoading] = useState(true);
   const [validating, setValidating] = useState(false);
   const [driverLocation, setDriverLocation] = useState<{ latitude: number; longitude: number } | null>(null);
+  const [routeCoords, setRouteCoords] = useState<{ latitude: number; longitude: number }[]>([]);
+  const [routeInfo, setRouteInfo] = useState<{ distanceKm: number; durationMin: number } | null>(null);
+  const lastRouteDest = useRef<string>('');
 
   const deliveryInputRef = useRef<TextInput>(null);
   const mapRef = useRef<MapView>(null);
   const pulseAnim = useRef(new Animated.Value(1)).current;
+
+  // Fetch route when destination or driver location changes
+  useEffect(() => {
+    if (!driverLocation || !order) return;
+    const isGoingToClient = order.status === 'in_transit' || order.status === 'arrived';
+    const dest = isGoingToClient ? order.deliveryLocation : order.pickupLocation;
+    if (!dest?.latitude || !dest?.longitude) return;
+
+    const destKey = `${dest.latitude.toFixed(4)},${dest.longitude.toFixed(4)}_${isGoingToClient}`;
+    if (destKey === lastRouteDest.current) return;
+    lastRouteDest.current = destKey;
+
+    getRoute(driverLocation, { latitude: dest.latitude, longitude: dest.longitude })
+      .then((result) => {
+        setRouteCoords(result.coordinates);
+        setRouteInfo({ distanceKm: result.distanceKm, durationMin: result.durationMin });
+      })
+      .catch(() => {});
+  }, [driverLocation, order?.status]);
 
   // Hook para detectar si el driver esta detenido y mostrar pregunta
   const { showHealthCheck, dismissHealthCheck } = useDriverHealthCheck(
@@ -384,16 +407,19 @@ export default function ActiveOrderScreen() {
               />
               {/* Route line */}
               <Polyline
-                coordinates={[driverLocation, { latitude: dest.latitude, longitude: dest.longitude }]}
+                coordinates={routeCoords.length > 1 ? routeCoords : [driverLocation, { latitude: dest.latitude, longitude: dest.longitude }]}
                 strokeColor={destColor}
-                strokeWidth={3}
-                lineDashPattern={[8, 4]}
+                strokeWidth={4}
+                lineDashPattern={routeCoords.length > 1 ? undefined : [8, 4]}
               />
             </MapView>
             <View style={[styles.mapOverlay, { backgroundColor: colors.card }]}>
               <Navigation size={14} color={destColor} />
               <ThemedText variant="caption" bold style={{ color: destColor }}>
                 {destLabel}
+                {routeInfo && routeInfo.durationMin > 0
+                  ? ` · ${routeInfo.distanceKm} km · ${routeInfo.durationMin} min`
+                  : routeInfo ? ` · ${routeInfo.distanceKm} km` : ''}
               </ThemedText>
             </View>
           </View>

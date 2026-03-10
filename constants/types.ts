@@ -585,7 +585,7 @@ export interface UserBehaviorEvent {
   id: string;
   userId: string;
   userType: UserType;
-  eventType: 'page_view' | 'button_click' | 'order_placed' | 'search' | 'filter_applied' | 'item_added_cart' | 'checkout_started' | 'checkout_completed' | 'app_open' | 'app_close' | 'feature_used' | 'driver_status_change' | 'order_accept_attempt' | 'order_accept_cancelled' | 'order_accepted';
+  eventType: 'page_view' | 'button_click' | 'order_placed' | 'search' | 'filter_applied' | 'item_added_cart' | 'checkout_started' | 'checkout_completed' | 'app_open' | 'app_close' | 'feature_used' | 'driver_status_change' | 'order_accept_attempt' | 'order_accept_cancelled' | 'order_accepted' | 'cart_view' | 'cart_abandon' | 'checkout_complete' | 'menu_view_duration' | 'add_to_cart' | 'category_filter' | 'business_view' | 'service_select' | 'recommendation_tap';
   eventData: Record<string, any>;
   sessionId: string;
   timestamp: string;

@@ -4,7 +4,7 @@
 // Usa Sharing API de Expo para compartir/descargar
 // ============================================================================
 
-import * as FileSystem from 'expo-file-system';
+import { documentDirectory, EncodingType, writeAsStringAsync } from 'expo-file-system/legacy';
 import * as Sharing from 'expo-sharing';
 import { supabase } from '@/constants/supabase';
 
@@ -29,9 +29,9 @@ function toCSV(headers: string[], rows: unknown[][]): string {
 
 async function saveAndShare(csv: string, filename: string): Promise<boolean> {
   try {
-    const path = `${FileSystem.documentDirectory}${filename}`;
-    await FileSystem.writeAsStringAsync(path, csv, {
-      encoding: FileSystem.EncodingType.UTF8,
+    const path = `${documentDirectory}${filename}`;
+    await writeAsStringAsync(path, csv, {
+      encoding: EncodingType.UTF8,
     });
 
     const canShare = await Sharing.isAvailableAsync();
