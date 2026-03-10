@@ -11,6 +11,7 @@ import {
   View,
   Alert,
   ActivityIndicator,
+  Linking,
 } from 'react-native';
 import {
   Crown,
@@ -31,6 +32,7 @@ import {
   getPlanDisplayName,
   getPlanColor,
 } from '@/services/subscriptions';
+import { SUPABASE_API_URL } from '@/constants/supabase';
 
 // ============================================================================
 // COLORES
@@ -79,7 +81,9 @@ export default function UpgradeScreen() {
 
   const currentPlan = subscription?.plan || 'launch';
 
-  const handleSelectPlan = (planId: string) => {
+  const [upgrading, setUpgrading] = useState(false);
+
+  const handleSelectPlan = async (planId: string) => {
     if (currentPlan === 'launch') {
       Alert.alert(
         'Periodo de Lanzamiento',
@@ -89,12 +93,37 @@ export default function UpgradeScreen() {
       return;
     }
 
-    // When ready: integrate Stripe checkout
-    Alert.alert(
-      'Proximamente',
-      `El plan ${PLAN_PRICES[planId]?.name || planId} estara disponible pronto. Te notificaremos cuando puedas suscribirte.`,
-      [{ text: 'OK' }]
-    );
+    if (!user || !subscription?.businessId) return;
+
+    setUpgrading(true);
+    try {
+      const response = await fetch(`${SUPABASE_API_URL}/functions/v1/create-checkout`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          plan: planId,
+          businessId: subscription.businessId,
+          userId: user.id,
+        }),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        Alert.alert('Error', data.error || 'No se pudo crear la sesion de pago');
+        return;
+      }
+
+      if (data.url) {
+        await Linking.openURL(data.url);
+      } else {
+        Alert.alert('Error', 'No se recibio la URL de pago');
+      }
+    } catch (error) {
+      Alert.alert('Error', 'No se pudo conectar con el servicio de pagos. Intenta de nuevo.');
+    } finally {
+      setUpgrading(false);
+    }
   };
 
   if (loading) {
@@ -157,15 +186,20 @@ export default function UpgradeScreen() {
         <TouchableSound
           style={[styles.selectBtn, {
             backgroundColor: currentPlan === 'basic' ? theme.cardAlt : FIX.accent,
+            opacity: upgrading ? 0.7 : 1,
           }]}
           onPress={() => handleSelectPlan('basic')}
-          disabled={currentPlan === 'basic'}
+          disabled={currentPlan === 'basic' || upgrading}
         >
-          <Text style={[styles.selectBtnText, {
-            color: currentPlan === 'basic' ? theme.textMuted : '#FFFFFF',
-          }]}>
-            {currentPlan === 'basic' ? 'Plan Actual' : currentPlan === 'launch' ? 'Incluido en Lanzamiento' : 'Elegir Basico'}
-          </Text>
+          {upgrading ? (
+            <ActivityIndicator size="small" color="#FFFFFF" />
+          ) : (
+            <Text style={[styles.selectBtnText, {
+              color: currentPlan === 'basic' ? theme.textMuted : '#FFFFFF',
+            }]}>
+              {currentPlan === 'basic' ? 'Plan Actual' : currentPlan === 'launch' ? 'Incluido en Lanzamiento' : 'Elegir Basico'}
+            </Text>
+          )}
         </TouchableSound>
       </View>
 
@@ -207,15 +241,20 @@ export default function UpgradeScreen() {
         <TouchableSound
           style={[styles.selectBtn, {
             backgroundColor: currentPlan === 'pro' ? theme.cardAlt : FIX.warning,
+            opacity: upgrading ? 0.7 : 1,
           }]}
           onPress={() => handleSelectPlan('pro')}
-          disabled={currentPlan === 'pro'}
+          disabled={currentPlan === 'pro' || upgrading}
         >
-          <Text style={[styles.selectBtnText, {
-            color: currentPlan === 'pro' ? theme.textMuted : '#FFFFFF',
-          }]}>
-            {currentPlan === 'pro' ? 'Plan Actual' : currentPlan === 'launch' ? 'Incluido en Lanzamiento' : 'Elegir Pro'}
-          </Text>
+          {upgrading ? (
+            <ActivityIndicator size="small" color="#FFFFFF" />
+          ) : (
+            <Text style={[styles.selectBtnText, {
+              color: currentPlan === 'pro' ? theme.textMuted : '#FFFFFF',
+            }]}>
+              {currentPlan === 'pro' ? 'Plan Actual' : currentPlan === 'launch' ? 'Incluido en Lanzamiento' : 'Elegir Pro'}
+            </Text>
+          )}
         </TouchableSound>
       </View>
 
