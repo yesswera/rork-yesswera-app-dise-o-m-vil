@@ -1,278 +1,179 @@
-import TouchableSound from '@/components/TouchableSound';
-// ============================================================================
-// YESSWERA: RECUPERAR CONTRASENA - NUEVA CONTRASENA
-// Usa ScreenContainer para diseño unificado con soporte de tema oscuro
-// ============================================================================
-
 import { useState } from 'react';
 import {
   View,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  SafeAreaView,
+  ScrollView,
   StyleSheet,
+  KeyboardAvoidingView,
+  Platform,
 } from 'react-native';
 import { useRouter } from 'expo-router';
-import { LockKeyhole, ArrowLeft, CheckCircle } from 'lucide-react-native';
-import { useTheme } from '@/contexts/theme';
-import { ThemedText } from '@/components/themed';
-import ScreenContainer from '@/components/ScreenContainer';
-import PasswordInput from '@/components/PasswordInput';
-import LoadingButton from '@/components/LoadingButton';
+import { Lock, Eye, EyeOff, CheckCircle } from 'lucide-react-native';
+import { DS } from '@/constants/design';
+import BigButton from '@/components/ui/BigButton';
 import { Toast } from '@/utils/toast';
 import { Validator } from '@/utils/validation';
 import { HapticFeedback } from '@/utils/haptics';
 import { supabase } from '@/constants/supabase';
 
-// ============================================================================
-// COLORES EXPLÍCITOS PARA MODO OSCURO
-// ============================================================================
-
-const COLORS = {
-  light: {
-    card: '#FFFFFF',
-    cardAlt: '#F5F5F4',
-    border: '#E7E5E4',
-    borderMedium: '#D6D3D1',
-    text: '#1C1917',
-    textSecondary: '#57534E',
-    textMuted: '#A8A29E',
-  },
-  dark: {
-    card: '#292524',
-    cardAlt: '#44403C',
-    border: '#44403C',
-    borderMedium: '#57534E',
-    text: '#FAFAFA',
-    textSecondary: '#D6D3D1',
-    textMuted: '#78716C',
-  },
-};
-
 export default function PasswordRecoveryResetScreen() {
   const router = useRouter();
-  const { colors, isDark } = useTheme();
-  const theme = isDark ? COLORS.dark : COLORS.light;
+  const [password, setPassword] = useState('');
+  const [confirm, setConfirm] = useState('');
+  const [showPass, setShowPass] = useState(false);
+  const [showConfirm, setShowConfirm] = useState(false);
+  const [loading, setLoading] = useState(false);
 
-  const [password, setPassword] = useState<string>('');
-  const [confirmPassword, setConfirmPassword] = useState<string>('');
-  const [isLoading, setIsLoading] = useState<boolean>(false);
-  const [errors, setErrors] = useState({
-    password: '',
-    confirmPassword: '',
-  });
+  const lengthOk = password.length >= 6;
+  const matchOk = password === confirm && password.length > 0;
 
-  const handlePasswordChange = (value: string) => {
-    setPassword(value);
-    setErrors((prev) => ({ ...prev, password: '' }));
-  };
-
-  const handleConfirmPasswordChange = (value: string) => {
-    setConfirmPassword(value);
-    setErrors((prev) => ({ ...prev, confirmPassword: '' }));
-  };
-
-  const handleResetPassword = async () => {
-    const passwordError = Validator.password(password);
-    const confirmPasswordError = Validator.confirmPassword(password, confirmPassword);
-
-    if (passwordError || confirmPasswordError) {
-      setErrors({
-        password: passwordError,
-        confirmPassword: confirmPasswordError,
-      });
+  const handleReset = async () => {
+    const passErr = Validator.password(password);
+    const confErr = Validator.confirmPassword(password, confirm);
+    if (passErr || confErr) {
+      Toast.error(passErr || confErr);
       HapticFeedback.error();
       return;
     }
 
-    setIsLoading(true);
+    setLoading(true);
     try {
-      const { error: updateError } = await supabase.auth.updateUser({
-        password: password,
-      });
-
-      if (updateError) {
-        throw updateError;
-      }
-
-      // Cerrar sesion para que el usuario inicie con la nueva contrasena
+      const { error } = await supabase.auth.updateUser({ password });
+      if (error) throw error;
       await supabase.auth.signOut();
-
       HapticFeedback.success();
-      Toast.success('Contrasena actualizada exitosamente');
+      Toast.success('Contrasena actualizada');
       router.replace('/login' as any);
-    } catch (error: any) {
-      console.error('Reset password error:', error);
+    } catch (err: any) {
       HapticFeedback.error();
-      const msg = error?.message?.includes('session')
+      const msg = err?.message?.includes('session')
         ? 'Sesion expirada. Solicita un nuevo codigo.'
-        : 'No se pudo cambiar la contrasena. Intenta nuevamente.';
+        : 'No se pudo cambiar la contrasena.';
       Toast.error(msg);
     } finally {
-      setIsLoading(false);
+      setLoading(false);
     }
   };
 
-  // Header content con boton de regreso
-  const headerContent = (
-    <View style={styles.headerControls}>
-      <TouchableSound
-        style={styles.backButton}
-        onPress={() => router.back()}
-      >
-        <ArrowLeft size={24} color="#FFFFFF" />
-      </TouchableSound>
-      <View style={styles.headerSpacer} />
-    </View>
-  );
-
-  // Indicadores de requisitos
-  const passwordLengthOk = password.length >= 6;
-  const passwordsMatch = password === confirmPassword && password.length > 0;
-
   return (
-    <ScreenContainer
-      headerGradient="primary"
-      headerIcon={LockKeyhole}
-      headerTitle="Nueva Contrasena"
-      headerSubtitle="Crea una contrasena segura"
-      headerContent={headerContent}
-    >
-      {/* Icono de exito */}
-      <View style={[styles.iconContainer, { backgroundColor: colors.primary + '15' }]}>
-        <CheckCircle size={48} color={colors.primary} />
-      </View>
-
-      <ThemedText variant="h3" center style={styles.title}>
-        Nueva Contrasena
-      </ThemedText>
-
-      <ThemedText variant="body" color="secondary" center style={styles.subtitle}>
-        Crea una nueva contrasena segura para tu cuenta
-      </ThemedText>
-
-      <View style={styles.form}>
-        <PasswordInput
-          label="Nueva Contrasena"
-          value={password}
-          onChangeText={handlePasswordChange}
-          error={errors.password}
-          placeholder="********"
-          showStrength
-          editable={!isLoading}
-        />
-
-        <PasswordInput
-          label="Confirmar Contrasena"
-          value={confirmPassword}
-          onChangeText={handleConfirmPasswordChange}
-          error={errors.confirmPassword}
-          placeholder="********"
-          editable={!isLoading}
-        />
-
-        <View style={[styles.requirementsContainer, { backgroundColor: theme.cardAlt }]}>
-          <ThemedText variant="label" bold style={styles.requirementsTitle}>
-            La contrasena debe tener:
-          </ThemedText>
-
-          <View style={styles.requirement}>
-            <View style={[
-              styles.requirementBullet,
-              { backgroundColor: passwordLengthOk ? colors.primary : theme.borderMedium }
-            ]} />
-            <ThemedText
-              variant="caption"
-              color={passwordLengthOk ? 'primary' : 'secondary'}
-              style={passwordLengthOk ? styles.requirementTextActive : undefined}
-            >
-              Minimo 6 caracteres
-            </ThemedText>
+    <SafeAreaView style={styles.safe}>
+      <KeyboardAvoidingView
+        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+        style={{ flex: 1 }}
+      >
+        <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
+          <View style={styles.iconCircle}>
+            <CheckCircle size={32} color={DS.colors.green} />
           </View>
 
-          <View style={styles.requirement}>
-            <View style={[
-              styles.requirementBullet,
-              { backgroundColor: passwordsMatch ? colors.primary : theme.borderMedium }
-            ]} />
-            <ThemedText
-              variant="caption"
-              color={passwordsMatch ? 'primary' : 'secondary'}
-              style={passwordsMatch ? styles.requirementTextActive : undefined}
-            >
-              Las contrasenas coinciden
-            </ThemedText>
+          <Text style={styles.title}>Nueva Contrasena</Text>
+          <Text style={styles.subtitle}>
+            Crea una contrasena segura para tu cuenta
+          </Text>
+
+          {/* Password */}
+          <Text style={styles.label}>Nueva contrasena</Text>
+          <View style={styles.inputRow}>
+            <Lock size={20} color={DS.colors.muted} />
+            <TextInput
+              style={styles.input}
+              value={password}
+              onChangeText={setPassword}
+              placeholder="********"
+              placeholderTextColor={DS.colors.placeholder}
+              secureTextEntry={!showPass}
+              editable={!loading}
+            />
+            <TouchableOpacity onPress={() => setShowPass(!showPass)} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
+              {showPass ? <EyeOff size={20} color={DS.colors.muted} /> : <Eye size={20} color={DS.colors.muted} />}
+            </TouchableOpacity>
           </View>
-        </View>
 
-        <LoadingButton
-          title="Cambiar Contrasena"
-          onPress={handleResetPassword}
-          loading={isLoading}
-          variant="primary"
-        />
-      </View>
+          {/* Confirm */}
+          <Text style={styles.label}>Confirmar contrasena</Text>
+          <View style={styles.inputRow}>
+            <Lock size={20} color={DS.colors.muted} />
+            <TextInput
+              style={styles.input}
+              value={confirm}
+              onChangeText={setConfirm}
+              placeholder="********"
+              placeholderTextColor={DS.colors.placeholder}
+              secureTextEntry={!showConfirm}
+              editable={!loading}
+            />
+            <TouchableOpacity onPress={() => setShowConfirm(!showConfirm)} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
+              {showConfirm ? <EyeOff size={20} color={DS.colors.muted} /> : <Eye size={20} color={DS.colors.muted} />}
+            </TouchableOpacity>
+          </View>
 
-      <View style={{ height: 40 }} />
-    </ScreenContainer>
+          {/* Requirements */}
+          <View style={styles.reqBox}>
+            <Text style={styles.reqTitle}>La contrasena debe tener:</Text>
+            <View style={styles.reqRow}>
+              <View style={[styles.reqDot, lengthOk && styles.reqDotOk]} />
+              <Text style={[styles.reqText, lengthOk && styles.reqTextOk]}>Minimo 6 caracteres</Text>
+            </View>
+            <View style={styles.reqRow}>
+              <View style={[styles.reqDot, matchOk && styles.reqDotOk]} />
+              <Text style={[styles.reqText, matchOk && styles.reqTextOk]}>Las contrasenas coinciden</Text>
+            </View>
+          </View>
+
+          <BigButton
+            title="Cambiar Contrasena"
+            color={DS.colors.green}
+            onPress={handleReset}
+            loading={loading}
+          />
+        </ScrollView>
+      </KeyboardAvoidingView>
+    </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
-  headerControls: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 8,
-  },
-  backButton: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    backgroundColor: 'rgba(255, 255, 255, 0.2)',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  headerSpacer: {
-    width: 44,
-  },
-  iconContainer: {
-    width: 80,
-    height: 80,
-    borderRadius: 40,
+  safe: { flex: 1, backgroundColor: DS.colors.bg },
+  scroll: { padding: DS.space.xl, paddingTop: 60 },
+  iconCircle: {
+    width: 72,
+    height: 72,
+    borderRadius: 36,
+    backgroundColor: DS.colors.greenLight,
     justifyContent: 'center',
     alignItems: 'center',
     alignSelf: 'center',
-    marginBottom: 24,
+    marginBottom: DS.space.xxl,
   },
-  title: {
-    marginBottom: 12,
-  },
-  subtitle: {
-    marginBottom: 32,
-    lineHeight: 22,
-  },
-  form: {
-    width: '100%',
-    gap: 16,
-  },
-  requirementsContainer: {
-    borderRadius: 12,
-    padding: 16,
-    marginBottom: 8,
-  },
-  requirementsTitle: {
-    marginBottom: 12,
-  },
-  requirement: {
+  title: { ...DS.fonts.title, color: DS.colors.dark, textAlign: 'center', marginBottom: DS.space.md },
+  subtitle: { ...DS.fonts.body, color: DS.colors.muted, textAlign: 'center', marginBottom: DS.space.xxxl },
+  label: { ...DS.fonts.label, color: DS.colors.dark, marginBottom: DS.space.sm },
+  inputRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 8,
+    backgroundColor: DS.colors.card,
+    borderRadius: DS.radius.lg,
+    borderWidth: 1,
+    borderColor: DS.colors.hairline,
+    paddingHorizontal: DS.space.lg,
+    height: DS.touch.min,
+    gap: DS.space.sm,
+    marginBottom: DS.space.lg,
   },
-  requirementBullet: {
-    width: 6,
-    height: 6,
-    borderRadius: 3,
-    marginRight: 8,
+  input: { flex: 1, ...DS.fonts.body, color: DS.colors.dark },
+  reqBox: {
+    backgroundColor: DS.colors.divider,
+    borderRadius: DS.radius.lg,
+    padding: DS.space.lg,
+    marginBottom: DS.space.xxl,
   },
-  requirementTextActive: {
-    fontWeight: '500',
-  },
+  reqTitle: { ...DS.fonts.label, color: DS.colors.dark, marginBottom: DS.space.md },
+  reqRow: { flexDirection: 'row', alignItems: 'center', marginBottom: DS.space.sm },
+  reqDot: { width: 8, height: 8, borderRadius: 4, backgroundColor: DS.colors.hairline, marginRight: DS.space.sm },
+  reqDotOk: { backgroundColor: DS.colors.green },
+  reqText: { ...DS.fonts.body, color: DS.colors.muted },
+  reqTextOk: { color: DS.colors.green, fontWeight: '500' },
 });

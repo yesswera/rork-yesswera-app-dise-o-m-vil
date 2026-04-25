@@ -1,296 +1,280 @@
-import TouchableSound from '@/components/TouchableSound';
 // ============================================================================
-// YESSWERA: PRODUCTOS DEL NEGOCIO
-// Usa ScreenContainer para diseno unificado
+// YESSWERA: PRODUCTS GRID — 2 columns, toggle availability, FAB to add
 // ============================================================================
 
+import { useState, useEffect, useCallback } from 'react';
 import {
   View,
   Text,
-  StyleSheet,
-  FlatList,
+  ScrollView,
+  SafeAreaView,
+  TouchableOpacity,
   Switch,
-  Alert,
+  RefreshControl,
+  Image,
+  StyleSheet,
 } from 'react-native';
-import { useRouter } from 'expo-router';
-import { useState, useEffect, useCallback } from 'react';
-import { Plus, Edit, Trash2, Package } from 'lucide-react-native';
+import { useRouter, useFocusEffect } from 'expo-router';
+import { Plus, Package } from 'lucide-react-native';
 import { useAuth } from '@/contexts/auth';
-import { useTheme } from '@/contexts/theme';
-import { getBusinessProducts, toggleProductAvailability, deleteProduct } from '@/services/products';
-import { ProductFull } from '@/constants/types';
-import { Toast } from '@/utils/toast';
-import EmptyState from '@/components/EmptyState';
-import ScreenContainer from '@/components/ScreenContainer';
 import { supabase } from '@/constants/supabase';
+import { getBusinessProducts, toggleProductAvailability } from '@/services/products';
+import { DS, colorShadow } from '@/constants/design';
+import type { ProductFull } from '@/constants/types';
 
-// Theme colors via useTheme() — no local COLORS needed
+function formatMoney(n: number): string {
+  return `$${n.toFixed(0)}`;
+}
 
-export default function BusinessProductsScreen() {
+export default function ProductsGridScreen() {
   const router = useRouter();
   const { user } = useAuth();
-  const { isDark, colors } = useTheme();
 
-  const [products, setProducts] = useState<ProductFull[]>([]);
-  const [isLoading, setIsLoading] = useState<boolean>(true);
-  const [refreshing, setRefreshing] = useState<boolean>(false);
   const [businessId, setBusinessId] = useState<string | null>(null);
+  const [products, setProducts] = useState<ProductFull[]>([]);
+  const [refreshing, setRefreshing] = useState(false);
 
-  // Look up business record for this user
   useEffect(() => {
+    loadBusinessId();
+  }, [user]);
+
+  useFocusEffect(
+    useCallback(() => {
+      if (businessId) loadProducts();
+    }, [businessId])
+  );
+
+  async function loadBusinessId() {
     if (!user) return;
-    supabase
+    const { data } = await supabase
       .from('businesses')
       .select('id')
       .eq('user_id', user.id)
-      .limit(1)
-      .then(({ data }) => {
-        if (data && data.length > 0) setBusinessId(data[0].id);
-      });
-  }, [user]);
+      .maybeSingle();
+    if (data) {
+      setBusinessId(data.id);
+      loadProducts(data.id);
+    }
+  }
 
-  const loadProducts = useCallback(async () => {
-    if (!businessId) return;
-
+  async function loadProducts(bId?: string) {
+    const id = bId || businessId;
+    if (!id) return;
     try {
-      const data = await getBusinessProducts(businessId, true);
+      const data = await getBusinessProducts(id, true);
       setProducts(data);
-    } catch (error) {
-      console.error('Error loading products:', error);
-      Toast.error('Error al cargar productos');
-    } finally {
-      setIsLoading(false);
-      setRefreshing(false);
+    } catch (e) {
+      console.error('loadProducts error:', e);
     }
-  }, [businessId]);
+  }
 
-  useEffect(() => {
-    loadProducts();
-  }, [loadProducts]);
-
-  const handleRefresh = () => {
+  async function onRefresh() {
     setRefreshing(true);
-    loadProducts();
-  };
+    await loadProducts();
+    setRefreshing(false);
+  }
 
-  const handleToggleAvailability = async (productId: string, currentAvailability: boolean) => {
+  async function handleToggle(productId: string, current: boolean) {
     if (!businessId) return;
-
-    try {
-      await toggleProductAvailability(businessId, productId, !currentAvailability);
-
-      setProducts(prev =>
-        prev.map(p => p.id === productId ? { ...p, available: !currentAvailability } : p)
-      );
-
-      Toast.success(
-        !currentAvailability ? 'Producto disponible' : 'Producto marcado como agotado'
-      );
-    } catch (error) {
-      console.error('Error toggling availability:', error);
-      Toast.error('Error al cambiar disponibilidad');
-    }
-  };
-
-  const handleDeleteProduct = (productId: string, productName: string) => {
-    Alert.alert(
-      'Eliminar Producto',
-      `Estas seguro de eliminar "${productName}"?`,
-      [
-        { text: 'Cancelar', style: 'cancel' },
-        {
-          text: 'Eliminar',
-          style: 'destructive',
-          onPress: async () => {
-            if (!businessId) return;
-
-            try {
-              await deleteProduct(businessId, productId);
-              setProducts(prev => prev.filter(p => p.id !== productId));
-              Toast.success('Producto eliminado');
-            } catch (error) {
-              console.error('Error deleting product:', error);
-              Toast.error('Error al eliminar producto');
-            }
-          },
-        },
-      ]
+    setProducts((prev) =>
+      prev.map((p) =>
+        p.id === productId ? { ...p, available: !current, inStock: !current } : p
+      )
     );
-  };
+    try {
+      await toggleProductAvailability(businessId, productId, !current);
+    } catch {
+      setProducts((prev) =>
+        prev.map((p) =>
+          p.id === productId ? { ...p, available: current, inStock: current } : p
+        )
+      );
+    }
+  }
 
-  const renderProduct = ({ item }: { item: ProductFull }) => (
-    <View style={[styles.productCard, { backgroundColor: colors.card, borderColor: colors.border.light }]}>
-      <View style={styles.productHeader}>
-        <View style={styles.productInfo}>
-          <Text style={[styles.productName, { color: colors.text.primary }]}>{item.name}</Text>
-          <Text style={[styles.productDescription, { color: colors.text.secondary }]} numberOfLines={2}>
-            {item.description}
-          </Text>
-          <Text style={[styles.productPrice, { color: colors.primary }]}>${item.price.toFixed(2)} MXN</Text>
-        </View>
-
-        <Switch
-          value={item.available}
-          onValueChange={() => handleToggleAvailability(item.id, item.available)}
-          trackColor={{ false: colors.border.light, true: colors.success }}
-          thumbColor={'#FFFFFF'}
-        />
-      </View>
-
-      <View style={styles.productActions}>
-        <TouchableSound
-          style={[styles.actionButton, styles.editButton, { backgroundColor: `${colors.primary}15` }]}
-          onPress={() => router.push(`/business/products/edit/${item.id}` as any)}
-          activeOpacity={0.7}
-        >
-          <Edit size={16} color={colors.primary} />
-          <Text style={[styles.editButtonText, { color: colors.primary }]}>Editar</Text>
-        </TouchableSound>
-
-        <TouchableSound
-          style={[styles.actionButton, styles.deleteButton, { backgroundColor: `${colors.error}15` }]}
-          onPress={() => handleDeleteProduct(item.id, item.name)}
-          activeOpacity={0.7}
-        >
-          <Trash2 size={16} color={colors.error} />
-          <Text style={[styles.deleteButtonText, { color: colors.error }]}>Eliminar</Text>
-        </TouchableSound>
-      </View>
-
-      {!item.available && (
-        <View style={[styles.unavailableBadge, { backgroundColor: colors.error }]}>
-          <Text style={styles.unavailableBadgeText}>Agotado</Text>
-        </View>
-      )}
-    </View>
-  );
-
-  // Header content con boton de agregar
-  const headerContent = (
-    <TouchableSound
-      style={[styles.addButton, { backgroundColor: '#FFFFFF' }]}
-      onPress={() => router.push('/business/products/add' as any)}
-      activeOpacity={0.7}
-    >
-      <Plus size={20} color={colors.primary} />
-      <Text style={[styles.addButtonText, { color: colors.primary }]}>Agregar Producto</Text>
-    </TouchableSound>
-  );
+  // Split into rows of 2
+  const rows: ProductFull[][] = [];
+  for (let i = 0; i < products.length; i += 2) {
+    rows.push(products.slice(i, i + 2));
+  }
 
   return (
-    <ScreenContainer
-      headerGradient="primary"
-      headerIcon={Package}
-      headerTitle="Productos"
-      headerSubtitle="Gestiona tu catalogo de productos"
-      headerContent={headerContent}
-      refreshing={refreshing}
-      onRefresh={handleRefresh}
-      scrollEnabled={false}
-    >
-      <FlatList
-        data={products}
-        renderItem={renderProduct}
-        keyExtractor={item => item.id}
-        contentContainerStyle={styles.list}
-        showsVerticalScrollIndicator={false}
-        ListEmptyComponent={
-          !isLoading ? (
-            <EmptyState
-              icon={Package}
-              title="No hay productos"
-              message="Agrega tu primer producto para comenzar"
-              actionLabel="Agregar Producto"
-              onActionPress={() => router.push('/business/products/add' as any)}
-            />
-          ) : null
+    <SafeAreaView style={styles.safe}>
+      <ScrollView
+        style={styles.scroll}
+        contentContainerStyle={styles.content}
+        refreshControl={
+          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
         }
-      />
-    </ScreenContainer>
+        showsVerticalScrollIndicator={false}
+      >
+        <Text style={styles.screenTitle}>Productos</Text>
+
+        {products.length === 0 ? (
+          <View style={styles.emptyWrap}>
+            <Package size={48} color={DS.colors.muted} />
+            <Text style={styles.emptyTitle}>Sin productos</Text>
+            <Text style={styles.emptyBody}>
+              Agrega tu primer producto con el boton +
+            </Text>
+          </View>
+        ) : (
+          rows.map((row, ri) => (
+            <View key={ri} style={styles.gridRow}>
+              {row.map((product) => (
+                <View key={product.id} style={styles.tile}>
+                  <View style={styles.tileImage}>
+                    {product.image ? (
+                      <Image
+                        source={{ uri: product.image }}
+                        style={styles.tileImageFill}
+                        resizeMode="cover"
+                      />
+                    ) : (
+                      <Package size={36} color={DS.colors.placeholder} />
+                    )}
+                  </View>
+
+                  <Text style={styles.tileName} numberOfLines={2}>
+                    {product.name}
+                  </Text>
+
+                  <Text style={styles.tilePrice}>
+                    {formatMoney(product.price)}
+                  </Text>
+
+                  <View style={styles.tileToggle}>
+                    <Text
+                      style={[
+                        styles.tileToggleLabel,
+                        {
+                          color: product.available
+                            ? DS.colors.green
+                            : DS.colors.muted,
+                        },
+                      ]}
+                    >
+                      {product.available ? 'Disponible' : 'Agotado'}
+                    </Text>
+                    <Switch
+                      value={product.available}
+                      onValueChange={() =>
+                        handleToggle(product.id, product.available)
+                      }
+                      trackColor={{
+                        false: DS.colors.hairline,
+                        true: DS.colors.greenLight,
+                      }}
+                      thumbColor={
+                        product.available ? DS.colors.green : DS.colors.muted
+                      }
+                    />
+                  </View>
+                </View>
+              ))}
+              {row.length === 1 && <View style={styles.tile} />}
+            </View>
+          ))
+        )}
+
+        <View style={{ height: 80 }} />
+      </ScrollView>
+
+      {/* FAB */}
+      <TouchableOpacity
+        onPress={() => router.push('/business/products/add')}
+        activeOpacity={0.85}
+        style={styles.fab}
+      >
+        <Plus size={28} color="#FFFFFF" />
+      </TouchableOpacity>
+    </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
-  addButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    borderRadius: 14,
-    gap: 8,
-    alignSelf: 'flex-start',
-  },
-  addButtonText: {
-    fontSize: 15,
-    fontWeight: '600',
-  },
-  list: {
-    paddingBottom: 20,
-  },
-  productCard: {
-    borderRadius: 16,
-    padding: 16,
-    marginBottom: 12,
-    borderWidth: 1,
-    position: 'relative',
-  },
-  productHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    marginBottom: 12,
-  },
-  productInfo: {
+  safe: {
     flex: 1,
-    marginRight: 12,
+    backgroundColor: DS.colors.bg,
   },
-  productName: {
-    fontSize: 16,
-    fontWeight: '600',
-    marginBottom: 4,
-  },
-  productDescription: {
-    fontSize: 14,
-    marginBottom: 8,
-    lineHeight: 20,
-  },
-  productPrice: {
-    fontSize: 16,
-    fontWeight: '700',
-  },
-  productActions: {
-    flexDirection: 'row',
-    gap: 8,
-  },
-  actionButton: {
+  scroll: {
     flex: 1,
-    flexDirection: 'row',
+  },
+  content: {
+    padding: DS.space.lg,
+    gap: DS.space.lg,
+  },
+  screenTitle: {
+    ...DS.fonts.hero,
+    color: DS.colors.dark,
+  },
+
+  emptyWrap: {
     alignItems: 'center',
+    paddingVertical: 60,
+    gap: DS.space.md,
+  },
+  emptyTitle: {
+    ...DS.fonts.section,
+    color: DS.colors.dark,
+  },
+  emptyBody: {
+    ...DS.fonts.body,
+    color: DS.colors.muted,
+    textAlign: 'center',
+  },
+
+  gridRow: {
+    flexDirection: 'row',
+    gap: DS.space.md,
+  },
+  tile: {
+    flex: 1,
+    backgroundColor: DS.colors.card,
+    borderRadius: DS.radius.xl,
+    padding: DS.space.md,
+    gap: DS.space.sm,
+    ...DS.shadow.card,
+  },
+  tileImage: {
+    height: 100,
+    borderRadius: DS.radius.md,
+    backgroundColor: DS.colors.divider,
     justifyContent: 'center',
-    padding: 10,
-    borderRadius: 14,
-    gap: 6,
+    alignItems: 'center',
+    overflow: 'hidden',
   },
-  editButton: {},
-  editButtonText: {
-    fontSize: 14,
-    fontWeight: '600',
+  tileImageFill: {
+    width: '100%',
+    height: '100%',
   },
-  deleteButton: {},
-  deleteButtonText: {
-    fontSize: 14,
-    fontWeight: '600',
+  tileName: {
+    ...DS.fonts.bodyMed,
+    color: DS.colors.dark,
   },
-  unavailableBadge: {
+  tilePrice: {
+    ...DS.fonts.title,
+    color: DS.colors.green,
+  },
+  tileToggle: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  tileToggleLabel: {
+    ...DS.fonts.small,
+  },
+
+  fab: {
     position: 'absolute',
-    top: 16,
-    right: 16,
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    borderRadius: 12,
-  },
-  unavailableBadgeText: {
-    fontSize: 12,
-    fontWeight: '600',
-    color: '#FFFFFF',
+    bottom: 24,
+    right: 24,
+    width: 64,
+    height: 64,
+    borderRadius: 32,
+    backgroundColor: DS.colors.orange,
+    justifyContent: 'center',
+    alignItems: 'center',
+    ...colorShadow(DS.colors.orange),
   },
 });

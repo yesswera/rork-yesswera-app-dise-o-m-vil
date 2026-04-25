@@ -1,82 +1,58 @@
-import TouchableSound from '@/components/TouchableSound';
-import { useState, useRef, useEffect } from 'react';
+// ============================================================================
+// YESSWERA: LOGIN — Vecino Amigo DS
+// Clean white screen, logo, email/password, green button, register link
+// ============================================================================
+
+import { useState } from 'react';
 import {
   View,
   Text,
   TextInput,
   StyleSheet,
+  SafeAreaView,
   KeyboardAvoidingView,
+  ScrollView,
+  TouchableOpacity,
   Platform,
-  StatusBar,
-  Animated,
 } from 'react-native';
 import { Image } from 'expo-image';
-import { ScrollView } from 'react-native-gesture-handler';
 import { useRouter } from 'expo-router';
-import { Mail, Lock } from 'lucide-react-native';
-import { LinearGradient } from 'expo-linear-gradient';
+import { Mail, Lock, Eye, EyeOff } from 'lucide-react-native';
+import { DS } from '@/constants/design';
+import BigButton from '@/components/ui/BigButton';
 import { useAuth } from '@/contexts/auth';
-import { useTheme } from '@/contexts/theme';
 import { supabase } from '@/constants/supabase';
 import { Toast } from '@/utils/toast';
 import { Validator } from '@/utils/validation';
 import { HapticFeedback } from '@/utils/haptics';
-import { AuthSounds, SoundFeedback } from '@/services/sounds';
 
 export default function LoginScreen() {
   const router = useRouter();
   const { login } = useAuth();
-  const { colors, space, radius, fonts, isDark } = useTheme();
 
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [isLoading, setIsLoading] = useState(false);
+  const [showPwd, setShowPwd] = useState(false);
+  const [loading, setLoading] = useState(false);
   const [errors, setErrors] = useState({ email: '', password: '' });
-  // focusedField removido: en Android, cambiar shadowColor/shadowOpacity
-  // en onFocus causa un re-layout nativo que cierra el teclado
-
-  // Logo animation
-  const logoScale = useRef(new Animated.Value(0.9)).current;
-
-  useEffect(() => {
-    Animated.spring(logoScale, {
-      toValue: 1,
-      tension: 60,
-      friction: 7,
-      useNativeDriver: true,
-    }).start();
-  }, []);
-
-  const bg = isDark ? '#1C1917' : '#FAFAF9';
-  const cardBg = isDark ? '#292524' : '#FFFFFF';
-  const borderColor = isDark ? '#44403C' : '#E7E5E4';
-  const textPrimary = isDark ? '#FAFAFA' : '#1C1917';
-  const textSecondary = isDark ? '#D6D3D1' : '#57534E';
-  const textMuted = isDark ? '#78716C' : '#A8A29E';
-
-  const validateEmail = (value: string) => Validator.email(value);
-  const validatePassword = (value: string) => Validator.required(value) || '';
 
   const handleLogin = async () => {
-    const emailError = validateEmail(email);
-    const passwordError = validatePassword(password);
+    const emailError = Validator.email(email);
+    const passwordError = Validator.required(password) || '';
 
     if (emailError || passwordError) {
       setErrors({ email: emailError, password: passwordError });
       HapticFeedback.error();
-      SoundFeedback.error();
       return;
     }
 
-    setIsLoading(true);
+    setLoading(true);
     try {
-      const userData = await login(email, password);
+      const userData = await login(email.trim().toLowerCase(), password);
       HapticFeedback.success();
-      AuthSounds.login();
       Toast.success('Bienvenido de nuevo');
 
       if (userData?.userType === 'driver') {
-        // Check driver registration status
         try {
           const { data: driver } = await supabase
             .from('drivers')
@@ -86,7 +62,10 @@ export default function LoginScreen() {
 
           if (driver?.registration_status === 'waitlisted') {
             router.replace('/driver/waiting' as any);
-          } else if (driver?.registration_status === 'pending_documents' || driver?.registration_status === 'documents_submitted') {
+          } else if (
+            driver?.registration_status === 'pending_documents' ||
+            driver?.registration_status === 'documents_submitted'
+          ) {
             router.replace('/driver/documents' as any);
           } else if (driver?.registration_status === 'rejected') {
             router.replace('/driver/waiting' as any);
@@ -103,310 +82,243 @@ export default function LoginScreen() {
       } else {
         router.replace('/' as any);
       }
-    } catch (error) {
-      console.error('Login error:', error);
+    } catch (err) {
+      console.error('Login error:', err);
       HapticFeedback.error();
-      SoundFeedback.error();
       Toast.error('Credenciales incorrectas. Intenta nuevamente.');
     } finally {
-      setIsLoading(false);
+      setLoading(false);
     }
   };
 
-  const getInputBorder = (error: string) => {
-    if (error) return '#EF4444';
-    return borderColor;
-  };
-
   return (
-    <KeyboardAvoidingView
-      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-      style={[styles.container, { backgroundColor: bg }]}
-    >
-      <StatusBar barStyle={isDark ? 'light-content' : 'dark-content'} />
-      <ScrollView
-        contentContainerStyle={styles.scrollContent}
-        showsVerticalScrollIndicator={false}
-        keyboardShouldPersistTaps="always"
+    <SafeAreaView style={styles.safe}>
+      <KeyboardAvoidingView
+        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+        style={styles.flex}
       >
-        {/* Logo */}
-        <View style={styles.logoSection}>
-          <Animated.View style={[styles.logoBox, {
-            shadowColor: '#16A34A',
-            transform: [{ scale: logoScale }],
-          }]}>
+        <ScrollView
+          contentContainerStyle={styles.scroll}
+          showsVerticalScrollIndicator={false}
+          keyboardShouldPersistTaps="always"
+        >
+          {/* -- Brand -- */}
+          <View style={styles.brand}>
             <Image
               source={require('@/assets/images/icon.png')}
-              style={styles.logoImage}
+              style={styles.logo}
               contentFit="contain"
             />
-          </Animated.View>
-          <Text style={[styles.appName, { color: textPrimary, fontSize: fonts['3xl'] }]}>
-            Yesswera
-          </Text>
-          <Text style={[styles.tagline, { color: textMuted, fontSize: fonts.base }]}>
-            Lo que quieras, cuando quieras
-          </Text>
-          <View style={[styles.jaliscoBadge, {
-            backgroundColor: isDark ? 'rgba(22, 163, 74, 0.15)' : 'rgba(22, 163, 74, 0.08)',
-            borderColor: isDark ? 'rgba(22, 163, 74, 0.3)' : 'rgba(22, 163, 74, 0.2)',
-          }]}>
-            <Text style={[styles.jaliscoBadgeText, { color: '#16A34A', fontSize: fonts.xs }]}>
-              Hecho en Tomatlan, Jalisco
-            </Text>
+            <Text style={styles.appName}>Yesswera</Text>
+            <Text style={styles.tagline}>Lo que quieras, cuando quieras</Text>
           </View>
-        </View>
 
-        {/* Form */}
-        <View style={styles.form}>
-          {/* Email */}
-          <View style={styles.inputGroup}>
-            <Text style={[styles.label, { color: textSecondary, fontSize: fonts.sm }]}>
-              Correo Electronico
-            </Text>
-            <View style={[styles.inputWrap, {
-              backgroundColor: cardBg,
-              borderColor: getInputBorder(errors.email),
-            }]}>
-              <Mail size={18} color={textMuted} />
+          {/* -- Email -- */}
+          <View style={styles.fieldGroup}>
+            <View
+              style={[
+                styles.inputWrap,
+                errors.email ? styles.inputError : null,
+              ]}
+            >
+              <Mail size={20} color={DS.colors.muted} />
               <TextInput
-                style={[styles.input, { color: textPrimary, fontSize: fonts.base }]}
-                placeholder="tu@email.com"
-                placeholderTextColor={textMuted}
+                style={styles.input}
+                placeholder="Correo electronico"
+                placeholderTextColor={DS.colors.placeholder}
                 value={email}
-                onChangeText={(v) => { setEmail(v.toLowerCase()); setErrors(p => ({ ...p, email: '' })); }}
+                onChangeText={(v) => {
+                  setEmail(v.toLowerCase());
+                  setErrors((p) => ({ ...p, email: '' }));
+                }}
                 keyboardType="email-address"
                 autoCapitalize="none"
-                editable={!isLoading}
+                autoComplete="email"
+                editable={!loading}
               />
             </View>
-            {errors.email ? <Text style={styles.errorText}>{errors.email}</Text> : null}
+            {errors.email ? (
+              <Text style={styles.errorText}>{errors.email}</Text>
+            ) : null}
           </View>
 
-          {/* Password */}
-          <View style={styles.inputGroup}>
-            <Text style={[styles.label, { color: textSecondary, fontSize: fonts.sm }]}>
-              Contrasena
-            </Text>
-            <View style={[styles.inputWrap, {
-              backgroundColor: cardBg,
-              borderColor: getInputBorder(errors.password),
-            }]}>
-              <Lock size={18} color={textMuted} />
+          {/* -- Password -- */}
+          <View style={styles.fieldGroup}>
+            <View
+              style={[
+                styles.inputWrap,
+                errors.password ? styles.inputError : null,
+              ]}
+            >
+              <Lock size={20} color={DS.colors.muted} />
               <TextInput
-                style={[styles.input, { color: textPrimary, fontSize: fonts.base }]}
-                placeholder="Tu contrasena"
-                placeholderTextColor={textMuted}
+                style={styles.input}
+                placeholder="Contrasena"
+                placeholderTextColor={DS.colors.placeholder}
                 value={password}
-                onChangeText={(v) => { setPassword(v); setErrors(p => ({ ...p, password: '' })); }}
-                secureTextEntry
+                onChangeText={(v) => {
+                  setPassword(v);
+                  setErrors((p) => ({ ...p, password: '' }));
+                }}
+                secureTextEntry={!showPwd}
                 autoCapitalize="none"
-                editable={!isLoading}
+                editable={!loading}
               />
+              <TouchableOpacity
+                onPress={() => setShowPwd((p) => !p)}
+                hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+              >
+                {showPwd ? (
+                  <EyeOff size={20} color={DS.colors.muted} />
+                ) : (
+                  <Eye size={20} color={DS.colors.muted} />
+                )}
+              </TouchableOpacity>
             </View>
-            {errors.password ? <Text style={styles.errorText}>{errors.password}</Text> : null}
+            {errors.password ? (
+              <Text style={styles.errorText}>{errors.password}</Text>
+            ) : null}
           </View>
 
-          {/* Forgot password */}
-          <TouchableSound
+          {/* -- Forgot password -- */}
+          <TouchableOpacity
             style={styles.forgotLink}
             onPress={() => router.push('/password-recovery/request' as any)}
-            disabled={isLoading}
+            disabled={loading}
           >
-            <Text style={[styles.forgotText, { color: '#16A34A', fontSize: fonts.sm }]}>
-              Olvidaste tu contrasena?
-            </Text>
-          </TouchableSound>
+            <Text style={styles.forgotText}>Olvidaste tu contrasena?</Text>
+          </TouchableOpacity>
 
-          {/* Login button */}
-          <TouchableSound
-            style={[styles.loginBtn, { opacity: isLoading ? 0.6 : 1 }]}
+          {/* -- Login button -- */}
+          <BigButton
+            label="Iniciar Sesion"
             onPress={handleLogin}
-            disabled={isLoading}
-            activeOpacity={0.8}
-          >
-            <LinearGradient
-              colors={['#16A34A', '#15803D']}
-              style={styles.loginGradient}
-              start={{ x: 0, y: 0 }}
-              end={{ x: 1, y: 0 }}
-            >
-              <Text style={styles.loginBtnText}>
-                {isLoading ? 'Iniciando...' : 'Iniciar Sesion'}
-              </Text>
-            </LinearGradient>
-          </TouchableSound>
+            color={DS.colors.green}
+            disabled={loading}
+            loading={loading}
+            height={DS.touch.button}
+          />
 
-          {/* Divider */}
-          <View style={styles.divider}>
-            <View style={[styles.dividerLine, { backgroundColor: borderColor }]} />
-            <Text style={[styles.dividerText, { color: textMuted, fontSize: fonts.sm }]}>o</Text>
-            <View style={[styles.dividerLine, { backgroundColor: borderColor }]} />
+          {/* -- Register link -- */}
+          <View style={styles.registerRow}>
+            <Text style={styles.registerPrompt}>No tienes cuenta? </Text>
+            <TouchableOpacity
+              onPress={() => router.push('/register' as any)}
+              disabled={loading}
+            >
+              <Text style={styles.registerLink}>Registrate</Text>
+            </TouchableOpacity>
           </View>
 
-          {/* Register link */}
-          <TouchableSound
-            style={[styles.registerBtn, { borderColor: borderColor, backgroundColor: cardBg }]}
-            onPress={() => router.push('/register' as any)}
-            disabled={isLoading}
-          >
-            <Text style={[styles.registerText, { color: textPrimary, fontSize: fonts.base }]}>
-              Crear una cuenta
-            </Text>
-          </TouchableSound>
-        </View>
-
-        {/* Footer */}
-        <Text style={[styles.footer, { color: textMuted, fontSize: fonts.xs }]}>
-          Yesswera - Tomatlan, Jalisco
-        </Text>
-      </ScrollView>
-    </KeyboardAvoidingView>
+          {/* -- Footer -- */}
+          <Text style={styles.footer}>Hecho en Tomatlan, Jalisco</Text>
+        </ScrollView>
+      </KeyboardAvoidingView>
+    </SafeAreaView>
   );
 }
 
+// -- Styles -------------------------------------------------------------------
 const styles = StyleSheet.create({
-  container: {
+  safe: {
+    flex: 1,
+    backgroundColor: DS.colors.card,
+  },
+  flex: {
     flex: 1,
   },
-  scrollContent: {
+  scroll: {
     flexGrow: 1,
-    paddingHorizontal: 24,
-    paddingTop: 80,
-    paddingBottom: 40,
+    justifyContent: 'center',
+    paddingHorizontal: DS.space.xxl,
+    paddingVertical: 40,
   },
 
-  // Logo
-  logoSection: {
+  // Brand
+  brand: {
     alignItems: 'center',
     marginBottom: 40,
   },
-  logoBox: {
-    width: 72,
-    height: 72,
-    borderRadius: 20,
-    marginBottom: 16,
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.2,
-    shadowRadius: 12,
-    elevation: 6,
-    overflow: 'hidden',
-  },
-  logoImage: {
-    width: 72,
-    height: 72,
-    borderRadius: 20,
-  },
-  jaliscoBadge: {
-    marginTop: 12,
-    paddingHorizontal: 14,
-    paddingVertical: 6,
-    borderRadius: 20,
-    borderWidth: 1,
-  },
-  jaliscoBadgeText: {
-    fontWeight: '500',
+  logo: {
+    width: 80,
+    height: 80,
+    borderRadius: DS.radius.xl,
+    marginBottom: DS.space.lg,
   },
   appName: {
-    fontWeight: '700',
-    marginBottom: 6,
+    ...DS.fonts.hero,
+    color: DS.colors.dark,
     letterSpacing: 0.5,
   },
   tagline: {
-    fontWeight: '400',
+    ...DS.fonts.body,
+    color: DS.colors.muted,
+    marginTop: DS.space.xs,
   },
 
-  // Form
-  form: {
-    flex: 1,
-  },
-  inputGroup: {
-    marginBottom: 18,
-  },
-  label: {
-    fontWeight: '500',
-    marginBottom: 8,
+  // Fields
+  fieldGroup: {
+    marginBottom: DS.space.lg,
   },
   inputWrap: {
     flexDirection: 'row',
     alignItems: 'center',
-    minHeight: 52,
-    paddingHorizontal: 14,
-    paddingVertical: Platform.OS === 'android' ? 4 : 0,
+    minHeight: DS.touch.min,
+    backgroundColor: DS.colors.bg,
+    borderRadius: DS.radius.md,
     borderWidth: 1.5,
-    borderRadius: 12,
-    gap: 10,
+    borderColor: DS.colors.hairline,
+    paddingHorizontal: DS.space.lg,
+    gap: DS.space.md,
+  },
+  inputError: {
+    borderColor: DS.colors.red,
   },
   input: {
     flex: 1,
-    paddingVertical: Platform.OS === 'android' ? 8 : 14,
+    ...DS.fonts.body,
+    color: DS.colors.dark,
+    paddingVertical: Platform.OS === 'android' ? 10 : 16,
   },
   errorText: {
-    fontSize: 12,
-    color: '#EF4444',
-    marginTop: 6,
-    marginLeft: 4,
+    ...DS.fonts.small,
+    color: DS.colors.red,
+    marginTop: DS.space.xs,
+    marginLeft: DS.space.xs,
   },
+
+  // Forgot
   forgotLink: {
     alignSelf: 'flex-end',
-    marginBottom: 24,
-    marginTop: -8,
+    marginBottom: DS.space.xxl,
+    marginTop: -DS.space.sm,
   },
   forgotText: {
-    fontWeight: '500',
-  },
-
-  // Login button
-  loginBtn: {
-    borderRadius: 14,
-    overflow: 'hidden',
-    shadowColor: '#16A34A',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.25,
-    shadowRadius: 12,
-    elevation: 4,
-    marginBottom: 24,
-  },
-  loginGradient: {
-    height: 52,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  loginBtnText: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#FFFFFF',
-  },
-
-  // Divider
-  divider: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 24,
-  },
-  dividerLine: {
-    flex: 1,
-    height: 1,
-  },
-  dividerText: {
-    marginHorizontal: 16,
+    ...DS.fonts.label,
+    color: DS.colors.green,
   },
 
   // Register
-  registerBtn: {
-    height: 52,
-    borderRadius: 14,
-    borderWidth: 1.5,
+  registerRow: {
+    flexDirection: 'row',
     justifyContent: 'center',
     alignItems: 'center',
+    marginTop: DS.space.xxxl,
   },
-  registerText: {
-    fontWeight: '600',
+  registerPrompt: {
+    ...DS.fonts.body,
+    color: DS.colors.muted,
+  },
+  registerLink: {
+    ...DS.fonts.bodyMed,
+    color: DS.colors.green,
   },
 
   // Footer
   footer: {
+    ...DS.fonts.small,
+    color: DS.colors.placeholder,
     textAlign: 'center',
-    marginTop: 32,
+    marginTop: DS.space.xxl,
   },
 });

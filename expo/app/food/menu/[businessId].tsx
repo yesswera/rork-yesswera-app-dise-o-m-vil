@@ -1,564 +1,486 @@
-import TouchableSound from '@/components/TouchableSound';
-// ============================================================================
-// YESSWERA: MENU DE NEGOCIO
-// Usa ScreenContainer para diseño unificado con gradiente verde
-// Soporta variantes de producto (tamaños, extras, etc.)
-// ============================================================================
-
+import { useState, useEffect, useCallback } from 'react';
 import {
-  StyleSheet,
   View,
-  Alert,
-  ActivityIndicator,
-  Modal,
+  Text,
   ScrollView,
+  TouchableOpacity,
+  Image,
+  StyleSheet,
+  ActivityIndicator,
+  SafeAreaView,
+  Modal,
 } from 'react-native';
-import { useRouter, useLocalSearchParams } from 'expo-router';
-import { ShoppingCart, Plus, Minus, Store, X, Check } from 'lucide-react-native';
-import { Image } from 'expo-image';
-import { useState, useEffect, useCallback, useRef } from 'react';
-import { useTheme } from '@/contexts/theme';
-import { ThemedText } from '@/components/themed';
-import { Business, Product, ProductVariant, SelectedVariant } from '@/constants/types';
-import { formatPriceWithUnit } from '@/constants/units';
-import { getBusinessById, getBusinessMenuWithVariants } from '@/services/products';
+import { router, useLocalSearchParams } from 'expo-router';
+import { Feather } from '@expo/vector-icons';
+import { DS, colorShadow } from '@/constants/design';
+import YCard from '@/components/ui/YCard';
+import Pill from '@/components/ui/Pill';
+import { getBusinessById, getBusinessMenu, getProductVariants } from '@/services/products';
 import { useCart } from '@/contexts/cart';
-import EmptyState from '@/components/EmptyState';
-import ScreenContainer from '@/components/ScreenContainer';
-import { useAnalytics } from '@/contexts/analytics';
+import type { Business, Product, ProductVariant, SelectedVariant } from '@/constants/types';
 
-type MenuProduct = Product & { variants: ProductVariant[]; unit?: string };
+function categoryEmoji(name: string): string {
+  const n = name.toLowerCase();
+  if (n.includes('taco')) return '\uD83C\uDF2E';
+  if (n.includes('marisco') || n.includes('pescado') || n.includes('camaron')) return '\uD83E\uDD90';
+  if (n.includes('pollo')) return '\uD83C\uDF57';
+  if (n.includes('bebida') || n.includes('agua') || n.includes('refresco')) return '\uD83E\uDD64';
+  if (n.includes('pizza')) return '\uD83C\uDF55';
+  if (n.includes('hamburguesa') || n.includes('burger')) return '\uD83C\uDF54';
+  if (n.includes('postre') || n.includes('pastel')) return '\uD83C\uDF70';
+  if (n.includes('sopa') || n.includes('caldo')) return '\uD83C\uDF72';
+  if (n.includes('ensalada')) return '\uD83E\uDD57';
+  return '\uD83C\uDF7D\uFE0F';
+}
 
 export default function MenuScreen() {
-  const router = useRouter();
   const { businessId } = useLocalSearchParams<{ businessId: string }>();
-  const { isDark, colors, space, radius } = useTheme();
+  const { items, addItem, itemCount, total } = useCart();
 
-  const { items, addItem, updateQuantity, itemCount } = useCart();
-  const { trackEvent } = useAnalytics();
-  const menuOpenTime = useRef(Date.now());
   const [business, setBusiness] = useState<Business | null>(null);
-  const [products, setProducts] = useState<MenuProduct[]>([]);
+  const [products, setProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
-  const [refreshing, setRefreshing] = useState(false);
 
   // Variant modal state
-  const [variantProduct, setVariantProduct] = useState<MenuProduct | null>(null);
+  const [variantProduct, setVariantProduct] = useState<Product | null>(null);
+  const [variants, setVariants] = useState<ProductVariant[]>([]);
   const [selectedVariants, setSelectedVariants] = useState<SelectedVariant[]>([]);
+  const [loadingVariants, setLoadingVariants] = useState(false);
 
-  const loadData = useCallback(async (signal?: { cancelled: boolean }) => {
+  const loadData = useCallback(async () => {
     if (!businessId) return;
     try {
       const [biz, menu] = await Promise.all([
         getBusinessById(businessId),
-        getBusinessMenuWithVariants(businessId),
+        getBusinessMenu(businessId),
       ]);
-      if (signal?.cancelled) return;
       setBusiness(biz);
       setProducts(menu);
-    } catch (error) {
-      console.error('Error loading menu:', error);
+    } catch (err) {
+      console.error('MenuScreen loadData error:', err);
     } finally {
-      if (!signal?.cancelled) {
-        setLoading(false);
-        setRefreshing(false);
-      }
+      setLoading(false);
     }
   }, [businessId]);
 
   useEffect(() => {
-    const signal = { cancelled: false };
-    setLoading(true);
-    menuOpenTime.current = Date.now();
-    loadData(signal);
-    return () => {
-      signal.cancelled = true;
-      const seconds = Math.round((Date.now() - menuOpenTime.current) / 1000);
-      if (businessId && seconds > 2) {
-        trackEvent('menu_view_duration', { business_id: businessId, seconds, products_seen: products.length });
-      }
-    };
+    loadData();
   }, [loadData]);
 
-  const onRefresh = () => {
-    setRefreshing(true);
-    loadData();
-  };
-
-  const getItemQuantity = (productId: string) => {
-    return items
-      .filter((item) => item.id === productId)
-      .reduce((sum, item) => sum + item.quantity, 0);
-  };
-
-  const handleAddToCart = (product: MenuProduct) => {
-    if (product.variants.length > 0) {
-      // Open variant picker modal
-      setVariantProduct(product);
-      setSelectedVariants([]);
-      return;
+  const handleAdd = async (product: Product) => {
+    // Check if product has variants
+    try {
+      setLoadingVariants(true);
+      const prodVariants = await getProductVariants(product.id);
+      if (prodVariants && prodVariants.length > 0) {
+        setVariantProduct(product);
+        setVariants(prodVariants);
+        setSelectedVariants([]);
+        setLoadingVariants(false);
+        return;
+      }
+    } catch {
+      // No variants, add directly
     }
-    // No variants — add directly
+    setLoadingVariants(false);
     addItem(product);
-    trackEvent('add_to_cart', {
-      product_id: product.id,
-      product_name: product.name,
-      price: product.price,
-      business_id: businessId,
-      business_name: business?.name,
-    });
   };
 
-  const handleConfirmVariants = () => {
+  const handleAddWithVariants = () => {
     if (!variantProduct) return;
-    addItem(variantProduct, selectedVariants);
-    const extra = selectedVariants.reduce((s, v) => s + v.priceAdjustment, 0);
-    trackEvent('add_to_cart', {
-      product_id: variantProduct.id,
-      product_name: variantProduct.name,
-      price: variantProduct.price + extra,
-      variants: selectedVariants.map(v => v.name),
-      business_id: businessId,
-      business_name: business?.name,
-    });
+    addItem(variantProduct, selectedVariants.length > 0 ? selectedVariants : undefined);
     setVariantProduct(null);
+    setVariants([]);
     setSelectedVariants([]);
   };
 
   const toggleVariant = (variant: ProductVariant) => {
-    setSelectedVariants(prev => {
-      const exists = prev.find(v => v.variantId === variant.id);
+    setSelectedVariants((prev) => {
+      const exists = prev.find((v) => v.variantId === variant.id);
       if (exists) {
-        return prev.filter(v => v.variantId !== variant.id);
+        return prev.filter((v) => v.variantId !== variant.id);
       }
-      return [...prev, {
-        variantId: variant.id,
-        group: variant.group,
-        name: variant.name,
-        priceAdjustment: variant.priceAdjustment,
-      }];
+      // For single-select groups, replace existing in same group
+      const sameGroup = prev.filter((v) => v.group !== variant.group);
+      return [
+        ...sameGroup,
+        {
+          variantId: variant.id,
+          group: variant.group,
+          name: variant.name,
+          priceAdjustment: variant.priceAdjustment,
+        },
+      ];
     });
   };
 
-  const handleGoToCart = () => {
-    if (itemCount === 0) {
-      Alert.alert('Carrito vacio', 'Agrega productos al carrito primero');
-      return;
-    }
-    router.push('/food/cart' as any);
-  };
-
+  // -- Loading state --
   if (loading) {
     return (
-      <ScreenContainer headerGradient="primary" headerIcon={Store} headerTitle="Cargando..." headerSubtitle="Obteniendo menu">
-        <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color={colors.primary} />
-        </View>
-      </ScreenContainer>
+      <View style={styles.center}>
+        <ActivityIndicator size="large" color={DS.colors.green} />
+        <Text style={styles.centerText}>Cargando menu...</Text>
+      </View>
     );
   }
 
+  // -- Not found state --
   if (!business) {
     return (
-      <ScreenContainer headerGradient="primary" headerIcon={Store} headerTitle="Error" headerSubtitle="Negocio no encontrado">
-        <View style={styles.errorContainer}>
-          <ThemedText variant="body" color="secondary">No se pudo cargar la informacion del negocio</ThemedText>
-        </View>
-      </ScreenContainer>
+      <View style={styles.center}>
+        <Feather name="alert-circle" size={48} color={DS.colors.muted} />
+        <Text style={styles.centerText}>Negocio no encontrado</Text>
+        <TouchableOpacity onPress={() => router.back()} style={styles.greenBtn}>
+          <Text style={styles.greenBtnText}>Regresar</Text>
+        </TouchableOpacity>
+      </View>
     );
   }
 
-  const cartButton = itemCount > 0 ? (
-    <TouchableSound style={[styles.cartButton, { backgroundColor: colors.primary }]} onPress={handleGoToCart}>
-      <View style={styles.cartBadge}>
-        <ThemedText variant="caption" style={styles.cartBadgeText}>{itemCount}</ThemedText>
-      </View>
-      <ThemedText variant="body" style={styles.cartButtonText}>Ver Carrito</ThemedText>
-      <ShoppingCart size={20} color="#FFFFFF" />
-    </TouchableSound>
-  ) : null;
-
-  // Group variants by group name for the modal
+  // Group variants by group name for modal
   const variantGroups: Record<string, ProductVariant[]> = {};
-  if (variantProduct) {
-    for (const v of variantProduct.variants) {
-      if (!variantGroups[v.group]) variantGroups[v.group] = [];
-      variantGroups[v.group].push(v);
-    }
-  }
+  variants.forEach((v) => {
+    if (!variantGroups[v.group]) variantGroups[v.group] = [];
+    variantGroups[v.group].push(v);
+  });
 
   const variantExtra = selectedVariants.reduce((s, v) => s + v.priceAdjustment, 0);
 
   return (
-    <ScreenContainer
-      headerGradient="primary"
-      headerIcon={Store}
-      headerTitle={business.name}
-      headerSubtitle={business.description}
-      refreshing={refreshing}
-      onRefresh={onRefresh}
-      footer={cartButton}
-      footerPadding={itemCount > 0 ? 100 : 0}
-    >
-      {/* Business image banner */}
-      {business.image ? (
-        <Image
-          source={{ uri: business.image }}
-          style={[styles.headerImage, { borderRadius: radius.lg, marginBottom: space.md }]}
-          contentFit="cover"
-        />
-      ) : (
-        <View style={[styles.headerImage, styles.imagePlaceholder, {
-          backgroundColor: isDark ? '#44403C' : '#F5F5F4',
-          borderRadius: radius.lg,
-          marginBottom: space.md,
-        }]}>
-          <ThemedText variant="h1" color="secondary">{business.name.charAt(0)}</ThemedText>
+    <SafeAreaView style={styles.screen}>
+      <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
+
+        {/* -- Header image -- */}
+        <View style={styles.headerWrap}>
+          {business.image ? (
+            <Image source={{ uri: business.image }} style={styles.headerImg} />
+          ) : (
+            <View style={[styles.headerImg, styles.headerPlaceholder]}>
+              <Text style={{ fontSize: 64 }}>{categoryEmoji(business.category)}</Text>
+            </View>
+          )}
+          <View style={styles.headerOverlay} />
+          <TouchableOpacity
+            style={styles.backCircle}
+            onPress={() => router.back()}
+            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+          >
+            <Feather name="arrow-left" size={22} color="#FFF" />
+          </TouchableOpacity>
+        </View>
+
+        {/* -- Business info card -- */}
+        <View style={styles.infoWrap}>
+          <YCard>
+            <Text style={styles.bizName}>{business.name}</Text>
+            {business.description ? (
+              <Text style={styles.bizDesc} numberOfLines={2}>{business.description}</Text>
+            ) : null}
+            <View style={styles.metaRow}>
+              <View style={styles.metaItem}>
+                <Feather name="star" size={14} color="#F59E0B" />
+                <Text style={styles.metaText}>{business.rating.toFixed(1)}</Text>
+              </View>
+              <View style={styles.dot} />
+              <View style={styles.metaItem}>
+                <Feather name="clock" size={14} color={DS.colors.muted} />
+                <Text style={styles.metaText}>{business.deliveryTime}</Text>
+              </View>
+              <View style={styles.dot} />
+              <View style={styles.metaItem}>
+                <Feather name="tag" size={14} color={DS.colors.muted} />
+                <Text style={styles.metaText}>{business.category}</Text>
+              </View>
+            </View>
+          </YCard>
+        </View>
+
+        {/* -- Products list -- */}
+        <View style={styles.menuSection}>
+          <Text style={styles.sectionTitle}>Menu</Text>
+
+          {products.length === 0 ? (
+            <View style={styles.empty}>
+              <Feather name="coffee" size={40} color={DS.colors.hairline} />
+              <Text style={styles.emptyText}>Este negocio aun no tiene productos</Text>
+            </View>
+          ) : (
+            <View style={styles.productList}>
+              {products.map((product) => (
+                <YCard key={product.id} style={styles.productCard} padding={DS.space.md}>
+                  <View style={styles.productRow}>
+                    {product.image ? (
+                      <Image source={{ uri: product.image }} style={styles.productImg} />
+                    ) : (
+                      <View style={[styles.productImg, styles.productImgFallback]}>
+                        <Text style={{ fontSize: 28 }}>{categoryEmoji(product.name)}</Text>
+                      </View>
+                    )}
+
+                    <View style={styles.productInfo}>
+                      <Text style={styles.productName} numberOfLines={1}>{product.name}</Text>
+                      {product.description ? (
+                        <Text style={styles.productDesc} numberOfLines={2}>{product.description}</Text>
+                      ) : null}
+                      <Text style={styles.productPrice}>${product.price.toFixed(2)}</Text>
+                    </View>
+
+                    <TouchableOpacity
+                      style={styles.addBtn}
+                      onPress={() => handleAdd(product)}
+                      activeOpacity={0.8}
+                    >
+                      <Feather name="plus" size={22} color="#FFF" />
+                    </TouchableOpacity>
+                  </View>
+                </YCard>
+              ))}
+            </View>
+          )}
+        </View>
+
+        {/* Spacer for floating bar */}
+        {itemCount > 0 && <View style={{ height: 100 }} />}
+      </ScrollView>
+
+      {/* -- Floating cart bar -- */}
+      {itemCount > 0 && (
+        <View style={[styles.cartBar, DS.shadow.float]}>
+          <TouchableOpacity
+            style={[styles.cartBtn, colorShadow(DS.colors.green)]}
+            onPress={() => router.push('/food/checkout' as any)}
+            activeOpacity={0.9}
+          >
+            <Feather name="shopping-bag" size={20} color="#FFF" />
+            <Text style={styles.cartBtnLabel}>
+              Ver Carrito ({itemCount})
+            </Text>
+            <Text style={styles.cartBtnPrice}>${total.toFixed(2)}</Text>
+          </TouchableOpacity>
         </View>
       )}
 
-      {/* Menu section */}
-      <View style={styles.productsSection}>
-        <ThemedText variant="h2" style={{ marginBottom: space.md }}>Menu</ThemedText>
-
-        {products.length === 0 ? (
-          <EmptyState icon={Store} title="Sin productos" message="Este negocio aun no tiene productos disponibles" />
-        ) : (
-          <View style={[styles.productsGrid, { gap: space.md }]}>
-            {products.map((product) => {
-              const quantity = getItemQuantity(product.id);
-              const hasVariants = product.variants.length > 0;
-              return (
-                <View
-                  key={product.id}
-                  style={[styles.productCard, {
-                    backgroundColor: colors.card,
-                    borderRadius: radius.lg,
-                  }]}
-                >
-                  {product.image ? (
-                    <Image
-                      source={{ uri: product.image }}
-                      style={[styles.productImage, { borderRadius: radius.md }]}
-                      contentFit="cover"
-                    />
-                  ) : (
-                    <View style={[styles.productImage, styles.productImagePlaceholder, {
-                      backgroundColor: isDark ? '#44403C' : '#F5F5F4',
-                      borderRadius: radius.md,
-                    }]}>
-                      <ThemedText variant="h2" color="secondary">{product.name.charAt(0)}</ThemedText>
-                    </View>
-                  )}
-
-                  <View style={[styles.productInfo, { padding: space.sm }]}>
-                    <ThemedText variant="subtitle" bold>{product.name}</ThemedText>
-                    <ThemedText variant="caption" color="secondary" numberOfLines={2}>
-                      {product.description}
-                    </ThemedText>
-                    {hasVariants && (
-                      <ThemedText variant="caption" style={{ color: colors.accent, fontSize: 11 }}>
-                        Opciones disponibles
-                      </ThemedText>
-                    )}
-
-                    <View style={styles.productFooter}>
-                      <ThemedText variant="subtitle" bold style={{ color: colors.primary }}>
-                        {hasVariants ? `Desde ` : ''}{formatPriceWithUnit(product.price, product.unit || 'pieza')}
-                      </ThemedText>
-
-                      {quantity > 0 && !hasVariants ? (
-                        <View style={[styles.quantityControls, { gap: space.xs }]}>
-                          <TouchableSound
-                            style={[styles.quantityButton, { backgroundColor: colors.primary + '15' }]}
-                            onPress={() => updateQuantity(product.id, quantity - 1)}
-                          >
-                            <Minus size={16} color={colors.primary} strokeWidth={3} />
-                          </TouchableSound>
-                          <ThemedText variant="body" bold style={styles.quantityText}>{quantity}</ThemedText>
-                          <TouchableSound
-                            style={[styles.quantityButton, { backgroundColor: colors.primary + '15' }]}
-                            onPress={() => updateQuantity(product.id, quantity + 1)}
-                          >
-                            <Plus size={16} color={colors.primary} strokeWidth={3} />
-                          </TouchableSound>
-                        </View>
-                      ) : (
-                        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-                          {quantity > 0 && hasVariants && (
-                            <View style={[styles.variantBadge, { backgroundColor: colors.primary + '20' }]}>
-                              <ThemedText variant="caption" style={{ color: colors.primary, fontWeight: '700' }}>
-                                {quantity}
-                              </ThemedText>
-                            </View>
-                          )}
-                          <TouchableSound
-                            style={[styles.addButton, { backgroundColor: colors.primary }]}
-                            onPress={() => handleAddToCart(product)}
-                          >
-                            <Plus size={18} color="#FFFFFF" strokeWidth={3} />
-                          </TouchableSound>
-                        </View>
-                      )}
-                    </View>
-                  </View>
-                </View>
-              );
-            })}
-          </View>
-        )}
-      </View>
-
-      {/* Variant Picker Modal */}
-      <Modal
-        visible={!!variantProduct}
-        transparent
-        animationType="slide"
-        onRequestClose={() => setVariantProduct(null)}
-      >
+      {/* -- Variant selection modal -- */}
+      <Modal visible={!!variantProduct} transparent animationType="slide">
         <View style={styles.modalOverlay}>
-          <View style={[styles.modalContent, {
-            backgroundColor: colors.card,
-            borderTopLeftRadius: radius.xl || 24,
-            borderTopRightRadius: radius.xl || 24,
-          }]}>
-            {/* Header */}
-            <View style={[styles.modalHeader, { borderBottomColor: isDark ? '#44403C' : '#E7E5E4' }]}>
-              <View style={{ flex: 1 }}>
-                <ThemedText variant="h3" bold>{variantProduct?.name}</ThemedText>
-                <ThemedText variant="caption" color="secondary">Personaliza tu pedido</ThemedText>
-              </View>
-              <TouchableSound onPress={() => setVariantProduct(null)} style={styles.modalClose}>
-                <X size={24} color={colors.text.primary} />
-              </TouchableSound>
-            </View>
+          <View style={styles.modalSheet}>
+            <View style={styles.modalHandle} />
 
-            <ScrollView style={styles.modalBody} showsVerticalScrollIndicator={false}>
-              {Object.entries(variantGroups).map(([group, variants]) => (
-                <View key={group} style={{ marginBottom: space.lg }}>
-                  <ThemedText variant="subtitle" bold style={{ marginBottom: space.sm }}>{group}</ThemedText>
-                  {variants.map((variant) => {
-                    const isSelected = selectedVariants.some(v => v.variantId === variant.id);
+            <Text style={styles.modalTitle}>{variantProduct?.name}</Text>
+            <Text style={styles.modalSubtitle}>Personaliza tu producto</Text>
+
+            <ScrollView style={styles.modalScroll} showsVerticalScrollIndicator={false}>
+              {Object.entries(variantGroups).map(([group, groupVariants]) => (
+                <View key={group} style={styles.variantGroup}>
+                  <Text style={styles.variantGroupTitle}>{group}</Text>
+                  {groupVariants.map((v) => {
+                    const isSelected = selectedVariants.some((sv) => sv.variantId === v.id);
                     return (
-                      <TouchableSound
-                        key={variant.id}
-                        style={[styles.variantOption, {
-                          backgroundColor: isSelected ? colors.primary + '15' : 'transparent',
-                          borderColor: isSelected ? colors.primary : (isDark ? '#44403C' : '#E7E5E4'),
-                          borderRadius: radius.md,
-                        }]}
-                        onPress={() => toggleVariant(variant)}
+                      <TouchableOpacity
+                        key={v.id}
+                        style={[styles.variantOption, isSelected && styles.variantOptionSelected]}
+                        onPress={() => toggleVariant(v)}
+                        activeOpacity={0.7}
                       >
-                        <View style={[styles.variantCheckbox, {
-                          borderColor: isSelected ? colors.primary : (isDark ? '#78716C' : '#A8A29E'),
-                          backgroundColor: isSelected ? colors.primary : 'transparent',
-                        }]}>
-                          {isSelected && <Check size={14} color="#FFFFFF" strokeWidth={3} />}
+                        <View style={[styles.variantRadio, isSelected && styles.variantRadioSelected]}>
+                          {isSelected && <View style={styles.variantRadioDot} />}
                         </View>
-                        <ThemedText variant="body" style={{ flex: 1 }}>{variant.name}</ThemedText>
-                        {variant.priceAdjustment !== 0 && (
-                          <ThemedText variant="body" style={{ color: variant.priceAdjustment > 0 ? colors.primary : colors.success }}>
-                            {variant.priceAdjustment > 0 ? '+' : ''}${variant.priceAdjustment.toFixed(2)}
-                          </ThemedText>
+                        <Text style={styles.variantName}>{v.name}</Text>
+                        {v.priceAdjustment > 0 && (
+                          <Text style={styles.variantPrice}>+${v.priceAdjustment.toFixed(2)}</Text>
                         )}
-                      </TouchableSound>
+                      </TouchableOpacity>
                     );
                   })}
                 </View>
               ))}
             </ScrollView>
 
-            {/* Footer with price + add button */}
-            <View style={[styles.modalFooter, { borderTopColor: isDark ? '#44403C' : '#E7E5E4' }]}>
-              <View>
-                <ThemedText variant="caption" color="secondary">Total</ThemedText>
-                <ThemedText variant="h3" bold style={{ color: colors.primary }}>
-                  ${((variantProduct?.price || 0) + variantExtra).toFixed(2)}
-                </ThemedText>
-              </View>
-              <TouchableSound
-                style={[styles.modalAddButton, { backgroundColor: colors.primary }]}
-                onPress={handleConfirmVariants}
+            <View style={styles.modalFooter}>
+              <TouchableOpacity
+                style={styles.modalCancel}
+                onPress={() => { setVariantProduct(null); setVariants([]); setSelectedVariants([]); }}
               >
-                <ThemedText variant="subtitle" style={{ color: '#FFFFFF', fontWeight: '700' }}>
-                  Agregar al carrito
-                </ThemedText>
-              </TouchableSound>
+                <Text style={styles.modalCancelText}>Cancelar</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.modalConfirm, colorShadow(DS.colors.green)]}
+                onPress={handleAddWithVariants}
+                activeOpacity={0.8}
+              >
+                <Text style={styles.modalConfirmText}>
+                  Agregar ${((variantProduct?.price || 0) + variantExtra).toFixed(2)}
+                </Text>
+              </TouchableOpacity>
             </View>
           </View>
         </View>
       </Modal>
-    </ScreenContainer>
+    </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
-  loadingContainer: {
+  screen: { flex: 1, backgroundColor: DS.colors.bg },
+  scroll: { paddingBottom: 20 },
+
+  center: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    minHeight: 200,
+    backgroundColor: DS.colors.bg,
+    gap: DS.space.md,
   },
-  errorContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: 20,
+  centerText: { ...DS.fonts.body, color: DS.colors.muted },
+  greenBtn: {
+    marginTop: DS.space.md,
+    backgroundColor: DS.colors.green,
+    borderRadius: DS.radius.xl,
+    paddingHorizontal: 24,
+    paddingVertical: 14,
   },
-  headerImage: {
-    width: '100%',
-    height: 180,
-  },
-  imagePlaceholder: {
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  productsSection: {
-    marginBottom: 20,
-  },
-  productsGrid: {},
-  productCard: {
-    flexDirection: 'row',
-    overflow: 'hidden',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.08,
-    shadowRadius: 8,
-    elevation: 2,
-  },
-  productImage: {
-    width: 120,
-    height: 120,
-  },
-  productImagePlaceholder: {
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  productInfo: {
-    flex: 1,
-    justifyContent: 'space-between',
-  },
-  productFooter: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginTop: 8,
-  },
-  addButton: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  variantBadge: {
-    width: 24,
-    height: 24,
-    borderRadius: 12,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  quantityControls: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  quantityButton: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  quantityText: {
-    minWidth: 24,
-    textAlign: 'center',
-  },
-  cartButton: {
-    height: 56,
-    borderRadius: 16,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 12,
-    shadowColor: '#22C55E',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.4,
-    shadowRadius: 12,
-    elevation: 8,
-  },
-  cartBadge: {
-    width: 24,
-    height: 24,
-    borderRadius: 12,
-    backgroundColor: '#FFFFFF',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  cartBadgeText: {
-    fontSize: 12,
-    fontWeight: '700',
-    color: '#22C55E',
-  },
-  cartButtonText: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#FFFFFF',
-  },
-  // Variant Modal
-  modalOverlay: {
-    flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.5)',
-    justifyContent: 'flex-end',
-  },
-  modalContent: {
-    maxHeight: '80%',
-    paddingBottom: 34,
-  },
-  modalHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    padding: 20,
-    borderBottomWidth: 1,
-  },
-  modalClose: {
+  greenBtnText: { ...DS.fonts.bodyMed, color: '#FFF' },
+
+  // Header
+  headerWrap: { height: 200, position: 'relative' },
+  headerImg: { width: '100%', height: '100%', resizeMode: 'cover' },
+  headerPlaceholder: { backgroundColor: DS.colors.green, justifyContent: 'center', alignItems: 'center' },
+  headerOverlay: { ...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(0,0,0,0.2)' },
+  backCircle: {
+    position: 'absolute',
+    top: 50,
+    left: DS.space.lg,
     width: 40,
     height: 40,
     borderRadius: 20,
+    backgroundColor: 'rgba(0,0,0,0.35)',
     justifyContent: 'center',
     alignItems: 'center',
   },
-  modalBody: {
-    paddingHorizontal: 20,
-    paddingTop: 16,
+
+  // Info card
+  infoWrap: { marginTop: -24, marginHorizontal: DS.space.lg },
+  bizName: { ...DS.fonts.title, color: DS.colors.dark, marginBottom: 4 },
+  bizDesc: { ...DS.fonts.body, color: DS.colors.muted, marginBottom: DS.space.sm },
+  metaRow: { flexDirection: 'row', alignItems: 'center', marginTop: DS.space.xs },
+  metaItem: { flexDirection: 'row', alignItems: 'center', gap: 4 },
+  metaText: { ...DS.fonts.small, color: DS.colors.body },
+  dot: {
+    width: 4, height: 4, borderRadius: 2,
+    backgroundColor: DS.colors.hairline, marginHorizontal: DS.space.sm,
   },
+
+  // Menu section
+  menuSection: { padding: DS.space.lg, paddingTop: DS.space.xl },
+  sectionTitle: { ...DS.fonts.section, color: DS.colors.dark, marginBottom: DS.space.lg },
+
+  empty: { alignItems: 'center', paddingTop: 40, gap: DS.space.sm },
+  emptyText: { ...DS.fonts.body, color: DS.colors.muted },
+
+  // Product card
+  productList: { gap: DS.space.md },
+  productCard: { marginBottom: 0 },
+  productRow: { flexDirection: 'row', alignItems: 'center', gap: DS.space.md },
+  productImg: { width: 80, height: 80, borderRadius: DS.radius.md },
+  productImgFallback: { backgroundColor: DS.colors.divider, justifyContent: 'center', alignItems: 'center' },
+  productInfo: { flex: 1, gap: 2 },
+  productName: { ...DS.fonts.bodyMed, color: DS.colors.dark },
+  productDesc: { ...DS.fonts.small, color: DS.colors.muted },
+  productPrice: { ...DS.fonts.bodyMed, color: DS.colors.green, marginTop: 2 },
+  addBtn: {
+    width: DS.touch.min,
+    height: DS.touch.min,
+    borderRadius: DS.touch.min / 2,
+    backgroundColor: DS.colors.green,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+
+  // Floating cart
+  cartBar: {
+    position: 'absolute',
+    bottom: 0, left: 0, right: 0,
+    backgroundColor: DS.colors.card,
+    paddingHorizontal: DS.space.lg,
+    paddingTop: DS.space.md,
+    paddingBottom: 30,
+  },
+  cartBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: DS.colors.green,
+    borderRadius: DS.radius.xl,
+    height: DS.touch.button,
+    paddingHorizontal: DS.space.lg,
+    gap: DS.space.sm,
+  },
+  cartBtnLabel: { ...DS.fonts.button, color: '#FFF', flex: 1 },
+  cartBtnPrice: { ...DS.fonts.button, color: '#FFF' },
+
+  // Variant modal
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: DS.colors.overlay,
+    justifyContent: 'flex-end',
+  },
+  modalSheet: {
+    backgroundColor: DS.colors.card,
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    paddingHorizontal: DS.space.xl,
+    paddingTop: DS.space.md,
+    paddingBottom: 34,
+    maxHeight: '70%',
+  },
+  modalHandle: {
+    width: 40, height: 5, borderRadius: 3,
+    backgroundColor: DS.colors.hairline,
+    alignSelf: 'center',
+    marginBottom: DS.space.lg,
+  },
+  modalTitle: { ...DS.fonts.title, color: DS.colors.dark },
+  modalSubtitle: { ...DS.fonts.small, color: DS.colors.muted, marginTop: 4, marginBottom: DS.space.lg },
+  modalScroll: { marginBottom: DS.space.lg },
+  variantGroup: { marginBottom: DS.space.xl },
+  variantGroupTitle: { ...DS.fonts.label, color: DS.colors.muted, marginBottom: DS.space.sm },
   variantOption: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingVertical: 14,
-    paddingHorizontal: 16,
-    marginBottom: 8,
-    borderWidth: 1.5,
-    gap: 12,
+    paddingVertical: DS.space.md,
+    paddingHorizontal: DS.space.md,
+    borderRadius: DS.radius.md,
+    backgroundColor: DS.colors.bg,
+    marginBottom: DS.space.sm,
+    gap: DS.space.md,
   },
-  variantCheckbox: {
-    width: 22,
-    height: 22,
-    borderRadius: 6,
-    borderWidth: 2,
+  variantOptionSelected: { backgroundColor: DS.colors.greenLight },
+  variantRadio: {
+    width: 22, height: 22, borderRadius: 11,
+    borderWidth: 2, borderColor: DS.colors.hairline,
+    justifyContent: 'center', alignItems: 'center',
+  },
+  variantRadioSelected: { borderColor: DS.colors.green },
+  variantRadioDot: { width: 12, height: 12, borderRadius: 6, backgroundColor: DS.colors.green },
+  variantName: { ...DS.fonts.body, color: DS.colors.dark, flex: 1 },
+  variantPrice: { ...DS.fonts.bodyMed, color: DS.colors.green },
+  modalFooter: { flexDirection: 'row', gap: DS.space.md },
+  modalCancel: {
+    flex: 1,
+    height: DS.touch.min,
+    borderRadius: DS.radius.xl,
+    backgroundColor: DS.colors.bg,
     justifyContent: 'center',
     alignItems: 'center',
   },
-  modalFooter: {
-    flexDirection: 'row',
+  modalCancelText: { ...DS.fonts.bodyMed, color: DS.colors.muted },
+  modalConfirm: {
+    flex: 2,
+    height: DS.touch.min,
+    borderRadius: DS.radius.xl,
+    backgroundColor: DS.colors.green,
+    justifyContent: 'center',
     alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: 20,
-    paddingTop: 16,
-    borderTopWidth: 1,
   },
-  modalAddButton: {
-    paddingHorizontal: 24,
-    paddingVertical: 14,
-    borderRadius: 14,
-  },
+  modalConfirmText: { ...DS.fonts.button, color: '#FFF' },
 });

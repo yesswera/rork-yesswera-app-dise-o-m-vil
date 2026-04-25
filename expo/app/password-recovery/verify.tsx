@@ -1,283 +1,196 @@
-import TouchableSound from '@/components/TouchableSound';
-// ============================================================================
-// YESSWERA: RECUPERAR CONTRASENA - VERIFICAR CODIGO
-// Usa ScreenContainer para diseño unificado con soporte de tema oscuro
-// ============================================================================
-
 import { useState, useRef, useEffect } from 'react';
 import {
   View,
+  Text,
   TextInput,
+  TouchableOpacity,
+  SafeAreaView,
+  ScrollView,
   StyleSheet,
+  KeyboardAvoidingView,
+  Platform,
 } from 'react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
-import { ShieldCheck, ArrowLeft } from 'lucide-react-native';
-import { useTheme } from '@/contexts/theme';
-import { ThemedText } from '@/components/themed';
-import ScreenContainer from '@/components/ScreenContainer';
-import LoadingButton from '@/components/LoadingButton';
+import { ShieldCheck } from 'lucide-react-native';
+import { DS } from '@/constants/design';
+import BigButton from '@/components/ui/BigButton';
 import { Toast } from '@/utils/toast';
 import { HapticFeedback } from '@/utils/haptics';
 import { supabase } from '@/constants/supabase';
 
-// ============================================================================
-// COLORES EXPLÍCITOS PARA MODO OSCURO
-// ============================================================================
-
-const COLORS = {
-  light: {
-    card: '#FFFFFF',
-    cardAlt: '#F5F5F4',
-    border: '#E7E5E4',
-    borderMedium: '#D6D3D1',
-    text: '#1C1917',
-    textSecondary: '#57534E',
-    textMuted: '#A8A29E',
-  },
-  dark: {
-    card: '#292524',
-    cardAlt: '#44403C',
-    border: '#44403C',
-    borderMedium: '#57534E',
-    text: '#FAFAFA',
-    textSecondary: '#D6D3D1',
-    textMuted: '#78716C',
-  },
-};
-
 export default function PasswordRecoveryVerifyScreen() {
   const router = useRouter();
   const { email } = useLocalSearchParams();
-  const { colors, isDark } = useTheme();
-  const theme = isDark ? COLORS.dark : COLORS.light;
-
-  const [code, setCode] = useState<string[]>(['', '', '', '', '', '']);
-  const [isLoading, setIsLoading] = useState<boolean>(false);
+  const [code, setCode] = useState(['', '', '', '', '', '']);
+  const [loading, setLoading] = useState(false);
   const inputRefs = useRef<(TextInput | null)[]>([]);
 
   useEffect(() => {
-    // Focus first input on mount
-    setTimeout(() => {
-      inputRefs.current[0]?.focus();
-    }, 500);
+    setTimeout(() => inputRefs.current[0]?.focus(), 500);
   }, []);
 
-  const handleCodeChange = (value: string, index: number) => {
+  const handleChange = (value: string, index: number) => {
     if (!/^\d*$/.test(value)) return;
-
-    const newCode = [...code];
-    newCode[index] = value;
-    setCode(newCode);
-
-    if (value && index < 5) {
-      inputRefs.current[index + 1]?.focus();
-    }
+    const next = [...code];
+    next[index] = value;
+    setCode(next);
+    if (value && index < 5) inputRefs.current[index + 1]?.focus();
   };
 
-  const handleKeyPress = (key: string, index: number) => {
+  const handleKey = (key: string, index: number) => {
     if (key === 'Backspace' && !code[index] && index > 0) {
       inputRefs.current[index - 1]?.focus();
     }
   };
 
-  const handleVerifyCode = async () => {
-    const codeString = code.join('');
-
-    if (codeString.length < 6) {
-      HapticFeedback.error();
+  const handleVerify = async () => {
+    const codeStr = code.join('');
+    if (codeStr.length < 6) {
       Toast.error('Ingresa el codigo completo');
       return;
     }
 
-    setIsLoading(true);
+    setLoading(true);
     try {
       const emailStr = Array.isArray(email) ? email[0] : email || '';
-      const { data, error: verifyError } = await supabase.auth.verifyOtp({
+      const { error } = await supabase.auth.verifyOtp({
         email: emailStr,
-        token: codeString,
+        token: codeStr,
         type: 'recovery',
       });
-
-      if (verifyError) {
-        throw verifyError;
-      }
-
+      if (error) throw error;
       HapticFeedback.success();
-      Toast.success('Codigo verificado correctamente');
+      Toast.success('Codigo verificado');
       router.push('/password-recovery/reset' as any);
-    } catch (error: any) {
-      console.error('Verify code error:', error);
+    } catch (err: any) {
       HapticFeedback.error();
-      const msg = error?.message?.includes('expired')
+      const msg = err?.message?.includes('expired')
         ? 'Codigo expirado. Solicita uno nuevo.'
-        : 'Codigo incorrecto. Intenta nuevamente.';
+        : 'Codigo incorrecto.';
       Toast.error(msg);
     } finally {
-      setIsLoading(false);
+      setLoading(false);
     }
   };
 
-  const handleResendCode = async () => {
+  const handleResend = async () => {
     try {
       const emailStr = Array.isArray(email) ? email[0] : email || '';
       await supabase.auth.resetPasswordForEmail(emailStr);
-      HapticFeedback.light();
-      Toast.info('Codigo reenviado a tu correo');
-    } catch (error) {
-      console.error('Resend code error:', error);
-      Toast.error('No se pudo reenviar. Intenta de nuevo.');
+      Toast.info('Codigo reenviado');
+    } catch {
+      Toast.error('No se pudo reenviar');
     }
     setCode(['', '', '', '', '', '']);
     inputRefs.current[0]?.focus();
   };
 
-  const isCodeComplete = code.every(digit => digit !== '');
-
-  // Header content con boton de regreso
-  const headerContent = (
-    <View style={styles.headerControls}>
-      <TouchableSound
-        style={styles.backButton}
-        onPress={() => router.back()}
-      >
-        <ArrowLeft size={24} color="#FFFFFF" />
-      </TouchableSound>
-      <View style={styles.headerSpacer} />
-    </View>
-  );
+  const isComplete = code.every((d) => d !== '');
 
   return (
-    <ScreenContainer
-      headerGradient="secondary"
-      headerIcon={ShieldCheck}
-      headerTitle="Verificar Codigo"
-      headerSubtitle="Ingresa el codigo de 6 digitos"
-      headerContent={headerContent}
-    >
-      <ThemedText variant="h3" center style={styles.title}>
-        Verifica tu Codigo
-      </ThemedText>
+    <SafeAreaView style={styles.safe}>
+      <KeyboardAvoidingView
+        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+        style={{ flex: 1 }}
+      >
+        <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
+          <View style={styles.iconCircle}>
+            <ShieldCheck size={32} color={DS.colors.green} />
+          </View>
 
-      <ThemedText variant="body" color="secondary" center style={styles.subtitle}>
-        Enviamos un codigo de 6 digitos a {email || 'tu correo'}
-      </ThemedText>
+          <Text style={styles.title}>Verifica tu Codigo</Text>
+          <Text style={styles.subtitle}>
+            Enviamos un codigo de 6 digitos a {email || 'tu correo'}
+          </Text>
 
-      <View style={styles.codeContainer}>
-        {code.map((digit, index) => (
-          <TextInput
-            key={index}
-            ref={(ref) => { inputRefs.current[index] = ref; }}
-            style={[
-              styles.codeInput,
-              {
-                backgroundColor: theme.card,
-                borderColor: digit ? colors.primary : theme.border,
-                color: theme.text,
-              },
-              digit && { backgroundColor: colors.primary + '08' },
-            ]}
-            value={digit}
-            onChangeText={(value) => handleCodeChange(value, index)}
-            onKeyPress={({ nativeEvent: { key } }) => handleKeyPress(key, index)}
-            keyboardType="number-pad"
-            maxLength={1}
-            selectTextOnFocus
-            editable={!isLoading}
+          {/* Code inputs */}
+          <View style={styles.codeRow}>
+            {code.map((digit, i) => (
+              <TextInput
+                key={i}
+                ref={(ref) => { inputRefs.current[i] = ref; }}
+                style={[
+                  styles.codeInput,
+                  digit ? styles.codeInputFilled : null,
+                ]}
+                value={digit}
+                onChangeText={(v) => handleChange(v, i)}
+                onKeyPress={({ nativeEvent: { key } }) => handleKey(key, i)}
+                keyboardType="number-pad"
+                maxLength={1}
+                selectTextOnFocus
+                editable={!loading}
+              />
+            ))}
+          </View>
+
+          <BigButton
+            title="Verificar Codigo"
+            color={DS.colors.green}
+            onPress={handleVerify}
+            loading={loading}
+            disabled={!isComplete}
           />
-        ))}
-      </View>
 
-      <LoadingButton
-        title="Verificar Codigo"
-        onPress={handleVerifyCode}
-        loading={isLoading}
-        variant="primary"
-        disabled={!isCodeComplete}
-      />
-
-      <View style={styles.linksContainer}>
-        <TouchableSound
-          onPress={handleResendCode}
-          disabled={isLoading}
-          style={styles.linkButton}
-        >
-          <ThemedText variant="body" color="primary" bold>
-            Reenviar codigo
-          </ThemedText>
-        </TouchableSound>
-
-        <ThemedText variant="body" color="muted" style={styles.linkSeparator}>
-          -
-        </ThemedText>
-
-        <TouchableSound
-          onPress={() => router.back()}
-          disabled={isLoading}
-          style={styles.linkButton}
-        >
-          <ThemedText variant="body" color="primary" bold>
-            Cambiar email
-          </ThemedText>
-        </TouchableSound>
-      </View>
-
-      <View style={{ height: 40 }} />
-    </ScreenContainer>
+          <View style={styles.links}>
+            <TouchableOpacity onPress={handleResend} disabled={loading}>
+              <Text style={styles.linkText}>Reenviar codigo</Text>
+            </TouchableOpacity>
+            <Text style={styles.linkSep}>|</Text>
+            <TouchableOpacity onPress={() => router.back()} disabled={loading}>
+              <Text style={styles.linkText}>Cambiar email</Text>
+            </TouchableOpacity>
+          </View>
+        </ScrollView>
+      </KeyboardAvoidingView>
+    </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
-  headerControls: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 8,
-  },
-  backButton: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    backgroundColor: 'rgba(255, 255, 255, 0.2)',
+  safe: { flex: 1, backgroundColor: DS.colors.bg },
+  scroll: { padding: DS.space.xl, paddingTop: 60 },
+  iconCircle: {
+    width: 72,
+    height: 72,
+    borderRadius: 36,
+    backgroundColor: DS.colors.greenLight,
     justifyContent: 'center',
     alignItems: 'center',
+    alignSelf: 'center',
+    marginBottom: DS.space.xxl,
   },
-  headerSpacer: {
-    width: 44,
-  },
-  title: {
-    marginBottom: 12,
-  },
-  subtitle: {
-    marginBottom: 32,
-    lineHeight: 22,
-  },
-  codeContainer: {
+  title: { ...DS.fonts.title, color: DS.colors.dark, textAlign: 'center', marginBottom: DS.space.md },
+  subtitle: { ...DS.fonts.body, color: DS.colors.muted, textAlign: 'center', marginBottom: DS.space.xxxl },
+  codeRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    marginBottom: 32,
-    gap: 8,
+    gap: DS.space.sm,
+    marginBottom: DS.space.xxxl,
   },
   codeInput: {
     flex: 1,
     height: 60,
     borderWidth: 2,
-    borderRadius: 12,
+    borderColor: DS.colors.hairline,
+    borderRadius: DS.radius.md,
+    backgroundColor: DS.colors.card,
     textAlign: 'center',
     fontSize: 24,
     fontWeight: '700',
+    color: DS.colors.dark,
   },
-  linksContainer: {
+  codeInputFilled: {
+    borderColor: DS.colors.green,
+    backgroundColor: DS.colors.greenLight,
+  },
+  links: {
     flexDirection: 'row',
     justifyContent: 'center',
     alignItems: 'center',
-    marginTop: 24,
-    gap: 12,
+    marginTop: DS.space.xxl,
+    gap: DS.space.md,
   },
-  linkButton: {
-    paddingVertical: 8,
-    paddingHorizontal: 4,
-  },
-  linkSeparator: {
-    fontSize: 14,
-  },
+  linkText: { ...DS.fonts.bodyMed, color: DS.colors.green },
+  linkSep: { ...DS.fonts.body, color: DS.colors.muted },
 });

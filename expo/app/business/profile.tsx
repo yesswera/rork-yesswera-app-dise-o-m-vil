@@ -1,1004 +1,342 @@
-import TouchableSound from '@/components/TouchableSound';
 // ============================================================================
-// YESSWERA: PERFIL Y CONFIGURACION DEL NEGOCIO
-// Usa ScreenContainer para diseño unificado
+// YESSWERA: BUSINESS PROFILE — Info, schedule, pause toggle
 // ============================================================================
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect } from 'react';
 import {
   View,
-  TextInput,
-  Switch,
+  Text,
+  ScrollView,
+  SafeAreaView,
+  TouchableOpacity,
   Alert,
   StyleSheet,
-  ActivityIndicator,
 } from 'react-native';
-import { useFocusEffect, useRouter } from 'expo-router';
-import { Store, Star, Package, AlertTriangle, Clock, MapPin, Save, User } from 'lucide-react-native';
-import { useAuth } from '@/contexts/auth';
-import { useTheme } from '@/contexts/theme';
-import { ThemedText } from '@/components/themed';
-import ScreenContainer from '@/components/ScreenContainer';
-import BusinessImagePicker from '@/components/BusinessImagePicker';
-import { supabase } from '@/constants/supabase';
+import { useRouter } from 'expo-router';
 import {
-  PauseReason,
-  PAUSE_REASONS,
-  getBusinessPauseStatus,
-  pauseBusiness,
-  resumeBusiness,
-  BusinessPauseStatus,
-} from '@/services/business-management';
-import { Toast } from '@/utils/toast';
-import { SoundFeedback } from '@/services/sounds';
-
-
-// ============================================================================
-// DURACIONES DE PAUSA
-// ============================================================================
-
-const PAUSE_DURATIONS = [15, 30, 60] as const;
-
-// ============================================================================
-// INTERFAZ DE NEGOCIO
-// ============================================================================
+  Store,
+  MapPin,
+  Phone,
+  Clock,
+  Pause,
+  Play,
+  User,
+} from 'lucide-react-native';
+import { useAuth } from '@/contexts/auth';
+import { supabase } from '@/constants/supabase';
+import { DS } from '@/constants/design';
+import YCard from '@/components/ui/YCard';
 
 interface BusinessData {
   id: string;
   business_name: string;
-  description: string | null;
-  phone: string | null;
   address: string;
-  category: string | null;
+  phone: string;
   is_open: boolean;
-  delivery_radius_km: number | null;
-  preparation_time_minutes: number | null;
-  rating_average: number;
-  rating_count: number;
-  strike_count: number;
+  schedule_json?: any;
 }
 
-// ============================================================================
-// COMPONENTE PRINCIPAL
-// ============================================================================
+const DAY_LABELS: Record<string, string> = {
+  monday: 'Lunes',
+  tuesday: 'Martes',
+  wednesday: 'Miercoles',
+  thursday: 'Jueves',
+  friday: 'Viernes',
+  saturday: 'Sabado',
+  sunday: 'Domingo',
+};
+
+const DAY_ORDER = [
+  'monday',
+  'tuesday',
+  'wednesday',
+  'thursday',
+  'friday',
+  'saturday',
+  'sunday',
+];
+
+// Group consecutive days with same schedule
+function groupSchedule(schedule: any): { label: string; time: string; closed: boolean }[] {
+  if (!schedule) {
+    return [
+      { label: 'Lun - Vie', time: '8:00 - 23:00', closed: false },
+      { label: 'Sabado', time: '8:00 - 23:00', closed: false },
+      { label: 'Domingo', time: 'Cerrado', closed: true },
+    ];
+  }
+
+  const rows: { label: string; time: string; closed: boolean }[] = [];
+  let i = 0;
+
+  while (i < DAY_ORDER.length) {
+    const dayKey = DAY_ORDER[i];
+    const dayData = schedule[dayKey];
+    const isClosed = !dayData?.isOpen;
+    const timeStr = isClosed
+      ? 'Cerrado'
+      : `${dayData?.openTime || '8:00'} - ${dayData?.closeTime || '23:00'}`;
+
+    // Find consecutive days with same time
+    let j = i + 1;
+    while (j < DAY_ORDER.length) {
+      const nextKey = DAY_ORDER[j];
+      const nextData = schedule[nextKey];
+      const nextClosed = !nextData?.isOpen;
+      const nextTime = nextClosed
+        ? 'Cerrado'
+        : `${nextData?.openTime || '8:00'} - ${nextData?.closeTime || '23:00'}`;
+
+      if (nextTime !== timeStr) break;
+      j++;
+    }
+
+    // Build label
+    const startLabel = DAY_LABELS[DAY_ORDER[i]];
+    const endLabel = DAY_LABELS[DAY_ORDER[j - 1]];
+    const label =
+      j - i === 1
+        ? startLabel
+        : `${startLabel} - ${endLabel}`;
+
+    rows.push({ label, time: timeStr, closed: isClosed });
+    i = j;
+  }
+
+  return rows;
+}
 
 export default function BusinessProfileScreen() {
   const router = useRouter();
   const { user } = useAuth();
-  const { colors, space, radius } = useTheme();
 
-  // Estado de carga
-  const [loading, setLoading] = useState(true);
-  const [saving, setSaving] = useState(false);
+  const [business, setBusiness] = useState<BusinessData | null>(null);
+  const [isPaused, setIsPaused] = useState(false);
 
-  // Datos del negocio
-  const [businessId, setBusinessId] = useState<string>('');
-  const [name, setName] = useState('');
-  const [description, setDescription] = useState('');
-  const [phone, setPhone] = useState('');
-  const [address, setAddress] = useState('');
-  const [category, setCategory] = useState('');
-  const [isOpen, setIsOpen] = useState(false);
-  const [deliveryRadius, setDeliveryRadius] = useState('');
-  const [prepTime, setPrepTime] = useState('');
-
-  // Imagenes del negocio
-  const [logoUri, setLogoUri] = useState<string | null>(null);
-  const [coverUri, setCoverUri] = useState<string | null>(null);
-  const [logoUrl, setLogoUrl] = useState<string>('');
-  const [coverUrl, setCoverUrl] = useState<string>('');
-
-  // Stats
-  const [ratingAverage, setRatingAverage] = useState(0);
-  const [ratingCount, setRatingCount] = useState(0);
-  const [totalProducts, setTotalProducts] = useState(0);
-  const [strikeCount, setStrikeCount] = useState(0);
-
-  // Estado de pausa
-  const [pauseStatus, setPauseStatus] = useState<BusinessPauseStatus>({
-    isPaused: false,
-    strikeCount: 0,
-  });
-  const [selectedPauseDuration, setSelectedPauseDuration] = useState<number>(15);
-  const [selectedPauseReason, setSelectedPauseReason] = useState<PauseReason>('manual');
-  const [showPauseOptions, setShowPauseOptions] = useState(false);
-
-  // ============================================================================
-  // CARGAR DATOS
-  // ============================================================================
-
-  const loadBusinessData = useCallback(async () => {
-    if (!user) return;
-
-    try {
-      setLoading(true);
-
-      // Cargar datos del negocio
-      const { data: businessRows, error } = await supabase
-        .from('businesses')
-        .select('*')
-        .eq('user_id', user.id)
-        .limit(1);
-
-      if (error) throw error;
-      const business = businessRows?.[0];
-      if (!business) return;
-
-      setBusinessId(business.id);
-      setName(business.business_name || '');
-      setDescription(business.description || '');
-      setPhone(business.phone || '');
-      setAddress(business.address || '');
-      setCategory(business.category || '');
-      setIsOpen(business.is_open || false);
-      setDeliveryRadius(business.delivery_radius_km?.toString() || '');
-      setPrepTime(business.preparation_time_minutes?.toString() || '');
-      setRatingAverage(business.rating_average || 0);
-      setRatingCount(business.rating_count || 0);
-      setStrikeCount(business.strike_count || 0);
-      setLogoUrl(business.logo_url || '');
-      setCoverUrl(business.cover_url || '');
-      setLogoUri(null);
-      setCoverUri(null);
-
-      // Cargar conteo de productos
-      const { count } = await supabase
-        .from('products')
-        .select('id', { count: 'exact', head: true })
-        .eq('business_id', business.id);
-
-      setTotalProducts(count || 0);
-
-      // Cargar estado de pausa
-      const status = await getBusinessPauseStatus(business.id);
-      setPauseStatus(status);
-    } catch (error) {
-      console.error('Error loading business data:', error);
-      Toast.error('Error al cargar datos del negocio');
-    } finally {
-      setLoading(false);
-    }
+  useEffect(() => {
+    loadBusiness();
   }, [user]);
 
-  useFocusEffect(
-    useCallback(() => {
-      loadBusinessData();
-    }, [loadBusinessData])
-  );
-
-  // ============================================================================
-  // GUARDAR CAMBIOS
-  // ============================================================================
-
-  const handleSave = async () => {
-    if (!businessId) return;
-
-    // Validaciones basicas
-    if (!name.trim()) {
-      Toast.error('El nombre del negocio es requerido');
-      return;
-    }
-    if (!address.trim()) {
-      Toast.error('La direccion es requerida');
-      return;
-    }
-
-    const radiusNum = deliveryRadius ? parseFloat(deliveryRadius) : null;
-    const prepTimeNum = prepTime ? parseInt(prepTime, 10) : null;
-
-    if (radiusNum !== null && (isNaN(radiusNum) || radiusNum <= 0)) {
-      Toast.error('El radio de entrega debe ser un numero positivo');
-      return;
-    }
-    if (prepTimeNum !== null && (isNaN(prepTimeNum) || prepTimeNum <= 0)) {
-      Toast.error('El tiempo de preparacion debe ser un numero positivo');
-      return;
-    }
-
-    setSaving(true);
+  async function loadBusiness() {
+    if (!user) return;
     try {
-      const { error } = await supabase
+      const { data, error } = await supabase
         .from('businesses')
-        .update({
-          business_name: name.trim(),
-          description: description.trim() || null,
-          phone: phone.trim() || null,
-          address: address.trim(),
-          is_open: isOpen,
-          delivery_radius_km: radiusNum,
-          preparation_time_minutes: prepTimeNum,
-          logo_url: logoUrl || null,
-          cover_url: coverUrl || null,
-        })
-        .eq('id', businessId);
+        .select('id, business_name, address, phone, is_open, schedule_json')
+        .eq('user_id', user.id)
+        .maybeSingle();
 
       if (error) throw error;
-
-      SoundFeedback.success();
-      Toast.success('Perfil del negocio actualizado');
-    } catch (error) {
-      console.error('Error saving business:', error);
-      SoundFeedback.error();
-      Toast.error('Error al guardar cambios');
-    } finally {
-      setSaving(false);
-    }
-  };
-
-  // ============================================================================
-  // PAUSAR / REANUDAR
-  // ============================================================================
-
-  const handlePause = async () => {
-    if (!businessId) return;
-
-    Alert.alert(
-      'Pausar Negocio',
-      `Se pausaran las nuevas ordenes por ${selectedPauseDuration} minutos.\nMotivo: ${PAUSE_REASONS[selectedPauseReason]}`,
-      [
-        { text: 'Cancelar', style: 'cancel' },
-        {
-          text: 'Pausar',
-          style: 'destructive',
-          onPress: async () => {
-            const result = await pauseBusiness(businessId, selectedPauseReason, selectedPauseDuration);
-            if (result.success) {
-              Toast.success(result.message);
-              const status = await getBusinessPauseStatus(businessId);
-              setPauseStatus(status);
-              setShowPauseOptions(false);
-            } else {
-              Toast.error(result.message);
-            }
-          },
-        },
-      ]
-    );
-  };
-
-  const handleResume = async () => {
-    if (!businessId) return;
-
-    const result = await resumeBusiness(businessId);
-    if (result.success) {
-      Toast.success(result.message);
-      const status = await getBusinessPauseStatus(businessId);
-      setPauseStatus(status);
-    } else {
-      Toast.error(result.message);
-    }
-  };
-
-  // ============================================================================
-  // TOGGLE ABIERTO/CERRADO
-  // ============================================================================
-
-  const handleToggleOpen = async (value: boolean) => {
-    setIsOpen(value);
-
-    // Guardar inmediatamente el cambio de estado
-    if (businessId) {
-      try {
-        await supabase
-          .from('businesses')
-          .update({ is_open: value })
-          .eq('id', businessId);
-
-        Toast.info(value ? 'Negocio abierto' : 'Negocio cerrado');
-      } catch (error) {
-        console.error('Error toggling open:', error);
-        setIsOpen(!value); // Revertir
-        Toast.error('Error al cambiar estado');
+      if (data) {
+        setBusiness(data);
+        setIsPaused(!data.is_open);
       }
+    } catch (e) {
+      console.error('loadBusiness error:', e);
     }
-  };
-
-  // ============================================================================
-  // RENDER HELPERS
-  // ============================================================================
-
-  const renderSectionTitle = (title: string) => (
-    <ThemedText
-      variant="subtitle"
-      bold
-      style={{ marginBottom: space.sm, marginTop: space.lg }}
-    >
-      {title}
-    </ThemedText>
-  );
-
-  const renderInputField = (
-    label: string,
-    value: string,
-    onChangeText: (text: string) => void,
-    options?: {
-      multiline?: boolean;
-      numeric?: boolean;
-      placeholder?: string;
-      editable?: boolean;
-    }
-  ) => (
-    <View style={{ marginBottom: space.md }}>
-      <ThemedText variant="label" color="secondary" style={{ marginBottom: space.xs }}>
-        {label}
-      </ThemedText>
-      <TextInput
-        style={[
-          styles.input,
-          {
-            backgroundColor: colors.background.secondary,
-            color: colors.text.primary,
-            borderColor: colors.border.light,
-            borderRadius: radius.md,
-          },
-          options?.multiline && styles.inputMultiline,
-          options?.editable === false && { opacity: 0.6 },
-        ]}
-        value={value}
-        onChangeText={onChangeText}
-        placeholder={options?.placeholder || ''}
-        placeholderTextColor={colors.text.muted}
-        multiline={options?.multiline}
-        numberOfLines={options?.multiline ? 3 : 1}
-        keyboardType={options?.numeric ? 'numeric' : 'default'}
-        editable={options?.editable !== false}
-      />
-    </View>
-  );
-
-  // ============================================================================
-  // RENDER PRINCIPAL
-  // ============================================================================
-
-  if (loading) {
-    return (
-      <ScreenContainer
-        headerGradient="secondary"
-        headerIcon={Store}
-        headerTitle="Perfil del Negocio"
-        headerSubtitle="Configuracion y datos"
-      >
-        <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color={colors.secondary} />
-          <ThemedText variant="body" color="secondary" style={{ marginTop: space.md }}>
-            Cargando datos del negocio...
-          </ThemedText>
-        </View>
-      </ScreenContainer>
-    );
   }
 
+  async function togglePause() {
+    if (!business) return;
+    const next = !isPaused;
+    try {
+      await supabase
+        .from('businesses')
+        .update({ is_open: !next })
+        .eq('id', business.id);
+      setIsPaused(next);
+    } catch {
+      Alert.alert('Error', 'No se pudo cambiar el estado');
+    }
+  }
+
+  const schedule = groupSchedule(business?.schedule_json);
+
   return (
-    <ScreenContainer
-      headerGradient="secondary"
-      headerIcon={Store}
-      headerTitle="Perfil del Negocio"
-      headerSubtitle={name || 'Configura tu negocio'}
-    >
-      {/* ================================================================== */}
-      {/* LINK A PERFIL PERSONAL */}
-      {/* ================================================================== */}
-      <TouchableSound
-        style={[
-          styles.personalProfileLink,
-          {
-            backgroundColor: (colors.info || '#3B82F6') + '10',
-            borderColor: (colors.info || '#3B82F6') + '40',
-            borderRadius: radius.md,
-            marginBottom: space.md,
-          },
-        ]}
-        onPress={() => router.push('/profile/edit' as any)}
+    <SafeAreaView style={styles.safe}>
+      <ScrollView
+        style={styles.scroll}
+        contentContainerStyle={styles.content}
+        showsVerticalScrollIndicator={false}
       >
-        <User size={20} color={colors.info || '#3B82F6'} />
-        <View style={{ flex: 1, marginLeft: space.sm }}>
-          <ThemedText variant="body" bold style={{ color: colors.info || '#3B82F6' }}>
-            Editar informacion personal
-          </ThemedText>
-          <ThemedText variant="caption" color="secondary">
-            Nombre, telefono, avatar
-          </ThemedText>
-        </View>
-      </TouchableSound>
+        <Text style={styles.screenTitle}>Perfil del Negocio</Text>
 
-      {/* ================================================================== */}
-      {/* SECCION: IMAGEN DEL NEGOCIO */}
-      {/* ================================================================== */}
-      {renderSectionTitle('Imagen del Negocio')}
-
-      <View style={[styles.card, { backgroundColor: colors.card, borderRadius: radius.md }]}>
-        {/* Logo (circular) */}
-        <BusinessImagePicker
-          imageUri={logoUri}
-          type="logo"
-          businessId={businessId}
-          onImageUploaded={(publicUrl, localUri) => {
-            setLogoUrl(publicUrl);
-            setLogoUri(localUri);
-          }}
-          onImageRemoved={() => {
-            setLogoUrl('');
-            setLogoUri(null);
-          }}
-          existingImageUrl={logoUrl}
-        />
-
-        {/* Cover (rectangular) */}
-        <BusinessImagePicker
-          imageUri={coverUri}
-          type="cover"
-          businessId={businessId}
-          onImageUploaded={(publicUrl, localUri) => {
-            setCoverUrl(publicUrl);
-            setCoverUri(localUri);
-          }}
-          onImageRemoved={() => {
-            setCoverUrl('');
-            setCoverUri(null);
-          }}
-          existingImageUrl={coverUrl}
-        />
-      </View>
-
-      {/* ================================================================== */}
-      {/* SECCION: INFORMACION DEL NEGOCIO */}
-      {/* ================================================================== */}
-      {renderSectionTitle('Informacion del Negocio')}
-
-      <View style={[styles.card, { backgroundColor: colors.card, borderRadius: radius.md }]}>
-        {renderInputField('Nombre del negocio', name, setName, {
-          placeholder: 'Ej: La Tiendita de Juan',
-        })}
-
-        {renderInputField('Descripcion', description, setDescription, {
-          multiline: true,
-          placeholder: 'Describe tu negocio...',
-        })}
-
-        {renderInputField('Telefono', phone, setPhone, {
-          numeric: true,
-          placeholder: 'Ej: 3171234567',
-        })}
-
-        {renderInputField('Direccion', address, setAddress, {
-          placeholder: 'Ej: Av. Principal #123',
-        })}
-
-        {/* Categoria (solo lectura) */}
-        {category ? (
-          <View style={{ marginBottom: space.md }}>
-            <ThemedText variant="label" color="secondary" style={{ marginBottom: space.xs }}>
-              Categoria
-            </ThemedText>
-            <View
-              style={[
-                styles.readOnlyField,
-                {
-                  backgroundColor: colors.background.secondary,
-                  borderColor: colors.border.light,
-                  borderRadius: radius.md,
-                },
-              ]}
-            >
-              <ThemedText variant="body" color="secondary">
-                {category}
-              </ThemedText>
-            </View>
+        {/* Info card */}
+        <YCard>
+          <View style={styles.infoRow}>
+            <Store size={20} color={DS.colors.orange} />
+            <Text style={styles.infoText}>
+              {business?.business_name || 'Mi Negocio'}
+            </Text>
           </View>
-        ) : null}
-      </View>
-
-      {/* ================================================================== */}
-      {/* SECCION: ESTADO OPERATIVO */}
-      {/* ================================================================== */}
-      {renderSectionTitle('Estado Operativo')}
-
-      <View style={[styles.card, { backgroundColor: colors.card, borderRadius: radius.md }]}>
-        {/* Toggle Abierto/Cerrado */}
-        <View style={styles.toggleRow}>
-          <View style={styles.toggleInfo}>
-            <View
-              style={[
-                styles.statusDot,
-                { backgroundColor: isOpen ? colors.success : colors.error },
-              ]}
-            />
-            <ThemedText variant="subtitle" bold>
-              {isOpen ? 'Negocio Abierto' : 'Negocio Cerrado'}
-            </ThemedText>
+          <View style={styles.divider} />
+          <View style={styles.infoRow}>
+            <MapPin size={20} color={DS.colors.blue} />
+            <Text style={styles.infoText}>
+              {business?.address || 'Sin direccion'}
+            </Text>
           </View>
-          <Switch
-            value={isOpen}
-            onValueChange={handleToggleOpen}
-            trackColor={{ false: colors.border.light, true: colors.success + '80' }}
-            thumbColor={isOpen ? colors.success : colors.text.muted}
-          />
-        </View>
-
-        {/* Estado de pausa */}
-        {pauseStatus.isPaused && (
-          <View
-            style={[
-              styles.pauseBanner,
-              {
-                backgroundColor: colors.warning + '15',
-                borderColor: colors.warning + '40',
-                borderRadius: radius.md,
-              },
-            ]}
-          >
-            <View style={styles.pauseBannerHeader}>
-              <Clock size={18} color={colors.warning} />
-              <ThemedText variant="body" bold style={{ color: colors.warning, marginLeft: space.xs }}>
-                Negocio en Pausa
-              </ThemedText>
-            </View>
-            {pauseStatus.pauseReason && (
-              <ThemedText variant="caption" color="secondary" style={{ marginTop: space.xs }}>
-                Motivo: {PAUSE_REASONS[pauseStatus.pauseReason]}
-              </ThemedText>
-            )}
-            {pauseStatus.resumeAt && (
-              <ThemedText variant="caption" color="muted" style={{ marginTop: 2 }}>
-                Reanuda: {new Date(pauseStatus.resumeAt).toLocaleTimeString('es-MX', {
-                  hour: '2-digit',
-                  minute: '2-digit',
-                })}
-              </ThemedText>
-            )}
-
-            <TouchableSound
-              style={[
-                styles.resumeButton,
-                {
-                  backgroundColor: colors.success,
-                  borderRadius: radius.sm,
-                  marginTop: space.sm,
-                },
-              ]}
-              onPress={handleResume}
-            >
-              <ThemedText variant="button" color="white" bold>
-                Reanudar Ahora
-              </ThemedText>
-            </TouchableSound>
+          <View style={styles.divider} />
+          <View style={styles.infoRow}>
+            <Phone size={20} color={DS.colors.green} />
+            <Text style={styles.infoText}>
+              {business?.phone || 'Sin telefono'}
+            </Text>
           </View>
-        )}
+        </YCard>
 
-        {/* Boton Pausar (si no esta pausado) */}
-        {!pauseStatus.isPaused && (
-          <View style={{ marginTop: space.md }}>
-            <TouchableSound
-              style={[
-                styles.pauseToggleButton,
-                {
-                  borderColor: colors.warning,
-                  borderRadius: radius.md,
-                },
-              ]}
-              onPress={() => setShowPauseOptions(!showPauseOptions)}
-            >
-              <Clock size={18} color={colors.warning} />
-              <ThemedText variant="body" style={{ color: colors.warning, fontWeight: '600', marginLeft: space.xs }}>
-                {showPauseOptions ? 'Cancelar Pausa' : 'Pausar Temporalmente'}
-              </ThemedText>
-            </TouchableSound>
-
-            {/* Opciones de pausa */}
-            {showPauseOptions && (
-              <View
-                style={[
-                  styles.pauseOptionsContainer,
-                  {
-                    backgroundColor: colors.background.secondary,
-                    borderRadius: radius.md,
-                    marginTop: space.sm,
-                  },
-                ]}
-              >
-                {/* Duracion */}
-                <ThemedText variant="label" color="secondary" style={{ marginBottom: space.xs }}>
-                  Duracion
-                </ThemedText>
-                <View style={styles.durationRow}>
-                  {PAUSE_DURATIONS.map((duration) => (
-                    <TouchableSound
-                      key={duration}
-                      style={[
-                        styles.durationChip,
-                        {
-                          borderRadius: radius.sm,
-                          borderColor:
-                            selectedPauseDuration === duration
-                              ? colors.warning
-                              : colors.border.light,
-                          backgroundColor:
-                            selectedPauseDuration === duration
-                              ? colors.warning + '20'
-                              : 'transparent',
-                        },
-                      ]}
-                      onPress={() => setSelectedPauseDuration(duration)}
-                    >
-                      <ThemedText
-                        variant="label"
-                        bold={selectedPauseDuration === duration}
-                        style={{
-                          color:
-                            selectedPauseDuration === duration
-                              ? colors.warning
-                              : colors.text.secondary,
-                        }}
-                      >
-                        {duration} min
-                      </ThemedText>
-                    </TouchableSound>
-                  ))}
-                </View>
-
-                {/* Motivo */}
-                <ThemedText
-                  variant="label"
-                  color="secondary"
-                  style={{ marginBottom: space.xs, marginTop: space.md }}
-                >
-                  Motivo
-                </ThemedText>
-                <View style={styles.reasonList}>
-                  {(Object.keys(PAUSE_REASONS) as PauseReason[]).map((reason) => (
-                    <TouchableSound
-                      key={reason}
-                      style={[
-                        styles.reasonItem,
-                        {
-                          borderRadius: radius.sm,
-                          borderColor:
-                            selectedPauseReason === reason
-                              ? colors.warning
-                              : colors.border.light,
-                          backgroundColor:
-                            selectedPauseReason === reason
-                              ? colors.warning + '20'
-                              : 'transparent',
-                        },
-                      ]}
-                      onPress={() => setSelectedPauseReason(reason)}
-                    >
-                      <ThemedText
-                        variant="caption"
-                        style={{
-                          color:
-                            selectedPauseReason === reason
-                              ? colors.warning
-                              : colors.text.secondary,
-                        }}
-                      >
-                        {PAUSE_REASONS[reason]}
-                      </ThemedText>
-                    </TouchableSound>
-                  ))}
-                </View>
-
-                {/* Confirmar pausa */}
-                <TouchableSound
+        {/* Schedule card */}
+        <YCard>
+          <View style={styles.scheduleHeader}>
+            <Clock size={20} color={DS.colors.body} />
+            <Text style={styles.scheduleTitle}>Horario</Text>
+          </View>
+          <View style={styles.divider} />
+          {schedule.map((row, idx) => (
+            <View key={idx}>
+              <View style={styles.scheduleRow}>
+                <Text style={styles.scheduleDay}>{row.label}</Text>
+                <Text
                   style={[
-                    styles.confirmPauseButton,
-                    {
-                      backgroundColor: colors.warning,
-                      borderRadius: radius.md,
-                      marginTop: space.md,
-                    },
+                    styles.scheduleTime,
+                    row.closed && { color: DS.colors.red },
                   ]}
-                  onPress={handlePause}
                 >
-                  <Clock size={18} color="#FFFFFF" />
-                  <ThemedText variant="button" color="white" bold style={{ marginLeft: space.xs }}>
-                    Pausar por {selectedPauseDuration} min
-                  </ThemedText>
-                </TouchableSound>
+                  {row.time}
+                </Text>
               </View>
-            )}
-          </View>
-        )}
-      </View>
-
-      {/* ================================================================== */}
-      {/* SECCION: CONFIGURACION DE ENTREGAS */}
-      {/* ================================================================== */}
-      {renderSectionTitle('Configuracion de Entregas')}
-
-      <View style={[styles.card, { backgroundColor: colors.card, borderRadius: radius.md }]}>
-        <View style={styles.deliveryRow}>
-          <MapPin size={20} color={colors.secondary} />
-          <View style={styles.deliveryInputContainer}>
-            {renderInputField(
-              'Radio de entrega (km)',
-              deliveryRadius,
-              setDeliveryRadius,
-              {
-                numeric: true,
-                placeholder: 'Ej: 5',
-              }
-            )}
-          </View>
-        </View>
-
-        <View style={styles.deliveryRow}>
-          <Clock size={20} color={colors.secondary} />
-          <View style={styles.deliveryInputContainer}>
-            {renderInputField(
-              'Tiempo de preparacion (minutos)',
-              prepTime,
-              setPrepTime,
-              {
-                numeric: true,
-                placeholder: 'Ej: 20',
-              }
-            )}
-          </View>
-        </View>
-      </View>
-
-      {/* ================================================================== */}
-      {/* SECCION: ESTADISTICAS */}
-      {/* ================================================================== */}
-      {renderSectionTitle('Estadisticas')}
-
-      <View style={[styles.card, { backgroundColor: colors.card, borderRadius: radius.md }]}>
-        {/* Rating */}
-        <View style={styles.statRow}>
-          <View style={styles.statInfo}>
-            <Star size={20} color={colors.warning} />
-            <ThemedText variant="body" style={{ marginLeft: space.sm }}>
-              Calificacion promedio
-            </ThemedText>
-          </View>
-          <View style={styles.statValue}>
-            <ThemedText variant="subtitle" bold style={{ color: colors.warning }}>
-              {ratingAverage.toFixed(1)}
-            </ThemedText>
-            <ThemedText variant="caption" color="muted" style={{ marginLeft: 4 }}>
-              ({ratingCount} resenas)
-            </ThemedText>
-          </View>
-        </View>
-
-        {/* Productos */}
-        <View style={[styles.statRow, { borderTopWidth: 1, borderTopColor: colors.border.light }]}>
-          <View style={styles.statInfo}>
-            <Package size={20} color={colors.secondary} />
-            <ThemedText variant="body" style={{ marginLeft: space.sm }}>
-              Total de productos
-            </ThemedText>
-          </View>
-          <ThemedText variant="subtitle" bold>
-            {totalProducts}
-          </ThemedText>
-        </View>
-
-        {/* Strikes (solo si > 0) */}
-        {strikeCount > 0 && (
-          <View
-            style={[
-              styles.strikeWarning,
-              {
-                backgroundColor: colors.error + '15',
-                borderColor: colors.error + '40',
-                borderRadius: radius.md,
-                marginTop: space.md,
-              },
-            ]}
-          >
-            <View style={styles.strikeHeader}>
-              <AlertTriangle size={20} color={colors.error} />
-              <ThemedText variant="body" bold style={{ color: colors.error, marginLeft: space.xs }}>
-                {strikeCount} {strikeCount === 1 ? 'Strike' : 'Strikes'}
-              </ThemedText>
+              {idx < schedule.length - 1 && (
+                <View style={styles.scheduleDivider} />
+              )}
             </View>
-            <ThemedText variant="caption" color="secondary" style={{ marginTop: 4 }}>
-              Los strikes se acumulan cuando se rechazan ordenes sin pausar el negocio.
-              Acumular varios puede resultar en pausa forzada.
-            </ThemedText>
-          </View>
-        )}
-      </View>
+          ))}
+        </YCard>
 
-      {/* ================================================================== */}
-      {/* BOTON GUARDAR */}
-      {/* ================================================================== */}
-      <TouchableSound
-        style={[
-          styles.saveButton,
-          {
-            backgroundColor: colors.secondary,
-            borderRadius: radius.md,
-            marginTop: space.xl,
-            marginBottom: 40,
-            opacity: saving ? 0.7 : 1,
-          },
-        ]}
-        onPress={handleSave}
-        disabled={saving}
-      >
-        {saving ? (
-          <ActivityIndicator size="small" color="#FFFFFF" />
-        ) : (
-          <Save size={22} color="#FFFFFF" />
-        )}
-        <ThemedText variant="subtitle" color="white" bold style={{ marginLeft: space.sm }}>
-          {saving ? 'Guardando...' : 'Guardar Cambios'}
-        </ThemedText>
-      </TouchableSound>
-    </ScreenContainer>
+        {/* Pause button */}
+        <TouchableOpacity
+          onPress={togglePause}
+          activeOpacity={0.8}
+          style={[
+            styles.pauseBtn,
+            {
+              backgroundColor: isPaused ? DS.colors.green : DS.colors.red,
+            },
+          ]}
+        >
+          {isPaused ? (
+            <Play size={22} color="#FFF" />
+          ) : (
+            <Pause size={22} color="#FFF" />
+          )}
+          <Text style={styles.pauseText}>
+            {isPaused ? 'Reanudar Negocio' : 'Pausar Negocio'}
+          </Text>
+        </TouchableOpacity>
+
+        {/* My Account link */}
+        <TouchableOpacity
+          onPress={() => router.push('/profile')}
+          activeOpacity={0.7}
+          style={styles.accountBtn}
+        >
+          <User size={20} color={DS.colors.blue} />
+          <Text style={styles.accountText}>Mi Cuenta</Text>
+        </TouchableOpacity>
+      </ScrollView>
+    </SafeAreaView>
   );
 }
 
-// ============================================================================
-// ESTILOS
-// ============================================================================
-
 const styles = StyleSheet.create({
-  loadingContainer: {
-    paddingVertical: 60,
+  safe: {
+    flex: 1,
+    backgroundColor: DS.colors.bg,
+  },
+  scroll: {
+    flex: 1,
+  },
+  content: {
+    padding: DS.space.lg,
+    gap: DS.space.lg,
+    paddingBottom: 40,
+  },
+  screenTitle: {
+    ...DS.fonts.hero,
+    color: DS.colors.dark,
+  },
+
+  // Info
+  infoRow: {
+    flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'center',
+    gap: DS.space.md,
+    paddingVertical: DS.space.sm,
+  },
+  infoText: {
+    ...DS.fonts.body,
+    color: DS.colors.dark,
+    flex: 1,
+  },
+  divider: {
+    height: 1,
+    backgroundColor: DS.colors.divider,
+    marginVertical: DS.space.xs,
   },
 
-  // Cards
-  card: {
-    padding: 16,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.08,
-    shadowRadius: 8,
-    elevation: 2,
+  // Schedule
+  scheduleHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: DS.space.sm,
+    paddingBottom: DS.space.xs,
   },
-
-  // Inputs
-  input: {
-    height: 48,
-    borderWidth: 1.5,
-    paddingHorizontal: 14,
-    fontSize: 15,
+  scheduleTitle: {
+    ...DS.fonts.bodyMed,
+    color: DS.colors.dark,
   },
-  inputMultiline: {
-    height: 90,
-    paddingTop: 12,
-    textAlignVertical: 'top',
-  },
-  readOnlyField: {
-    height: 48,
-    borderWidth: 1,
-    paddingHorizontal: 14,
-    justifyContent: 'center',
-  },
-
-  // Toggle row
-  toggleRow: {
+  scheduleRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    paddingVertical: 4,
+    paddingVertical: DS.space.sm,
   },
-  toggleInfo: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 10,
+  scheduleDay: {
+    ...DS.fonts.body,
+    color: DS.colors.body,
   },
-  statusDot: {
-    width: 12,
-    height: 12,
-    borderRadius: 6,
+  scheduleTime: {
+    ...DS.fonts.bodyMed,
+    color: DS.colors.dark,
+  },
+  scheduleDivider: {
+    height: 1,
+    backgroundColor: DS.colors.divider,
   },
 
-  // Pause banner
-  pauseBanner: {
-    padding: 14,
-    borderWidth: 1,
-    marginTop: 12,
-  },
-  pauseBannerHeader: {
+  // Pause
+  pauseBtn: {
     flexDirection: 'row',
     alignItems: 'center',
-  },
-  resumeButton: {
-    height: 40,
     justifyContent: 'center',
-    alignItems: 'center',
+    gap: DS.space.sm,
+    height: DS.touch.button,
+    borderRadius: DS.radius.xl,
+  },
+  pauseText: {
+    ...DS.fonts.button,
+    color: '#FFFFFF',
   },
 
-  // Pause toggle button
-  pauseToggleButton: {
-    height: 48,
+  // Account
+  accountBtn: {
     flexDirection: 'row',
+    alignItems: 'center',
     justifyContent: 'center',
-    alignItems: 'center',
-    borderWidth: 1.5,
+    gap: DS.space.sm,
+    paddingVertical: DS.space.lg,
   },
-
-  // Pause options
-  pauseOptionsContainer: {
-    padding: 14,
-  },
-  durationRow: {
-    flexDirection: 'row',
-    gap: 8,
-  },
-  durationChip: {
-    flex: 1,
-    height: 40,
-    justifyContent: 'center',
-    alignItems: 'center',
-    borderWidth: 1.5,
-  },
-  reasonList: {
-    gap: 6,
-  },
-  reasonItem: {
-    paddingVertical: 10,
-    paddingHorizontal: 14,
-    borderWidth: 1,
-  },
-  confirmPauseButton: {
-    height: 48,
-    flexDirection: 'row',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-
-  // Delivery settings
-  deliveryRow: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    gap: 12,
-    paddingTop: 4,
-  },
-  deliveryInputContainer: {
-    flex: 1,
-  },
-
-  // Stats
-  statRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingVertical: 14,
-  },
-  statInfo: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  statValue: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-
-  // Strike warning
-  strikeWarning: {
-    padding: 14,
-    borderWidth: 1,
-  },
-  strikeHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-
-  // Save button
-  personalProfileLink: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    padding: 14,
-    borderWidth: 1,
-  },
-  saveButton: {
-    height: 56,
-    flexDirection: 'row',
-    justifyContent: 'center',
-    alignItems: 'center',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.15,
-    shadowRadius: 8,
-    elevation: 4,
+  accountText: {
+    ...DS.fonts.bodyMed,
+    color: DS.colors.blue,
   },
 });

@@ -1,91 +1,45 @@
-import TouchableSound from '@/components/TouchableSound';
-// ============================================================================
-// YESSWERA: CREAR CALIFICACION
-// Pantalla para calificar al repartidor despues de una entrega
-// Actualizado para usar ScreenContainer
-// ============================================================================
-
 import { useState, useEffect } from 'react';
 import {
-  StyleSheet,
-  Text,
   View,
+  Text,
   TextInput,
+  TouchableOpacity,
+  SafeAreaView,
+  ScrollView,
   ActivityIndicator,
+  StyleSheet,
 } from 'react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { Star } from 'lucide-react-native';
 import { useAuth } from '@/contexts/auth';
-import Avatar from '@/components/Avatar';
-import LoadingButton from '@/components/LoadingButton';
-import { Toast } from '@/utils/toast';
-import { HapticFeedback } from '@/utils/haptics';
+import { DS } from '@/constants/design';
+import BigButton from '@/components/ui/BigButton';
+import YAvatar from '@/components/ui/YAvatar';
 import { getOrderById } from '@/services/orders';
-import { OrderSounds, SoundFeedback } from '@/services/sounds';
 import { createRating } from '@/services/ratings';
 import { Order } from '@/constants/types';
-import ErrorState from '@/components/ErrorState';
-import ScreenContainer from '@/components/ScreenContainer';
-import { useTheme } from '@/contexts/theme';
+import { Toast } from '@/utils/toast';
+import { HapticFeedback } from '@/utils/haptics';
 
-// ============================================================================
-// COLORES EXPLICITOS PARA MODO OSCURO
-// ============================================================================
-
-const COLORS = {
-  light: {
-    card: '#FFFFFF',
-    cardAlt: '#F5F5F4',
-    border: '#E7E5E4',
-    text: '#1C1917',
-    textSecondary: '#57534E',
-    textMuted: '#A8A29E',
-  },
-  dark: {
-    card: '#292524',
-    cardAlt: '#44403C',
-    border: '#44403C',
-    text: '#FAFAFA',
-    textSecondary: '#D6D3D1',
-    textMuted: '#78716C',
-  },
-};
-
-const STATUS_COLORS = {
-  gold: '#EAB308',
-};
+const RATING_LABELS = ['', 'Muy malo', 'Malo', 'Regular', 'Bueno', 'Excelente'];
 
 export default function CreateRatingScreen() {
   const router = useRouter();
   const { orderId } = useLocalSearchParams();
   const { user, token } = useAuth();
-  const { isDark, colors } = useTheme();
-  const theme = isDark ? COLORS.dark : COLORS.light;
 
   const [order, setOrder] = useState<Order | null>(null);
-  const [isLoadingOrder, setIsLoadingOrder] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  const [rating, setRating] = useState<number>(0);
-  const [comment, setComment] = useState<string>('');
-  const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
+  const [loading, setLoading] = useState(true);
+  const [rating, setRating] = useState(0);
+  const [comment, setComment] = useState('');
+  const [submitting, setSubmitting] = useState(false);
 
   useEffect(() => {
-    const loadOrder = async () => {
-      if (!token || !orderId) return;
-
-      try {
-        const orderData = await getOrderById(orderId as string);
-        setOrder(orderData);
-        setError(null);
-      } catch (err) {
-        console.error('Error cargando orden:', err);
-        setError('No se pudo cargar la orden');
-      } finally {
-        setIsLoadingOrder(false);
-      }
-    };
-
-    loadOrder();
+    if (!token || !orderId) return;
+    getOrderById(orderId as string)
+      .then(setOrder)
+      .catch(() => Toast.error('No se pudo cargar la orden'))
+      .finally(() => setLoading(false));
   }, [orderId, token]);
 
   if (!user) {
@@ -93,59 +47,15 @@ export default function CreateRatingScreen() {
     return null;
   }
 
-  // Loading state
-  if (isLoadingOrder) {
-    return (
-      <ScreenContainer
-        headerGradient="tertiary"
-        headerIcon={Star}
-        headerTitle="Calificar Servicio"
-        headerSubtitle="Cargando informacion..."
-      >
-        <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color={colors.primary} />
-          <Text style={[styles.loadingText, { color: theme.textSecondary }]}>Cargando...</Text>
-        </View>
-      </ScreenContainer>
-    );
-  }
-
-  // Error state
-  if (error || !order) {
-    return (
-      <ScreenContainer
-        headerGradient="tertiary"
-        headerIcon={Star}
-        headerTitle="Calificar Servicio"
-        headerSubtitle="Ocurrio un problema"
-      >
-        <ErrorState message={error || 'Orden no encontrada'} onRetry={() => router.back()} />
-      </ScreenContainer>
-    );
-  }
-
-  const driverName = order.driverName || 'Repartidor';
-  const driverId = order.driverId || '';
-
-  const handleRatingPress = (value: number) => {
-    setRating(value);
-    HapticFeedback.light();
-  };
-
   const handleSubmit = async () => {
     if (rating === 0) {
-      HapticFeedback.error();
-      Toast.error('Por favor selecciona una calificacion');
+      Toast.error('Selecciona una calificacion');
       return;
     }
+    const driverId = order?.driverId;
+    if (!driverId) return;
 
-    if (!token || !driverId) {
-      HapticFeedback.error();
-      Toast.error('Informacion faltante');
-      return;
-    }
-
-    setIsSubmitting(true);
+    setSubmitting(true);
     try {
       await createRating({
         orderId: orderId as string,
@@ -155,230 +65,121 @@ export default function CreateRatingScreen() {
         stars: rating,
         comment: comment || undefined,
       });
-
-      // Play success sound for rating submission
-      SoundFeedback.success();
       HapticFeedback.success();
       Toast.success('Gracias por tu calificacion!');
       router.back();
-    } catch (error) {
-      console.error('Submit rating error:', error);
-      HapticFeedback.error();
-      Toast.error('No se pudo enviar la calificacion. Intenta nuevamente.');
+    } catch {
+      Toast.error('No se pudo enviar. Intenta de nuevo.');
     } finally {
-      setIsSubmitting(false);
+      setSubmitting(false);
     }
   };
 
-  const handleSkip = () => {
-    HapticFeedback.light();
-    router.back();
-  };
+  if (loading) {
+    return (
+      <SafeAreaView style={styles.safe}>
+        <ActivityIndicator size="large" color={DS.colors.green} style={{ marginTop: 100 }} />
+      </SafeAreaView>
+    );
+  }
 
-  const getRatingLabel = () => {
-    switch (rating) {
-      case 0:
-        return 'Toca una estrella para calificar';
-      case 1:
-        return 'Muy malo';
-      case 2:
-        return 'Malo';
-      case 3:
-        return 'Regular';
-      case 4:
-        return 'Bueno';
-      case 5:
-        return 'Excelente';
-      default:
-        return '';
-    }
-  };
-
-  // Footer con botones
-  const renderFooter = () => (
-    <View style={styles.buttonContainer}>
-      <LoadingButton
-        title="Enviar Calificacion"
-        onPress={handleSubmit}
-        loading={isSubmitting}
-        variant="primary"
-        disabled={rating === 0}
-      />
-
-      <TouchableSound
-        style={[styles.skipButton, { backgroundColor: theme.cardAlt }]}
-        onPress={handleSkip}
-        disabled={isSubmitting}
-        activeOpacity={0.8}
-      >
-        <Text style={[styles.skipButtonText, { color: theme.text }]}>Omitir</Text>
-      </TouchableSound>
-    </View>
-  );
+  const driverName = order?.driverName || 'Repartidor';
 
   return (
-    <ScreenContainer
-      headerGradient="tertiary"
-      headerIcon={Star}
-      headerTitle="Calificar Servicio"
-      headerSubtitle={`Orden #${orderId || '0001'}`}
-      footer={renderFooter()}
-      footerPadding={140}
-    >
-      <View style={styles.content}>
-        <Text style={[styles.title, { color: theme.text }]}>Como fue tu experiencia?</Text>
-        <Text style={[styles.subtitle, { color: theme.textSecondary }]}>
-          Tu opinion nos ayuda a mejorar
-        </Text>
+    <SafeAreaView style={styles.safe}>
+      <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
+        <Text style={styles.title}>Como fue tu experiencia?</Text>
+        <Text style={styles.subtitle}>Tu opinion nos ayuda a mejorar</Text>
 
-        {/* Driver Card */}
+        {/* Driver */}
         <View style={styles.driverCard}>
-          <Avatar name={driverName} imageUri={undefined} size="large" />
-          <Text style={[styles.driverName, { color: theme.text }]}>{driverName}</Text>
-          <Text style={[styles.driverLabel, { color: theme.textSecondary }]}>Tu repartidor</Text>
+          <YAvatar name={driverName} size={72} color={DS.colors.green} />
+          <Text style={styles.driverName}>{driverName}</Text>
+          <Text style={styles.driverLabel}>Tu repartidor</Text>
         </View>
 
         {/* Stars */}
-        <View style={styles.starsContainer}>
-          {[1, 2, 3, 4, 5].map((star) => (
-            <TouchableSound
-              key={star}
-              onPress={() => handleRatingPress(star)}
-              activeOpacity={0.8}
-              hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+        <View style={styles.starsRow}>
+          {[1, 2, 3, 4, 5].map((s) => (
+            <TouchableOpacity
+              key={s}
+              onPress={() => { setRating(s); HapticFeedback.light(); }}
+              hitSlop={{ top: 10, bottom: 10, left: 6, right: 6 }}
             >
               <Star
                 size={48}
-                color={star <= rating ? STATUS_COLORS.gold : theme.border}
-                fill={star <= rating ? STATUS_COLORS.gold : 'transparent'}
+                color={s <= rating ? '#EAB308' : DS.colors.hairline}
+                fill={s <= rating ? '#EAB308' : 'transparent'}
                 strokeWidth={2}
               />
-            </TouchableSound>
+            </TouchableOpacity>
           ))}
         </View>
-
-        {/* Rating Label */}
-        <Text style={[styles.ratingLabel, { color: theme.text }]}>
-          {getRatingLabel()}
+        <Text style={styles.ratingLabel}>
+          {rating > 0 ? RATING_LABELS[rating] : 'Toca una estrella'}
         </Text>
 
-        {/* Comment Section */}
-        <View style={styles.commentSection}>
-          <Text style={[styles.commentLabel, { color: theme.text }]}>
-            Escribe un comentario (opcional)
-          </Text>
-          <View style={[styles.commentInputContainer, { backgroundColor: theme.card, borderColor: theme.border }]}>
-            <TextInput
-              style={[styles.commentInput, { color: theme.text }]}
-              value={comment}
-              onChangeText={setComment}
-              placeholder="Cuentanos sobre tu experiencia..."
-              placeholderTextColor={theme.textMuted}
-              multiline
-              numberOfLines={4}
-              textAlignVertical="top"
-              maxLength={200}
-              editable={!isSubmitting}
-            />
-            <Text style={[styles.commentCounter, { color: theme.textMuted }]}>
-              {comment.length}/200
-            </Text>
-          </View>
+        {/* Comment */}
+        <Text style={styles.commentTitle}>Comentario (opcional)</Text>
+        <View style={styles.commentBox}>
+          <TextInput
+            style={styles.commentInput}
+            value={comment}
+            onChangeText={setComment}
+            placeholder="Cuentanos tu experiencia..."
+            placeholderTextColor={DS.colors.placeholder}
+            multiline
+            numberOfLines={4}
+            textAlignVertical="top"
+            maxLength={200}
+          />
+          <Text style={styles.counter}>{comment.length}/200</Text>
         </View>
-      </View>
-    </ScreenContainer>
+
+        {/* Actions */}
+        <View style={styles.actions}>
+          <BigButton
+            title="Enviar Calificacion"
+            color={DS.colors.green}
+            onPress={handleSubmit}
+            loading={submitting}
+            disabled={rating === 0}
+          />
+          <TouchableOpacity style={styles.skipBtn} onPress={() => router.back()}>
+            <Text style={styles.skipText}>Omitir</Text>
+          </TouchableOpacity>
+        </View>
+      </ScrollView>
+    </SafeAreaView>
   );
 }
 
-// ============================================================================
-// ESTILOS
-// ============================================================================
-
 const styles = StyleSheet.create({
-  loadingContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: 40,
-  },
-  loadingText: {
-    fontSize: 16,
-    marginTop: 16,
-  },
-  content: {
-    paddingTop: 16,
-  },
-  title: {
-    fontSize: 26,
-    fontWeight: '700',
-    textAlign: 'center',
-    marginBottom: 8,
-  },
-  subtitle: {
-    fontSize: 15,
-    textAlign: 'center',
-    marginBottom: 32,
-  },
-  driverCard: {
-    alignItems: 'center',
-    marginBottom: 32,
-  },
-  driverName: {
-    fontSize: 20,
-    fontWeight: '600',
-    marginTop: 12,
-  },
-  driverLabel: {
-    fontSize: 14,
-    marginTop: 4,
-  },
-  starsContainer: {
-    flexDirection: 'row',
-    justifyContent: 'center',
-    gap: 8,
-    marginBottom: 16,
-  },
-  ratingLabel: {
-    fontSize: 16,
-    fontWeight: '600',
-    textAlign: 'center',
-    marginBottom: 32,
-    minHeight: 24,
-  },
-  commentSection: {
-    marginBottom: 24,
-  },
-  commentLabel: {
-    fontSize: 14,
-    fontWeight: '600',
-    marginBottom: 12,
-  },
-  commentInputContainer: {
-    position: 'relative',
+  safe: { flex: 1, backgroundColor: DS.colors.bg },
+  scroll: { padding: DS.space.xl, paddingBottom: 40 },
+  title: { ...DS.fonts.title, color: DS.colors.dark, textAlign: 'center', marginTop: DS.space.xl },
+  subtitle: { ...DS.fonts.body, color: DS.colors.muted, textAlign: 'center', marginBottom: DS.space.xxxl },
+  driverCard: { alignItems: 'center', marginBottom: DS.space.xxxl },
+  driverName: { ...DS.fonts.section, color: DS.colors.dark, marginTop: DS.space.md },
+  driverLabel: { ...DS.fonts.small, color: DS.colors.muted, marginTop: 2 },
+  starsRow: { flexDirection: 'row', justifyContent: 'center', gap: DS.space.sm, marginBottom: DS.space.lg },
+  ratingLabel: { ...DS.fonts.bodyMed, color: DS.colors.dark, textAlign: 'center', marginBottom: DS.space.xxxl },
+  commentTitle: { ...DS.fonts.label, color: DS.colors.dark, marginBottom: DS.space.sm },
+  commentBox: {
+    backgroundColor: DS.colors.card,
+    borderRadius: DS.radius.lg,
     borderWidth: 1,
-    borderRadius: 12,
+    borderColor: DS.colors.hairline,
+    marginBottom: DS.space.xxl,
   },
-  commentInput: {
-    padding: 16,
-    fontSize: 15,
-    minHeight: 120,
-  },
-  commentCounter: {
-    position: 'absolute',
-    bottom: 12,
-    right: 16,
-    fontSize: 12,
-  },
-  buttonContainer: {
-    gap: 12,
-  },
-  skipButton: {
-    borderRadius: 12,
-    paddingVertical: 16,
+  commentInput: { ...DS.fonts.body, color: DS.colors.dark, padding: DS.space.lg, minHeight: 120 },
+  counter: { ...DS.fonts.small, color: DS.colors.muted, position: 'absolute', bottom: 10, right: 14 },
+  actions: { gap: DS.space.md },
+  skipBtn: {
     alignItems: 'center',
+    paddingVertical: DS.space.lg,
+    backgroundColor: DS.colors.divider,
+    borderRadius: DS.radius.lg,
   },
-  skipButtonText: {
-    fontSize: 16,
-    fontWeight: '600',
-  },
+  skipText: { ...DS.fonts.bodyMed, color: DS.colors.body },
 });

@@ -1,532 +1,675 @@
-import TouchableSound from '@/components/TouchableSound';
 // ============================================================================
-// YESSWERA: PANTALLA DE REGISTRO
-// Diseño unificado con ScreenContainer - Todo scrollea junto
+// YESSWERA: REGISTRO — Vecino Amigo DS
+// Name, Email, Password, Confirm Password, Role selector, referral (optional)
 // ============================================================================
 
 import { useState, useEffect } from 'react';
 import {
   View,
-  Alert,
+  Text,
+  TextInput,
   StyleSheet,
+  SafeAreaView,
+  KeyboardAvoidingView,
+  ScrollView,
+  TouchableOpacity,
+  Platform,
+  Alert,
 } from 'react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
-import { Gift, CheckCircle, XCircle, UserPlus } from 'lucide-react-native';
+import {
+  User,
+  Mail,
+  Lock,
+  Eye,
+  EyeOff,
+  Phone,
+  ShoppingBag,
+  Store,
+  Truck,
+  Gift,
+  CheckCircle,
+  XCircle,
+  ChevronDown,
+  ChevronUp,
+} from 'lucide-react-native';
+import { DS } from '@/constants/design';
+import BigButton from '@/components/ui/BigButton';
+import YCard from '@/components/ui/YCard';
 import { useAuth } from '@/contexts/auth';
-import { useTheme } from '@/contexts/theme';
-import { ThemedText, ThemedInput } from '@/components/themed';
-import ScreenContainer from '@/components/ScreenContainer';
-import AccessibilityControls from '@/components/AccessibilityControls';
 import { validateReferralCode, processReferral } from '@/services/referrals';
-import { AuthSounds, SoundFeedback } from '@/services/sounds';
+import { HapticFeedback } from '@/utils/haptics';
+import { Toast } from '@/utils/toast';
 
-// Colores explícitos para garantizar consistencia
-const COLORS = {
-  light: {
-    card: '#FFFFFF',
-    cardAlt: '#F5F5F4',
-    border: '#E7E5E4',
-    borderMedium: '#D6D3D1',
+// -- Role options -------------------------------------------------------------
+const ROLES = [
+  {
+    id: 'client',
+    label: 'Cliente',
+    description: 'Pedir comida, compras y envios',
+    Icon: ShoppingBag,
   },
-  dark: {
-    card: '#292524',
-    cardAlt: '#44403C',
-    border: '#44403C',
-    borderMedium: '#57534E',
+  {
+    id: 'business',
+    label: 'Negocio',
+    description: 'Vender tus productos',
+    Icon: Store,
   },
-};
+  {
+    id: 'driver',
+    label: 'Repartidor',
+    description: 'Hacer entregas y ganar dinero',
+    Icon: Truck,
+  },
+];
 
+// -- Validation ---------------------------------------------------------------
+function validate(
+  name: string,
+  email: string,
+  phone: string,
+  password: string,
+  confirmPwd: string
+): Record<string, string> {
+  const e: Record<string, string> = {};
+  if (!name.trim()) e.name = 'El nombre es requerido';
+  else if (name.trim().length < 3) e.name = 'Minimo 3 caracteres';
+  if (!email.trim()) e.email = 'El correo es requerido';
+  else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) e.email = 'Correo invalido';
+  if (!phone.trim()) e.phone = 'El telefono es requerido';
+  else if (phone.replace(/\D/g, '').length < 10) e.phone = 'Minimo 10 digitos';
+  if (!password) e.password = 'La contrasena es requerida';
+  else if (password.length < 6) e.password = 'Minimo 6 caracteres';
+  if (password && confirmPwd !== password) e.confirmPwd = 'Las contrasenas no coinciden';
+  return e;
+}
+
+// -- Screen -------------------------------------------------------------------
 export default function RegisterScreen() {
   const router = useRouter();
   const params = useLocalSearchParams();
   const { register } = useAuth();
-  const { colors, space, radius, isDark } = useTheme();
 
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
   const [phone, setPhone] = useState('');
+  const [password, setPassword] = useState('');
+  const [confirmPwd, setConfirmPwd] = useState('');
+  const [showPwd, setShowPwd] = useState(false);
   const [userType, setUserType] = useState('client');
+  const [loading, setLoading] = useState(false);
+  const [errors, setErrors] = useState<Record<string, string>>({});
+
+  // Referral
+  const [showReferral, setShowReferral] = useState(false);
   const [referralCode, setReferralCode] = useState('');
   const [referrerName, setReferrerName] = useState('');
   const [referralValid, setReferralValid] = useState<boolean | null>(null);
-  const [isLoading, setIsLoading] = useState(false);
-  const [isValidatingCode, setIsValidatingCode] = useState(false);
-  const [errors, setErrors] = useState({
-    name: '',
-    email: '',
-    password: '',
-    phone: '',
-    referralCode: '',
-  });
+  const [validatingCode, setValidatingCode] = useState(false);
 
-  const theme = isDark ? COLORS.dark : COLORS.light;
-
-  // Check for referral code in URL params
+  // Pre-fill referral from URL
   useEffect(() => {
     if (params.ref && typeof params.ref === 'string') {
       setReferralCode(params.ref.toUpperCase());
-      validateCode(params.ref);
+      setShowReferral(true);
+      checkReferral(params.ref);
     }
   }, [params.ref]);
 
-  const validateCode = async (code: string) => {
+  const clearError = (key: string) =>
+    setErrors((prev) => ({ ...prev, [key]: '' }));
+
+  // -- Referral validation --
+  const checkReferral = async (code: string) => {
     if (!code || code.length < 4) {
       setReferralValid(null);
       setReferrerName('');
       return;
     }
-
-    setIsValidatingCode(true);
+    setValidatingCode(true);
     try {
       const result = await validateReferralCode(code);
       setReferralValid(result.valid);
       setReferrerName(result.referrerName || '');
-      if (!result.valid) {
-        setErrors(prev => ({ ...prev, referralCode: result.error || 'Código inválido' }));
-      } else {
-        setErrors(prev => ({ ...prev, referralCode: '' }));
-      }
     } catch {
       setReferralValid(false);
-      setErrors(prev => ({ ...prev, referralCode: 'Error al validar código' }));
     } finally {
-      setIsValidatingCode(false);
+      setValidatingCode(false);
     }
   };
 
-  const validateName = (value: string) => {
-    if (!value) return 'El nombre es requerido';
-    if (value.trim().length < 3) return 'El nombre debe tener al menos 3 caracteres';
-    return '';
-  };
-
-  const validateEmail = (value: string) => {
-    if (!value) return 'El email es requerido';
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    if (!emailRegex.test(value)) return 'Email inválido';
-    return '';
-  };
-
-  const validatePassword = (value: string) => {
-    if (!value) return 'La contraseña es requerida';
-    if (value.length < 6) return 'La contraseña debe tener al menos 6 caracteres';
-    return '';
-  };
-
-  const validatePhone = (value: string) => {
-    if (!value) return 'El teléfono es requerido';
-    const phoneRegex = /^\+?[\d\s\-()]+$/;
-    if (!phoneRegex.test(value)) return 'Formato de teléfono inválido';
-    if (value.replace(/\D/g, '').length < 10) return 'El teléfono debe tener al menos 10 dígitos';
-    return '';
-  };
-
-  const handleReferralCodeChange = (value: string) => {
+  const handleReferralChange = (value: string) => {
     const code = value.toUpperCase().replace(/[^A-Z0-9]/g, '');
     setReferralCode(code);
-    setErrors(prev => ({ ...prev, referralCode: '' }));
-
-    if (code.length >= 6) {
-      validateCode(code);
-    } else {
+    if (code.length >= 6) checkReferral(code);
+    else {
       setReferralValid(null);
       setReferrerName('');
     }
   };
 
+  // -- Registration --
   const handleRegister = async () => {
-    // If driver, redirect to dedicated registration with onboarding
+    // Redirect driver to dedicated onboarding
     if (userType === 'driver') {
       router.push('/auth/register-driver' as any);
       return;
     }
 
-    const nameError = validateName(name);
-    const emailError = validateEmail(email);
-    const passwordError = validatePassword(password);
-    const phoneError = validatePhone(phone);
-
-    if (nameError || emailError || passwordError || phoneError) {
-      setErrors({
-        ...errors,
-        name: nameError,
-        email: emailError,
-        password: passwordError,
-        phone: phoneError,
-      });
+    const errs = validate(name, email, phone, password, confirmPwd);
+    setErrors(errs);
+    if (Object.keys(errs).length > 0) {
+      HapticFeedback.error();
       return;
     }
 
     if (referralCode && referralValid === false) {
       Alert.alert(
-        'Código de Referido',
-        'El código de referido no es válido. ¿Deseas continuar sin él?',
+        'Codigo de Referido',
+        'El codigo no es valido. Deseas continuar sin el?',
         [
           { text: 'Corregir', style: 'cancel' },
-          { text: 'Continuar', onPress: () => performRegistration() },
+          { text: 'Continuar', onPress: () => performRegister() },
         ]
       );
       return;
     }
 
-    performRegistration();
+    performRegister();
   };
 
-  const performRegistration = async () => {
-    setIsLoading(true);
+  const performRegister = async () => {
+    setLoading(true);
     try {
-      await register(name, email, password, phone, userType);
-      AuthSounds.login(); // Sonido de bienvenida
+      await register(
+        name.trim(),
+        email.trim().toLowerCase(),
+        password,
+        phone.trim(),
+        userType
+      );
+      HapticFeedback.success();
 
+      // Process referral if valid
       if (referralCode && referralValid) {
         try {
-          const referralResult = await processReferral(referralCode, 'manual_entry');
-          if (referralResult.success) {
-            SoundFeedback.success(); // Bonus por referido
-            Alert.alert(
-              '¡Bienvenido a Yesswera!',
-              `Tu cuenta ha sido creada.\n\nGracias a ${referrerName || 'tu amigo'}, tienes:\n• $15 de crédito de bienvenida\n• 1 entrada al sorteo mensual`,
-              [{ text: 'Genial', onPress: () => navigateAfterRegister() }]
+          const refResult = await processReferral(referralCode, 'manual_entry');
+          if (refResult.success) {
+            Toast.success(
+              `Bienvenido! Gracias a ${referrerName || 'tu amigo'}, tienes $15 de credito.`
             );
-            return;
           }
-        } catch (refError) {
-          console.error('Error processing referral:', refError);
+        } catch (refErr) {
+          console.error('Referral error:', refErr);
         }
       }
 
       navigateAfterRegister();
-    } catch (error: any) {
-      console.error('Register error:', error);
-      SoundFeedback.error();
-      let errorMessage = 'No se pudo crear la cuenta. Intenta nuevamente.';
-
-      if (error?.message?.includes('already registered') || error?.message?.includes('already exists')) {
-        errorMessage = 'Este correo ya está registrado. Intenta iniciar sesión.';
-      } else if (error?.message?.includes('invalid email')) {
-        errorMessage = 'El correo electrónico no es válido.';
-      } else if (error?.message?.includes('password')) {
-        errorMessage = 'La contraseña debe tener al menos 6 caracteres.';
+    } catch (err: any) {
+      console.error('Register error:', err);
+      HapticFeedback.error();
+      let msg = 'No se pudo crear la cuenta. Intenta de nuevo.';
+      if (
+        err?.message?.includes('already registered') ||
+        err?.message?.includes('already exists')
+      ) {
+        msg = 'Este correo ya esta registrado. Intenta iniciar sesion.';
       }
-
-      Alert.alert('Error al registrar', errorMessage);
+      Alert.alert('Error', msg);
     } finally {
-      setIsLoading(false);
+      setLoading(false);
     }
   };
 
   const navigateAfterRegister = () => {
-    if (userType === 'driver') {
-      router.replace('/driver/dashboard' as any);
-    } else if (userType === 'business') {
+    if (userType === 'business') {
       router.replace('/business/dashboard' as any);
     } else {
       router.replace('/' as any);
     }
   };
 
-  const userTypes = [
-    { id: 'client', label: 'Cliente', description: 'Pedir servicios' },
-    { id: 'driver', label: 'Repartidor', description: 'Hacer entregas' },
-    { id: 'business', label: 'Negocio', description: 'Vender productos' },
-  ];
-
-  // Contenido del header
-  const headerContent = (
-    <View style={styles.accessibilityRow}>
-      <AccessibilityControls variant="compact" />
-    </View>
-  );
-
   return (
-    <ScreenContainer
-      headerGradient="primary"
-      headerIcon={UserPlus}
-      headerTitle="Crear Cuenta"
-      headerSubtitle="Únete a Yesswera hoy"
-      headerContent={headerContent}
-    >
-      {/* Nota de campos obligatorios */}
-      <ThemedText variant="caption" color="muted" center style={{ marginBottom: space.lg, marginTop: -8 }}>
-        * Campos obligatorios
-      </ThemedText>
+    <SafeAreaView style={styles.safe}>
+      <KeyboardAvoidingView
+        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+        style={styles.flex}
+      >
+        <ScrollView
+          contentContainerStyle={styles.scroll}
+          showsVerticalScrollIndicator={false}
+          keyboardShouldPersistTaps="always"
+        >
+          {/* -- Title -- */}
+          <Text style={styles.hero}>Crear Cuenta</Text>
+          <Text style={styles.subtitle}>Unete a Yesswera</Text>
 
-      {/* Tipo de usuario */}
-      <View style={{ marginBottom: space.lg }}>
-        <ThemedText variant="label" bold style={{ marginBottom: space.sm }}>
-          ¿Cómo usarás Yesswera? *
-        </ThemedText>
-        <View style={{ gap: space.sm }}>
-          {userTypes.map((type) => (
-            <TouchableSound
-              key={type.id}
-              style={[
-                styles.userTypeCard,
-                {
-                  padding: space.md,
-                  borderRadius: radius.md,
-                  borderColor: userType === type.id ? colors.primary : theme.border,
-                  backgroundColor: userType === type.id
-                    ? (isDark ? colors.primary + '20' : colors.primary + '10')
-                    : theme.card,
-                  borderWidth: userType === type.id ? 2 : 1.5,
-                },
-              ]}
-              onPress={() => setUserType(type.id)}
-              disabled={isLoading}
-              activeOpacity={0.7}
-            >
-              <View style={styles.userTypeContent}>
-                <View style={[
-                  styles.userTypeRadio,
-                  {
-                    borderColor: userType === type.id ? colors.primary : theme.borderMedium,
-                    backgroundColor: userType === type.id ? colors.primary : 'transparent',
-                  }
-                ]}>
-                  {userType === type.id && (
-                    <View style={[styles.userTypeRadioInner, { backgroundColor: '#FFFFFF' }]} />
-                  )}
-                </View>
-                <View style={styles.userTypeText}>
-                  <ThemedText
-                    variant="subtitle"
-                    color={userType === type.id ? 'accent' : 'primary'}
-                    bold
+          {/* -- Role selector -- */}
+          <Text style={styles.sectionLabel}>Como usaras Yesswera?</Text>
+          <View style={styles.roleRow}>
+            {ROLES.map((role) => {
+              const selected = userType === role.id;
+              return (
+                <TouchableOpacity
+                  key={role.id}
+                  activeOpacity={0.7}
+                  onPress={() => setUserType(role.id)}
+                  disabled={loading}
+                  style={[
+                    styles.roleCard,
+                    selected && styles.roleCardSelected,
+                  ]}
+                >
+                  <role.Icon
+                    size={28}
+                    color={selected ? DS.colors.green : DS.colors.muted}
+                  />
+                  <Text
+                    style={[
+                      styles.roleLabel,
+                      selected && styles.roleLabelSelected,
+                    ]}
                   >
-                    {type.label}
-                  </ThemedText>
-                  <ThemedText
-                    variant="caption"
-                    color={userType === type.id ? 'accent' : 'secondary'}
-                  >
-                    {type.description}
-                  </ThemedText>
-                </View>
-              </View>
-            </TouchableSound>
-          ))}
-        </View>
-      </View>
+                    {role.label}
+                  </Text>
+                  <Text style={styles.roleDesc}>{role.description}</Text>
+                </TouchableOpacity>
+              );
+            })}
+          </View>
 
-      {/* Campos del formulario */}
-      <ThemedInput
-        label="Nombre Completo *"
-        value={name}
-        onChangeText={(v) => { setName(v); setErrors(p => ({ ...p, name: '' })); }}
-        error={errors.name}
-        placeholder="Juan Pérez"
-        autoCapitalize="words"
-        editable={!isLoading}
-      />
-
-      <View style={{ height: space.md }} />
-
-      <ThemedInput
-        label="Correo Electrónico *"
-        value={email}
-        onChangeText={(v) => { setEmail(v); setErrors(p => ({ ...p, email: '' })); }}
-        error={errors.email}
-        placeholder="tu@email.com"
-        keyboardType="email-address"
-        autoCapitalize="none"
-        editable={!isLoading}
-      />
-
-      <View style={{ height: space.md }} />
-
-      <ThemedInput
-        label="Teléfono *"
-        value={phone}
-        onChangeText={(v) => { setPhone(v); setErrors(p => ({ ...p, phone: '' })); }}
-        error={errors.phone}
-        placeholder="3331234567"
-        keyboardType="phone-pad"
-        editable={!isLoading}
-      />
-
-      <View style={{ height: space.md }} />
-
-      <ThemedInput
-        label="Contraseña *"
-        value={password}
-        onChangeText={(v) => { setPassword(v); setErrors(p => ({ ...p, password: '' })); }}
-        error={errors.password}
-        placeholder="Mínimo 6 caracteres"
-        isPassword
-        autoCapitalize="none"
-        editable={!isLoading}
-      />
-
-      <View style={{ height: space.lg }} />
-
-      {/* Código de referido */}
-      <View style={[styles.referralSection, {
-        backgroundColor: colors.primary + '08',
-        borderColor: colors.primary + '20',
-        borderRadius: radius.md,
-        padding: space.md,
-      }]}>
-        <View style={[styles.referralHeader, { gap: space.sm, marginBottom: space.sm }]}>
-          <Gift size={18} color={colors.primary} />
-          <ThemedText variant="label" bold>Código de Referido</ThemedText>
-          <ThemedText variant="caption" color="muted">(opcional)</ThemedText>
-        </View>
-
-        <View style={styles.referralInputRow}>
-          <View style={styles.flex}>
-            <ThemedInput
-              value={referralCode}
-              onChangeText={handleReferralCodeChange}
-              error={errors.referralCode}
-              placeholder="Ej: ABC123"
-              autoCapitalize="characters"
-              maxLength={8}
-              editable={!isLoading && !isValidatingCode}
+          {/* -- Name -- */}
+          <Text style={styles.label}>Nombre completo</Text>
+          <View
+            style={[styles.inputWrap, errors.name ? styles.inputError : null]}
+          >
+            <User size={20} color={DS.colors.muted} />
+            <TextInput
+              style={styles.input}
+              placeholder="Juan Perez"
+              placeholderTextColor={DS.colors.placeholder}
+              value={name}
+              onChangeText={(v) => {
+                setName(v);
+                clearError('name');
+              }}
+              autoCapitalize="words"
+              editable={!loading}
             />
           </View>
-          {isValidatingCode && (
-            <ThemedText variant="caption" color="secondary" style={styles.validatingText}>
-              Validando...
-            </ThemedText>
-          )}
-          {referralValid === true && <CheckCircle size={20} color={colors.success} />}
-          {referralValid === false && referralCode.length >= 6 && (
-            <XCircle size={20} color={colors.error} />
-          )}
-        </View>
+          {errors.name ? (
+            <Text style={styles.errText}>{errors.name}</Text>
+          ) : null}
 
-        {referralValid && referrerName && (
-          <View style={[styles.referrerInfo, {
-            backgroundColor: colors.success + '15',
-            borderRadius: radius.sm,
-            padding: space.sm,
-            marginTop: space.sm,
-          }]}>
-            <ThemedText variant="label">
-              Invitado por <ThemedText variant="label" color="success" bold>{referrerName}</ThemedText>
-            </ThemedText>
-            <ThemedText variant="caption" color="success">
-              Recibirás $15 de crédito + entrada al sorteo
-            </ThemedText>
+          {/* -- Email -- */}
+          <Text style={styles.label}>Correo electronico</Text>
+          <View
+            style={[styles.inputWrap, errors.email ? styles.inputError : null]}
+          >
+            <Mail size={20} color={DS.colors.muted} />
+            <TextInput
+              style={styles.input}
+              placeholder="tu@email.com"
+              placeholderTextColor={DS.colors.placeholder}
+              value={email}
+              onChangeText={(v) => {
+                setEmail(v);
+                clearError('email');
+              }}
+              keyboardType="email-address"
+              autoCapitalize="none"
+              autoComplete="email"
+              editable={!loading}
+            />
           </View>
-        )}
-      </View>
+          {errors.email ? (
+            <Text style={styles.errText}>{errors.email}</Text>
+          ) : null}
 
-      <View style={{ height: space.xl }} />
+          {/* -- Phone -- */}
+          <Text style={styles.label}>Telefono</Text>
+          <View
+            style={[styles.inputWrap, errors.phone ? styles.inputError : null]}
+          >
+            <Phone size={20} color={DS.colors.muted} />
+            <Text style={styles.phonePrefix}>+52</Text>
+            <TextInput
+              style={styles.input}
+              placeholder="3331234567"
+              placeholderTextColor={DS.colors.placeholder}
+              value={phone}
+              onChangeText={(v) => {
+                setPhone(v);
+                clearError('phone');
+              }}
+              keyboardType="phone-pad"
+              editable={!loading}
+            />
+          </View>
+          {errors.phone ? (
+            <Text style={styles.errText}>{errors.phone}</Text>
+          ) : null}
 
-      {/* Botón Crear Cuenta */}
-      <TouchableSound
-        style={[styles.button, {
-          backgroundColor: isLoading ? theme.border : colors.primary,
-          borderRadius: radius.md,
-        }]}
-        onPress={handleRegister}
-        disabled={isLoading}
-        activeOpacity={0.8}
-      >
-        <ThemedText variant="subtitle" color="white" bold>
-          {isLoading ? 'Creando cuenta...' : 'Crear Cuenta'}
-        </ThemedText>
-      </TouchableSound>
+          {/* -- Password -- */}
+          <Text style={styles.label}>Contrasena</Text>
+          <View
+            style={[
+              styles.inputWrap,
+              errors.password ? styles.inputError : null,
+            ]}
+          >
+            <Lock size={20} color={DS.colors.muted} />
+            <TextInput
+              style={styles.input}
+              placeholder="Minimo 6 caracteres"
+              placeholderTextColor={DS.colors.placeholder}
+              value={password}
+              onChangeText={(v) => {
+                setPassword(v);
+                clearError('password');
+              }}
+              secureTextEntry={!showPwd}
+              autoCapitalize="none"
+              editable={!loading}
+            />
+            <TouchableOpacity
+              onPress={() => setShowPwd((p) => !p)}
+              hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+            >
+              {showPwd ? (
+                <EyeOff size={20} color={DS.colors.muted} />
+              ) : (
+                <Eye size={20} color={DS.colors.muted} />
+              )}
+            </TouchableOpacity>
+          </View>
+          {errors.password ? (
+            <Text style={styles.errText}>{errors.password}</Text>
+          ) : null}
 
-      {/* Divider */}
-      <View style={[styles.divider, { marginVertical: space.lg }]}>
-        <View style={[styles.dividerLine, { backgroundColor: theme.border }]} />
-        <ThemedText variant="caption" color="secondary" style={{ marginHorizontal: space.md }}>
-          o
-        </ThemedText>
-        <View style={[styles.dividerLine, { backgroundColor: theme.border }]} />
-      </View>
+          {/* -- Confirm Password -- */}
+          <Text style={styles.label}>Confirmar contrasena</Text>
+          <View
+            style={[
+              styles.inputWrap,
+              errors.confirmPwd ? styles.inputError : null,
+            ]}
+          >
+            <Lock size={20} color={DS.colors.muted} />
+            <TextInput
+              style={styles.input}
+              placeholder="Repite tu contrasena"
+              placeholderTextColor={DS.colors.placeholder}
+              value={confirmPwd}
+              onChangeText={(v) => {
+                setConfirmPwd(v);
+                clearError('confirmPwd');
+              }}
+              secureTextEntry={!showPwd}
+              autoCapitalize="none"
+              editable={!loading}
+            />
+          </View>
+          {errors.confirmPwd ? (
+            <Text style={styles.errText}>{errors.confirmPwd}</Text>
+          ) : null}
 
-      {/* Login */}
-      <TouchableSound
-        style={styles.loginPrompt}
-        onPress={() => router.push('/login' as any)}
-        disabled={isLoading}
-      >
-        <ThemedText variant="body" color="secondary">
-          ¿Ya tienes cuenta?{' '}
-          <ThemedText variant="body" color="accent" bold>
-            Inicia Sesión
-          </ThemedText>
-        </ThemedText>
-      </TouchableSound>
+          {/* -- Referral (collapsible) -- */}
+          <TouchableOpacity
+            style={styles.referralToggle}
+            onPress={() => setShowReferral((p) => !p)}
+            activeOpacity={0.7}
+          >
+            <Gift size={18} color={DS.colors.green} />
+            <Text style={styles.referralToggleText}>
+              Codigo de referido (opcional)
+            </Text>
+            {showReferral ? (
+              <ChevronUp size={18} color={DS.colors.muted} />
+            ) : (
+              <ChevronDown size={18} color={DS.colors.muted} />
+            )}
+          </TouchableOpacity>
 
-      <View style={{ height: 40 }} />
-    </ScreenContainer>
+          {showReferral && (
+            <View style={styles.referralBox}>
+              <View style={styles.referralInputRow}>
+                <View style={[styles.inputWrap, { flex: 1, marginBottom: 0 }]}>
+                  <TextInput
+                    style={styles.input}
+                    placeholder="Ej: ABC123"
+                    placeholderTextColor={DS.colors.placeholder}
+                    value={referralCode}
+                    onChangeText={handleReferralChange}
+                    autoCapitalize="characters"
+                    maxLength={8}
+                    editable={!loading && !validatingCode}
+                  />
+                </View>
+                {validatingCode && (
+                  <Text style={styles.validatingText}>Validando...</Text>
+                )}
+                {referralValid === true && (
+                  <CheckCircle size={22} color={DS.colors.green} />
+                )}
+                {referralValid === false && referralCode.length >= 6 && (
+                  <XCircle size={22} color={DS.colors.red} />
+                )}
+              </View>
+              {referralValid && referrerName ? (
+                <View style={styles.referrerInfo}>
+                  <Text style={styles.referrerText}>
+                    Invitado por{' '}
+                    <Text style={styles.referrerName}>{referrerName}</Text>
+                  </Text>
+                  <Text style={styles.referrerBonus}>
+                    Recibiras $15 de credito + entrada al sorteo
+                  </Text>
+                </View>
+              ) : null}
+            </View>
+          )}
+
+          {/* -- Register button -- */}
+          <View style={styles.btnWrap}>
+            <BigButton
+              label={loading ? 'Creando cuenta...' : 'Registrarme'}
+              onPress={handleRegister}
+              color={DS.colors.green}
+              disabled={loading}
+              loading={loading}
+              height={DS.touch.button}
+            />
+          </View>
+
+          {/* -- Login link -- */}
+          <View style={styles.loginRow}>
+            <Text style={styles.loginPrompt}>Ya tienes cuenta? </Text>
+            <TouchableOpacity
+              onPress={() => router.push('/login' as any)}
+              disabled={loading}
+            >
+              <Text style={styles.loginLink}>Inicia Sesion</Text>
+            </TouchableOpacity>
+          </View>
+
+          <View style={{ height: 40 }} />
+        </ScrollView>
+      </KeyboardAvoidingView>
+    </SafeAreaView>
   );
 }
 
+// -- Styles -------------------------------------------------------------------
 const styles = StyleSheet.create({
+  safe: {
+    flex: 1,
+    backgroundColor: DS.colors.card,
+  },
   flex: {
     flex: 1,
   },
-  accessibilityRow: {
+  scroll: {
+    flexGrow: 1,
+    paddingHorizontal: DS.space.xxl,
+    paddingTop: 60,
+    paddingBottom: 40,
+  },
+
+  // Title
+  hero: {
+    ...DS.fonts.hero,
+    color: DS.colors.dark,
+  },
+  subtitle: {
+    ...DS.fonts.body,
+    color: DS.colors.muted,
+    marginTop: DS.space.xs,
+    marginBottom: DS.space.xxxl,
+  },
+
+  // Section label
+  sectionLabel: {
+    ...DS.fonts.bodyMed,
+    color: DS.colors.dark,
+    marginBottom: DS.space.md,
+  },
+
+  // Role selector
+  roleRow: {
+    flexDirection: 'row',
+    gap: DS.space.md,
+    marginBottom: DS.space.xxl,
+  },
+  roleCard: {
+    flex: 1,
     alignItems: 'center',
-    marginTop: 8,
-  },
-  userTypeCard: {
+    paddingVertical: DS.space.lg,
+    paddingHorizontal: DS.space.sm,
+    borderRadius: DS.radius.lg,
     borderWidth: 1.5,
+    borderColor: DS.colors.hairline,
+    backgroundColor: DS.colors.bg,
+    gap: DS.space.sm,
   },
-  userTypeContent: {
+  roleCardSelected: {
+    borderColor: DS.colors.green,
+    backgroundColor: DS.colors.greenLight,
+  },
+  roleLabel: {
+    ...DS.fonts.bodyMed,
+    color: DS.colors.dark,
+  },
+  roleLabelSelected: {
+    color: DS.colors.green,
+  },
+  roleDesc: {
+    ...DS.fonts.small,
+    color: DS.colors.muted,
+    textAlign: 'center',
+  },
+
+  // Labels + inputs
+  label: {
+    ...DS.fonts.label,
+    color: DS.colors.body,
+    marginBottom: DS.space.sm,
+    marginTop: DS.space.lg,
+  },
+  inputWrap: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 12,
+    minHeight: DS.touch.min,
+    backgroundColor: DS.colors.bg,
+    borderRadius: DS.radius.md,
+    borderWidth: 1.5,
+    borderColor: DS.colors.hairline,
+    paddingHorizontal: DS.space.lg,
+    gap: DS.space.md,
   },
-  userTypeRadio: {
-    width: 22,
-    height: 22,
-    borderRadius: 11,
-    borderWidth: 2,
-    justifyContent: 'center',
+  inputError: {
+    borderColor: DS.colors.red,
+  },
+  input: {
+    flex: 1,
+    ...DS.fonts.body,
+    color: DS.colors.dark,
+    paddingVertical: Platform.OS === 'android' ? 10 : 16,
+  },
+  phonePrefix: {
+    ...DS.fonts.bodyMed,
+    color: DS.colors.muted,
+  },
+  errText: {
+    ...DS.fonts.small,
+    color: DS.colors.red,
+    marginTop: DS.space.xs,
+    marginLeft: DS.space.xs,
+  },
+
+  // Referral
+  referralToggle: {
+    flexDirection: 'row',
     alignItems: 'center',
+    gap: DS.space.sm,
+    marginTop: DS.space.xxl,
+    paddingVertical: DS.space.md,
   },
-  userTypeRadioInner: {
-    width: 10,
-    height: 10,
-    borderRadius: 5,
-  },
-  userTypeText: {
+  referralToggleText: {
+    ...DS.fonts.label,
+    color: DS.colors.green,
     flex: 1,
   },
-  referralSection: {
-    borderWidth: 1,
-  },
-  referralHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
+  referralBox: {
+    marginTop: DS.space.sm,
   },
   referralInputRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
+    gap: DS.space.md,
   },
   validatingText: {
-    position: 'absolute',
-    right: 40,
+    ...DS.fonts.small,
+    color: DS.colors.muted,
   },
-  referrerInfo: {},
-  button: {
-    height: 56,
+  referrerInfo: {
+    backgroundColor: DS.colors.greenLight,
+    borderRadius: DS.radius.sm,
+    padding: DS.space.md,
+    marginTop: DS.space.md,
+  },
+  referrerText: {
+    ...DS.fonts.body,
+    color: DS.colors.dark,
+  },
+  referrerName: {
+    ...DS.fonts.bodyMed,
+    color: DS.colors.green,
+  },
+  referrerBonus: {
+    ...DS.fonts.small,
+    color: DS.colors.green,
+    marginTop: DS.space.xs,
+  },
+
+  // Button
+  btnWrap: {
+    marginTop: DS.space.xxxl,
+  },
+
+  // Login link
+  loginRow: {
+    flexDirection: 'row',
     justifyContent: 'center',
     alignItems: 'center',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.2,
-    shadowRadius: 8,
-    elevation: 4,
-  },
-  divider: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  dividerLine: {
-    flex: 1,
-    height: 1,
+    marginTop: DS.space.xxl,
   },
   loginPrompt: {
-    alignItems: 'center',
+    ...DS.fonts.body,
+    color: DS.colors.muted,
+  },
+  loginLink: {
+    ...DS.fonts.bodyMed,
+    color: DS.colors.green,
   },
 });

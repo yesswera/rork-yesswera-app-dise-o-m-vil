@@ -1,291 +1,176 @@
-import TouchableSound from '@/components/TouchableSound';
 // ============================================================================
-// YESSWERA: HISTORIAL DE ORDENES
-// Pantalla para ver el historial de ordenes del usuario
-// Actualizado para usar ScreenContainer
+// YESSWERA: HISTORIAL DE ORDENES — Simplified
+// FlatList with date | business | total | status pill
 // ============================================================================
 
+import { useState, useEffect, useCallback } from 'react';
 import {
   View,
   Text,
+  FlatList,
   StyleSheet,
+  SafeAreaView,
+  TouchableOpacity,
   ActivityIndicator,
-  Alert,
+  RefreshControl,
 } from 'react-native';
-import { useRouter } from 'expo-router';
-import { Package, PackageX } from 'lucide-react-native';
+import { router } from 'expo-router';
+import { Ionicons } from '@expo/vector-icons';
+import { DS } from '@/constants/design';
+import Pill from '@/components/ui/Pill';
 import { useAuth } from '@/contexts/auth';
-import { useState, useMemo, useEffect, useCallback } from 'react';
-import { Order } from '@/constants/types';
 import { getUserOrders } from '@/services/orders';
-import OrderCard from '@/components/OrderCard';
-import EmptyState from '@/components/EmptyState';
-import ErrorState from '@/components/ErrorState';
-import RatingModal from '@/components/RatingModal';
-import ScreenContainer from '@/components/ScreenContainer';
-import { useTheme } from '@/contexts/theme';
+import type { Order } from '@/constants/types';
 
-// ============================================================================
-// COLORES EXPLICITOS PARA MODO OSCURO
-// ============================================================================
+// -- Helpers ------------------------------------------------------------------
+function statusPillProps(status: string): { text: string; color: string } {
+  switch (status) {
+    case 'delivered':
+      return { text: 'Entregado', color: DS.colors.green };
+    case 'cancelled':
+      return { text: 'Cancelado', color: DS.colors.red };
+    default:
+      return { text: 'En curso', color: DS.colors.orange };
+  }
+}
 
-const COLORS = {
-  light: {
-    card: '#FFFFFF',
-    cardAlt: '#F5F5F4',
-    border: '#E7E5E4',
-    text: '#1C1917',
-    textSecondary: '#57534E',
-    textMuted: '#A8A29E',
-  },
-  dark: {
-    card: '#292524',
-    cardAlt: '#44403C',
-    border: '#44403C',
-    text: '#FAFAFA',
-    textSecondary: '#D6D3D1',
-    textMuted: '#78716C',
-  },
-};
+function formatShortDate(date: Date | string): string {
+  const d = typeof date === 'string' ? new Date(date) : date;
+  return d.toLocaleDateString('es-MX', { day: 'numeric', month: 'short' });
+}
 
-type FilterTab = 'all' | 'delivered' | 'cancelled';
+// -- Row component ------------------------------------------------------------
+function OrderRow({ order }: { order: Order }) {
+  const pill = statusPillProps(order.status);
 
+  return (
+    <TouchableOpacity
+      style={styles.row}
+      activeOpacity={0.7}
+      onPress={() => router.push(`/orders/${order.id}` as any)}
+    >
+      <Text style={styles.rowDate}>{formatShortDate(order.createdAt)}</Text>
+      <View style={styles.rowCenter}>
+        <Text style={styles.rowBusiness} numberOfLines={1}>
+          {order.businessName || 'Pedido'}
+        </Text>
+        <Text style={styles.rowTotal}>${order.total.toFixed(2)}</Text>
+      </View>
+      <Pill text={pill.text} color={pill.color} />
+    </TouchableOpacity>
+  );
+}
+
+// -- Screen -------------------------------------------------------------------
 export default function OrderHistoryScreen() {
-  const router = useRouter();
-  const { user, token } = useAuth();
-  const { isDark, colors } = useTheme();
-  const theme = isDark ? COLORS.dark : COLORS.light;
-
-  const [selectedTab, setSelectedTab] = useState<FilterTab>('all');
+  const { user } = useAuth();
   const [orders, setOrders] = useState<Order[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
+  const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [ratingOrder, setRatingOrder] = useState<Order | null>(null);
 
-  const loadOrders = useCallback(async () => {
-    if (!user || !token) return;
-
+  const load = useCallback(async () => {
+    if (!user) return;
     try {
-      const userOrders = await getUserOrders(user.id);
-      setOrders(userOrders);
-      setError(null);
+      const data = await getUserOrders(user.id);
+      setOrders(data);
     } catch (err) {
-      console.error('Error cargando ordenes:', err);
-      setError('No se pudieron cargar las ordenes');
+      console.error('Error loading orders:', err);
     } finally {
-      setIsLoading(false);
+      setLoading(false);
       setRefreshing(false);
     }
-  }, [user, token]);
+  }, [user]);
 
   useEffect(() => {
-    loadOrders();
-  }, [loadOrders]);
+    load();
+  }, [load]);
 
   const onRefresh = () => {
     setRefreshing(true);
-    loadOrders();
+    load();
   };
-
-  const handleOrderPress = (order: Order) => {
-    if (order.status === 'delivered' && order.driverId && order.driverName) {
-      setRatingOrder(order);
-    } else {
-      router.push(`/orders/${order.id}` as any);
-    }
-  };
-
-  const handleRatingSuccess = () => {
-    Alert.alert(
-      'Gracias!',
-      'Tu calificacion ha sido enviada',
-      [{ text: 'OK', onPress: loadOrders }]
-    );
-  };
-
-  const filteredOrders = useMemo(() => {
-    if (!user) return [];
-
-    switch (selectedTab) {
-      case 'delivered':
-        return orders.filter((order: Order) => order.status === 'delivered');
-      case 'cancelled':
-        return orders.filter((order: Order) => order.status === 'cancelled');
-      default:
-        return orders;
-    }
-  }, [selectedTab, user, orders]);
 
   if (!user) {
     router.replace('/login' as any);
     return null;
   }
 
-  const tabs = [
-    { id: 'all' as FilterTab, label: 'Todas' },
-    { id: 'delivered' as FilterTab, label: 'Completadas' },
-    { id: 'cancelled' as FilterTab, label: 'Canceladas' },
-  ];
-
-  // Loading state
-  if (isLoading) {
-    return (
-      <ScreenContainer
-        headerGradient="primary"
-        headerIcon={Package}
-        headerTitle="Historial de Ordenes"
-        headerSubtitle="Cargando tus ordenes..."
-      >
-        <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color={colors.primary} />
-          <Text style={[styles.loadingText, { color: theme.textSecondary }]}>
-            Cargando ordenes...
-          </Text>
-        </View>
-      </ScreenContainer>
-    );
-  }
-
-  // Error state
-  if (error) {
-    return (
-      <ScreenContainer
-        headerGradient="primary"
-        headerIcon={Package}
-        headerTitle="Historial de Ordenes"
-        headerSubtitle="Ocurrio un problema"
-      >
-        <ErrorState
-          message={error}
-          onRetry={() => {
-            setIsLoading(true);
-            setError(null);
-            loadOrders();
-          }}
-        />
-      </ScreenContainer>
-    );
-  }
-
   return (
-    <ScreenContainer
-      headerGradient="primary"
-      headerIcon={Package}
-      headerTitle="Historial de Ordenes"
-      headerSubtitle={`${orders.length} ordenes en total`}
-      refreshing={refreshing}
-      onRefresh={onRefresh}
-    >
-      {/* Tabs de filtro */}
-      <View style={[styles.tabsContainer, { backgroundColor: theme.card }]}>
-        {tabs.map((tab) => (
-          <TouchableSound
-            key={tab.id}
-            style={[
-              styles.tab,
-              { backgroundColor: theme.cardAlt },
-              selectedTab === tab.id && { backgroundColor: colors.primary },
-            ]}
-            onPress={() => setSelectedTab(tab.id)}
-            activeOpacity={0.7}
-          >
-            <Text
-              style={[
-                styles.tabText,
-                { color: theme.textSecondary },
-                selectedTab === tab.id && styles.tabTextActive,
-              ]}
-            >
-              {tab.label}
-            </Text>
-          </TouchableSound>
-        ))}
+    <SafeAreaView style={styles.safe}>
+      {/* Header */}
+      <View style={styles.header}>
+        <TouchableOpacity onPress={() => router.back()} style={styles.backBtn}>
+          <Ionicons name="arrow-back" size={24} color={DS.colors.dark} />
+        </TouchableOpacity>
+        <Text style={styles.headerTitle}>Mis Pedidos</Text>
+        <View style={{ width: 40 }} />
       </View>
 
-      {/* Lista de ordenes */}
-      <View style={styles.ordersContainer}>
-        {filteredOrders.length > 0 ? (
-          <>
-            {filteredOrders.map((order: Order) => (
-              <OrderCard
-                key={order.id}
-                order={order}
-                onPress={() => handleOrderPress(order)}
-                variant="client"
-              />
-            ))}
-          </>
-        ) : (
-          <EmptyState
-            icon={PackageX}
-            title="No hay ordenes"
-            message={
-              selectedTab === 'all'
-                ? 'Aun no tienes ordenes en tu historial'
-                : selectedTab === 'delivered'
-                ? 'No tienes ordenes completadas'
-                : 'No tienes ordenes canceladas'
-            }
-            actionLabel="Hacer un pedido"
-            onActionPress={() => router.push('/' as any)}
-          />
-        )}
-      </View>
-
-      {/* Modal de calificacion */}
-      {ratingOrder && ratingOrder.driverId && ratingOrder.driverName && (
-        <RatingModal
-          visible={!!ratingOrder}
-          orderId={ratingOrder.id.toString()}
-          driverId={ratingOrder.driverId}
-          driverName={ratingOrder.driverName}
-          onClose={() => setRatingOrder(null)}
-          onSuccess={handleRatingSuccess}
+      {loading ? (
+        <View style={styles.center}>
+          <ActivityIndicator size="large" color={DS.colors.green} />
+        </View>
+      ) : (
+        <FlatList
+          data={orders}
+          keyExtractor={(item) => item.id}
+          renderItem={({ item }) => <OrderRow order={item} />}
+          contentContainerStyle={styles.list}
+          ItemSeparatorComponent={() => <View style={styles.separator} />}
+          refreshControl={
+            <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={DS.colors.green} />
+          }
+          ListEmptyComponent={
+            <View style={styles.empty}>
+              <Ionicons name="receipt-outline" size={56} color={DS.colors.hairline} />
+              <Text style={styles.emptyTitle}>Aun no tienes pedidos</Text>
+              <Text style={styles.emptyBody}>Tus ordenes apareceran aqui</Text>
+            </View>
+          }
         />
       )}
-    </ScreenContainer>
+    </SafeAreaView>
   );
 }
 
-// ============================================================================
-// ESTILOS
-// ============================================================================
-
+// -- Styles -------------------------------------------------------------------
 const styles = StyleSheet.create({
-  loadingContainer: {
-    flex: 1,
+  safe: { flex: 1, backgroundColor: DS.colors.bg },
+
+  header: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: DS.space.lg,
+    paddingVertical: DS.space.md,
+  },
+  backBtn: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
     justifyContent: 'center',
     alignItems: 'center',
-    padding: 40,
   },
-  loadingText: {
-    fontSize: 16,
-    marginTop: 16,
-  },
-  tabsContainer: {
+  headerTitle: { ...DS.fonts.title, color: DS.colors.dark },
+
+  center: { flex: 1, justifyContent: 'center', alignItems: 'center' },
+  list: { paddingHorizontal: DS.space.lg, paddingBottom: 40 },
+
+  // Row
+  row: {
     flexDirection: 'row',
-    paddingHorizontal: 4,
-    paddingVertical: 12,
-    gap: 8,
-    marginBottom: 16,
-    borderRadius: 12,
-  },
-  tab: {
-    flex: 1,
-    paddingVertical: 10,
-    paddingHorizontal: 16,
-    borderRadius: 20,
     alignItems: 'center',
+    paddingVertical: DS.space.lg,
+    gap: DS.space.md,
   },
-  tabText: {
-    fontSize: 14,
-    fontWeight: '600',
-  },
-  tabTextActive: {
-    color: '#FFFFFF',
-  },
-  ordersContainer: {
-    flex: 1,
-  },
+  rowDate: { ...DS.fonts.label, color: DS.colors.muted, width: 52 },
+  rowCenter: { flex: 1 },
+  rowBusiness: { ...DS.fonts.bodyMed, color: DS.colors.dark },
+  rowTotal: { ...DS.fonts.small, color: DS.colors.muted, marginTop: 2 },
+  separator: { height: 1, backgroundColor: DS.colors.divider },
+
+  // Empty
+  empty: { alignItems: 'center', paddingTop: 80, gap: 10 },
+  emptyTitle: { ...DS.fonts.section, color: DS.colors.dark },
+  emptyBody: { ...DS.fonts.body, color: DS.colors.muted },
 });

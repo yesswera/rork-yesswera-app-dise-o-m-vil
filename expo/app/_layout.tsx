@@ -1,12 +1,11 @@
 import { Stack, useRouter } from "expo-router";
 import * as SplashScreen from "expo-splash-screen";
 import React, { useEffect, useRef } from "react";
-import { View, AppState, AppStateStatus } from "react-native";
+import { View } from "react-native";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { AuthProvider, useAuth } from "@/contexts/auth";
 import { CartProvider } from "@/contexts/cart";
-import { AnalyticsProvider } from "@/contexts/analytics";
-import { ThemeProvider, useTheme } from "@/contexts/theme";
+import { ThemeProvider } from "@/contexts/theme";
 import { RealtimeProvider } from "@/contexts/realtime";
 import { QueryProvider } from "@/providers/QueryProvider";
 import ToastContainer from "@/components/ToastContainer";
@@ -15,8 +14,7 @@ import {
   registerForPushNotifications,
   addNotificationResponseReceivedListener,
 } from "@/services/notifications";
-import { initializeSounds, cleanupSounds, playStartupChime } from "@/services/sounds";
-import { startAISupervision, stopAISupervision } from "@/services/ai-supervisor";
+import { DS } from "@/constants/design";
 
 SplashScreen.preventAutoHideAsync();
 
@@ -49,54 +47,51 @@ function NotificationHandler() {
 }
 
 function RootLayoutNav() {
+  const headerDefaults = {
+    headerBackTitle: "Atras",
+    headerStyle: { backgroundColor: DS.colors.bg },
+  };
+
   return (
-    <Stack screenOptions={{ headerBackTitle: "Atrás" }}>
+    <Stack screenOptions={headerDefaults}>
       <Stack.Screen name="index" options={{ headerShown: false }} />
-      <Stack.Screen name="login" options={{ title: "Iniciar Sesión", headerShown: false }} />
-      <Stack.Screen name="register" options={{ title: "Crear Cuenta", headerShown: false }} />
-      <Stack.Screen name="auth/register-driver" options={{ title: "Registro Repartidor", headerShown: false }} />
-      <Stack.Screen name="food/restaurants" options={{ title: "Restaurantes" }} />
-      <Stack.Screen name="food/menu/[businessId]" options={{ title: "Menú" }} />
-      <Stack.Screen name="food/cart" options={{ title: "Carrito" }} />
-      <Stack.Screen name="shopping/index" options={{ title: "Lista de Compras", headerShown: false }} />
-      <Stack.Screen name="shopping/general-list" options={{ title: "Lista General" }} />
-      <Stack.Screen name="shopping/stores" options={{ title: "Tiendas" }} />
-      <Stack.Screen name="shopping/nearby" options={{ title: "Comercios Cercanos", headerShown: false }} />
-      <Stack.Screen name="shopping/list/[storeId]" options={{ title: "Lista de Compras" }} />
-      <Stack.Screen name="delivery/create" options={{ title: "Coger y Entregar" }} />
+      <Stack.Screen name="login" options={{ headerShown: false }} />
+      <Stack.Screen name="register" options={{ headerShown: false }} />
+      <Stack.Screen name="food/restaurants" options={{ title: "Pedir Comida" }} />
+      <Stack.Screen name="food/menu/[businessId]" options={{ title: "Menu" }} />
+      <Stack.Screen name="food/checkout" options={{ title: "Confirmar Pedido" }} />
+      <Stack.Screen name="shopping" options={{ title: "Lista de Compras" }} />
+      <Stack.Screen name="delivery/create" options={{ title: "Enviar Paquete" }} />
       <Stack.Screen name="tracking/[orderId]" options={{ title: "Seguimiento" }} />
-      <Stack.Screen name="admin" options={{ headerShown: false, gestureEnabled: false }} />
-      <Stack.Screen name="driver/dashboard" options={{ title: "Portal Repartidor", headerShown: false, gestureEnabled: false }} />
-      <Stack.Screen name="driver/waiting" options={{ title: "En Espera", headerShown: false, gestureEnabled: false }} />
-      <Stack.Screen name="business/dashboard" options={{ title: "Portal Negocio", headerShown: false, gestureEnabled: false }} />
-      <Stack.Screen name="business/comanda/[orderId]" options={{ title: "Comanda", headerShown: false }} />
-      <Stack.Screen name="business/comanda-mode" options={{ title: "Modo Comanda", headerShown: false, gestureEnabled: false }} />
-      <Stack.Screen name="driver/earnings" options={{ title: "Mis Ganancias", headerShown: false }} />
+      <Stack.Screen name="orders/history" options={{ title: "Historial" }} />
+      <Stack.Screen name="orders/[orderId]" options={{ title: "Detalle de Orden" }} />
       <Stack.Screen name="profile" options={{ title: "Mi Perfil" }} />
       <Stack.Screen name="profile/edit" options={{ title: "Editar Perfil" }} />
-      <Stack.Screen name="orders/history" options={{ title: "Historial de Órdenes" }} />
-      <Stack.Screen name="orders/[orderId]" options={{ title: "Detalles de Orden" }} />
-      <Stack.Screen name="orders/cancel/[orderId]" options={{ title: "Cancelar Pedido", headerShown: false }} />
-      <Stack.Screen name="orders/cancel-request/[orderId]" options={{ title: "Solicitar Cancelación", headerShown: false }} />
-      <Stack.Screen name="ratings/create/[orderId]" options={{ title: "Calificar Servicio" }} />
-      <Stack.Screen name="support/index" options={{ title: "Centro de Ayuda" }} />
-      <Stack.Screen name="chat/order/[orderId]" options={{ title: "Chat", headerShown: false }} />
-      <Stack.Screen name="password-recovery/request" options={{ title: "Recuperar Contraseña" }} />
-      <Stack.Screen name="password-recovery/verify" options={{ title: "Verificar Código" }} />
-      <Stack.Screen name="password-recovery/reset" options={{ title: "Nueva Contraseña" }} />
+      <Stack.Screen name="password-recovery/request" options={{ title: "Recuperar Contrasena" }} />
+      <Stack.Screen name="password-recovery/verify" options={{ title: "Verificar Codigo" }} />
+      <Stack.Screen name="password-recovery/reset" options={{ title: "Nueva Contrasena" }} />
+      <Stack.Screen name="business/dashboard" options={{ headerShown: false, gestureEnabled: false }} />
+      <Stack.Screen name="business/products" options={{ title: "Productos" }} />
+      <Stack.Screen name="business/products/add" options={{ title: "Nuevo Producto" }} />
+      <Stack.Screen name="business/profile" options={{ title: "Mi Negocio" }} />
+      <Stack.Screen name="business/onboarding" options={{ headerShown: false }} />
+      <Stack.Screen name="driver/dashboard" options={{ headerShown: false, gestureEnabled: false }} />
+      <Stack.Screen name="driver/active-order" options={{ title: "Entrega Activa" }} />
+      <Stack.Screen name="driver/profile" options={{ title: "Mi Perfil" }} />
+      <Stack.Screen name="driver/waiting" options={{ headerShown: false }} />
+      <Stack.Screen name="auth/register-driver" options={{ headerShown: false }} />
+      <Stack.Screen name="admin/dashboard" options={{ headerShown: false }} />
+      <Stack.Screen name="admin/orders" options={{ title: "Ordenes" }} />
+      <Stack.Screen name="admin/drivers" options={{ title: "Repartidores" }} />
+      <Stack.Screen name="ratings/create/[orderId]" options={{ title: "Calificar" }} />
       <Stack.Screen name="+not-found" options={{ title: "Oops!" }} />
     </Stack>
   );
 }
 
 function ThemedApp() {
-  const { colors, isDark } = useTheme();
-
-  // Colores explícitos para el fondo de la app
-  const backgroundColor = isDark ? '#1C1917' : '#FFFFFF';
-
   return (
-    <View style={{ flex: 1, backgroundColor }}>
+    <View style={{ flex: 1, backgroundColor: DS.colors.bg }}>
       <NotificationHandler />
       <RootLayoutNav />
       <ToastContainer />
@@ -106,31 +101,9 @@ function ThemedApp() {
 
 export default function RootLayout() {
   useEffect(() => {
-    // Inicializar sistema de sonidos y reproducir chime de inicio
-    initializeSounds()
-      .then(() => playStartupChime())
-      .catch(console.error);
-
-    // Iniciar IA Supervisor (supervisa capacidad de drivers, etc.)
-    startAISupervision().catch(console.error);
-
-    // Escuchar cambios de estado de la app
-    const subscription = AppState.addEventListener('change', (state: AppStateStatus) => {
-      if (state === 'background' || state === 'inactive') {
-        // Limpiar sonidos cuando la app va al background
-        // cleanupSounds(); // Comentado: mantener cache para mejor performance
-      }
-    });
-
     setTimeout(() => {
       SplashScreen.hideAsync();
     }, 100);
-
-    return () => {
-      subscription.remove();
-      cleanupSounds();
-      stopAISupervision();
-    };
   }, []);
 
   return (
@@ -140,11 +113,9 @@ export default function RootLayout() {
           <ThemeProvider>
             <AuthProvider>
               <RealtimeProvider>
-                <AnalyticsProvider>
-                  <CartProvider>
-                    <ThemedApp />
-                  </CartProvider>
-                </AnalyticsProvider>
+                <CartProvider>
+                  <ThemedApp />
+                </CartProvider>
               </RealtimeProvider>
             </AuthProvider>
           </ThemeProvider>

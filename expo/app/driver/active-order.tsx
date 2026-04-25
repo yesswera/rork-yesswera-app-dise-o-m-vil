@@ -1,153 +1,153 @@
-import TouchableSound from '@/components/TouchableSound';
 // ============================================================================
-// YESSWERA: ORDEN ACTIVA DEL REPARTIDOR
-// Usa ScreenContainer para diseño unificado con soporte de tema
+// YESSWERA: ACTIVE ORDER — Vecino Amigo DS rebuild
+// ONE BIG BUTTON per stage. Designed for use while driving.
 // ============================================================================
 
-import { useState, useEffect, useCallback, useRef } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import {
-  StyleSheet,
   View,
+  Text,
+  StyleSheet,
   Alert,
-  TextInput,
   ActivityIndicator,
-  Platform,
-  Keyboard,
+  TouchableOpacity,
   Linking,
-  Animated,
-  Dimensions,
+  SafeAreaView,
+  ScrollView,
+  Platform,
 } from 'react-native';
 import { useRouter } from 'expo-router';
-import { MapPin, Clock, Package, CheckCircle, Navigation, Phone, Store, AlertTriangle, Box, Scale, Shield, User } from 'lucide-react-native';
+import { Ionicons } from '@expo/vector-icons';
+import * as Haptics from 'expo-haptics';
+import * as Location from 'expo-location';
 import { useAuth } from '@/contexts/auth';
-import { useTheme } from '@/contexts/theme';
-import { OrderSounds, SoundFeedback, EmergencySounds, ArrivalSounds } from '@/services/sounds';
-import { ThemedText } from '@/components/themed';
-import ScreenContainer, { ScreenCard } from '@/components/ScreenContainer';
-import SupportButton from '@/components/SupportButton';
-import OrderChatButton from '@/components/OrderChatButton';
-import DriverHealthCheckModal from '@/components/DriverHealthCheckModal';
-import { useDriverHealthCheck } from '@/hooks/useDriverMonitoring';
+import { supabase } from '@/constants/supabase';
 import {
   getDriverOrders,
+  updateOrderStatus,
   confirmArrivalAtBusiness,
   confirmOrderReceived,
   confirmArrivalAtClient,
-  validateDeliveryCode
+  validateDeliveryCode,
 } from '@/services/orders';
-import { supabase } from '@/constants/supabase';
+import { updateDriverLocation } from '@/services/gps';
 import { Order } from '@/constants/types';
-import MapView, { Marker, Polyline, PROVIDER_GOOGLE } from 'react-native-maps';
-import * as Location from 'expo-location';
-import { getRoute } from '@/services/routing';
+import { DS, colorShadow } from '@/constants/design';
 
-const { width: SCREEN_WIDTH } = Dimensions.get('window');
-const MAP_HEIGHT = 220;
+import YCard from '@/components/ui/YCard';
+import YAvatar from '@/components/ui/YAvatar';
+import BigButton from '@/components/ui/BigButton';
+import Pill from '@/components/ui/Pill';
+
+// ── Stage definitions ────────────────────────────────────────────────────────
+
+interface StageConfig {
+  statusText: string;
+  subtitle: string;
+  buttonLabel: string;
+  buttonColor: string;
+  buttonIcon: keyof typeof Ionicons.glyphMap;
+  pillText: string;
+  pillColor: string;
+}
+
+const STAGES: StageConfig[] = [
+  {
+    statusText: 'Ir al negocio',
+    subtitle: 'Recoge el pedido en el negocio',
+    buttonLabel: 'Llegue al negocio',
+    buttonColor: DS.colors.blue,
+    buttonIcon: 'storefront-outline',
+    pillText: 'Recogida',
+    pillColor: DS.colors.blue,
+  },
+  {
+    statusText: 'Verificar recogida',
+    subtitle: 'Confirma que tienes el pedido',
+    buttonLabel: 'Tengo el pedido',
+    buttonColor: DS.colors.orange,
+    buttonIcon: 'cube-outline',
+    pillText: 'En negocio',
+    pillColor: DS.colors.orange,
+  },
+  {
+    statusText: 'En camino al cliente',
+    subtitle: 'Lleva el pedido a la direccion indicada',
+    buttonLabel: 'Llegue con el cliente',
+    buttonColor: DS.colors.green,
+    buttonIcon: 'location-outline',
+    pillText: 'En transito',
+    pillColor: DS.colors.green,
+  },
+  {
+    statusText: 'Entregar pedido',
+    subtitle: 'Entrega al cliente y confirma',
+    buttonLabel: 'Pedido entregado',
+    buttonColor: DS.colors.green,
+    buttonIcon: 'checkmark-circle-outline',
+    pillText: 'En destino',
+    pillColor: DS.colors.green,
+  },
+];
+
+// Map order status to stage number
+function statusToStage(status: string, driverAtBusiness?: boolean): number {
+  if (status === 'assigned' || status === 'preparing') {
+    return driverAtBusiness ? 1 : 0;
+  }
+  if (status === 'ready') {
+    return driverAtBusiness ? 1 : 0;
+  }
+  if (status === 'driver_verified' || status === 'handed_to_driver') return 1;
+  if (status === 'in_transit') return 2;
+  if (status === 'arrived') return 3;
+  if (status === 'delivered') return 3;
+  return 0;
+}
+
+// ── Progress dots ────────────────────────────────────────────────────────────
+
+function ProgressDots({ current, total }: { current: number; total: number }) {
+  return (
+    <View style={s.progressRow}>
+      {Array.from({ length: total }).map((_, i) => (
+        <View
+          key={i}
+          style={[
+            s.dot,
+            i < current
+              ? s.dotDone
+              : i === current
+              ? s.dotActive
+              : s.dotPending,
+          ]}
+        />
+      ))}
+    </View>
+  );
+}
+
+// ── Component ────────────────────────────────────────────────────────────────
 
 export default function ActiveOrderScreen() {
   const router = useRouter();
-  const { user, token } = useAuth();
-  const { isDark, colors, radius, space } = useTheme();
+  const { user } = useAuth();
 
   const [order, setOrder] = useState<Order | null>(null);
-  const [deliveryCodeInput, setDeliveryCodeInput] = useState('');
   const [loading, setLoading] = useState(true);
-  const [validating, setValidating] = useState(false);
-  const [driverLocation, setDriverLocation] = useState<{ latitude: number; longitude: number } | null>(null);
-  const [routeCoords, setRouteCoords] = useState<{ latitude: number; longitude: number }[]>([]);
-  const [routeInfo, setRouteInfo] = useState<{ distanceKm: number; durationMin: number } | null>(null);
-  const lastRouteDest = useRef<string>('');
+  const [pressing, setPressing] = useState(false);
+  const [stage, setStage] = useState(0);
+  const [driverLocation, setDriverLocation] = useState<{
+    latitude: number;
+    longitude: number;
+  } | null>(null);
 
-  const deliveryInputRef = useRef<TextInput>(null);
-  const mapRef = useRef<MapView>(null);
-  const pulseAnim = useRef(new Animated.Value(1)).current;
+  const locationSub = useRef<Location.LocationSubscription | null>(null);
 
-  // Fetch route when destination or driver location changes
-  useEffect(() => {
-    if (!driverLocation || !order) return;
-    const isGoingToClient = order.status === 'in_transit' || order.status === 'arrived';
-    const dest = isGoingToClient ? order.deliveryLocation : order.pickupLocation;
-    if (!dest?.latitude || !dest?.longitude) return;
+  // ── Load active order ───────────────────────────────────────────────────
 
-    const destKey = `${dest.latitude.toFixed(4)},${dest.longitude.toFixed(4)}_${isGoingToClient}`;
-    if (destKey === lastRouteDest.current) return;
-    lastRouteDest.current = destKey;
-
-    getRoute(driverLocation, { latitude: dest.latitude, longitude: dest.longitude })
-      .then((result) => {
-        setRouteCoords(result.coordinates);
-        setRouteInfo({ distanceKm: result.distanceKm, durationMin: result.durationMin });
-      })
-      .catch(() => {});
-  }, [driverLocation, order?.status]);
-
-  // Hook para detectar si el driver esta detenido y mostrar pregunta
-  const { showHealthCheck, dismissHealthCheck } = useDriverHealthCheck(
-    user?.id || '',
-    !!order, // hasActiveOrder
-    true // enabled
-  );
-
-  // Pulse animation for pickup code
-  useEffect(() => {
-    if (order?.status === 'ready' && order?.driverAtBusiness) {
-      const pulse = Animated.loop(
-        Animated.sequence([
-          Animated.timing(pulseAnim, {
-            toValue: 1.03,
-            duration: 600,
-            useNativeDriver: true,
-          }),
-          Animated.timing(pulseAnim, {
-            toValue: 1,
-            duration: 600,
-            useNativeDriver: true,
-          }),
-        ]),
-        { iterations: 3 }
-      );
-      pulse.start();
-      return () => pulse.stop();
-    }
-  }, [order?.status, order?.driverAtBusiness, pulseAnim]);
-
-  // Track driver location for the map
-  useEffect(() => {
-    let subscription: Location.LocationSubscription | null = null;
-
-    (async () => {
-      const { status } = await Location.requestForegroundPermissionsAsync();
-      if (status !== 'granted') return;
-
-      const loc = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced });
-      setDriverLocation({ latitude: loc.coords.latitude, longitude: loc.coords.longitude });
-
-      subscription = await Location.watchPositionAsync(
-        { accuracy: Location.Accuracy.Balanced, distanceInterval: 20, timeInterval: 5000 },
-        (loc) => setDriverLocation({ latitude: loc.coords.latitude, longitude: loc.coords.longitude }),
-      );
-    })();
-
-    return () => { subscription?.remove(); };
-  }, []);
-
-  // Fit map to show both markers when destination changes
-  useEffect(() => {
-    if (!mapRef.current || !driverLocation || !order) return;
-
-    const isGoingToClient = order.status === 'in_transit' || order.status === 'arrived';
-    const dest = isGoingToClient ? order.deliveryLocation : order.pickupLocation;
-    if (!dest?.latitude || !dest?.longitude) return;
-
-    mapRef.current.fitToCoordinates(
-      [driverLocation, { latitude: dest.latitude, longitude: dest.longitude }],
-      { edgePadding: { top: 60, right: 60, bottom: 60, left: 60 }, animated: true },
-    );
-  }, [driverLocation?.latitude, order?.status]);
-
-  const loadActiveOrder = useCallback(async () => {
-    if (!user || !token) return;
-
+  const loadOrder = useCallback(async () => {
+    if (!user) return;
     try {
       const { data: driver } = await supabase
         .from('drivers')
@@ -156,962 +156,664 @@ export default function ActiveOrderScreen() {
         .maybeSingle();
 
       if (!driver) {
-        Alert.alert('Error', 'No se encontro tu registro de repartidor');
+        setLoading(false);
         return;
       }
 
-      const activeOrders = await getDriverOrders(driver.id);
-      if (activeOrders.length > 0) {
-        setOrder(activeOrders[0]);
+      const orders = await getDriverOrders(driver.id);
+      if (orders.length > 0) {
+        const active = orders[0];
+        setOrder(active);
+        setStage(statusToStage(active.status, active.driverAtBusiness));
       } else {
-        Alert.alert('Sin ordenes', 'No tienes ordenes activas', [
-          { text: 'OK', onPress: () => router.back() },
-        ]);
+        setOrder(null);
       }
-    } catch (error) {
-      console.error('Error loading active order:', error);
-      Alert.alert('Error', 'No se pudo cargar la orden');
+    } catch (err) {
+      console.error('Error loading order:', err);
     } finally {
       setLoading(false);
     }
-  }, [user, token, router]);
+  }, [user]);
 
   useEffect(() => {
-    loadActiveOrder();
-    const interval = setInterval(loadActiveOrder, 5000); // Poll every 5s for status changes
+    loadOrder();
+    const interval = setInterval(loadOrder, 8000);
     return () => clearInterval(interval);
-  }, [loadActiveOrder]);
+  }, [loadOrder]);
 
-  // Handler: Driver arrived at business
-  const handleArrivedAtBusiness = async () => {
-    if (!order || !token) return;
+  // ── GPS tracking ────────────────────────────────────────────────────────
 
-    setValidating(true);
+  useEffect(() => {
+    (async () => {
+      const { status } = await Location.requestForegroundPermissionsAsync();
+      if (status !== 'granted') return;
+
+      const loc = await Location.getCurrentPositionAsync({
+        accuracy: Location.Accuracy.Balanced,
+      });
+      setDriverLocation({
+        latitude: loc.coords.latitude,
+        longitude: loc.coords.longitude,
+      });
+
+      locationSub.current = await Location.watchPositionAsync(
+        {
+          accuracy: Location.Accuracy.Balanced,
+          distanceInterval: 15,
+          timeInterval: 5000,
+        },
+        (loc) => {
+          const coords = {
+            latitude: loc.coords.latitude,
+            longitude: loc.coords.longitude,
+          };
+          setDriverLocation(coords);
+
+          // Push to Firebase if we have an active order
+          if (order?.driverId && order?.id) {
+            updateDriverLocation(order.driverId, order.id.toString(), loc);
+          }
+        }
+      );
+    })();
+
+    return () => {
+      locationSub.current?.remove();
+    };
+  }, [order?.driverId, order?.id]);
+
+  // ── Big button handler ──────────────────────────────────────────────────
+
+  const handleBigButton = async () => {
+    if (!order || pressing) return;
+    setPressing(true);
+
     try {
-      const result = await confirmArrivalAtBusiness(order.id.toString());
-      if (result.success) {
-        ArrivalSounds.atBusiness(); // Sound feedback for arriving at business
-        Alert.alert('Llegada Confirmada', 'Cuando el pedido este listo, te aparecera el codigo de recoleccion.');
-        await loadActiveOrder();
-      } else {
-        SoundFeedback.error();
-        Alert.alert('Error', result.message);
+      const orderId = order.id.toString();
+
+      switch (stage) {
+        case 0: {
+          // Stage 0 -> 1: Arrived at business
+          const res = await confirmArrivalAtBusiness(orderId);
+          if (res.success) {
+            setStage(1);
+            Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+          } else {
+            Alert.alert('Error', res.message);
+          }
+          break;
+        }
+        case 1: {
+          // Stage 1 -> 2: Got the order, now in transit
+          const res = await confirmOrderReceived(orderId);
+          if (res.success) {
+            setStage(2);
+            Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+          } else {
+            Alert.alert('Error', res.message);
+          }
+          break;
+        }
+        case 2: {
+          // Stage 2 -> 3: Arrived at client
+          const res = await confirmArrivalAtClient(orderId);
+          if (res.success) {
+            setStage(3);
+            Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+          } else {
+            Alert.alert('Error', res.message);
+          }
+          break;
+        }
+        case 3: {
+          // Stage 3: Mark delivered
+          await updateOrderStatus(orderId, 'delivered');
+          Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+          Alert.alert('Entrega completada!', 'Buen trabajo.', [
+            { text: 'OK', onPress: () => router.replace('/driver/dashboard') },
+          ]);
+          break;
+        }
       }
-    } catch (error: any) {
-      SoundFeedback.error();
-      Alert.alert('Error', error.message || 'No se pudo confirmar la llegada');
+
+      await loadOrder();
+    } catch (err: any) {
+      Alert.alert('Error', err.message || 'Algo salio mal');
     } finally {
-      setValidating(false);
+      setPressing(false);
     }
   };
 
-  // Handler: Driver confirms received order from business
-  const handleOrderReceived = async () => {
-    if (!order || !token) return;
+  // ── Navigate to address ─────────────────────────────────────────────────
 
-    setValidating(true);
-    try {
-      const result = await confirmOrderReceived(order.id.toString());
-      if (result.success) {
-        OrderSounds.pickedUp(); // Sound feedback for pickup code verified
-        Alert.alert('Orden Recibida', 'Ahora ve al cliente para entregar.');
-        await loadActiveOrder();
-      } else {
-        SoundFeedback.error();
-        Alert.alert('Error', result.message);
-      }
-    } catch (error: any) {
-      SoundFeedback.error();
-      Alert.alert('Error', error.message || 'No se pudo confirmar la recepcion');
-    } finally {
-      setValidating(false);
+  const openNavigation = (address: string, location?: { latitude: number; longitude: number }) => {
+    if (location) {
+      const url = Platform.select({
+        ios: `maps:0,0?q=${location.latitude},${location.longitude}`,
+        android: `geo:${location.latitude},${location.longitude}?q=${location.latitude},${location.longitude}(${encodeURIComponent(address)})`,
+      });
+      if (url) Linking.openURL(url);
+    } else if (address) {
+      const url = Platform.select({
+        ios: `maps:0,0?q=${encodeURIComponent(address)}`,
+        android: `geo:0,0?q=${encodeURIComponent(address)}`,
+      });
+      if (url) Linking.openURL(url);
     }
   };
 
-  // Handler: Driver arrived at client
-  const handleArrivedAtClient = async () => {
-    if (!order || !token) return;
+  // ── Panic ───────────────────────────────────────────────────────────────
 
-    setValidating(true);
-    try {
-      const result = await confirmArrivalAtClient(order.id.toString());
-      if (result.success) {
-        ArrivalSounds.atClient(); // Sound feedback for arriving at client
-        Alert.alert('Llegada Confirmada', 'El cliente fue notificado. Pide el codigo de entrega.');
-        await loadActiveOrder();
-      } else {
-        SoundFeedback.error();
-        Alert.alert('Error', result.message);
-      }
-    } catch (error: any) {
-      SoundFeedback.error();
-      Alert.alert('Error', error.message || 'No se pudo confirmar la llegada');
-    } finally {
-      setValidating(false);
-    }
+  const handlePanic = () => {
+    Alert.alert(
+      'Boton de panico',
+      'Se notificara a soporte de Yesswera. Quieres continuar?',
+      [
+        { text: 'Cancelar', style: 'cancel' },
+        {
+          text: 'Si, necesito ayuda',
+          style: 'destructive',
+          onPress: () => {
+            Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
+            Alert.alert('Ayuda solicitada', 'El equipo de soporte ha sido notificado.');
+          },
+        },
+      ]
+    );
   };
 
-  // Handler: Validate delivery code
-  const handleValidateDelivery = async () => {
-    if (!order || !token || !deliveryCodeInput) {
-      SoundFeedback.error();
-      Alert.alert('Error', 'Ingresa el codigo de entrega');
-      return;
-    }
-
-    setValidating(true);
-    try {
-      const result = await validateDeliveryCode(order.id.toString(), deliveryCodeInput);
-      if (result.success) {
-        OrderSounds.delivered(); // Sound feedback for delivery code verified
-        Alert.alert(
-          'Orden Completada!',
-          'Entrega registrada exitosamente',
-          [{ text: 'OK', onPress: () => router.push('/driver/dashboard') }]
-        );
-        setDeliveryCodeInput('');
-      } else {
-        SoundFeedback.error();
-        Alert.alert('Codigo Incorrecto', result.message);
-      }
-    } catch (error: any) {
-      SoundFeedback.error();
-      Alert.alert('Error', error.message || 'No se pudo validar el codigo');
-    } finally {
-      setValidating(false);
-    }
-  };
+  // ── Loading state ───────────────────────────────────────────────────────
 
   if (loading) {
     return (
-      <ScreenContainer
-        headerGradient="primary"
-        headerIcon={Package}
-        headerTitle="Orden Activa"
-        headerSubtitle="Cargando..."
-      >
-        <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color={colors.primary} />
-          <ThemedText variant="body" style={[styles.loadingText, { color: colors.text.secondary }]}>
-            Cargando orden...
-          </ThemedText>
+      <SafeAreaView style={s.safeArea}>
+        <View style={s.centerWrap}>
+          <ActivityIndicator size="large" color={DS.colors.blue} />
+          <Text style={s.emptyText}>Cargando orden...</Text>
         </View>
-      </ScreenContainer>
+      </SafeAreaView>
     );
   }
 
   if (!order) {
-    return null;
-  }
-
-  // === STATUS LOGIC ===
-  const status = order.status;
-  const driverAtBusiness = order.driverAtBusiness;
-  const isOrderReady = status === 'ready';
-
-  // Phases
-  const isGoingToBusiness = status === 'assigned' || status === 'preparing' || (status === 'ready' && !driverAtBusiness);
-  const isWaitingAtBusiness = driverAtBusiness && (status === 'assigned' || status === 'preparing');
-  const canShowPickupCode = driverAtBusiness && isOrderReady; // BOTH conditions must be true
-  const isHandedToDriver = status === 'handed_to_driver';
-  const isInTransit = status === 'in_transit';
-  const isAtClient = status === 'arrived';
-  const isDelivered = status === 'delivered';
-
-  const openNavigation = (address: string, location?: { latitude: number; longitude: number }) => {
-    let url: string;
-
-    if (location?.latitude && location?.longitude) {
-      url = Platform.select({
-        ios: `maps:?daddr=${location.latitude},${location.longitude}&dirflg=d`,
-        android: `google.navigation:q=${location.latitude},${location.longitude}`,
-      }) || `https://www.google.com/maps/dir/?api=1&destination=${location.latitude},${location.longitude}`;
-
-      Linking.canOpenURL('waze://').then((supported) => {
-        if (supported) {
-          Linking.openURL(`waze://?ll=${location.latitude},${location.longitude}&navigate=yes`);
-        } else {
-          Linking.openURL(url);
-        }
-      });
-    } else {
-      const encodedAddress = encodeURIComponent(address);
-      url = `https://www.google.com/maps/search/?api=1&query=${encodedAddress}`;
-      Linking.openURL(url);
-    }
-  };
-
-  const callClient = () => {
-    if (order.customerPhone) {
-      Linking.openURL(`tel:${order.customerPhone}`);
-    } else {
-      Alert.alert('Sin telefono', 'No hay numero de contacto disponible');
-    }
-  };
-
-  return (
-    <ScreenContainer
-      headerGradient="primary"
-      headerIcon={Package}
-      headerTitle="Orden Activa"
-      headerSubtitle={getStatusLabel(status, driverAtBusiness)}
-    >
-      {/* Status Badge */}
-      <View style={styles.statusCard}>
-        <View style={[styles.statusBadge, { backgroundColor: colors.tertiary }]}>
-          <ThemedText variant="label" bold style={styles.statusText}>
-            {getStatusLabel(status, driverAtBusiness)}
-          </ThemedText>
-        </View>
-      </View>
-
-      {/* Route Map */}
-      {driverLocation && (() => {
-        const isGoingToClient = status === 'in_transit' || status === 'arrived';
-        const dest = isGoingToClient ? order.deliveryLocation : order.pickupLocation;
-        const destLabel = isGoingToClient ? 'Cliente' : 'Negocio';
-        const destColor = isGoingToClient ? colors.success : colors.primary;
-
-        if (!dest?.latitude || !dest?.longitude) return null;
-
-        return (
-          <View style={[styles.mapContainer, { borderRadius: radius.lg }]}>
-            <MapView
-              ref={mapRef}
-              style={styles.map}
-              provider={Platform.OS === 'android' ? PROVIDER_GOOGLE : undefined}
-              initialRegion={{
-                latitude: (driverLocation.latitude + dest.latitude) / 2,
-                longitude: (driverLocation.longitude + dest.longitude) / 2,
-                latitudeDelta: Math.abs(driverLocation.latitude - dest.latitude) * 2 + 0.005,
-                longitudeDelta: Math.abs(driverLocation.longitude - dest.longitude) * 2 + 0.005,
-              }}
-              showsUserLocation={false}
-              showsMyLocationButton={false}
-              scrollEnabled={true}
-              zoomEnabled={true}
-              pitchEnabled={false}
-              rotateEnabled={false}
-            >
-              {/* Driver marker */}
-              <Marker
-                coordinate={driverLocation}
-                title="Tu ubicacion"
-                pinColor="#3B82F6"
-              />
-              {/* Destination marker */}
-              <Marker
-                coordinate={{ latitude: dest.latitude, longitude: dest.longitude }}
-                title={destLabel}
-                pinColor={isGoingToClient ? '#16A34A' : '#F59E0B'}
-              />
-              {/* Route line */}
-              <Polyline
-                coordinates={routeCoords.length > 1 ? routeCoords : [driverLocation, { latitude: dest.latitude, longitude: dest.longitude }]}
-                strokeColor={destColor}
-                strokeWidth={4}
-                lineDashPattern={routeCoords.length > 1 ? undefined : [8, 4]}
-              />
-            </MapView>
-            <View style={[styles.mapOverlay, { backgroundColor: colors.card }]}>
-              <Navigation size={14} color={destColor} />
-              <ThemedText variant="caption" bold style={{ color: destColor }}>
-                {destLabel}
-                {routeInfo && routeInfo.durationMin > 0
-                  ? ` · ${routeInfo.distanceKm} km · ${routeInfo.durationMin} min`
-                  : routeInfo ? ` · ${routeInfo.distanceKm} km` : ''}
-              </ThemedText>
-            </View>
-          </View>
-        );
-      })()}
-
-      {/* Order Details Card */}
-      <ScreenCard>
-        <ThemedText variant="h3" style={[styles.cardTitle, { color: colors.text.primary }]}>Detalles de la Orden</ThemedText>
-
-        {/* Pickup Address */}
-        <View style={[styles.addressCard, { backgroundColor: colors.background.secondary, borderRadius: radius.md }]}>
-          <View style={styles.addressHeader}>
-            <Store size={18} color={colors.primary} />
-            <ThemedText variant="label" bold style={{ color: colors.text.primary }}>Negocio</ThemedText>
-          </View>
-          <ThemedText variant="body" style={{ color: colors.text.secondary }}>{order.pickupAddress || 'N/A'}</ThemedText>
-          {isGoingToBusiness && (
-            <TouchableSound
-              style={[styles.navButtonSmall, { backgroundColor: colors.tertiary }]}
-              onPress={() => openNavigation(order.pickupAddress || '', order.pickupLocation)}
-            >
-              <Navigation size={16} color="#fff" />
-              <ThemedText variant="label" color="white">Ir al negocio</ThemedText>
-            </TouchableSound>
-          )}
-        </View>
-
-        {/* Delivery Address */}
-        <View style={[styles.addressCard, { backgroundColor: colors.background.secondary, borderRadius: radius.md }]}>
-          <View style={styles.addressHeader}>
-            <MapPin size={18} color={colors.success} />
-            <ThemedText variant="label" bold style={{ color: colors.text.primary }}>Cliente</ThemedText>
-          </View>
-          <ThemedText variant="body" style={{ color: colors.text.secondary }}>{order.deliveryAddress}</ThemedText>
-          {(isInTransit || isAtClient) && (
-            <TouchableSound
-              style={[styles.navButtonSmall, { backgroundColor: colors.success }]}
-              onPress={() => openNavigation(order.deliveryAddress, order.deliveryLocation)}
-            >
-              <Navigation size={16} color="#fff" />
-              <ThemedText variant="label" color="white">Ir al cliente</ThemedText>
-            </TouchableSound>
-          )}
-        </View>
-
-        {/* Contact Actions */}
-        <View style={styles.contactActions}>
-          <TouchableSound style={[styles.contactButton, { borderColor: colors.border.light, backgroundColor: colors.card }]} onPress={callClient}>
-            <Phone size={18} color={colors.primary} />
-            <ThemedText variant="label" style={{ color: colors.text.primary }}>Llamar</ThemedText>
-          </TouchableSound>
-          <OrderChatButton
-            orderId={order.id.toString()}
-            targetType="client"
-            targetName={order.customerName}
-            variant="icon"
+    return (
+      <SafeAreaView style={s.safeArea}>
+        <View style={s.centerWrap}>
+          <Ionicons name="file-tray-outline" size={56} color={DS.colors.muted} />
+          <Text style={s.emptyTitle}>No tienes orden activa</Text>
+          <Text style={s.emptyText}>Espera a que se te asigne un pedido</Text>
+          <BigButton
+            label="Volver al inicio"
+            icon="arrow-back-outline"
+            color={DS.colors.blue}
+            height={60}
+            onPress={() => router.replace('/driver/dashboard')}
+            style={{ marginTop: DS.space.xxl, alignSelf: 'stretch' }}
           />
         </View>
+      </SafeAreaView>
+    );
+  }
 
-        {/* Time and Total */}
-        <View style={styles.detailRow}>
-          <Clock size={18} color={colors.warning} />
-          <View style={styles.detailTextContainer}>
-            <ThemedText variant="caption" style={{ color: colors.text.secondary }}>Hora:</ThemedText>
-            <ThemedText variant="body" style={{ color: colors.text.primary }}>
-              {new Date(order.createdAt).toLocaleTimeString('es-MX', {
-                hour: '2-digit',
-                minute: '2-digit',
-              })}
-            </ThemedText>
-          </View>
-        </View>
-        <View style={[styles.totalRow, { borderTopColor: colors.border.light }]}>
-          <ThemedText variant="label" bold style={{ color: colors.text.primary }}>Total:</ThemedText>
-          <ThemedText variant="h3" style={{ color: colors.primary }}>${order.total.toFixed(2)} MXN</ThemedText>
-        </View>
-      </ScreenCard>
+  const currentStage = STAGES[stage] || STAGES[0];
 
-      {/* Package Details Card (for delivery orders) */}
-      {order.type === 'delivery' && order.packageDetails && (
-        <ScreenCard>
-          <View style={styles.packageHeader}>
-            <Package size={20} color={colors.tertiary} />
-            <ThemedText variant="h3" style={[styles.cardTitle, { color: colors.text.primary }]}>Detalles del Paquete</ThemedText>
-          </View>
+  // Determine which address to show based on stage
+  const showPickup = stage <= 1;
+  const targetAddress = showPickup
+    ? order.pickupAddress || 'Direccion del negocio'
+    : order.deliveryAddress;
+  const targetLocation = showPickup
+    ? order.pickupLocation
+    : order.deliveryLocation;
+  const targetLabel = showPickup ? 'Negocio' : 'Cliente';
 
-          <View style={styles.packageGrid}>
-            <View style={[styles.packageItem, { backgroundColor: colors.background.secondary }]}>
-              <Box size={18} color={colors.text.secondary} />
-              <ThemedText variant="caption" style={{ color: colors.text.secondary }}>Tipo</ThemedText>
-              <ThemedText variant="label" bold style={{ color: colors.text.primary }}>{getPackageTypeLabel(order.packageDetails.type)}</ThemedText>
-            </View>
-            <View style={[styles.packageItem, { backgroundColor: colors.background.secondary }]}>
-              <Scale size={18} color={colors.text.secondary} />
-              <ThemedText variant="caption" style={{ color: colors.text.secondary }}>Peso</ThemedText>
-              <ThemedText variant="label" bold style={{ color: colors.text.primary }}>{getWeightLabel(order.packageDetails.weight)}</ThemedText>
-            </View>
-          </View>
+  // ── Render ──────────────────────────────────────────────────────────────
 
-          <View style={[styles.packageDescriptionBox, { backgroundColor: colors.background.secondary }]}>
-            <ThemedText variant="caption" bold style={{ color: colors.text.secondary }}>Contenido:</ThemedText>
-            <ThemedText variant="body" style={{ color: colors.text.primary }}>{order.packageDetails.description}</ThemedText>
-          </View>
-
-          {order.packageDetails.isFragile && (
-            <View style={[styles.fragileWarning, { borderColor: colors.warning }]}>
-              <AlertTriangle size={18} color={colors.warning} />
-              <ThemedText variant="label" bold style={{ color: colors.warning }}>
-                FRAGIL - Manejar con cuidado
-              </ThemedText>
-            </View>
-          )}
-
-          {/* Recipient Info */}
-          {order.packageDetails.recipientName && (
-            <View style={[styles.recipientBox, { backgroundColor: colors.primary + '10' }]}>
-              <View style={styles.recipientHeader}>
-                <User size={18} color={colors.primary} />
-                <ThemedText variant="label" bold style={{ color: colors.primary }}>Destinatario</ThemedText>
-              </View>
-              <ThemedText variant="subtitle" bold style={{ color: colors.text.primary }}>{order.packageDetails.recipientName}</ThemedText>
-              {order.packageDetails.recipientPhone && (
-                <TouchableSound
-                  style={styles.recipientPhone}
-                  onPress={() => Linking.openURL(`tel:${order.packageDetails!.recipientPhone}`)}
-                >
-                  <Phone size={14} color={colors.primary} />
-                  <ThemedText variant="body" style={{ color: colors.primary }}>{order.packageDetails.recipientPhone}</ThemedText>
-                </TouchableSound>
-              )}
-            </View>
-          )}
-
-          {/* Minor Protection Alert */}
-          {order.packageDetails.isMinorRecipient && order.packageDetails.minorDetails && (
-            <View style={[styles.minorAlert, { borderColor: colors.warning }]}>
-              <View style={styles.minorAlertHeader}>
-                <Shield size={20} color={colors.warning} />
-                <ThemedText variant="label" bold style={{ color: colors.warning }}>Entrega a Menor Autorizada</ThemedText>
-              </View>
-              <ThemedText variant="body" style={{ color: colors.text.primary }}>
-                Menor: {order.packageDetails.minorDetails.name} (~{order.packageDetails.minorDetails.age} anos)
-              </ThemedText>
-              <ThemedText variant="body" style={{ color: colors.text.primary }}>
-                Relacion: {order.packageDetails.minorDetails.relationship}
-              </ThemedText>
-              <ThemedText variant="caption" style={{ color: colors.text.secondary }}>
-                Autorizado por: {order.packageDetails.minorDetails.authorizedBy}
-              </ThemedText>
-              <View style={[styles.minorAlertWarningBox, { backgroundColor: colors.error + '15' }]}>
-                <ThemedText variant="caption" bold style={{ color: colors.error }}>
-                  Si detectas algo sospechoso, NO entregues y reporta inmediatamente.
-                </ThemedText>
-              </View>
-            </View>
-          )}
-        </ScreenCard>
-      )}
-
-      {/* === PHASE 1: Going to business === */}
-      {isGoingToBusiness && !driverAtBusiness && (
-        <ScreenCard>
-          <View style={styles.stepHeader}>
-            <Store size={24} color={colors.primary} />
-            <ThemedText variant="h3" style={{ color: colors.text.primary }}>Paso 1: Ir al Negocio</ThemedText>
-          </View>
-          <ThemedText variant="body" style={[styles.stepInstruction, { color: colors.text.secondary }]}>
-            Dirigete al negocio. Cuando llegues, presiona el boton para confirmar tu llegada.
-          </ThemedText>
-          <TouchableSound
-            style={[styles.validateButton, { backgroundColor: colors.primary }, validating && styles.validateButtonDisabled]}
-            onPress={handleArrivedAtBusiness}
-            disabled={validating}
+  return (
+    <SafeAreaView style={s.safeArea}>
+      <ScrollView
+        style={s.scroll}
+        contentContainerStyle={s.content}
+        showsVerticalScrollIndicator={false}
+      >
+        {/* ── Header: Panic + Order # ──────────────────────────────────── */}
+        <View style={s.header}>
+          <TouchableOpacity
+            style={s.panicBtn}
+            onPress={handlePanic}
+            activeOpacity={0.7}
           >
-            {validating ? (
-              <ActivityIndicator size="small" color="#fff" />
-            ) : (
-              <>
-                <Store size={20} color="#fff" />
-                <ThemedText variant="label" bold color="white">Ya Llegue al Negocio</ThemedText>
-              </>
+            <Ionicons name="warning" size={20} color="#FFFFFF" />
+            <Text style={s.panicLabel}>SOS</Text>
+          </TouchableOpacity>
+
+          <View style={s.headerCenter}>
+            <Text style={s.orderNumber}>Orden #{order.orderNumber}</Text>
+            <Pill text={currentStage.pillText} color={currentStage.pillColor} />
+          </View>
+
+          <View style={{ width: 56 }} />
+        </View>
+
+        {/* ── Progress dots ────────────────────────────────────────────── */}
+        <ProgressDots current={stage} total={4} />
+
+        {/* ── Big status title ─────────────────────────────────────────── */}
+        <Text style={s.statusTitle}>{currentStage.statusText}</Text>
+        <Text style={s.statusSubtitle}>{currentStage.subtitle}</Text>
+
+        {/* ── Map placeholder ──────────────────────────────────────────── */}
+        <View style={s.mapContainer}>
+          <View style={s.mapPlaceholder}>
+            <Ionicons name="map-outline" size={48} color="rgba(255,255,255,0.5)" />
+            <Text style={s.mapText}>Mapa en vivo</Text>
+
+            {/* Driver marker */}
+            {driverLocation && (
+              <View style={[s.mapMarker, { backgroundColor: DS.colors.blue, top: 16, left: 16 }]}>
+                <Ionicons name="navigate" size={14} color="#FFFFFF" />
+                <Text style={s.markerText}>Tu</Text>
+              </View>
             )}
-          </TouchableSound>
-        </ScreenCard>
-      )}
 
-      {/* === PHASE 2: Waiting at business (order not ready yet) === */}
-      {isWaitingAtBusiness && (
-        <ScreenCard>
-          <View style={[styles.waitingCard, { backgroundColor: colors.warning + '15' }]}>
-            <Clock size={32} color={colors.warning} />
-            <ThemedText variant="subtitle" bold style={{ color: colors.warning }}>
-              Esperando que el pedido este listo...
-            </ThemedText>
-            <ThemedText variant="body" style={[styles.waitingSubtext, { color: colors.text.secondary }]}>
-              Cuando el negocio termine de preparar, te aparecera el codigo de recoleccion automaticamente.
-            </ThemedText>
-          </View>
-        </ScreenCard>
-      )}
-
-      {/* === PHASE 3: Order ready + Driver at business = Show pickup code === */}
-      {canShowPickupCode && (
-        <Animated.View style={[styles.pickupCodeCard, { transform: [{ scale: pulseAnim }], backgroundColor: colors.success }]}>
-          <View style={styles.pickupCodeHeader}>
-            <View style={styles.pickupCodeIconContainer}>
-              <Package size={28} color="#fff" />
-            </View>
-            <ThemedText variant="h2" style={styles.pickupCodeTitle}>Pedido Listo!</ThemedText>
-          </View>
-          <ThemedText variant="body" style={styles.pickupCodeSubtitle}>
-            {order.tonalliOrderId
-              ? 'Muestra este codigo al restaurante:'
-              : 'Muestra este codigo al negocio:'}
-          </ThemedText>
-          <View style={styles.pickupCodeBox}>
-            <ThemedText variant="h1" style={[styles.pickupCodeValue, { color: colors.success }]}>
-              {order.tonalliOrderId ? order.driverCode : order.comandaCode}
-            </ThemedText>
-          </View>
-          <View style={styles.pickupCodeFooter}>
-            <ThemedText variant="caption" style={styles.pickupCodeHint}>
-              {order.tonalliOrderId
-                ? 'El staff verificara tu codigo en su sistema y te entregara el pedido'
-                : 'El negocio validara tu codigo y te entregara el pedido'}
-            </ThemedText>
-          </View>
-        </Animated.View>
-      )}
-
-      {/* === PHASE 4: Business handed order, driver confirms === */}
-      {isHandedToDriver && (
-        <ScreenCard>
-          <View style={styles.stepHeader}>
-            <CheckCircle size={24} color={colors.success} />
-            <ThemedText variant="h3" style={{ color: colors.text.primary }}>Paso 3: Confirmar Recepcion</ThemedText>
-          </View>
-          <ThemedText variant="body" style={[styles.stepInstruction, { color: colors.text.secondary }]}>
-            El negocio te entrego el pedido? Confirma para iniciar el viaje al cliente.
-          </ThemedText>
-          <TouchableSound
-            style={[styles.validateButton, { backgroundColor: colors.success }, validating && styles.validateButtonDisabled]}
-            onPress={handleOrderReceived}
-            disabled={validating}
-          >
-            {validating ? (
-              <ActivityIndicator size="small" color="#fff" />
-            ) : (
-              <>
-                <CheckCircle size={20} color="#fff" />
-                <ThemedText variant="label" bold color="white">Recibi la Orden</ThemedText>
-              </>
-            )}
-          </TouchableSound>
-        </ScreenCard>
-      )}
-
-      {/* === PHASE 5: In transit to client === */}
-      {isInTransit && (
-        <>
-          <View style={[styles.successCard, { backgroundColor: colors.success + '15', borderColor: colors.success }]}>
-            <CheckCircle size={32} color={colors.success} />
-            <ThemedText variant="subtitle" bold style={{ color: colors.text.primary }}>En camino al cliente</ThemedText>
-          </View>
-          <ScreenCard>
-            <View style={styles.stepHeader}>
-              <MapPin size={24} color={colors.tertiary} />
-              <ThemedText variant="h3" style={{ color: colors.text.primary }}>Paso 4: Llegar al Cliente</ThemedText>
-            </View>
-            <ThemedText variant="body" style={[styles.stepInstruction, { color: colors.text.secondary }]}>
-              Cuando estes en el domicilio del cliente, confirma tu llegada.
-            </ThemedText>
-            <TouchableSound
-              style={[styles.validateButton, { backgroundColor: colors.tertiary }, validating && styles.validateButtonDisabled]}
-              onPress={handleArrivedAtClient}
-              disabled={validating}
-            >
-              {validating ? (
-                <ActivityIndicator size="small" color="#fff" />
-              ) : (
-                <>
-                  <MapPin size={20} color="#fff" />
-                  <ThemedText variant="label" bold color="white">Ya Llegue</ThemedText>
-                </>
-              )}
-            </TouchableSound>
-          </ScreenCard>
-        </>
-      )}
-
-      {/* === PHASE 6: At client, enter delivery code === */}
-      {isAtClient && (
-        <>
-          <View style={[styles.successCard, { backgroundColor: colors.success + '15', borderColor: colors.success }]}>
-            <CheckCircle size={32} color={colors.success} />
-            <ThemedText variant="subtitle" bold style={{ color: colors.text.primary }}>Cliente notificado - Esperando</ThemedText>
-          </View>
-          <ScreenCard>
-            <View style={styles.stepHeader}>
-              <Package size={24} color={colors.success} />
-              <ThemedText variant="h3" style={{ color: colors.text.primary }}>Paso 5: Entregar Orden</ThemedText>
-            </View>
-            <ThemedText variant="body" style={[styles.stepInstruction, { color: colors.text.secondary }]}>
-              Pide el codigo de entrega al cliente (5 caracteres)
-            </ThemedText>
-            <TextInput
-              ref={deliveryInputRef}
-              style={[styles.codeInput, {
-                borderColor: colors.primary,
-                color: colors.text.primary,
-                backgroundColor: colors.background.secondary,
-              }]}
-              placeholder="Codigo de entrega"
-              placeholderTextColor={colors.text.muted}
-              value={deliveryCodeInput}
-              onChangeText={(text) => setDeliveryCodeInput(text.toUpperCase())}
-              maxLength={5}
-              autoCapitalize="characters"
-              editable={!validating}
-              keyboardType="default"
-              returnKeyType="done"
-              autoCorrect={false}
-              blurOnSubmit={true}
-              onSubmitEditing={() => Keyboard.dismiss()}
-              selectTextOnFocus={true}
-            />
-            <TouchableSound
+            {/* Destination marker */}
+            <View
               style={[
-                styles.validateButton,
-                { backgroundColor: colors.success },
-                (deliveryCodeInput.length !== 5 || validating) && styles.validateButtonDisabled,
+                s.mapMarker,
+                {
+                  backgroundColor: showPickup ? DS.colors.orange : DS.colors.green,
+                  top: 16,
+                  right: 16,
+                },
               ]}
-              onPress={handleValidateDelivery}
-              disabled={deliveryCodeInput.length !== 5 || validating}
             >
-              {validating ? (
-                <ActivityIndicator size="small" color="#fff" />
-              ) : (
-                <>
-                  <CheckCircle size={20} color="#fff" />
-                  <ThemedText variant="label" bold color="white">Completar Entrega</ThemedText>
-                </>
+              <Ionicons
+                name={showPickup ? 'storefront' : 'person'}
+                size={14}
+                color="#FFFFFF"
+              />
+              <Text style={s.markerText}>{targetLabel}</Text>
+            </View>
+          </View>
+        </View>
+
+        {/* ── Address card ─────────────────────────────────────────────── */}
+        <YCard style={s.addressCard}>
+          <View style={s.addressHeader}>
+            <View style={[s.addressIcon, { backgroundColor: showPickup ? DS.colors.orangeLight : DS.colors.greenLight }]}>
+              <Ionicons
+                name={showPickup ? 'storefront' : 'home'}
+                size={22}
+                color={showPickup ? DS.colors.orange : DS.colors.green}
+              />
+            </View>
+            <View style={s.addressContent}>
+              <Text style={s.addressLabel}>
+                {showPickup ? 'Recoger en' : 'Entregar en'}
+              </Text>
+              <Text style={s.addressText} numberOfLines={2}>
+                {targetAddress}
+              </Text>
+              {showPickup && order.businessName && (
+                <Text style={s.businessName}>{order.businessName}</Text>
               )}
-            </TouchableSound>
-          </ScreenCard>
-        </>
-      )}
+            </View>
+          </View>
 
-      {/* Support Button for drivers */}
-      <SupportButton orderId={order.id.toString()} variant="banner" label="Problema con la entrega?" />
+          {/* Navigate button — large, with text */}
+          <TouchableOpacity
+            style={s.navigateBtn}
+            onPress={() => openNavigation(targetAddress, targetLocation)}
+            activeOpacity={0.7}
+          >
+            <Ionicons name="navigate-outline" size={22} color={DS.colors.blue} />
+            <Text style={s.navigateBtnText}>Abrir navegacion</Text>
+            <Ionicons name="chevron-forward" size={18} color={DS.colors.muted} />
+          </TouchableOpacity>
+        </YCard>
 
-      {/* Modal de verificacion cuando driver esta detenido */}
-      <DriverHealthCheckModal
-        visible={showHealthCheck}
-        driverId={user?.id || ''}
-        orderId={order.id.toString()}
-        stallMinutes={5}
-        onDismiss={dismissHealthCheck}
-        onNeedHelp={() => {
-          dismissHealthCheck();
-          EmergencySounds.panic(); // Emergency sound for panic button
-          // Abrir el boton de panico/soporte
-          Alert.alert(
-            'Necesitas Ayuda',
-            'Que tipo de ayuda necesitas?',
-            [
-              { text: 'Llamar al 911', onPress: () => Linking.openURL('tel:911') },
-              { text: 'Contactar Soporte', onPress: () => {} },
-              { text: 'Cancelar', style: 'cancel' },
-            ]
-          );
-        }}
-      />
-    </ScreenContainer>
+        {/* ── Customer info card ───────────────────────────────────────── */}
+        <YCard style={s.customerCard}>
+          <View style={s.customerRow}>
+            <YAvatar
+              name={order.customerName}
+              size={48}
+              color={DS.colors.green}
+            />
+            <View style={s.customerInfo}>
+              <Text style={s.customerName} numberOfLines={1}>
+                {order.customerName}
+              </Text>
+              <Text style={s.customerSub} numberOfLines={1}>
+                Cliente  -  ${order.total.toFixed(0)} MXN
+              </Text>
+            </View>
+          </View>
+
+          {/* Action buttons: Call + Chat */}
+          <View style={s.actionRow}>
+            <TouchableOpacity
+              style={[s.actionBtn, { backgroundColor: DS.colors.greenLight }]}
+              onPress={() => {
+                if (order.customerPhone) {
+                  Linking.openURL(`tel:${order.customerPhone}`);
+                } else {
+                  Alert.alert('Sin telefono', 'No hay numero disponible');
+                }
+              }}
+              activeOpacity={0.7}
+            >
+              <Ionicons name="call" size={22} color={DS.colors.green} />
+              <Text style={[s.actionBtnText, { color: DS.colors.green }]}>Llamar</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={[s.actionBtn, { backgroundColor: DS.colors.blueLight }]}
+              onPress={() => Alert.alert('Chat', 'Proximamente')}
+              activeOpacity={0.7}
+            >
+              <Ionicons name="chatbubble" size={22} color={DS.colors.blue} />
+              <Text style={[s.actionBtnText, { color: DS.colors.blue }]}>Mensaje</Text>
+            </TouchableOpacity>
+          </View>
+        </YCard>
+
+        {/* ── Order items summary (collapsed) ──────────────────────────── */}
+        {order.items && order.items.length > 0 && (
+          <YCard style={s.itemsCard}>
+            <Text style={s.itemsTitle}>
+              {order.items.length} producto{order.items.length !== 1 ? 's' : ''}
+            </Text>
+            {order.items.slice(0, 3).map((item, i) => (
+              <Text key={i} style={s.itemLine} numberOfLines={1}>
+                {item.quantity}x {item.name}
+              </Text>
+            ))}
+            {order.items.length > 3 && (
+              <Text style={s.itemsMore}>
+                +{order.items.length - 3} mas...
+              </Text>
+            )}
+          </YCard>
+        )}
+
+        {/* Spacer for button */}
+        <View style={{ height: 100 }} />
+      </ScrollView>
+
+      {/* ── Fixed bottom: THE BIG BUTTON ───────────────────────────────── */}
+      <View style={s.bottomBar}>
+        <BigButton
+          label={currentStage.buttonLabel}
+          icon={currentStage.buttonIcon}
+          color={currentStage.buttonColor}
+          height={64}
+          onPress={handleBigButton}
+          loading={pressing}
+          disabled={pressing}
+          style={s.bigButton}
+        />
+      </View>
+    </SafeAreaView>
   );
 }
 
-function getPackageTypeLabel(type: string): string {
-  const types: Record<string, string> = {
-    sobre: 'Sobre',
-    bolsa: 'Bolsa',
-    caja: 'Caja',
-    paquete: 'Paquete',
-    regalo: 'Regalo',
-  };
-  return types[type] || type;
-}
+// ── Styles ────────────────────────────────────────────────────────────────────
 
-function getWeightLabel(weight: string): string {
-  const weights: Record<string, string> = {
-    light: 'Ligero (<2kg)',
-    medium: 'Medio (2-5kg)',
-    heavy: 'Pesado (5-10kg)',
-    very_heavy: 'Muy pesado (10-20kg)',
-  };
-  return weights[weight] || weight;
-}
-
-function getStatusLabel(status: string, driverAtBusiness?: boolean): string {
-  if (driverAtBusiness && (status === 'assigned' || status === 'preparing')) {
-    return 'Esperando pedido en negocio';
-  }
-  if (driverAtBusiness && status === 'ready') {
-    return 'Pedido listo - Recoge ahora';
-  }
-
-  const labels: Record<string, string> = {
-    assigned: 'Ve al negocio',
-    preparing: 'En preparacion - Ve al negocio',
-    ready: 'Listo - Ve al negocio',
-    handed_to_driver: 'Confirma recepcion',
-    in_transit: 'En camino al cliente',
-    arrived: 'En domicilio del cliente',
-    delivered: 'Entregada',
-    cancelled: 'Cancelada',
-  };
-  return labels[status] || status;
-}
-
-const styles = StyleSheet.create({
-  mapContainer: {
-    marginBottom: 16,
-    overflow: 'hidden',
-    borderWidth: 1,
-    borderColor: 'rgba(0,0,0,0.08)',
+const s = StyleSheet.create({
+  safeArea: {
+    flex: 1,
+    backgroundColor: DS.colors.bg,
   },
-  map: {
-    width: '100%',
-    height: MAP_HEIGHT,
+  scroll: {
+    flex: 1,
   },
-  mapOverlay: {
-    position: 'absolute',
-    top: 10,
-    right: 10,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-    paddingHorizontal: 10,
-    paddingVertical: 6,
-    borderRadius: 8,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.15,
-    shadowRadius: 3,
-    elevation: 3,
+  content: {
+    padding: DS.space.lg,
   },
-  loadingContainer: {
+  centerWrap: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    paddingVertical: 60,
+    padding: DS.space.xxxl,
   },
-  loadingText: {
-    marginTop: 12,
+  emptyTitle: {
+    ...DS.fonts.title,
+    color: DS.colors.dark,
+    marginTop: DS.space.lg,
+    textAlign: 'center',
   },
-  statusCard: {
+  emptyText: {
+    ...DS.fonts.body,
+    color: DS.colors.muted,
+    marginTop: DS.space.sm,
+    textAlign: 'center',
+  },
+
+  // Header
+  header: {
+    flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 16,
+    justifyContent: 'space-between',
+    marginBottom: DS.space.lg,
   },
-  statusBadge: {
-    paddingHorizontal: 20,
-    paddingVertical: 10,
-    borderRadius: 20,
+  panicBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: DS.colors.red,
+    paddingHorizontal: DS.space.md,
+    paddingVertical: DS.space.sm,
+    borderRadius: DS.radius.full,
+    gap: 4,
+    minHeight: DS.touch.min,
+    ...colorShadow(DS.colors.red, 0.3),
   },
-  statusText: {
+  panicLabel: {
+    ...DS.fonts.label,
     color: '#FFFFFF',
   },
-  cardTitle: {
-    marginBottom: 16,
+  headerCenter: {
+    alignItems: 'center',
+    gap: DS.space.xs,
   },
+  orderNumber: {
+    ...DS.fonts.bodyMed,
+    color: DS.colors.dark,
+  },
+
+  // Progress dots
+  progressRow: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    gap: DS.space.sm,
+    marginBottom: DS.space.xl,
+  },
+  dot: {
+    width: 10,
+    height: 10,
+    borderRadius: 5,
+  },
+  dotDone: {
+    backgroundColor: DS.colors.green,
+  },
+  dotActive: {
+    backgroundColor: DS.colors.orange,
+    width: 28,
+    borderRadius: DS.radius.full,
+  },
+  dotPending: {
+    backgroundColor: DS.colors.hairline,
+  },
+
+  // Status
+  statusTitle: {
+    ...DS.fonts.hero,
+    color: DS.colors.dark,
+    textAlign: 'center',
+    marginBottom: DS.space.xs,
+  },
+  statusSubtitle: {
+    ...DS.fonts.body,
+    color: DS.colors.muted,
+    textAlign: 'center',
+    marginBottom: DS.space.xl,
+  },
+
+  // Map
+  mapContainer: {
+    borderRadius: DS.radius.lg,
+    overflow: 'hidden',
+    marginBottom: DS.space.lg,
+    ...DS.shadow.card,
+  },
+  mapPlaceholder: {
+    height: 180,
+    backgroundColor: '#3B82F6',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  mapText: {
+    ...DS.fonts.small,
+    color: 'rgba(255,255,255,0.6)',
+    marginTop: DS.space.xs,
+  },
+  mapMarker: {
+    position: 'absolute',
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: DS.radius.full,
+    gap: 4,
+  },
+  markerText: {
+    ...DS.fonts.tiny,
+    color: '#FFFFFF',
+  },
+
+  // Address card
   addressCard: {
-    padding: 12,
-    marginBottom: 12,
+    marginBottom: DS.space.lg,
   },
   addressHeader: {
     flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 6,
-    gap: 6,
-  },
-  navButtonSmall: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: 10,
-    paddingHorizontal: 16,
-    borderRadius: 14,
-    gap: 6,
-    marginTop: 10,
-  },
-  contactActions: {
-    flexDirection: 'row',
-    gap: 12,
-    marginBottom: 12,
-  },
-  contactButton: {
-    flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderWidth: 1.5,
-    paddingVertical: 10,
-    borderRadius: 14,
-    gap: 6,
-  },
-  detailRow: {
-    flexDirection: 'row',
     alignItems: 'flex-start',
-    marginBottom: 12,
+    gap: DS.space.md,
+    marginBottom: DS.space.lg,
   },
-  detailTextContainer: {
+  addressIcon: {
+    width: 48,
+    height: 48,
+    borderRadius: DS.radius.md,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  addressContent: {
     flex: 1,
-    marginLeft: 8,
   },
-  totalRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginTop: 8,
-    paddingTop: 12,
-    borderTopWidth: 1,
+  addressLabel: {
+    ...DS.fonts.label,
+    color: DS.colors.muted,
+    marginBottom: 2,
   },
-  stepHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 12,
-    gap: 8,
+  addressText: {
+    ...DS.fonts.bodyMed,
+    color: DS.colors.dark,
   },
-  stepInstruction: {
-    marginBottom: 16,
+  businessName: {
+    ...DS.fonts.small,
+    color: DS.colors.orange,
+    marginTop: 2,
   },
-  validateButton: {
+  navigateBtn: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: 14,
-    borderRadius: 14,
-    gap: 8,
+    backgroundColor: DS.colors.blueLight,
+    borderRadius: DS.radius.md,
+    paddingVertical: DS.space.md,
+    paddingHorizontal: DS.space.lg,
+    gap: DS.space.sm,
+    minHeight: DS.touch.min,
   },
-  validateButtonDisabled: {
-    opacity: 0.5,
-  },
-  successCard: {
-    alignItems: 'center',
-    padding: 16,
-    borderRadius: 12,
-    marginBottom: 16,
-    borderWidth: 2,
-  },
-  waitingCard: {
-    alignItems: 'center',
-    borderRadius: 12,
-    padding: 20,
-  },
-  waitingSubtext: {
-    marginTop: 8,
-    textAlign: 'center',
-  },
-  codeInput: {
-    borderWidth: 2,
-    borderRadius: 12,
-    paddingVertical: 12,
-    paddingHorizontal: 16,
-    fontSize: 24,
-    fontWeight: '700',
-    textAlign: 'center',
-    letterSpacing: 8,
-    marginBottom: 16,
-  },
-  // Pickup code special styles
-  pickupCodeCard: {
-    borderRadius: 16,
-    overflow: 'hidden',
-    marginBottom: 16,
-    shadowColor: '#16A34A',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.15,
-    shadowRadius: 12,
-    elevation: 4,
-  },
-  pickupCodeHeader: {
-    backgroundColor: 'rgba(0,0,0,0.1)',
-    paddingVertical: 16,
-    paddingHorizontal: 20,
-    alignItems: 'center',
-    flexDirection: 'row',
-    justifyContent: 'center',
-    gap: 12,
-  },
-  pickupCodeIconContainer: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    backgroundColor: 'rgba(255,255,255,0.2)',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  pickupCodeTitle: {
-    color: '#FFFFFF',
-  },
-  pickupCodeSubtitle: {
-    color: 'rgba(255,255,255,0.9)',
-    textAlign: 'center',
-    paddingTop: 16,
-    paddingHorizontal: 20,
-  },
-  pickupCodeBox: {
-    backgroundColor: '#FFFFFF',
-    marginHorizontal: 20,
-    marginVertical: 16,
-    borderRadius: 12,
-    paddingVertical: 20,
-    alignItems: 'center',
-  },
-  pickupCodeValue: {
-    letterSpacing: 12,
-  },
-  pickupCodeFooter: {
-    backgroundColor: 'rgba(0,0,0,0.1)',
-    paddingVertical: 12,
-    paddingHorizontal: 20,
-  },
-  pickupCodeHint: {
-    color: 'rgba(255,255,255,0.85)',
-    textAlign: 'center',
-  },
-  // Package Details Styles
-  packageHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 16,
-    gap: 8,
-  },
-  packageGrid: {
-    flexDirection: 'row',
-    gap: 12,
-    marginBottom: 16,
-  },
-  packageItem: {
+  navigateBtnText: {
+    ...DS.fonts.bodyMed,
+    color: DS.colors.blue,
     flex: 1,
-    borderRadius: 12,
-    padding: 12,
-    alignItems: 'center',
   },
-  packageDescriptionBox: {
-    borderRadius: 12,
-    padding: 12,
-    marginBottom: 12,
+
+  // Customer card
+  customerCard: {
+    marginBottom: DS.space.lg,
   },
-  fragileWarning: {
+  customerRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    borderRadius: 12,
-    padding: 12,
-    marginBottom: 12,
-    borderWidth: 1,
-    gap: 10,
-    backgroundColor: 'rgba(245, 158, 11, 0.15)',
+    gap: DS.space.md,
+    marginBottom: DS.space.lg,
   },
-  recipientBox: {
-    borderRadius: 12,
-    padding: 12,
-    marginBottom: 12,
+  customerInfo: {
+    flex: 1,
   },
-  recipientHeader: {
+  customerName: {
+    ...DS.fonts.bodyMed,
+    color: DS.colors.dark,
+  },
+  customerSub: {
+    ...DS.fonts.small,
+    color: DS.colors.muted,
+    marginTop: 2,
+  },
+  actionRow: {
+    flexDirection: 'row',
+    gap: DS.space.md,
+  },
+  actionBtn: {
+    flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
-    marginBottom: 8,
+    justifyContent: 'center',
+    gap: DS.space.sm,
+    paddingVertical: DS.space.md,
+    borderRadius: DS.radius.md,
+    minHeight: DS.touch.min,
   },
-  recipientPhone: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    marginTop: 4,
+  actionBtnText: {
+    ...DS.fonts.bodyMed,
   },
-  minorAlert: {
-    borderRadius: 12,
-    padding: 14,
-    borderWidth: 2,
-    backgroundColor: 'rgba(245, 158, 11, 0.1)',
+
+  // Items card
+  itemsCard: {
+    marginBottom: DS.space.lg,
   },
-  minorAlertHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-    marginBottom: 10,
+  itemsTitle: {
+    ...DS.fonts.bodyMed,
+    color: DS.colors.dark,
+    marginBottom: DS.space.sm,
   },
-  minorAlertWarningBox: {
-    marginTop: 10,
-    padding: 10,
-    borderRadius: 6,
+  itemLine: {
+    ...DS.fonts.body,
+    color: DS.colors.body,
+    paddingVertical: 3,
+  },
+  itemsMore: {
+    ...DS.fonts.small,
+    color: DS.colors.muted,
+    marginTop: DS.space.xs,
+  },
+
+  // Bottom bar
+  bottomBar: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
+    paddingHorizontal: DS.space.lg,
+    paddingBottom: DS.space.xxl,
+    paddingTop: DS.space.md,
+    backgroundColor: DS.colors.bg,
+    ...DS.shadow.float,
+  },
+  bigButton: {
+    width: '100%',
   },
 });

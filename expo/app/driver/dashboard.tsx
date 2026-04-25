@@ -1,725 +1,485 @@
-import TouchableSound from '@/components/TouchableSound';
 // ============================================================================
-// YESSWERA: DASHBOARD DEL REPARTIDOR
-// Usa ScreenContainer para diseño unificado con soporte de tema
+// YESSWERA: DRIVER DASHBOARD (Simplified rebuild)
+// Clean, focused UI using DS + ui components
 // ============================================================================
 
-import { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   View,
+  Text,
+  SafeAreaView,
+  ScrollView,
+  TouchableOpacity,
   Alert,
-  Linking,
-  Platform,
-  BackHandler,
+  RefreshControl,
   StyleSheet,
 } from 'react-native';
-import { useRouter, useFocusEffect } from 'expo-router';
-import { Package, DollarSign, Star, Power, MessageCircle, History, User, HelpCircle, AlertTriangle, Truck } from 'lucide-react-native';
+import { useRouter } from 'expo-router';
+import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '@/contexts/auth';
-import { useTheme } from '@/contexts/theme';
-import { useAnalytics } from '@/contexts/analytics';
-import { ThemedText } from '@/components/themed';
-import ScreenContainer, { ScreenCard } from '@/components/ScreenContainer';
-import AccessibilityControls from '@/components/AccessibilityControls';
-import PanicModal from '@/components/PanicModal';
-import SurveyPopup from '@/components/SurveyPopup';
-import { getAvailableOrdersForDriver, assignOrderToDriver } from '@/services/orders';
-import { getDriverAllDebts } from '@/services/driver-debt';
 import { supabase } from '@/constants/supabase';
-import { Order, DriverDebtSummary } from '@/constants/types';
-import { useDriverOrderSubscription } from '@/hooks/useRealtimeOrders';
-import { useDriverMonitoring } from '@/hooks/useDriverMonitoring';
-import { Toast } from '@/utils/toast';
-import { OrderSounds, SoundFeedback, AuthSounds } from '@/services/sounds';
+import {
+  getAvailableOrdersForDriver,
+  assignOrderToDriver,
+} from '@/services/orders';
+import { Order } from '@/constants/types';
+import { DS, colorShadow } from '@/constants/design';
 
-// Theme colors via useTheme() — no local COLORS needed
+import YCard from '@/components/ui/YCard';
+import YAvatar from '@/components/ui/YAvatar';
+import StatBox from '@/components/ui/StatBox';
+import SectionHeader from '@/components/ui/SectionHeader';
+import BigButton from '@/components/ui/BigButton';
+
+// ── Helpers ──────────────────────────────────────────────────────────────────
+
+function formatCurrency(n: number): string {
+  return `$${n.toLocaleString('es-MX', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`;
+}
+
+// ── Component ────────────────────────────────────────────────────────────────
 
 export default function DriverDashboardScreen() {
   const router = useRouter();
-  const { user, logout } = useAuth();
-  const { colors, space, radius, isDark } = useTheme();
-  const { trackEvent, trackPageView, currentSurvey, closeSurvey, submitSurvey } = useAnalytics();
+  const { user } = useAuth();
 
-  const [isOnline, setIsOnline] = useState(false);
-  const [stats, setStats] = useState({
-    todayDeliveries: 0,
-    todayEarnings: 0,
-    rating: 0,
-    totalBalance: 0,
-  });
-  const [availableOrders, setAvailableOrders] = useState<Order[]>([]);
+  const [isAvailable, setIsAvailable] = useState(false);
   const [driverId, setDriverId] = useState<string | null>(null);
-  const [showPanicModal, setShowPanicModal] = useState(false);
-  const [activeOrderId, setActiveOrderId] = useState<string | null>(null);
+  const [availableOrders, setAvailableOrders] = useState<Order[]>([]);
   const [refreshing, setRefreshing] = useState(false);
-  const [debtAlerts, setDebtAlerts] = useState<DriverDebtSummary[]>([]);
+  const [accepting, setAccepting] = useState<string | null>(null);
 
-  // GPS Monitoring hook
-  const { isTracking, goOnline, goOffline } = useDriverMonitoring({
-    driverId: driverId || '',
-    orderId: activeOrderId || undefined,
-    enabled: !!driverId,
-    onAlert: (alert) => console.log('Driver alert:', alert),
-  });
+  // Stats
+  const [todayEarnings, setTodayEarnings] = useState(0);
+  const [weekEarnings, setWeekEarnings] = useState(0);
+  const [todayDeliveries, setTodayDeliveries] = useState(0);
 
-  // Load driver record ID and active order
+  // ── Load driver record ──────────────────────────────────────────────────
+
   useEffect(() => {
-    const loadDriverData = async () => {
-      if (!user) return;
-      try {
-        const { data: driver } = await supabase
-          .from('drivers')
-          .select('id')
-          .eq('user_id', user.id)
-          .maybeSingle();
-
-        if (driver) {
-          setDriverId(driver.id);
-
-          const { data: activeOrder } = await supabase
-            .from('orders')
-            .select('id')
-            .eq('driver_id', driver.id)
-            .in('status', ['assigned', 'driver_verified', 'in_transit', 'arrived'])
-            .maybeSingle();
-
-          if (activeOrder) {
-            setActiveOrderId(activeOrder.id);
-          }
-        }
-      } catch {
-        console.log('Driver record not found');
-      }
-    };
-    loadDriverData();
-  }, [user]);
-
-  // Prevenir boton atras
-  useFocusEffect(
-    useCallback(() => {
-      const onBackPress = () => {
-        Alert.alert('Cerrar Sesion', 'Quieres cerrar sesion?', [
-          { text: 'Cancelar', style: 'cancel' },
-          { text: 'Cerrar Sesion', style: 'destructive', onPress: handleLogout },
-        ]);
-        return true;
-      };
-      const subscription = BackHandler.addEventListener('hardwareBackPress', onBackPress);
-      return () => subscription.remove();
-    }, [])
-  );
-
-  // Realtime subscription
-  useDriverOrderSubscription(
-    isOnline ? driverId : null,
-    () => {
-      OrderSounds.newOrder(); // Sound when new order is available
-      loadAvailableOrders();
-      loadDriverStats();
-    },
-    () => { loadAvailableOrders(); }
-  );
-
-  const loadDriverStats = useCallback(async () => {
-    if (!user || !driverId) return;
-    try {
+    if (!user) return;
+    (async () => {
       const { data: driver } = await supabase
         .from('drivers')
-        .select('rating_average')
-        .eq('id', driverId)
-        .single();
+        .select('id, is_available')
+        .eq('user_id', user.id)
+        .maybeSingle();
+      if (driver) {
+        setDriverId(driver.id);
+        setIsAvailable(driver.is_available ?? false);
+      }
+    })();
+  }, [user]);
 
+  // ── Load stats ──────────────────────────────────────────────────────────
+
+  const loadStats = useCallback(async () => {
+    if (!driverId) return;
+    try {
       const today = new Date();
       today.setHours(0, 0, 0, 0);
 
+      const weekAgo = new Date();
+      weekAgo.setDate(weekAgo.getDate() - 7);
+      weekAgo.setHours(0, 0, 0, 0);
+
       const { data: todayOrders } = await supabase
         .from('orders')
-        .select('total, delivery_fee')
+        .select('delivery_fee')
         .eq('driver_id', driverId)
         .eq('status', 'delivered')
         .gte('delivered_at', today.toISOString());
 
-      const deliveries = todayOrders?.length || 0;
-      const earnings = todayOrders?.reduce((sum, o) => sum + (o.delivery_fee || 0), 0) || 0;
+      const { data: weekOrders } = await supabase
+        .from('orders')
+        .select('delivery_fee')
+        .eq('driver_id', driverId)
+        .eq('status', 'delivered')
+        .gte('delivered_at', weekAgo.toISOString());
 
-      setStats({
-        todayDeliveries: deliveries,
-        todayEarnings: earnings,
-        rating: driver?.rating_average || 0,
-        totalBalance: earnings,
-      });
+      const tEarnings = todayOrders?.reduce((s, o) => s + (o.delivery_fee || 0), 0) || 0;
+      const wEarnings = weekOrders?.reduce((s, o) => s + (o.delivery_fee || 0), 0) || 0;
 
-      // Load debt alerts (> 70% of limit)
-      try {
-        const allDebts = await getDriverAllDebts(driverId);
-        setDebtAlerts(allDebts.filter(d => d.percentUsed >= 70));
-      } catch {
-        // Non-critical
-      }
+      setTodayEarnings(tEarnings);
+      setWeekEarnings(wEarnings);
+      setTodayDeliveries(todayOrders?.length || 0);
     } catch {
-      console.log('Stats not available');
+      // Non-critical
     }
-  }, [user, driverId]);
+  }, [driverId]);
 
-  const loadAvailableOrders = useCallback(async () => {
-    if (!user || !isOnline) {
+  // ── Load available orders ───────────────────────────────────────────────
+
+  const loadOrders = useCallback(async () => {
+    if (!isAvailable || !driverId) {
       setAvailableOrders([]);
       return;
     }
     try {
-      const orders = await getAvailableOrdersForDriver(driverId || undefined);
+      const orders = await getAvailableOrdersForDriver(driverId);
       setAvailableOrders(orders);
-
-      // Auto-navigate to active order if one was just assigned to us
-      const assignedToMe = orders.find(o => o.status === 'assigned' && o.driverId === driverId);
-      if (assignedToMe && !activeOrderId) {
-        OrderSounds.newOrder();
-        setActiveOrderId(assignedToMe.id.toString());
-        Alert.alert(
-          'Orden Asignada',
-          `Se te asigno una orden de ${assignedToMe.businessName || 'un negocio'}. Total: $${assignedToMe.total?.toFixed(2)} MXN`,
-          [
-            { text: 'Ver Orden', onPress: () => router.push('/driver/active-order' as any) },
-            { text: 'OK' },
-          ]
-        );
-      }
     } catch {
       setAvailableOrders([]);
     }
-  }, [user, isOnline, driverId, activeOrderId]);
+  }, [isAvailable, driverId]);
+
+  // ── Effects ─────────────────────────────────────────────────────────────
 
   useEffect(() => {
-    trackPageView('driver_dashboard', { status: isOnline ? 'online' : 'offline' });
-    loadDriverStats();
-    const interval = setInterval(loadDriverStats, 30000);
+    loadStats();
+    loadOrders();
+  }, [loadStats, loadOrders]);
+
+  // Poll for new orders every 15s when available
+  useEffect(() => {
+    if (!isAvailable) return;
+    const interval = setInterval(() => {
+      loadOrders();
+      loadStats();
+    }, 15000);
     return () => clearInterval(interval);
-  }, [loadDriverStats, trackPageView, isOnline]);
+  }, [isAvailable, loadOrders, loadStats]);
 
-  useEffect(() => {
-    loadAvailableOrders();
-    if (isOnline) {
-      const interval = setInterval(loadAvailableOrders, 15000);
-      return () => clearInterval(interval);
-    }
-  }, [loadAvailableOrders, isOnline]);
+  // ── Handlers ────────────────────────────────────────────────────────────
 
-  const handleRefresh = useCallback(async () => {
+  const handleRefresh = async () => {
     setRefreshing(true);
-    await Promise.all([loadDriverStats(), loadAvailableOrders()]);
+    await Promise.all([loadStats(), loadOrders()]);
     setRefreshing(false);
-  }, [loadDriverStats, loadAvailableOrders]);
+  };
 
-  const toggleOnlineStatus = async () => {
-    const newStatus = !isOnline;
-    trackEvent('driver_status_change', { newStatus: newStatus ? 'online' : 'offline' });
-
-    if (newStatus) {
-      try {
-        await goOnline();
-        setIsOnline(true);
-        AuthSounds.login(); // Sound when driver goes online
-        Toast.success('Ahora estas EN LINEA - GPS activo');
-      } catch {
-        SoundFeedback.error(); // Sound on error
-        Toast.error('Error al activar GPS');
-        return;
-      }
+  const toggleAvailability = async () => {
+    if (!driverId) return;
+    const newVal = !isAvailable;
+    setIsAvailable(newVal);
+    await supabase
+      .from('drivers')
+      .update({ is_available: newVal, is_online: newVal })
+      .eq('id', driverId);
+    if (newVal) {
+      loadOrders();
     } else {
-      if (activeOrderId) {
-        Alert.alert(
-          'Tienes una orden activa',
-          'No puedes desconectarte mientras tienes una orden en curso.',
-          [
-            { text: 'Ver Orden Activa', onPress: () => router.push('/driver/active-order' as any) },
-            { text: 'Entendido', style: 'cancel' },
-          ]
-        );
-        return;
-      }
-
-      try {
-        await goOffline();
-        setIsOnline(false);
-        setAvailableOrders([]);
-        AuthSounds.logout(); // Sound when driver goes offline
-        Toast.info('Desconectado - GPS detenido');
-      } catch (error) {
-        SoundFeedback.error(); // Sound on error
-        console.error('Error going offline:', error);
-      }
+      setAvailableOrders([]);
     }
   };
 
-  const handleAcceptOrder = (orderId: string) => {
-    trackEvent('order_accept_attempt', { orderId });
-    Alert.alert('Aceptar Orden', 'Estas seguro de aceptar esta orden?', [
-      { text: 'Cancelar', style: 'cancel' },
-      {
-        text: 'Aceptar',
-        onPress: async () => {
-          try {
-            if (!driverId) {
-              SoundFeedback.error(); // Sound on error
-              Alert.alert('Error', 'No se encontro tu registro de repartidor');
-              return;
-            }
-            await assignOrderToDriver(orderId, driverId);
-            setActiveOrderId(orderId);
-            OrderSounds.accepted(); // Sound when order is accepted
-            trackEvent('order_accepted', { orderId });
-            loadAvailableOrders();
-            router.push('/driver/active-order' as any);
-          } catch (error) {
-            SoundFeedback.error(); // Sound on error
-            Alert.alert('Error', 'No se pudo aceptar la orden');
-          }
-        },
-      },
-    ]);
-  };
-
-  const handleLogout = async () => {
-    if (activeOrderId) {
-      Alert.alert(
-        'Tienes una orden activa',
-        'No puedes cerrar sesion mientras tienes una orden en curso.',
-        [
-          { text: 'Ver Orden Activa', onPress: () => router.push('/driver/active-order' as any) },
-          { text: 'Entendido', style: 'cancel' },
-        ]
-      );
-      return;
+  const handleAccept = async (orderId: string) => {
+    if (!driverId) return;
+    setAccepting(orderId);
+    try {
+      await assignOrderToDriver(orderId, driverId);
+      router.push('/driver/active-order');
+    } catch {
+      Alert.alert('Error', 'No se pudo aceptar la orden. Intenta de nuevo.');
+    } finally {
+      setAccepting(null);
     }
-
-    Alert.alert('Cerrar Sesion', 'Estas seguro?', [
-      { text: 'Cancelar', style: 'cancel' },
-      {
-        text: 'Salir',
-        style: 'destructive',
-        onPress: async () => {
-          if (isOnline) await goOffline();
-          await logout();
-          router.replace('/login' as any);
-        },
-      },
-    ]);
   };
 
-  // Custom header content with online toggle
-  const headerContent = (
-    <View style={styles.headerContentContainer}>
-      <View style={styles.accessibilityRow}>
-        <AccessibilityControls variant="minimal" />
-      </View>
-      <View style={styles.headerTop}>
-        <View>
-          <ThemedText variant="body" style={styles.headerSubtitleText}>
-            {isOnline
-              ? isTracking ? 'GPS activo - Recibiendo ordenes' : 'Conectando GPS...'
-              : 'Desconectado'}
-          </ThemedText>
-        </View>
-        <TouchableSound
-          style={[
-            styles.onlineToggle,
-            {
-              backgroundColor: isOnline ? colors.success : 'rgba(255,255,255,0.9)',
-              borderRadius: radius.full,
-            },
-          ]}
-          onPress={toggleOnlineStatus}
-        >
-          <Power size={20} color={isOnline ? '#fff' : colors.text.secondary} />
-          <ThemedText
-            variant="caption"
-            color={isOnline ? 'white' : 'secondary'}
-            bold
-          >
-            {isOnline ? 'EN LINEA' : 'OFFLINE'}
-          </ThemedText>
-        </TouchableSound>
-      </View>
-    </View>
-  );
+  // ── Render ──────────────────────────────────────────────────────────────
 
   return (
-    <ScreenContainer
-      headerGradient="primary"
-      headerIcon={Truck}
-      headerTitle={`Hola, ${user?.name || 'Repartidor'}!`}
-      headerContent={headerContent}
-      refreshing={refreshing}
-      onRefresh={handleRefresh}
-    >
-      <PanicModal
-        visible={showPanicModal}
-        onClose={() => setShowPanicModal(false)}
-        driverId={driverId || ''}
-        orderId={activeOrderId}
-        onTransferRequested={() => {
-          setActiveOrderId(null);
-          loadAvailableOrders();
-        }}
-      />
-
-      <SurveyPopup
-        survey={currentSurvey!}
-        visible={!!currentSurvey}
-        onClose={closeSurvey}
-        onSubmit={(responses) => submitSurvey(currentSurvey!.id, responses)}
-      />
-
-      {/* Stats Grid */}
-      <View style={[styles.statsGrid, { gap: space.sm, marginBottom: space.lg }]}>
-        {[
-          { icon: Package, value: stats.todayDeliveries, label: 'Entregas Hoy', color: colors.primary },
-          { icon: DollarSign, value: `$${stats.todayEarnings}`, label: 'Ganancia Hoy', color: colors.success },
-          { icon: Star, value: stats.rating.toFixed(1), label: 'Rating', color: colors.warning },
-          { icon: DollarSign, value: `$${stats.totalBalance}`, label: 'Balance Total', color: colors.accent },
-        ].map((stat, index) => (
-          <View
-            key={index}
-            style={[styles.statCard, {
-              backgroundColor: colors.card,
-              borderRadius: radius.md,
-              padding: space.md,
-            }]}
-          >
-            <stat.icon size={24} color={stat.color} />
-            <ThemedText variant="h3" style={[styles.statValue, { color: colors.text.primary }]}>{stat.value}</ThemedText>
-            <ThemedText variant="caption" style={[styles.statLabel, { color: colors.text.secondary }]}>{stat.label}</ThemedText>
-          </View>
-        ))}
-      </View>
-
-      {/* Debt Alert Banners */}
-      {debtAlerts.map((debt) => (
-        <TouchableSound
-          key={debt.businessId}
-          style={[styles.debtBanner, {
-            backgroundColor: debt.isBlocked ? colors.error + '15' : colors.warning + '15',
-            borderColor: debt.isBlocked ? colors.error : colors.warning,
-            borderRadius: radius.md,
-            padding: space.sm,
-            marginBottom: space.sm,
-          }]}
-          onPress={() => router.push('/driver/debts' as any)}
-        >
-          <AlertTriangle size={20} color={debt.isBlocked ? colors.error : colors.warning} />
-          <View style={{ flex: 1, marginLeft: space.sm }}>
-            <ThemedText variant="label" bold style={{ color: debt.isBlocked ? colors.error : colors.warning }}>
-              {debt.isBlocked ? 'BLOQUEADO' : 'Deuda alta'}
-            </ThemedText>
-            <ThemedText variant="caption" style={{ color: colors.text.primary }}>
-              Debes ${debt.totalPending.toFixed(0)} a {debt.businessName} ({Math.round(debt.percentUsed)}%)
-            </ThemedText>
-          </View>
-          <ThemedText variant="caption" bold style={{ color: colors.primary }}>Ver</ThemedText>
-        </TouchableSound>
-      ))}
-
-      {/* Action Buttons */}
-      <View style={[styles.actionButtonsRow, { gap: space.sm, marginBottom: space.lg }]}>
-        <TouchableSound
-          style={[styles.actionBtn, { backgroundColor: colors.primary, borderRadius: radius.md, padding: space.md }]}
-          onPress={() => router.push('/driver/active-order')}
-        >
-          <Package size={24} color="#fff" />
-          <ThemedText variant="label" color="white" bold style={{ marginTop: space.xs }}>
-            Orden Activa
-          </ThemedText>
-        </TouchableSound>
-
-        <TouchableSound
-          style={[styles.actionBtn, { backgroundColor: colors.success, borderRadius: radius.md, padding: space.md }]}
-          onPress={() => router.push('/driver/earnings' as any)}
-        >
-          <DollarSign size={24} color="#fff" />
-          <ThemedText variant="label" color="white" bold style={{ marginTop: space.xs }}>
-            Ganancias
-          </ThemedText>
-        </TouchableSound>
-      </View>
-
-      {/* Panic Button */}
-      <TouchableSound
-        style={[styles.panicButton, { borderRadius: radius.md, padding: space.md, marginBottom: space.lg }]}
-        onPress={() => setShowPanicModal(true)}
+    <SafeAreaView style={styles.safe}>
+      <ScrollView
+        contentContainerStyle={styles.scroll}
+        refreshControl={
+          <RefreshControl refreshing={refreshing} onRefresh={handleRefresh} />
+        }
       >
-        <AlertTriangle size={20} color="#fff" />
-        <ThemedText variant="label" color="white" bold>Necesito Ayuda</ThemedText>
-      </TouchableSound>
+        {/* ── Header Card (blue gradient) ─────────────────────────────── */}
+        <View style={styles.headerCard}>
+          <View style={styles.headerRow}>
+            <View style={styles.headerLeft}>
+              <Text style={styles.greeting}>
+                Hola, {user?.name?.split(' ')[0] || 'Repartidor'}
+              </Text>
+            </View>
+            <YAvatar
+              uri={user?.avatar}
+              name={user?.name}
+              size={48}
+              color="#FFFFFF"
+            />
+          </View>
 
-      {/* Quick Actions */}
-      <ThemedText variant="title" style={[styles.sectionTitle, { color: colors.text.primary, marginBottom: space.sm }]}>Acciones Rapidas</ThemedText>
-      <View style={[styles.quickActionsGrid, { gap: space.sm, marginBottom: space.lg }]}>
-        {[
-          { icon: History, label: 'Historial', color: colors.primary, route: '/driver/history' },
-          { icon: User, label: 'Mi Perfil', color: colors.accent, route: '/driver/profile' },
-          { icon: DollarSign, label: 'Deudas', color: colors.error, route: '/driver/debts' },
-          { icon: MessageCircle, label: 'Mensajes', color: colors.success, route: '/driver/messages' },
-        ].map((action, index) => (
-          <TouchableSound
-            key={index}
-            style={[styles.quickActionCard, {
-              backgroundColor: colors.card,
-              borderRadius: radius.md,
-              padding: space.md,
-            }]}
-            onPress={() => {
-              if (action.route) router.push(action.route as any);
-              else Alert.alert('Soporte Yesswera', 'WhatsApp: 322-100-0000\nEmail: soporte@yesswera.com');
-            }}
+          {/* Toggle button */}
+          <TouchableOpacity
+            onPress={toggleAvailability}
+            activeOpacity={0.85}
+            style={styles.toggleButton}
           >
-            <action.icon size={24} color={action.color} />
-            <ThemedText variant="caption" bold style={[styles.quickActionLabel, { color: colors.text.primary }]}>{action.label}</ThemedText>
-          </TouchableSound>
+            <View
+              style={[
+                styles.toggleDot,
+                { backgroundColor: isAvailable ? '#22C55E' : '#9CA3AF' },
+              ]}
+            />
+            <Text style={styles.toggleLabel}>
+              {isAvailable ? 'Disponible' : 'Ocupado'}
+            </Text>
+          </TouchableOpacity>
+        </View>
+
+        {/* ── Stats Row ───────────────────────────────────────────────── */}
+        <View style={styles.statsRow}>
+          <StatBox
+            value={formatCurrency(todayEarnings)}
+            label="Hoy"
+            color={DS.colors.green}
+          />
+          <View style={{ width: DS.space.sm }} />
+          <StatBox
+            value={formatCurrency(weekEarnings)}
+            label="Semana"
+            color={DS.colors.blue}
+          />
+          <View style={{ width: DS.space.sm }} />
+          <StatBox
+            value={String(todayDeliveries)}
+            label="Entregas"
+            color={DS.colors.orange}
+          />
+        </View>
+
+        {/* ── Orders Section ──────────────────────────────────────────── */}
+        <SectionHeader
+          title="Pedidos Disponibles"
+          subtitle="Toca aceptar para tomarlo"
+        />
+
+        {availableOrders.length === 0 && (
+          <YCard style={styles.emptyCard}>
+            <View style={styles.emptyContent}>
+              <Ionicons
+                name="moon-outline"
+                size={40}
+                color={DS.colors.muted}
+              />
+              <Text style={styles.emptyTitle}>
+                No hay pedidos por ahora
+              </Text>
+              <Text style={styles.emptySubtitle}>
+                Te avisaremos cuando haya uno
+              </Text>
+            </View>
+          </YCard>
+        )}
+
+        {availableOrders.map((order) => (
+          <YCard key={order.id} style={styles.orderCard}>
+            {/* Route info */}
+            <View style={styles.routeRow}>
+              <View style={styles.routeLeft}>
+                <View style={styles.routeItem}>
+                  <View style={[styles.dot, { backgroundColor: DS.colors.orange }]} />
+                  <Text style={styles.routeText} numberOfLines={1}>
+                    {order.pickupAddress || 'Negocio'}
+                  </Text>
+                </View>
+                <View style={styles.routeItem}>
+                  <Ionicons name="location" size={14} color={DS.colors.green} />
+                  <Text style={styles.routeText} numberOfLines={1}>
+                    {order.deliveryAddress || 'Cliente'}
+                  </Text>
+                </View>
+              </View>
+
+              <View style={styles.routeRight}>
+                <Text style={styles.payAmount}>
+                  {formatCurrency(order.deliveryFee || 0)}
+                </Text>
+                {order.distanceKm != null && (
+                  <Text style={styles.distanceText}>
+                    {order.distanceKm.toFixed(1)} km
+                  </Text>
+                )}
+              </View>
+            </View>
+
+            {/* Accept button */}
+            <BigButton
+              label="Aceptar Pedido"
+              icon="checkmark-circle-outline"
+              color={DS.colors.blue}
+              height={56}
+              onPress={() => handleAccept(order.id.toString())}
+              loading={accepting === order.id.toString()}
+              disabled={!!accepting}
+              style={{ marginTop: DS.space.md }}
+            />
+          </YCard>
         ))}
-      </View>
 
-      {/* Orders Section */}
-      <ThemedText variant="title" style={[styles.sectionTitle, { color: colors.text.primary, marginBottom: space.sm }]}>
-        {isOnline ? 'Ordenes Disponibles' : 'Activa tu estado para ver ordenes'}
-      </ThemedText>
+        <View style={{ height: 100 }} />
+      </ScrollView>
 
-      {!isOnline && (
-        <View style={[styles.emptyState, { backgroundColor: colors.background.secondary, borderRadius: radius.md, padding: space.xl }]}>
-          <Power size={32} color={colors.text.muted} />
-          <ThemedText variant="body" style={[styles.emptyStateText, { color: colors.text.secondary }]}>
-            Presiona "EN LINEA" arriba para comenzar a recibir ordenes
-          </ThemedText>
-        </View>
-      )}
-
-      {isOnline && availableOrders.length === 0 && (
-        <View style={[styles.emptyState, { backgroundColor: colors.card, borderRadius: radius.md, padding: space.xl }]}>
-          <Package size={32} color={colors.text.muted} />
-          <ThemedText variant="subtitle" style={[styles.emptyStateTitle, { color: colors.text.primary }]}>
-            No hay ordenes disponibles en tu zona
-          </ThemedText>
-          <ThemedText variant="caption" style={[styles.emptyStateText, { color: colors.text.secondary }]}>
-            Te notificaremos cuando haya nuevas
-          </ThemedText>
-        </View>
-      )}
-
-      {isOnline && availableOrders.map((order) => {
-        const isAssignedToMe = order.status === 'assigned' && order.driverId === driverId;
-        return (
-        <View
-          key={order.id}
-          style={[styles.orderCard, {
-            backgroundColor: colors.card,
-            borderRadius: radius.lg,
-            padding: space.md,
-            marginBottom: space.sm,
-            borderLeftWidth: isAssignedToMe ? 4 : 0,
-            borderLeftColor: isAssignedToMe ? colors.success : 'transparent',
-          }]}
+      {/* ── Bottom Tabs ─────────────────────────────────────────────────── */}
+      <View style={styles.bottomTabs}>
+        <TouchableOpacity style={styles.tab} activeOpacity={0.7}>
+          <Ionicons name="file-tray-outline" size={24} color={DS.colors.blue} />
+          <Text style={[styles.tabLabel, { color: DS.colors.blue }]}>
+            Pedidos
+          </Text>
+        </TouchableOpacity>
+        <TouchableOpacity
+          style={styles.tab}
+          activeOpacity={0.7}
+          onPress={() => router.push('/driver/profile')}
         >
-          {isAssignedToMe && (
-            <View style={[styles.assignedBadge, { backgroundColor: colors.success + '15', borderRadius: radius.sm, padding: space.xs, marginBottom: space.sm }]}>
-              <ThemedText variant="caption" bold style={{ color: colors.success }}>
-                ASIGNADA A TI
-              </ThemedText>
-            </View>
-          )}
-          <View style={styles.orderHeader}>
-            <View style={[styles.orderTypeTag, { backgroundColor: colors.background.secondary, borderRadius: radius.sm, padding: space.xs }]}>
-              <ThemedText variant="caption" bold style={{ color: colors.text.primary }}>
-                {order.type === 'food' ? 'Alimentos' : order.type === 'shopping' ? 'Compras' : 'Envio'}
-              </ThemedText>
-            </View>
-            <ThemedText variant="title" style={{ color: colors.success }}>${order.deliveryFee?.toFixed(2)}</ThemedText>
-          </View>
-
-          <ThemedText variant="subtitle" bold style={[styles.orderBusinessName, { color: colors.text.primary }]}>
-            {order.businessName || 'Negocio'}
-          </ThemedText>
-
-          <View style={[styles.addressSection, { backgroundColor: colors.background.secondary, borderRadius: radius.sm, padding: space.sm }]}>
-            <ThemedText variant="caption" bold style={{ color: colors.text.secondary }}>Recogida:</ThemedText>
-            <ThemedText variant="label" style={{ color: colors.text.primary }}>{order.pickupAddress || 'N/A'}</ThemedText>
-            <ThemedText variant="caption" bold style={[styles.addressLabel, { color: colors.text.secondary }]}>Entrega:</ThemedText>
-            <ThemedText variant="label" style={{ color: colors.text.primary }}>{order.deliveryAddress}</ThemedText>
-          </View>
-
-          <ThemedText variant="body" style={[styles.orderTotal, { color: colors.text.primary }]}>
-            Total: ${order.total?.toFixed(2)} MXN
-          </ThemedText>
-
-          <TouchableSound
-            style={[styles.acceptButton, { backgroundColor: isAssignedToMe ? colors.success : colors.primary, borderRadius: radius.md, padding: space.md }]}
-            onPress={() => {
-              if (isAssignedToMe) {
-                setActiveOrderId(order.id.toString());
-                router.push('/driver/active-order' as any);
-              } else {
-                handleAcceptOrder(order.id.toString());
-              }
-            }}
-          >
-            <ThemedText variant="label" color="white" bold center>
-              {isAssignedToMe ? 'Ir a Orden' : 'Aceptar Orden'}
-            </ThemedText>
-          </TouchableSound>
-        </View>
-        );
-      })}
-
-      {/* Logout */}
-      <TouchableSound
-        style={[styles.logoutButton, {
-          borderColor: colors.error,
-          borderRadius: radius.md,
-          padding: space.md,
-          marginVertical: space.xl,
-        }]}
-        onPress={handleLogout}
-      >
-        <ThemedText variant="body" color="error" bold center>Cerrar Sesion</ThemedText>
-      </TouchableSound>
-    </ScreenContainer>
+          <Ionicons
+            name="person-outline"
+            size={24}
+            color={DS.colors.muted}
+          />
+          <Text style={[styles.tabLabel, { color: DS.colors.muted }]}>
+            Perfil
+          </Text>
+        </TouchableOpacity>
+      </View>
+    </SafeAreaView>
   );
 }
 
+// ── Styles ────────────────────────────────────────────────────────────────────
+
 const styles = StyleSheet.create({
-  headerContentContainer: {
-    marginTop: 12,
+  safe: {
+    flex: 1,
+    backgroundColor: DS.colors.bg,
   },
-  accessibilityRow: {
-    alignItems: 'flex-end',
-    marginBottom: 8,
+  scroll: {
+    padding: DS.space.lg,
   },
-  headerTop: {
+
+  // Header
+  headerCard: {
+    backgroundColor: DS.colors.blue,
+    borderRadius: DS.radius.lg,
+    padding: DS.space.xl,
+    marginBottom: DS.space.lg,
+    ...colorShadow(DS.colors.blue, 0.25),
+  },
+  headerRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
+    marginBottom: DS.space.lg,
   },
-  headerSubtitleText: {
-    color: 'rgba(255, 255, 255, 0.9)',
-  },
-  onlineToggle: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-  },
-  statsGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-  },
-  statCard: {
+  headerLeft: {
     flex: 1,
-    minWidth: '47%',
-    alignItems: 'center',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.04,
-    shadowRadius: 8,
-    elevation: 2,
+    marginRight: DS.space.md,
   },
-  statValue: {
-    marginTop: 8,
+  greeting: {
+    ...DS.fonts.title,
+    color: '#FFFFFF',
   },
-  statLabel: {
-    textAlign: 'center',
-  },
-  actionButtonsRow: {
+
+  // Toggle
+  toggleButton: {
     flexDirection: 'row',
-  },
-  actionBtn: {
-    flex: 1,
     alignItems: 'center',
+    backgroundColor: 'rgba(255,255,255,0.2)',
+    borderRadius: DS.radius.full,
+    paddingVertical: DS.space.md,
+    paddingHorizontal: DS.space.xl,
+    alignSelf: 'stretch',
     justifyContent: 'center',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.04,
-    shadowRadius: 8,
-    elevation: 2,
   },
-  panicButton: {
+  toggleDot: {
+    width: 12,
+    height: 12,
+    borderRadius: 6,
+    marginRight: DS.space.sm,
+  },
+  toggleLabel: {
+    ...DS.fonts.bodyMed,
+    color: '#FFFFFF',
+  },
+
+  // Stats
+  statsRow: {
     flexDirection: 'row',
+    marginBottom: DS.space.xxl,
+  },
+
+  // Empty state
+  emptyCard: {
+    marginBottom: DS.space.lg,
+  },
+  emptyContent: {
     alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: '#DC2626',
-    gap: 8,
-    shadowColor: '#DC2626',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.15,
-    shadowRadius: 8,
-    elevation: 3,
+    paddingVertical: DS.space.xxl,
   },
-  sectionTitle: {
-    fontWeight: '700',
+  emptyTitle: {
+    ...DS.fonts.bodyMed,
+    color: DS.colors.dark,
+    marginTop: DS.space.md,
   },
-  quickActionsGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
+  emptySubtitle: {
+    ...DS.fonts.small,
+    color: DS.colors.muted,
+    marginTop: DS.space.xs,
   },
-  quickActionCard: {
-    flex: 1,
-    minWidth: '45%',
-    alignItems: 'center',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.04,
-    shadowRadius: 8,
-    elevation: 2,
-  },
-  quickActionLabel: {
-    marginTop: 8,
-  },
-  emptyState: {
-    alignItems: 'center',
-    marginBottom: 16,
-  },
-  emptyStateTitle: {
-    marginTop: 12,
-    textAlign: 'center',
-  },
-  emptyStateText: {
-    marginTop: 8,
-    textAlign: 'center',
-  },
+
+  // Order card
   orderCard: {
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.04,
-    shadowRadius: 8,
-    elevation: 2,
+    marginBottom: DS.space.md,
   },
-  assignedBadge: {
-    alignItems: 'center',
-  },
-  orderHeader: {
+  routeRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    alignItems: 'center',
   },
-  orderTypeTag: {},
-  orderBusinessName: {
-    marginVertical: 8,
+  routeLeft: {
+    flex: 1,
+    marginRight: DS.space.md,
+    gap: DS.space.sm,
   },
-  addressSection: {},
-  addressLabel: {
-    marginTop: 8,
-  },
-  orderTotal: {
-    marginTop: 8,
-  },
-  acceptButton: {
-    marginTop: 12,
-  },
-  logoutButton: {
-    borderWidth: 1.5,
-    backgroundColor: 'transparent',
-  },
-  debtBanner: {
+  routeItem: {
     flexDirection: 'row',
     alignItems: 'center',
-    borderWidth: 1.5,
+    gap: DS.space.sm,
+  },
+  dot: {
+    width: 10,
+    height: 10,
+    borderRadius: 5,
+  },
+  routeText: {
+    ...DS.fonts.body,
+    color: DS.colors.body,
+    flex: 1,
+  },
+  routeRight: {
+    alignItems: 'flex-end',
+    justifyContent: 'center',
+  },
+  payAmount: {
+    ...DS.fonts.title,
+    color: DS.colors.green,
+  },
+  distanceText: {
+    ...DS.fonts.small,
+    color: DS.colors.muted,
+    marginTop: 2,
+  },
+
+  // Bottom tabs
+  bottomTabs: {
+    flexDirection: 'row',
+    borderTopWidth: 1,
+    borderTopColor: DS.colors.hairline,
+    backgroundColor: DS.colors.card,
+    paddingVertical: DS.space.sm,
+    paddingBottom: DS.space.lg,
+  },
+  tab: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: DS.space.xs,
+  },
+  tabLabel: {
+    ...DS.fonts.tiny,
+    marginTop: 2,
   },
 });

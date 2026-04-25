@@ -1,216 +1,132 @@
-import TouchableSound from '@/components/TouchableSound';
-// ============================================================================
-// YESSWERA: RECUPERAR CONTRASENA - SOLICITUD
-// Usa ScreenContainer para diseño unificado con soporte de tema oscuro
-// ============================================================================
-
 import { useState } from 'react';
 import {
   View,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  SafeAreaView,
+  ScrollView,
   StyleSheet,
+  KeyboardAvoidingView,
+  Platform,
 } from 'react-native';
-import { Image } from 'expo-image';
 import { useRouter } from 'expo-router';
-import { KeyRound, ArrowLeft } from 'lucide-react-native';
-import { useTheme } from '@/contexts/theme';
-import { ThemedText } from '@/components/themed';
-import ScreenContainer from '@/components/ScreenContainer';
-import FormInput from '@/components/FormInput';
-import LoadingButton from '@/components/LoadingButton';
+import { Mail } from 'lucide-react-native';
+import { DS } from '@/constants/design';
+import BigButton from '@/components/ui/BigButton';
 import { Toast } from '@/utils/toast';
 import { Validator } from '@/utils/validation';
 import { HapticFeedback } from '@/utils/haptics';
 import { supabase } from '@/constants/supabase';
 
-// ============================================================================
-// COLORES EXPLÍCITOS PARA MODO OSCURO
-// ============================================================================
-
-const COLORS = {
-  light: {
-    card: '#FFFFFF',
-    cardAlt: '#F5F5F4',
-    border: '#E7E5E4',
-    borderMedium: '#D6D3D1',
-    text: '#1C1917',
-    textSecondary: '#57534E',
-    textMuted: '#A8A29E',
-  },
-  dark: {
-    card: '#292524',
-    cardAlt: '#44403C',
-    border: '#44403C',
-    borderMedium: '#57534E',
-    text: '#FAFAFA',
-    textSecondary: '#D6D3D1',
-    textMuted: '#78716C',
-  },
-};
-
 export default function PasswordRecoveryRequestScreen() {
   const router = useRouter();
-  const { colors, isDark } = useTheme();
-  const theme = isDark ? COLORS.dark : COLORS.light;
+  const [email, setEmail] = useState('');
+  const [loading, setLoading] = useState(false);
 
-  const [email, setEmail] = useState<string>('');
-  const [isLoading, setIsLoading] = useState<boolean>(false);
-  const [error, setError] = useState<string>('');
-
-  const validateEmail = (value: string) => {
-    return Validator.email(value);
-  };
-
-  const handleEmailChange = (value: string) => {
-    setEmail(value);
-    setError('');
-  };
-
-  const handleSendCode = async () => {
-    const emailError = validateEmail(email);
-
-    if (emailError) {
-      setError(emailError);
+  const handleSend = async () => {
+    const err = Validator.email(email);
+    if (err) {
       HapticFeedback.error();
+      Toast.error(err);
       return;
     }
 
-    setIsLoading(true);
+    setLoading(true);
     try {
-      const { error: resetError } = await supabase.auth.resetPasswordForEmail(email);
-
-      if (resetError) {
-        console.error('Reset email error:', resetError);
-        // Anti-enumeracion: no revelar si el email existe o no
-      }
-
-      // Siempre mostrar exito (seguridad: no revelar si el email existe)
+      await supabase.auth.resetPasswordForEmail(email);
       HapticFeedback.success();
       Toast.success('Si el correo existe, recibiras un codigo');
       router.push(`/password-recovery/verify?email=${encodeURIComponent(email)}` as any);
-    } catch (error) {
-      console.error('Send code error:', error);
-      HapticFeedback.error();
-      Toast.error('No se pudo enviar el codigo. Intenta nuevamente.');
+    } catch {
+      Toast.error('No se pudo enviar el codigo');
     } finally {
-      setIsLoading(false);
+      setLoading(false);
     }
   };
 
-  // Header content con boton de regreso
-  const headerContent = (
-    <View style={styles.headerControls}>
-      <TouchableSound
-        style={styles.backButton}
-        onPress={() => router.back()}
-      >
-        <ArrowLeft size={24} color="#FFFFFF" />
-      </TouchableSound>
-      <View style={styles.headerSpacer} />
-    </View>
-  );
-
   return (
-    <ScreenContainer
-      headerGradient="secondary"
-      headerIcon={KeyRound}
-      headerTitle="Recuperar Contrasena"
-      headerSubtitle="Te enviaremos un codigo de verificacion"
-      headerContent={headerContent}
-    >
-      {/* Logo */}
-      <View style={styles.logoContainer}>
-        <Image
-          source={require('@/assets/images/icon.png')}
-          style={styles.logoImage}
-          contentFit="contain"
-        />
-      </View>
+    <SafeAreaView style={styles.safe}>
+      <KeyboardAvoidingView
+        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+        style={{ flex: 1 }}
+      >
+        <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
+          {/* Icon */}
+          <View style={styles.iconCircle}>
+            <Mail size={32} color={DS.colors.orange} />
+          </View>
 
-      <ThemedText variant="h3" center style={styles.title}>
-        Olvidaste tu contrasena?
-      </ThemedText>
+          <Text style={styles.title}>Olvidaste tu contrasena?</Text>
+          <Text style={styles.subtitle}>
+            Ingresa tu correo y te enviaremos un codigo de 6 digitos para recuperar tu cuenta
+          </Text>
 
-      <ThemedText variant="body" color="secondary" center style={styles.subtitle}>
-        Ingresa tu correo electronico y te enviaremos un codigo de 6 digitos para recuperar tu cuenta
-      </ThemedText>
+          {/* Email input */}
+          <Text style={styles.label}>Correo electronico</Text>
+          <View style={styles.inputRow}>
+            <Mail size={20} color={DS.colors.muted} />
+            <TextInput
+              style={styles.input}
+              value={email}
+              onChangeText={setEmail}
+              placeholder="tu@email.com"
+              placeholderTextColor={DS.colors.placeholder}
+              keyboardType="email-address"
+              autoCapitalize="none"
+              autoComplete="email"
+              editable={!loading}
+            />
+          </View>
 
-      <View style={styles.form}>
-        <FormInput
-          label="Correo Electronico"
-          value={email}
-          onChangeText={handleEmailChange}
-          error={error}
-          placeholder="tu@email.com"
-          keyboardType="email-address"
-          autoCapitalize="none"
-          editable={!isLoading}
-        />
+          <BigButton
+            title="Enviar Codigo"
+            color={DS.colors.orange}
+            onPress={handleSend}
+            loading={loading}
+          />
 
-        <LoadingButton
-          title="Enviar Codigo"
-          onPress={handleSendCode}
-          loading={isLoading}
-          variant="primary"
-        />
-
-        <TouchableSound
-          style={styles.backToLogin}
-          onPress={() => router.push('/login' as any)}
-          disabled={isLoading}
-        >
-          <ThemedText variant="body" color="primary" bold>
-            Volver al inicio de sesion
-          </ThemedText>
-        </TouchableSound>
-      </View>
-
-      <View style={{ height: 40 }} />
-    </ScreenContainer>
+          <TouchableOpacity
+            style={styles.backLink}
+            onPress={() => router.push('/login' as any)}
+          >
+            <Text style={styles.backLinkText}>Volver al inicio de sesion</Text>
+          </TouchableOpacity>
+        </ScrollView>
+      </KeyboardAvoidingView>
+    </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
-  headerControls: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 8,
-  },
-  backButton: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    backgroundColor: 'rgba(255, 255, 255, 0.2)',
+  safe: { flex: 1, backgroundColor: DS.colors.bg },
+  scroll: { padding: DS.space.xl, paddingTop: 60 },
+  iconCircle: {
+    width: 72,
+    height: 72,
+    borderRadius: 36,
+    backgroundColor: DS.colors.orangeLight,
     justifyContent: 'center',
     alignItems: 'center',
+    alignSelf: 'center',
+    marginBottom: DS.space.xxl,
   },
-  headerSpacer: {
-    width: 44,
-  },
-  logoContainer: {
+  title: { ...DS.fonts.title, color: DS.colors.dark, textAlign: 'center', marginBottom: DS.space.md },
+  subtitle: { ...DS.fonts.body, color: DS.colors.muted, textAlign: 'center', marginBottom: DS.space.xxxl, lineHeight: 22 },
+  label: { ...DS.fonts.label, color: DS.colors.dark, marginBottom: DS.space.sm },
+  inputRow: {
+    flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 24,
+    backgroundColor: DS.colors.card,
+    borderRadius: DS.radius.lg,
+    borderWidth: 1,
+    borderColor: DS.colors.hairline,
+    paddingHorizontal: DS.space.lg,
+    height: DS.touch.min,
+    gap: DS.space.sm,
+    marginBottom: DS.space.xxl,
   },
-  logoImage: {
-    width: 64,
-    height: 64,
-    borderRadius: 16,
-  },
-  title: {
-    marginBottom: 12,
-  },
-  subtitle: {
-    marginBottom: 32,
-    lineHeight: 22,
-    paddingHorizontal: 8,
-  },
-  form: {
-    width: '100%',
-    gap: 16,
-  },
-  backToLogin: {
-    alignItems: 'center',
-    marginTop: 8,
-    paddingVertical: 8,
-  },
+  input: { flex: 1, ...DS.fonts.body, color: DS.colors.dark },
+  backLink: { alignItems: 'center', marginTop: DS.space.xxl, paddingVertical: DS.space.sm },
+  backLinkText: { ...DS.fonts.bodyMed, color: DS.colors.orange },
 });

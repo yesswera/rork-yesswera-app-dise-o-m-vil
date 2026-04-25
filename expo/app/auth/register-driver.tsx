@@ -412,7 +412,7 @@ export default function RegisterDriverScreen() {
             >
               <View style={styles.vehicleRow}>
                 <View style={[styles.vehicleIconWrap, { backgroundColor: selected ? colors.primary + '20' : theme.cardAlt }]}>
-                  <IconComp size={24} color={selected ? colors.primary : colors.text || '#78716C'} />
+                  <IconComp size={24} color={selected ? (typeof colors.primary === 'string' ? colors.primary : '#16A34A') : '#78716C'} />
                 </View>
                 <View style={styles.vehicleText}>
                   <ThemedText variant="subtitle" bold color={selected ? 'accent' : 'primary'}>
@@ -479,7 +479,7 @@ export default function RegisterDriverScreen() {
           onPress={handleBack}
           disabled={isLoading}
         >
-          <ChevronLeft size={20} color={colors.text || '#78716C'} />
+          <ChevronLeft size={20} color={typeof colors.text === 'string' ? colors.text : '#78716C'} />
           <ThemedText variant="body" color="secondary">
             {step === 0 ? 'Cancelar' : 'Atras'}
           </ThemedText>

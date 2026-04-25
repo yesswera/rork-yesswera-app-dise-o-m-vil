@@ -293,9 +293,8 @@ export default function DriverWaitingScreen() {
       headerIcon={Clock}
       headerTitle="Tu Estado"
       headerSubtitle={user?.name || 'Repartidor'}
-      refreshControl={
-        <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={FIX.primary} />
-      }
+      refreshing={refreshing}
+      onRefresh={onRefresh}
     >
       {renderStatusCard()}
 

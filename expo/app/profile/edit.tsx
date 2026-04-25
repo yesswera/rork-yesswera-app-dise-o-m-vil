@@ -1,319 +1,195 @@
-import TouchableSound from '@/components/TouchableSound';
-// ============================================================================
-// YESSWERA: PANTALLA DE EDITAR PERFIL
-// Usa ScreenContainer para diseño unificado
-// ============================================================================
-
 import { useState } from 'react';
 import {
-  StyleSheet,
-  Text,
   View,
+  Text,
+  TextInput,
+  TouchableOpacity,
   Image,
+  SafeAreaView,
+  ScrollView,
   Alert,
+  StyleSheet,
+  KeyboardAvoidingView,
+  Platform,
 } from 'react-native';
 import { useRouter } from 'expo-router';
-import { Camera, Edit2 } from 'lucide-react-native';
+import { Camera } from 'lucide-react-native';
 import * as ImagePicker from 'expo-image-picker';
 import { useAuth } from '@/contexts/auth';
-import { useTheme } from '@/contexts/theme';
-import FormInput from '@/components/FormInput';
-import LoadingButton from '@/components/LoadingButton';
-import ScreenContainer from '@/components/ScreenContainer';
+import { DS } from '@/constants/design';
+import BigButton from '@/components/ui/BigButton';
+import YAvatar from '@/components/ui/YAvatar';
 import { Toast } from '@/utils/toast';
 import { Validator } from '@/utils/validation';
 import { HapticFeedback } from '@/utils/haptics';
 
-// Colores explícitos para modo oscuro
-const COLORS = {
-  light: {
-    card: '#FFFFFF',
-    cardAlt: '#F5F5F4',
-    border: '#E7E5E4',
-    text: '#1C1917',
-    textSecondary: '#57534E',
-    textMuted: '#A8A29E',
-  },
-  dark: {
-    card: '#292524',
-    cardAlt: '#44403C',
-    border: '#44403C',
-    text: '#FAFAFA',
-    textSecondary: '#D6D3D1',
-    textMuted: '#78716C',
-  },
-};
-
 export default function EditProfileScreen() {
   const router = useRouter();
   const { user, updateProfile } = useAuth();
-  const { isDark, colors } = useTheme();
-  const theme = isDark ? COLORS.dark : COLORS.light;
 
-  const [name, setName] = useState<string>(user?.name || '');
-  const [phone, setPhone] = useState<string>(user?.phone || '');
+  const [name, setName] = useState(user?.name || '');
+  const [phone, setPhone] = useState(user?.phone || '');
   const [avatar, setAvatar] = useState<string | undefined>(user?.avatar);
-  const [isLoading, setIsLoading] = useState<boolean>(false);
-  const [errors, setErrors] = useState({
-    name: '',
-    phone: '',
-  });
+  const [saving, setSaving] = useState(false);
 
   if (!user) {
     router.replace('/login' as any);
     return null;
   }
 
-  const handleNameChange = (value: string) => {
-    setName(value);
-    setErrors((prev) => ({ ...prev, name: '' }));
-  };
-
-  const handlePhoneChange = (value: string) => {
-    setPhone(value);
-    setErrors((prev) => ({ ...prev, phone: '' }));
-  };
-
   const handlePickImage = async () => {
-    try {
-      HapticFeedback.light();
-
-      const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
-
-      if (status !== 'granted') {
-        Alert.alert(
-          'Permiso requerido',
-          'Necesitamos acceso a tu galería para seleccionar una foto',
-          [{ text: 'OK' }]
-        );
-        return;
-      }
-
-      const result = await ImagePicker.launchImageLibraryAsync({
-        mediaTypes: ImagePicker.MediaTypeOptions.Images,
-        allowsEditing: true,
-        aspect: [1, 1],
-        quality: 0.8,
-      });
-
-      if (!result.canceled && result.assets[0]) {
-        setAvatar(result.assets[0].uri);
-        HapticFeedback.success();
-      }
-    } catch (error) {
-      console.error('Error picking image:', error);
-      Toast.error('No se pudo seleccionar la imagen');
+    const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (status !== 'granted') {
+      Alert.alert('Permiso requerido', 'Necesitamos acceso a tu galeria');
+      return;
+    }
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      allowsEditing: true,
+      aspect: [1, 1],
+      quality: 0.8,
+    });
+    if (!result.canceled && result.assets[0]) {
+      setAvatar(result.assets[0].uri);
     }
   };
 
   const handleSave = async () => {
-    const nameError = Validator.name(name);
-    const phoneError = Validator.phone(phone);
-
-    if (nameError || phoneError) {
-      setErrors({
-        name: nameError,
-        phone: phoneError,
-      });
-      HapticFeedback.error();
+    const nameErr = Validator.name(name);
+    const phoneErr = Validator.phone(phone);
+    if (nameErr || phoneErr) {
+      Toast.error(nameErr || phoneErr);
       return;
     }
 
-    setIsLoading(true);
+    setSaving(true);
     try {
       await updateProfile({ name, phone, avatar });
-
       HapticFeedback.success();
-      Toast.success('Perfil actualizado exitosamente');
+      Toast.success('Perfil actualizado');
       router.back();
-    } catch (error) {
-      console.error('Update profile error:', error);
-      HapticFeedback.error();
-      Toast.error('No se pudo actualizar el perfil. Intenta nuevamente.');
+    } catch {
+      Toast.error('No se pudo actualizar');
     } finally {
-      setIsLoading(false);
+      setSaving(false);
     }
   };
 
-  const handleCancel = () => {
-    HapticFeedback.light();
-    router.back();
-  };
-
-  const getUserTypeLabel = () => {
-    switch (user.userType) {
-      case 'client': return 'Cliente';
-      case 'driver': return 'Repartidor';
-      case 'business': return 'Negocio';
-      default: return user.userType;
-    }
-  };
+  const initials = name
+    .split(' ')
+    .map((w) => w[0])
+    .join('')
+    .toUpperCase()
+    .slice(0, 2);
 
   return (
-    <ScreenContainer
-      headerGradient="primary"
-      headerIcon={Edit2}
-      headerTitle="Editar Perfil"
-      headerSubtitle="Actualiza tu información personal"
-    >
-      {/* Avatar Section */}
-      <View style={styles.avatarSection}>
-        <TouchableSound
-          onPress={handlePickImage}
-          activeOpacity={0.8}
-          style={styles.avatarContainer}
-        >
-          {avatar ? (
-            <Image source={{ uri: avatar }} style={[styles.avatar, { borderColor: theme.card }]} />
-          ) : (
-            <View style={[styles.avatarPlaceholder, { backgroundColor: colors.primary, borderColor: theme.card }]}>
-              <Text style={styles.avatarPlaceholderText}>
-                {name.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2)}
-              </Text>
+    <SafeAreaView style={styles.safe}>
+      <KeyboardAvoidingView
+        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+        style={{ flex: 1 }}
+      >
+        <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
+          {/* Avatar */}
+          <TouchableOpacity style={styles.avatarWrap} onPress={handlePickImage} activeOpacity={0.8}>
+            {avatar ? (
+              <Image source={{ uri: avatar }} style={styles.avatarImg} />
+            ) : (
+              <YAvatar name={name} size={100} color={DS.colors.green} />
+            )}
+            <View style={styles.cameraBtn}>
+              <Camera size={16} color="#FFF" />
             </View>
-          )}
-          <View style={[styles.cameraButton, { backgroundColor: colors.primary, borderColor: theme.card }]}>
-            <Camera size={18} color="#FFFFFF" />
-          </View>
-        </TouchableSound>
-        <Text style={[styles.avatarHint, { color: theme.textSecondary }]}>Toca para cambiar foto</Text>
-      </View>
+          </TouchableOpacity>
+          <Text style={styles.hint}>Toca para cambiar foto</Text>
 
-      {/* Form */}
-      <View style={styles.form}>
-        <FormInput
-          label="Nombre Completo"
-          value={name}
-          onChangeText={handleNameChange}
-          error={errors.name}
-          placeholder="Tu nombre completo"
-          autoCapitalize="words"
-          editable={!isLoading}
-        />
-
-        <FormInput
-          label="Teléfono"
-          value={phone}
-          onChangeText={handlePhoneChange}
-          error={errors.phone}
-          placeholder="+52 333 123 4567"
-          keyboardType="phone-pad"
-          editable={!isLoading}
-        />
-
-        <View style={[styles.infoCard, { backgroundColor: theme.card, borderColor: theme.border }]}>
-          <Text style={[styles.infoLabel, { color: theme.textSecondary }]}>Email</Text>
-          <Text style={[styles.infoValue, { color: theme.text }]}>{user.email}</Text>
-          <Text style={[styles.infoHint, { color: theme.textMuted }]}>El email no se puede cambiar</Text>
-        </View>
-
-        <View style={[styles.infoCard, { backgroundColor: theme.card, borderColor: theme.border }]}>
-          <Text style={[styles.infoLabel, { color: theme.textSecondary }]}>Tipo de Usuario</Text>
-          <Text style={[styles.infoValue, { color: theme.text }]}>{getUserTypeLabel()}</Text>
-        </View>
-
-        <View style={styles.buttonContainer}>
-          <LoadingButton
-            title="Guardar Cambios"
-            onPress={handleSave}
-            loading={isLoading}
-            variant="primary"
+          {/* Name */}
+          <Text style={styles.label}>Nombre completo</Text>
+          <TextInput
+            style={styles.input}
+            value={name}
+            onChangeText={setName}
+            placeholder="Tu nombre"
+            placeholderTextColor={DS.colors.placeholder}
+            autoCapitalize="words"
           />
 
-          <TouchableSound
-            style={[styles.cancelButton, { backgroundColor: theme.cardAlt }]}
-            onPress={handleCancel}
-            disabled={isLoading}
-            activeOpacity={0.8}
-          >
-            <Text style={[styles.cancelButtonText, { color: theme.text }]}>Cancelar</Text>
-          </TouchableSound>
-        </View>
-      </View>
-    </ScreenContainer>
+          {/* Phone */}
+          <Text style={styles.label}>Telefono</Text>
+          <TextInput
+            style={styles.input}
+            value={phone}
+            onChangeText={setPhone}
+            placeholder="+52 333 123 4567"
+            placeholderTextColor={DS.colors.placeholder}
+            keyboardType="phone-pad"
+          />
+
+          {/* Email (read-only) */}
+          <Text style={styles.label}>Email</Text>
+          <View style={[styles.input, styles.inputDisabled]}>
+            <Text style={styles.disabledText}>{user.email}</Text>
+          </View>
+          <Text style={styles.readOnly}>El email no se puede cambiar</Text>
+
+          {/* Save */}
+          <View style={styles.actions}>
+            <BigButton
+              title="Guardar Cambios"
+              color={DS.colors.green}
+              onPress={handleSave}
+              loading={saving}
+            />
+            <TouchableOpacity style={styles.cancelBtn} onPress={() => router.back()}>
+              <Text style={styles.cancelText}>Cancelar</Text>
+            </TouchableOpacity>
+          </View>
+        </ScrollView>
+      </KeyboardAvoidingView>
+    </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
-  avatarSection: {
-    alignItems: 'center',
-    marginBottom: 32,
-    marginTop: 8,
-  },
-  avatarContainer: {
-    position: 'relative',
-    marginBottom: 8,
-  },
-  avatar: {
-    width: 120,
-    height: 120,
-    borderRadius: 60,
-    borderWidth: 4,
-  },
-  avatarPlaceholder: {
-    width: 120,
-    height: 120,
-    borderRadius: 60,
-    justifyContent: 'center',
-    alignItems: 'center',
-    borderWidth: 4,
-  },
-  avatarPlaceholderText: {
-    fontSize: 40,
-    fontWeight: '700',
-    color: '#FFFFFF',
-  },
-  cameraButton: {
+  safe: { flex: 1, backgroundColor: DS.colors.bg },
+  scroll: { padding: DS.space.xl, paddingBottom: 40 },
+  avatarWrap: { alignSelf: 'center', marginTop: DS.space.lg, position: 'relative' },
+  avatarImg: { width: 100, height: 100, borderRadius: 50, backgroundColor: DS.colors.hairline },
+  cameraBtn: {
     position: 'absolute',
     bottom: 0,
     right: 0,
-    width: 40,
-    height: 40,
-    borderRadius: 20,
+    width: 34,
+    height: 34,
+    borderRadius: 17,
+    backgroundColor: DS.colors.green,
     justifyContent: 'center',
     alignItems: 'center',
     borderWidth: 3,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.2,
-    shadowRadius: 8,
-    elevation: 4,
+    borderColor: DS.colors.bg,
   },
-  avatarHint: {
-    fontSize: 13,
-  },
-  form: {
-    gap: 16,
-  },
-  infoCard: {
-    borderRadius: 12,
-    padding: 16,
+  hint: { ...DS.fonts.small, color: DS.colors.muted, textAlign: 'center', marginTop: DS.space.sm, marginBottom: DS.space.xxxl },
+  label: { ...DS.fonts.label, color: DS.colors.dark, marginBottom: DS.space.sm },
+  input: {
+    backgroundColor: DS.colors.card,
+    borderRadius: DS.radius.lg,
     borderWidth: 1,
+    borderColor: DS.colors.hairline,
+    paddingHorizontal: DS.space.lg,
+    height: DS.touch.min,
+    justifyContent: 'center',
+    ...DS.fonts.body,
+    color: DS.colors.dark,
+    marginBottom: DS.space.lg,
   },
-  infoLabel: {
-    fontSize: 12,
-    fontWeight: '600',
-    marginBottom: 4,
-  },
-  infoValue: {
-    fontSize: 16,
-    fontWeight: '500',
-  },
-  infoHint: {
-    fontSize: 11,
-    marginTop: 4,
-  },
-  buttonContainer: {
-    gap: 12,
-    marginTop: 8,
-  },
-  cancelButton: {
-    borderRadius: 12,
-    paddingVertical: 16,
+  inputDisabled: { backgroundColor: DS.colors.divider },
+  disabledText: { ...DS.fonts.body, color: DS.colors.muted },
+  readOnly: { ...DS.fonts.small, color: DS.colors.muted, marginTop: -DS.space.md, marginBottom: DS.space.lg },
+  actions: { gap: DS.space.md, marginTop: DS.space.xl },
+  cancelBtn: {
     alignItems: 'center',
+    paddingVertical: DS.space.lg,
+    backgroundColor: DS.colors.divider,
+    borderRadius: DS.radius.lg,
   },
-  cancelButtonText: {
-    fontSize: 16,
-    fontWeight: '600',
-  },
+  cancelText: { ...DS.fonts.bodyMed, color: DS.colors.body },
 });

@@ -1,827 +1,263 @@
-import TouchableSound from '@/components/TouchableSound';
 // ============================================================================
-// YESSWERA: DETALLES DE ORDEN
-// Pantalla para ver los detalles completos de una orden
-// Actualizado para usar ScreenContainer
+// YESSWERA: DETALLE DE ORDEN — Simplified
+// ScrollView with YCard sections: info, items, delivery, rate button
 // ============================================================================
 
+import { useState, useEffect } from 'react';
 import {
   View,
   Text,
+  ScrollView,
   StyleSheet,
+  SafeAreaView,
+  TouchableOpacity,
   ActivityIndicator,
 } from 'react-native';
-import { useRouter, useLocalSearchParams } from 'expo-router';
-import {
-  MapPin,
-  User as UserIcon,
-  Map,
-  Key,
-  CheckCircle,
-  Circle,
-  Clock,
-  ClipboardList,
-} from 'lucide-react-native';
+import { useLocalSearchParams, router } from 'expo-router';
+import { Ionicons } from '@expo/vector-icons';
+import { DS } from '@/constants/design';
+import YCard from '@/components/ui/YCard';
+import Pill from '@/components/ui/Pill';
+import BigButton from '@/components/ui/BigButton';
+import YAvatar from '@/components/ui/YAvatar';
 import { useAuth } from '@/contexts/auth';
-import { useState, useEffect } from 'react';
-import { Order } from '@/constants/types';
 import { getOrderById } from '@/services/orders';
-import RatingStars from '@/components/RatingStars';
-import RatingModal from '@/components/RatingModal';
-import ChatButton from '@/components/ChatButton';
-import SupportButton from '@/components/SupportButton';
-import LoadingButton from '@/components/LoadingButton';
-import ErrorState from '@/components/ErrorState';
-import ScreenContainer from '@/components/ScreenContainer';
-import { useTheme } from '@/contexts/theme';
-import { OrderSounds, SoundFeedback } from '@/services/sounds';
+import type { Order } from '@/constants/types';
 
-// ============================================================================
-// COLORES EXPLICITOS PARA MODO OSCURO
-// ============================================================================
+// -- Helpers ------------------------------------------------------------------
+function statusPill(status: string): { text: string; color: string } {
+  switch (status) {
+    case 'delivered':
+      return { text: 'Entregado', color: DS.colors.green };
+    case 'cancelled':
+      return { text: 'Cancelado', color: DS.colors.red };
+    default:
+      return { text: 'En curso', color: DS.colors.orange };
+  }
+}
 
-const COLORS = {
-  light: {
-    card: '#FFFFFF',
-    cardAlt: '#F5F5F4',
-    border: '#E7E5E4',
-    text: '#1C1917',
-    textSecondary: '#57534E',
-    textMuted: '#A8A29E',
-  },
-  dark: {
-    card: '#292524',
-    cardAlt: '#44403C',
-    border: '#44403C',
-    text: '#FAFAFA',
-    textSecondary: '#D6D3D1',
-    textMuted: '#78716C',
-  },
-};
+function formatDate(date: Date | string): string {
+  const d = typeof date === 'string' ? new Date(date) : date;
+  return d.toLocaleDateString('es-MX', {
+    day: 'numeric',
+    month: 'long',
+    year: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+  });
+}
 
-// Colores de estado
-const STATUS_COLORS = {
-  success: '#22C55E',
-  error: '#EF4444',
-  warning: '#F59E0B',
-  accent: '#3B82F6',
-  secondary: '#F97316',
-  muted: '#9CA3AF',
-  lightGray: '#D1D5DB',
-};
-
-export default function OrderDetailsScreen() {
-  const router = useRouter();
+// -- Screen -------------------------------------------------------------------
+export default function OrderDetailScreen() {
   const { orderId } = useLocalSearchParams<{ orderId: string }>();
-  const { user, token } = useAuth();
-  const { isDark, colors } = useTheme();
-  const theme = isDark ? COLORS.dark : COLORS.light;
-
+  const { user } = useAuth();
   const [order, setOrder] = useState<Order | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  const [previousStatus, setPreviousStatus] = useState<string | null>(null);
-  const [showRatingModal, setShowRatingModal] = useState(false);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const loadOrder = async () => {
-      if (!token || !orderId) return;
-
-      try {
-        const orderData = await getOrderById(orderId as string);
-        setOrder(orderData);
-        setError(null);
-        // Auto-show rating if delivered and not rated
-        if (orderData && orderData.status === 'delivered' && !orderData.rated) {
-          setTimeout(() => setShowRatingModal(true), 800);
-        }
-      } catch (err) {
-        console.error('Error cargando orden:', err);
-        setError('No se pudo cargar la orden');
-      } finally {
-        setIsLoading(false);
-      }
-    };
-
-    loadOrder();
-  }, [orderId, token]);
-
-  // Play sound when order status changes
-  const playStatusChangeSound = (status: string) => {
-    switch (status) {
-      case 'accepted':
-      case 'confirmed':
-        OrderSounds.accepted();
-        break;
-      case 'preparing':
-        OrderSounds.ready();
-        break;
-      case 'ready':
-        OrderSounds.ready();
-        break;
-      case 'assigned':
-      case 'driver_verified':
-        OrderSounds.pickedUp();
-        break;
-      case 'in_transit':
-        OrderSounds.pickedUp();
-        break;
-      case 'delivered':
-        OrderSounds.delivered();
-        break;
-      case 'cancelled':
-        OrderSounds.cancelled();
-        break;
-    }
-  };
-
-  useEffect(() => {
-    if (!order || !token || !orderId) return;
-
-    const isActive = ['pending', 'confirmed', 'preparing', 'ready', 'accepted', 'assigned', 'driver_verified', 'in_transit']
-      .includes(order.status);
-
-    if (!isActive) return;
-
-    const interval = setInterval(async () => {
-      try {
-        const updatedOrder = await getOrderById(orderId as string);
-        if (!updatedOrder) return;
-        // Check if status changed and play sound
-        if (updatedOrder.status !== order.status) {
-          playStatusChangeSound(updatedOrder.status);
-        }
-        setOrder(updatedOrder);
-      } catch (err) {
-        console.error('Error actualizando orden:', err);
-      }
-    }, 10000);
-
-    return () => clearInterval(interval);
-  }, [order, orderId, token]);
+    if (!orderId) return;
+    getOrderById(orderId)
+      .then(setOrder)
+      .catch((err) => console.error('Error loading order:', err))
+      .finally(() => setLoading(false));
+  }, [orderId]);
 
   if (!user) {
     router.replace('/login' as any);
     return null;
   }
 
-  const handleRetry = () => {
-    setIsLoading(true);
-    setError(null);
-    if (token && orderId) {
-      getOrderById(orderId as string)
-        .then(setOrder)
-        .catch(() => setError('No se pudo cargar la orden'))
-        .finally(() => setIsLoading(false));
-    }
-  };
-
-  // Loading state
-  if (isLoading) {
+  if (loading) {
     return (
-      <ScreenContainer
-        headerGradient="accent"
-        headerIcon={ClipboardList}
-        headerTitle="Detalles de Orden"
-        headerSubtitle="Cargando informacion..."
-      >
-        <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color={colors.primary} />
-          <Text style={[styles.loadingText, { color: theme.textSecondary }]}>
-            Cargando orden...
-          </Text>
-        </View>
-      </ScreenContainer>
+      <View style={styles.center}>
+        <ActivityIndicator size="large" color={DS.colors.green} />
+      </View>
     );
   }
 
-  // Error state
-  if (error || !order) {
+  if (!order) {
     return (
-      <ScreenContainer
-        headerGradient="accent"
-        headerIcon={ClipboardList}
-        headerTitle="Detalles de Orden"
-        headerSubtitle="Ocurrio un problema"
-      >
-        <ErrorState message={error || 'Orden no encontrada'} onRetry={handleRetry} />
-      </ScreenContainer>
+      <View style={styles.center}>
+        <Ionicons name="alert-circle-outline" size={48} color={DS.colors.muted} />
+        <Text style={styles.errorText}>Orden no encontrada</Text>
+      </View>
     );
   }
 
-  const getStatusColor = () => {
-    switch (order.status) {
-      case 'delivered':
-        return STATUS_COLORS.success;
-      case 'cancelled':
-        return STATUS_COLORS.error;
-      case 'in_transit':
-      case 'driver_verified':
-        return STATUS_COLORS.accent;
-      case 'assigned':
-      case 'accepted':
-        return STATUS_COLORS.secondary;
-      default:
-        return STATUS_COLORS.muted;
-    }
-  };
-
-  const getStatusLabel = () => {
-    switch (order.status) {
-      case 'delivered':
-        return 'Completada';
-      case 'cancelled':
-        return 'Cancelada';
-      case 'in_transit':
-        return 'En Camino';
-      case 'driver_verified':
-        return 'Repartidor Verificado';
-      case 'assigned':
-        return 'Repartidor Asignado';
-      case 'accepted':
-        return 'Aceptada';
-      case 'pending':
-        return 'Pendiente';
-      case 'confirmed':
-        return 'Confirmada';
-      case 'preparing':
-        return 'Preparando';
-      case 'ready':
-        return 'Lista';
-      default:
-        return 'Procesando';
-    }
-  };
-
-  const formatDate = (date: Date | string) => {
-    const d = typeof date === 'string' ? new Date(date) : date;
-    return d.toLocaleDateString('es-ES', {
-      day: 'numeric',
-      month: 'long',
-      year: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit',
-    });
-  };
-
-  const getOrderTypeName = () => {
-    switch (order.type) {
-      case 'food':
-        return 'Alimentos';
-      case 'shopping':
-        return 'Compras';
-      case 'delivery':
-        return 'Envio';
-      default:
-        return 'Pedido';
-    }
-  };
-
+  const pill = statusPill(order.status);
   const canRate = order.status === 'delivered' && !order.rated;
-
-  const timelineSteps = [
-    { key: 'pending', label: 'Pedido Creado' },
-    { key: 'accepted', label: 'Aceptado' },
-    { key: 'preparing', label: 'Preparando' },
-    { key: 'ready', label: 'Listo' },
-    { key: 'assigned', label: 'Repartidor' },
-    { key: 'in_transit', label: 'En Camino' },
-    { key: 'delivered', label: 'Entregado' },
-  ];
-
-  const statusOrder = ['pending', 'accepted', 'preparing', 'ready', 'assigned', 'driver_verified', 'in_transit', 'delivered'];
-  const currentIndex = statusOrder.indexOf(order.status);
-  const isCancelled = order.status === 'cancelled';
-
-  const getStepState = (stepKey: string) => {
-    if (isCancelled) return 'cancelled';
-    const stepIdx = statusOrder.indexOf(stepKey);
-    if (currentIndex > stepIdx) return 'completed';
-    if (currentIndex === stepIdx || (stepKey === 'assigned' && order.status === 'driver_verified')) return 'current';
-    return 'upcoming';
-  };
-
-  // Footer con boton de mapa
-  const renderFooter = () => (
-    <TouchableSound
-      style={[styles.mapButton, { backgroundColor: STATUS_COLORS.accent }]}
-      onPress={() => router.push(`/tracking/${order.id}` as any)}
-      activeOpacity={0.8}
-    >
-      <Map size={20} color="#FFFFFF" />
-      <Text style={styles.mapButtonText}>Ver en Mapa</Text>
-    </TouchableSound>
-  );
+  const driverInitials = order.driverName
+    ? order.driverName
+        .split(' ')
+        .map((w) => w[0])
+        .join('')
+        .toUpperCase()
+        .slice(0, 2)
+    : '';
 
   return (
-    <ScreenContainer
-      headerGradient="accent"
-      headerIcon={ClipboardList}
-      headerTitle={order.orderNumber || `Orden #${order.id}`}
-      headerSubtitle={getStatusLabel()}
-      footer={renderFooter()}
-      footerPadding={80}
-    >
-      {/* Status Badge */}
-      <View style={[styles.statusCard, { backgroundColor: theme.card }]}>
-        <View style={[styles.statusBadge, { backgroundColor: `${getStatusColor()}15` }]}>
-          <Text style={[styles.statusText, { color: getStatusColor() }]}>
-            {getStatusLabel()}
-          </Text>
-        </View>
+    <SafeAreaView style={styles.safe}>
+      {/* Header */}
+      <View style={styles.header}>
+        <TouchableOpacity onPress={() => router.back()} style={styles.backBtn}>
+          <Ionicons name="arrow-back" size={24} color={DS.colors.dark} />
+        </TouchableOpacity>
+        <Text style={styles.headerTitle}>Detalle de Orden</Text>
+        <View style={{ width: 40 }} />
       </View>
 
-      {/* Timeline de progreso */}
-      {!isCancelled && (
-        <View style={[styles.timelineContainer, { backgroundColor: theme.card, borderColor: theme.border }]}>
-          {timelineSteps.map((step, index) => {
-            const state = getStepState(step.key);
-            const isLast = index === timelineSteps.length - 1;
-            return (
-              <View key={step.key} style={styles.timelineStep}>
-                <View style={styles.timelineIconColumn}>
-                  {state === 'completed' ? (
-                    <CheckCircle size={22} color={STATUS_COLORS.success} />
-                  ) : state === 'current' ? (
-                    <Clock size={22} color={STATUS_COLORS.accent} />
-                  ) : (
-                    <Circle size={22} color={STATUS_COLORS.lightGray} />
-                  )}
-                  {!isLast && (
-                    <View
-                      style={[
-                        styles.timelineLine,
-                        { backgroundColor: STATUS_COLORS.lightGray },
-                        state === 'completed' && { backgroundColor: STATUS_COLORS.success },
-                      ]}
-                    />
-                  )}
-                </View>
-                <Text
-                  style={[
-                    styles.timelineLabel,
-                    { color: theme.textMuted },
-                    state === 'completed' && { color: theme.textSecondary },
-                    state === 'current' && { color: STATUS_COLORS.accent, fontWeight: '700' },
-                  ]}
-                >
-                  {step.label}
+      <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
+        {/* -- Order info card -- */}
+        <YCard style={styles.card}>
+          <Pill text={pill.text} color={pill.color} />
+          <Text style={styles.orderNumber}>{order.orderNumber}</Text>
+          <Text style={styles.orderDate}>{formatDate(order.createdAt)}</Text>
+          {order.businessName && <Text style={styles.businessName}>{order.businessName}</Text>}
+        </YCard>
+
+        {/* -- Items card -- */}
+        {order.items && order.items.length > 0 && (
+          <YCard style={styles.card}>
+            <Text style={styles.sectionLabel}>Productos</Text>
+            {order.items.map((item, idx) => (
+              <View key={item.id || idx} style={styles.itemRow}>
+                <Text style={styles.itemQty}>{item.quantity}x</Text>
+                <Text style={styles.itemName} numberOfLines={1}>
+                  {item.name}
                 </Text>
+                <Text style={styles.itemPrice}>${(item.price * item.quantity).toFixed(2)}</Text>
               </View>
-            );
-          })}
-        </View>
-      )}
+            ))}
 
-      {/* Codigo de entrega */}
-      {(order.status === 'in_transit' || order.status === 'driver_verified') && order.deliveryCode && (
-        <View style={[styles.deliveryCodeCard, { borderColor: colors.primary }]}>
-          <Key size={24} color={colors.primary} />
-          <Text style={[styles.deliveryCodeLabel, { color: theme.textSecondary }]}>
-            Tu Codigo de Entrega
-          </Text>
-          <View style={[styles.deliveryCodeBadge, { backgroundColor: colors.primary }]}>
-            <Text style={styles.deliveryCodeText}>{order.deliveryCode}</Text>
-          </View>
-          <Text style={[styles.deliveryCodeHint, { color: theme.textSecondary }]}>
-            Dale este codigo al repartidor cuando llegue a tu puerta
-          </Text>
-        </View>
-      )}
+            <View style={styles.divider} />
 
-      {/* Informacion del Servicio */}
-      <View style={styles.section}>
-        <Text style={[styles.sectionTitle, { color: theme.text }]}>Informacion del Servicio</Text>
-        <View style={[styles.card, { backgroundColor: theme.card, borderColor: theme.border }]}>
-          <View style={styles.infoRow}>
-            <Text style={[styles.infoLabel, { color: theme.textSecondary }]}>Tipo de Servicio</Text>
-            <Text style={[styles.infoValue, { color: theme.text }]}>{getOrderTypeName()}</Text>
-          </View>
-          <View style={[styles.divider, { backgroundColor: theme.border }]} />
-          <View style={styles.infoRow}>
-            <Text style={[styles.infoLabel, { color: theme.textSecondary }]}>Fecha de Creacion</Text>
-            <Text style={[styles.infoValue, { color: theme.text }]}>{formatDate(order.createdAt)}</Text>
-          </View>
-          {order.deliveredAt && (
-            <>
-              <View style={[styles.divider, { backgroundColor: theme.border }]} />
-              <View style={styles.infoRow}>
-                <Text style={[styles.infoLabel, { color: theme.textSecondary }]}>Fecha de Entrega</Text>
-                <Text style={[styles.infoValue, { color: theme.text }]}>{formatDate(order.deliveredAt)}</Text>
+            {order.subtotal != null && (
+              <View style={styles.totalRow}>
+                <Text style={styles.totalLabel}>Subtotal</Text>
+                <Text style={styles.totalValue}>${order.subtotal.toFixed(2)}</Text>
               </View>
-            </>
-          )}
-        </View>
-      </View>
-
-      {/* Detalles del Pedido */}
-      <View style={styles.section}>
-        <Text style={[styles.sectionTitle, { color: theme.text }]}>Detalles del Pedido</Text>
-        <View style={[styles.card, { backgroundColor: theme.card, borderColor: theme.border }]}>
-          {order.type === 'food' && order.items && (
-            <View>
-              {order.items.map((item, index) => (
-                <View key={item.id}>
-                  {index > 0 && <View style={[styles.divider, { backgroundColor: theme.border }]} />}
-                  <View style={styles.itemRow}>
-                    <View style={styles.itemDetails}>
-                      <Text style={[styles.itemName, { color: theme.text }]}>{item.name}</Text>
-                      <Text style={[styles.itemPrice, { color: theme.textSecondary }]}>
-                        ${item.price.toFixed(2)} x {item.quantity}
-                      </Text>
-                    </View>
-                    <Text style={[styles.itemTotal, { color: colors.primary }]}>
-                      ${(item.price * item.quantity).toFixed(2)}
-                    </Text>
-                  </View>
-                </View>
-              ))}
+            )}
+            <View style={styles.totalRow}>
+              <Text style={styles.totalLabel}>Envio</Text>
+              <Text style={styles.totalValue}>${order.deliveryFee.toFixed(2)}</Text>
             </View>
-          )}
-
-          {order.type === 'shopping' && order.shoppingList && (
-            <View>
-              <Text style={[styles.listTitle, { color: theme.text }]}>Lista de Compras:</Text>
-              <Text style={[styles.listContent, { color: theme.textSecondary }]}>{order.shoppingList}</Text>
+            <View style={styles.divider} />
+            <View style={styles.totalRow}>
+              <Text style={styles.grandLabel}>Total</Text>
+              <Text style={styles.grandValue}>${order.total.toFixed(2)}</Text>
             </View>
-          )}
+          </YCard>
+        )}
 
-          {order.type === 'delivery' && order.packageDescription && (
-            <View>
-              <View style={styles.infoRow}>
-                <Text style={[styles.infoLabel, { color: theme.textSecondary }]}>Descripcion</Text>
-                <Text style={[styles.infoValue, { color: theme.text }]}>{order.packageDescription}</Text>
-              </View>
-              {order.packageWeight && (
-                <>
-                  <View style={[styles.divider, { backgroundColor: theme.border }]} />
-                  <View style={styles.infoRow}>
-                    <Text style={[styles.infoLabel, { color: theme.textSecondary }]}>Peso</Text>
-                    <Text style={[styles.infoValue, { color: theme.text }]}>{order.packageWeight}kg</Text>
-                  </View>
-                </>
-              )}
-            </View>
-          )}
-        </View>
-      </View>
-
-      {/* Ubicaciones */}
-      <View style={styles.section}>
-        <Text style={[styles.sectionTitle, { color: theme.text }]}>Ubicaciones</Text>
-        <View style={[styles.card, { backgroundColor: theme.card, borderColor: theme.border }]}>
-          {order.pickupAddress && (
-            <>
-              <View style={styles.locationRow}>
-                <MapPin size={20} color={STATUS_COLORS.accent} />
-                <View style={styles.locationContent}>
-                  <Text style={[styles.locationLabel, { color: theme.text }]}>Origen</Text>
-                  <Text style={[styles.locationAddress, { color: theme.textSecondary }]}>{order.pickupAddress}</Text>
-                </View>
-              </View>
-              <View style={[styles.divider, { backgroundColor: theme.border }]} />
-            </>
-          )}
-          <View style={styles.locationRow}>
-            <MapPin size={20} color={colors.primary} />
-            <View style={styles.locationContent}>
-              <Text style={[styles.locationLabel, { color: theme.text }]}>Destino</Text>
-              <Text style={[styles.locationAddress, { color: theme.textSecondary }]}>{order.deliveryAddress}</Text>
-            </View>
+        {/* -- Delivery info card -- */}
+        <YCard style={styles.card}>
+          <Text style={styles.sectionLabel}>Entrega</Text>
+          <View style={styles.addressRow}>
+            <Ionicons name="location-outline" size={18} color={DS.colors.green} />
+            <Text style={styles.addressText}>{order.deliveryAddress}</Text>
           </View>
-        </View>
-      </View>
 
-      {/* Costos */}
-      <View style={styles.section}>
-        <Text style={[styles.sectionTitle, { color: theme.text }]}>Costos</Text>
-        <View style={[styles.card, { backgroundColor: theme.card, borderColor: theme.border }]}>
-          {order.subtotal && (
-            <>
-              <View style={styles.costRow}>
-                <Text style={[styles.costLabel, { color: theme.textSecondary }]}>Subtotal de productos</Text>
-                <Text style={[styles.costValue, { color: theme.text }]}>
-                  ${order.subtotal.toFixed(2)}
-                </Text>
-              </View>
-              <View style={[styles.divider, { backgroundColor: theme.border }]} />
-            </>
-          )}
-          <View style={styles.costRow}>
-            <Text style={[styles.costLabel, { color: theme.textSecondary }]}>Costo de entrega</Text>
-            <Text style={[styles.costValue, { color: theme.text }]}>${order.deliveryFee.toFixed(2)}</Text>
-          </View>
-          <View style={[styles.divider, { backgroundColor: theme.border }]} />
-          <View style={styles.costRow}>
-            <Text style={[styles.totalLabel, { color: theme.text }]}>Total</Text>
-            <Text style={[styles.totalValue, { color: colors.primary }]}>${order.total.toFixed(2)}</Text>
-          </View>
-        </View>
-      </View>
-
-      {/* Repartidor */}
-      {order.driverName && (
-        <View style={styles.section}>
-          <Text style={[styles.sectionTitle, { color: theme.text }]}>Repartidor</Text>
-          <View style={[styles.card, { backgroundColor: theme.card, borderColor: theme.border }]}>
+          {order.driverName && order.status === 'delivered' && (
             <View style={styles.driverRow}>
-              <View style={[styles.driverAvatar, { backgroundColor: colors.primary }]}>
-                <UserIcon size={24} color="#FFFFFF" />
-              </View>
+              <YAvatar initials={driverInitials} size={40} color={DS.colors.green} />
               <View style={styles.driverInfo}>
-                <Text style={[styles.driverName, { color: theme.text }]}>
-                  {order.driverName}
-                </Text>
-                {order.driverRating && (
-                  <View style={styles.ratingRow}>
-                    <RatingStars rating={order.driverRating} size="small" readonly />
-                  </View>
+                <Text style={styles.driverName}>{order.driverName}</Text>
+                {order.driverRating != null && (
+                  <Text style={styles.driverRating}>
+                    {order.driverRating.toFixed(1)} {'\u2605'}
+                  </Text>
                 )}
               </View>
             </View>
-            {canRate && (
-              <View style={styles.rateButtonContainer}>
-                <LoadingButton
-                  title="Calificar Repartidor"
-                  onPress={() => setShowRatingModal(true)}
-                  variant="primary"
-                />
-              </View>
-            )}
-          </View>
-        </View>
-      )}
+          )}
+        </YCard>
 
-      {/* Contacto */}
-      {order.businessName && order.businessId && (
-        <View style={styles.section}>
-          <Text style={[styles.sectionTitle, { color: theme.text }]}>Contacto</Text>
-          <View style={[styles.card, { backgroundColor: theme.card, borderColor: theme.border }]}>
-            <ChatButton
-              orderId={order.id.toString()}
-              type="client_business"
-              otherPartyName={order.businessName}
+        {/* -- Rate button -- */}
+        {canRate && (
+          <View style={styles.rateWrap}>
+            <BigButton
+              title="Calificar servicio"
+              icon={<Ionicons name="star-outline" size={22} color="#FFF" />}
+              onPress={() => router.push(`/ratings/create/${order.id}` as any)}
             />
           </View>
-        </View>
-      )}
+        )}
 
-      {/* Soporte */}
-      {!['delivered', 'cancelled'].includes(order.status) && (
-        <View style={styles.section}>
-          <SupportButton orderId={order.id} variant="banner" label="Necesitas ayuda con esta orden?" />
-        </View>
-      )}
-
-      {/* Rating Modal */}
-      {order.driverId && (
-        <RatingModal
-          visible={showRatingModal}
-          orderId={order.id}
-          driverId={order.driverId}
-          driverName={order.driverName || 'Repartidor'}
-          onClose={() => setShowRatingModal(false)}
-          onSuccess={() => {
-            setShowRatingModal(false);
-            // Reload order to update rated status
-            getOrderById(order.id).then(setOrder).catch(console.error);
-          }}
-        />
-      )}
-    </ScreenContainer>
+        <View style={{ height: 40 }} />
+      </ScrollView>
+    </SafeAreaView>
   );
 }
 
-// ============================================================================
-// ESTILOS
-// ============================================================================
-
+// -- Styles -------------------------------------------------------------------
 const styles = StyleSheet.create({
-  loadingContainer: {
+  safe: { flex: 1, backgroundColor: DS.colors.bg },
+  center: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    padding: 40,
+    backgroundColor: DS.colors.bg,
+    gap: 12,
   },
-  loadingText: {
-    fontSize: 16,
-    marginTop: 16,
-  },
-  statusCard: {
-    padding: 20,
+  errorText: { ...DS.fonts.body, color: DS.colors.muted },
+
+  header: {
+    flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 16,
-    borderRadius: 12,
+    justifyContent: 'space-between',
+    paddingHorizontal: DS.space.lg,
+    paddingVertical: DS.space.md,
   },
-  statusBadge: {
-    paddingHorizontal: 20,
-    paddingVertical: 10,
+  backBtn: {
+    width: 40,
+    height: 40,
     borderRadius: 20,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
-  statusText: {
-    fontSize: 16,
-    fontWeight: '700',
-  },
-  section: {
-    marginBottom: 16,
-  },
-  sectionTitle: {
-    fontSize: 16,
-    fontWeight: '700',
-    marginBottom: 12,
-  },
-  card: {
-    borderRadius: 16,
-    padding: 16,
-    borderWidth: 1,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.08,
-    shadowRadius: 8,
-    elevation: 2,
-  },
-  infoRow: {
-    paddingVertical: 8,
-  },
-  infoLabel: {
-    fontSize: 13,
-    marginBottom: 4,
-  },
-  infoValue: {
-    fontSize: 15,
-    fontWeight: '500',
-  },
-  divider: {
-    height: 1,
-    marginVertical: 12,
-  },
+  headerTitle: { ...DS.fonts.title, color: DS.colors.dark },
+
+  scroll: { paddingHorizontal: DS.space.lg, paddingTop: DS.space.sm },
+  card: { marginBottom: DS.space.lg },
+
+  // Order info
+  orderNumber: { ...DS.fonts.section, color: DS.colors.dark, marginTop: DS.space.md },
+  orderDate: { ...DS.fonts.small, color: DS.colors.muted, marginTop: 4 },
+  businessName: { ...DS.fonts.bodyMed, color: DS.colors.body, marginTop: DS.space.sm },
+
+  // Items
+  sectionLabel: { ...DS.fonts.label, color: DS.colors.muted, marginBottom: DS.space.md },
   itemRow: {
     flexDirection: 'row',
-    paddingVertical: 8,
+    alignItems: 'center',
+    paddingVertical: 6,
+    gap: DS.space.sm,
   },
-  itemDetails: {
-    flex: 1,
-  },
-  itemName: {
-    fontSize: 15,
-    fontWeight: '600',
-    marginBottom: 2,
-  },
-  itemPrice: {
-    fontSize: 13,
-  },
-  itemTotal: {
-    fontSize: 16,
-    fontWeight: '700',
-  },
-  listTitle: {
-    fontSize: 14,
-    fontWeight: '600',
-    marginBottom: 8,
-  },
-  listContent: {
-    fontSize: 15,
-    lineHeight: 22,
-  },
-  locationRow: {
-    flexDirection: 'row',
-    paddingVertical: 8,
-  },
-  locationContent: {
-    flex: 1,
-    marginLeft: 12,
-  },
-  locationLabel: {
-    fontSize: 13,
-    fontWeight: '600',
-    marginBottom: 4,
-  },
-  locationAddress: {
-    fontSize: 14,
-    lineHeight: 20,
-  },
-  costRow: {
+  itemQty: { ...DS.fonts.bodyMed, color: DS.colors.green, width: 32 },
+  itemName: { ...DS.fonts.body, color: DS.colors.dark, flex: 1 },
+  itemPrice: { ...DS.fonts.bodyMed, color: DS.colors.dark },
+
+  divider: { height: 1, backgroundColor: DS.colors.divider, marginVertical: DS.space.md },
+
+  totalRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingVertical: 8,
+    paddingVertical: 4,
   },
-  costLabel: {
-    fontSize: 15,
-  },
-  costValue: {
-    fontSize: 15,
-    fontWeight: '500',
-  },
-  totalLabel: {
-    fontSize: 17,
-    fontWeight: '700',
-  },
-  totalValue: {
-    fontSize: 20,
-    fontWeight: '700',
-  },
-  driverRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingVertical: 8,
-  },
-  driverAvatar: {
-    width: 50,
-    height: 50,
-    borderRadius: 25,
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginRight: 12,
-  },
-  driverInfo: {
-    flex: 1,
-  },
-  driverName: {
-    fontSize: 16,
-    fontWeight: '600',
-    marginBottom: 4,
-  },
-  ratingRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  rateButtonContainer: {
-    marginTop: 12,
-  },
-  mapButton: {
-    borderRadius: 12,
-    paddingVertical: 16,
-    paddingHorizontal: 24,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.15,
-    shadowRadius: 8,
-    elevation: 3,
-  },
-  mapButtonText: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#FFFFFF',
-    marginLeft: 8,
-  },
-  deliveryCodeCard: {
-    backgroundColor: 'rgba(34, 197, 94, 0.1)',
-    borderRadius: 16,
-    padding: 20,
-    alignItems: 'center',
-    borderWidth: 2,
-    marginBottom: 16,
-  },
-  deliveryCodeLabel: {
-    fontSize: 14,
-    fontWeight: '600',
-    marginTop: 8,
-    marginBottom: 12,
-  },
-  deliveryCodeBadge: {
-    paddingHorizontal: 28,
-    paddingVertical: 14,
-    borderRadius: 12,
-  },
-  deliveryCodeText: {
-    fontSize: 36,
-    fontWeight: '800',
-    color: '#FFFFFF',
-    letterSpacing: 6,
-  },
-  deliveryCodeHint: {
-    fontSize: 13,
-    textAlign: 'center',
-    marginTop: 12,
-    lineHeight: 18,
-  },
-  timelineContainer: {
-    borderRadius: 16,
-    padding: 16,
-    borderWidth: 1,
-    marginBottom: 16,
-  },
-  timelineStep: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-  },
-  timelineIconColumn: {
-    alignItems: 'center',
-    width: 24,
-    marginRight: 12,
-  },
-  timelineLine: {
-    width: 2,
-    height: 20,
-    marginVertical: 2,
-  },
-  timelineLabel: {
-    fontSize: 14,
-    paddingTop: 2,
-    paddingBottom: 16,
-  },
+  totalLabel: { ...DS.fonts.body, color: DS.colors.muted },
+  totalValue: { ...DS.fonts.body, color: DS.colors.dark },
+  grandLabel: { ...DS.fonts.bodyMed, color: DS.colors.dark },
+  grandValue: { ...DS.fonts.title, color: DS.colors.green },
+
+  // Delivery
+  addressRow: { flexDirection: 'row', alignItems: 'flex-start', gap: 8, marginBottom: DS.space.lg },
+  addressText: { ...DS.fonts.body, color: DS.colors.body, flex: 1 },
+
+  driverRow: { flexDirection: 'row', alignItems: 'center', gap: 12 },
+  driverInfo: { flex: 1 },
+  driverName: { ...DS.fonts.bodyMed, color: DS.colors.dark },
+  driverRating: { ...DS.fonts.small, color: DS.colors.muted, marginTop: 2 },
+
+  // Rate
+  rateWrap: { marginTop: DS.space.sm },
 });
