@@ -80,10 +80,13 @@ function RootLayoutNav() {
       <Stack.Screen name="driver/profile" options={{ title: "Mi Perfil" }} />
       <Stack.Screen name="driver/waiting" options={{ headerShown: false }} />
       <Stack.Screen name="auth/register-driver" options={{ headerShown: false }} />
+      <Stack.Screen name="business/analytics" options={{ title: "Analitica" }} />
+      <Stack.Screen name="loyalty" options={{ title: "Mis Puntos" }} />
       <Stack.Screen name="admin/dashboard" options={{ headerShown: false }} />
       <Stack.Screen name="admin/orders" options={{ title: "Ordenes" }} />
       <Stack.Screen name="admin/drivers" options={{ title: "Repartidores" }} />
       <Stack.Screen name="ratings/create/[orderId]" options={{ title: "Calificar" }} />
+      <Stack.Screen name="yessi" options={{ title: "Yessi", headerShown: false }} />
       <Stack.Screen name="+not-found" options={{ title: "Oops!" }} />
     </Stack>
   );

@@ -23,6 +23,7 @@ import {
   Check,
   X,
   Star,
+  BarChart2,
 } from 'lucide-react-native';
 import { useAuth } from '@/contexts/auth';
 import { supabase } from '@/constants/supabase';
@@ -382,6 +383,15 @@ export default function BusinessDashboardScreen() {
         >
           <Grid3X3 size={24} color={DS.colors.muted} />
           <Text style={styles.navLabel}>Productos</Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          style={styles.navTab}
+          activeOpacity={0.7}
+          onPress={() => router.push('/business/analytics' as any)}
+        >
+          <BarChart2 size={24} color={DS.colors.muted} />
+          <Text style={styles.navLabel}>Analitica</Text>
         </TouchableOpacity>
 
         <TouchableOpacity

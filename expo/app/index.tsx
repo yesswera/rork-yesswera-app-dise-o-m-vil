@@ -562,6 +562,17 @@ export default function HomeScreen() {
         <Text style={styles.tagline}>Lo que quieras, cuando quieras</Text>
       </ScrollView>
 
+      {/* Yessi Floating Button */}
+      {user && (
+        <TouchableOpacity
+          style={styles.yessiFab}
+          activeOpacity={0.85}
+          onPress={() => router.push('/yessi' as any)}
+        >
+          <Feather name="zap" size={26} color="#FFFFFF" />
+        </TouchableOpacity>
+      )}
+
       {/* Bottom Tab Bar */}
       {user && (
         <View style={styles.tabBar}>
@@ -818,6 +829,25 @@ const styles = StyleSheet.create({
     fontStyle: 'italic',
     textAlign: 'center',
     marginTop: DS.space.xl,
+  },
+
+  // Yessi FAB
+  yessiFab: {
+    position: 'absolute',
+    bottom: 90,
+    right: 20,
+    width: 64,
+    height: 64,
+    borderRadius: 9999,
+    backgroundColor: DS.colors.green,
+    alignItems: 'center',
+    justifyContent: 'center',
+    shadowColor: DS.colors.green,
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.35,
+    shadowRadius: 14,
+    elevation: 8,
+    zIndex: 50,
   },
 
   // Tab bar

@@ -20,6 +20,7 @@ import {
   ChevronRight,
   LogOut,
   Wallet,
+  Star,
 } from 'lucide-react-native';
 import { DS } from '@/constants/design';
 import YCard from '@/components/ui/YCard';
@@ -107,6 +108,12 @@ export default function ProfileScreen() {
             icon={Wallet}
             label="Mi Billetera"
             onPress={() => router.push('/wallet' as any)}
+          />
+          <View style={styles.menuDivider} />
+          <MenuItem
+            icon={Star}
+            label="Mis Puntos"
+            onPress={() => router.push('/loyalty' as any)}
           />
         </YCard>
 
