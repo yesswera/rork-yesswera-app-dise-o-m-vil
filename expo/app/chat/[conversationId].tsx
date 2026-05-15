@@ -1,516 +1,442 @@
-import TouchableSound from '@/components/TouchableSound';
-// ============================================================================
-// YESSWERA: CHAT - CONVERSACION
-// Pantalla de chat por conversationId
-// Actualizada para usar ScreenContainer
-// ============================================================================
-
 import { useState, useEffect, useRef, useCallback } from 'react';
 import {
-  StyleSheet,
   View,
+  Text,
   FlatList,
   TextInput,
+  TouchableOpacity,
+  StyleSheet,
+  SafeAreaView,
   ActivityIndicator,
+  KeyboardAvoidingView,
+  Platform,
   Keyboard,
 } from 'react-native';
-import { useRouter, useLocalSearchParams, Stack } from 'expo-router';
-import { ChevronLeft, Send, MessageCircle } from 'lucide-react-native';
-import * as Haptics from 'expo-haptics';
+import { router, useLocalSearchParams } from 'expo-router';
+import { Feather } from '@expo/vector-icons';
+import { DS } from '@/constants/design';
 import { useAuth } from '@/contexts/auth';
-import { useTheme } from '@/contexts/theme';
-import { Message } from '@/constants/types';
-import { getMessages, sendMessage, markMessagesAsRead } from '@/services/chat';
-import ErrorState from '@/components/ErrorState';
-import ScreenContainer from '@/components/ScreenContainer';
-import { ThemedText } from '@/components/themed';
-import { ChatSounds, SoundFeedback, playSoundDebounced } from '@/services/sounds';
-
-// ============================================================================
-// COLORES EXPLICITOS PARA MODO OSCURO
-// ============================================================================
-
-const COLORS = {
-  light: {
-    card: '#FFFFFF',
-    cardAlt: '#F5F5F4',
-    border: '#E7E5E4',
-    text: '#1C1917',
-    textSecondary: '#57534E',
-    textMuted: '#A8A29E',
-  },
-  dark: {
-    card: '#292524',
-    cardAlt: '#44403C',
-    border: '#44403C',
-    text: '#FAFAFA',
-    textSecondary: '#D6D3D1',
-    textMuted: '#78716C',
-  },
-};
-
-// ============================================================================
-// COMPONENTE PRINCIPAL
-// ============================================================================
+import {
+  getMessages,
+  sendMessage,
+  markMessagesAsRead,
+  getConversationById,
+  getOrCreateConversation,
+  type ChatMessage,
+} from '@/services/chat';
 
 export default function ChatScreen() {
-  const router = useRouter();
-  const { conversationId, otherPartyName } = useLocalSearchParams<{
+  const { conversationId: rawId, otherPartyName } = useLocalSearchParams<{
     conversationId: string;
-    otherPartyName: string;
+    otherPartyName?: string;
   }>();
-  const { user, token } = useAuth();
-  const { isDark, colors } = useTheme();
-  const theme = isDark ? COLORS.dark : COLORS.light;
+  const { user } = useAuth();
 
-  const [messages, setMessages] = useState<Message[]>([]);
-  const [messageText, setMessageText] = useState('');
-  const [isLoading, setIsLoading] = useState(true);
-  const [isSending, setIsSending] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const [resolvedConversationId, setResolvedConversationId] = useState<string | null>(null);
+  const [partnerName, setPartnerName] = useState(otherPartyName || '');
+  const [messages, setMessages] = useState<ChatMessage[]>([]);
+  const [text, setText] = useState('');
+  const [loading, setLoading] = useState(true);
+  const [sending, setSending] = useState(false);
   const flatListRef = useRef<FlatList>(null);
   const pollingRef = useRef<ReturnType<typeof setInterval> | null>(null);
-  const previousMessageCountRef = useRef<number>(0);
 
-  // ============================================================================
-  // CARGA DE MENSAJES
-  // ============================================================================
+  // Resolve conversationId: it might be an orderId from tracking screen
+  useEffect(() => {
+    if (!rawId || !user) return;
 
-  const loadMessages = useCallback(async () => {
-    if (!token || !conversationId) return;
-
-    try {
-      const data = await getMessages(conversationId as string);
-      const reversedData = data.reverse();
-
-      // Play sound if new messages received (not on initial load)
-      if (previousMessageCountRef.current > 0 && reversedData.length > previousMessageCountRef.current) {
-        // Check if the new message is from someone else
-        const lastMessage = reversedData[reversedData.length - 1];
-        if (lastMessage && lastMessage.senderId !== user?.id) {
-          playSoundDebounced('messageReceived');
+    async function resolve() {
+      // Try to fetch as a conversation first
+      const conv = await getConversationById(rawId as string);
+      if (conv) {
+        setResolvedConversationId(conv.id);
+        // Determine partner name from conversation
+        if (!partnerName) {
+          const isP1 = conv.participant1Id === user!.id;
+          setPartnerName(
+            (isP1 ? conv.participant2Name : conv.participant1Name) || 'Chat'
+          );
         }
+        return;
       }
-      previousMessageCountRef.current = reversedData.length;
 
-      setMessages(reversedData.map(m => ({
-        id: m.id,
-        conversationId: m.conversationId,
-        senderId: m.senderId,
-        senderName: m.senderName || '',
-        senderType: m.senderType as any,
-        content: m.content,
-        createdAt: m.createdAt,
-        read: m.isRead,
-      })));
-      setError(null);
-
-      await markMessagesAsRead(conversationId as string, user?.id || '');
-    } catch (err) {
-      console.error('Error cargando mensajes:', err);
-      if (isLoading) {
-        setError('No se pudieron cargar los mensajes');
+      // If not found as conversation, treat rawId as an orderId
+      // and create/get a conversation for it
+      const newConv = await getOrCreateConversation(
+        rawId as string,
+        user!.id,
+        (user!.userType || 'client') as any,
+        '', // participant2Id unknown — will be matched by order
+        'driver'
+      );
+      if (newConv) {
+        setResolvedConversationId(newConv.id);
+      } else {
+        // Last resort: use rawId directly
+        setResolvedConversationId(rawId as string);
       }
-    } finally {
-      setIsLoading(false);
     }
-  }, [token, conversationId, isLoading, user?.id]);
+
+    resolve();
+  }, [rawId, user]);
+
+  // Load messages
+  const loadMessages = useCallback(async () => {
+    if (!resolvedConversationId) return;
+    try {
+      const data = await getMessages(resolvedConversationId);
+      setMessages(data);
+      if (user?.id) {
+        markMessagesAsRead(resolvedConversationId, user.id).catch(() => {});
+      }
+    } catch (err) {
+      console.error('Error loading messages:', err);
+    } finally {
+      setLoading(false);
+    }
+  }, [resolvedConversationId, user?.id]);
 
   useEffect(() => {
+    if (!resolvedConversationId) return;
+
+    setLoading(true);
     loadMessages();
 
-    pollingRef.current = setInterval(loadMessages, 2000);
-
+    pollingRef.current = setInterval(loadMessages, 5000);
     return () => {
-      if (pollingRef.current) {
-        clearInterval(pollingRef.current);
-      }
+      if (pollingRef.current) clearInterval(pollingRef.current);
     };
-  }, [conversationId, token, loadMessages]);
+  }, [resolvedConversationId, loadMessages]);
 
-  // ============================================================================
-  // ENVIAR MENSAJE
-  // ============================================================================
+  // Send message
+  const handleSend = async () => {
+    const trimmed = text.trim();
+    if (!trimmed || !resolvedConversationId || !user || sending) return;
 
-  const handleSendMessage = async () => {
-    if (!messageText.trim() || !token || !conversationId || isSending) return;
-
-    const textToSend = messageText.trim();
-    setMessageText('');
+    setText('');
     Keyboard.dismiss();
-    setIsSending(true);
+    setSending(true);
 
     try {
-      const newMessage = await sendMessage(conversationId as string, {
-        senderId: user!.id,
-        senderType: (user!.userType || 'client') as any,
-        content: textToSend,
+      const msg = await sendMessage(resolvedConversationId, {
+        senderId: user.id,
+        senderType: (user.userType || 'client') as any,
+        content: trimmed,
       });
-      if (newMessage) setMessages((prev) => [...prev, newMessage as any]);
-      previousMessageCountRef.current += 1;
-      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-      ChatSounds.sent();
-
-      setTimeout(() => {
-        flatListRef.current?.scrollToEnd({ animated: true });
-      }, 100);
+      if (msg) {
+        setMessages((prev) => [...prev, msg]);
+        setTimeout(() => flatListRef.current?.scrollToEnd({ animated: true }), 100);
+      }
     } catch (err) {
-      console.error('Error enviando mensaje:', err);
-      setMessageText(textToSend);
-      SoundFeedback.error();
+      console.error('Error sending message:', err);
+      setText(trimmed);
     } finally {
-      setIsSending(false);
+      setSending(false);
     }
   };
 
-  const handleRetry = () => {
-    setIsLoading(true);
-    setError(null);
-    loadMessages();
+  // Format time
+  const formatTime = (dateStr: string) => {
+    const d = new Date(dateStr);
+    return d.toLocaleTimeString('es-MX', { hour: '2-digit', minute: '2-digit' });
   };
 
-  // ============================================================================
-  // VALIDACION DE USUARIO
-  // ============================================================================
-
+  // Redirect if not logged in
   if (!user) {
     router.replace('/login' as any);
     return null;
   }
 
-  // ============================================================================
-  // FORMATEO DE FECHAS
-  // ============================================================================
+  // Render a single message
+  const renderItem = ({ item }: { item: ChatMessage }) => {
+    const isMine = item.senderId === user.id;
+    const isSystem = item.messageType === 'system';
 
-  const formatTime = (dateString: string) => {
-    const date = new Date(dateString);
-    return date.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' });
-  };
-
-  const formatDate = (dateString: string) => {
-    const date = new Date(dateString);
-    const today = new Date();
-    const yesterday = new Date(today);
-    yesterday.setDate(yesterday.getDate() - 1);
-
-    if (date.toDateString() === today.toDateString()) {
-      return 'Hoy';
-    } else if (date.toDateString() === yesterday.toDateString()) {
-      return 'Ayer';
-    } else {
-      return date.toLocaleDateString('es-ES', { day: 'numeric', month: 'short' });
+    if (isSystem) {
+      return (
+        <View style={s.systemRow}>
+          <Text style={s.systemText}>{item.content}</Text>
+        </View>
+      );
     }
-  };
-
-  // ============================================================================
-  // RENDERIZADO DE MENSAJES
-  // ============================================================================
-
-  const renderMessage = ({ item, index }: { item: Message; index: number }) => {
-    const isMyMessage = item.senderId === user.id;
-    const prevMessage = index > 0 ? messages[index - 1] : null;
-    const showDate =
-      !prevMessage ||
-      new Date(item.createdAt).toDateString() !== new Date(prevMessage.createdAt).toDateString();
-    const showAvatar = !prevMessage || prevMessage.senderId !== item.senderId;
-
-    // Fallback to email if name is not available
-    const senderName =
-      item.senderName || (item as any).senderEmail || otherPartyName || 'Usuario';
-    const avatarLetter = senderName.charAt(0).toUpperCase();
 
     return (
-      <>
-        {showDate && (
-          <View style={styles.dateSeparator}>
-            <View style={[styles.dateBadge, { backgroundColor: theme.cardAlt }]}>
-              <ThemedText variant="caption" color="secondary">
-                {formatDate(item.createdAt)}
-              </ThemedText>
-            </View>
-          </View>
-        )}
-        <View style={[styles.messageContainer, isMyMessage && styles.myMessageContainer]}>
-          {!isMyMessage && showAvatar && (
-            <View style={[styles.avatarPlaceholder, { backgroundColor: colors.primary }]}>
-              <ThemedText style={styles.avatarText}>{avatarLetter}</ThemedText>
-            </View>
-          )}
-          {!isMyMessage && !showAvatar && <View style={styles.avatarSpacer} />}
-          <View
-            style={[
-              styles.messageBubble,
-              isMyMessage
-                ? [styles.myMessageBubble, { backgroundColor: colors.primary }]
-                : [styles.otherMessageBubble, { backgroundColor: theme.card, borderColor: theme.border }],
-            ]}
-          >
-            {!isMyMessage && showAvatar && (
-              <ThemedText variant="caption" color="secondary" style={styles.senderName}>
-                {senderName}
-              </ThemedText>
-            )}
-            <ThemedText
-              style={[
-                styles.messageText,
-                { color: isMyMessage ? '#FFFFFF' : theme.text },
-              ]}
-            >
-              {item.content}
-            </ThemedText>
-            <ThemedText
-              style={[
-                styles.messageTime,
-                { color: isMyMessage ? 'rgba(255, 255, 255, 0.7)' : theme.textMuted },
-              ]}
-            >
-              {formatTime(item.createdAt)}
-            </ThemedText>
-          </View>
+      <View style={[s.bubbleRow, isMine ? s.bubbleRowRight : s.bubbleRowLeft]}>
+        <View style={[s.bubble, isMine ? s.bubbleMine : s.bubbleOther]}>
+          <Text style={[s.bubbleText, isMine ? s.bubbleTextMine : s.bubbleTextOther]}>
+            {item.content}
+          </Text>
+          <Text style={[s.bubbleTime, isMine ? s.bubbleTimeMine : s.bubbleTimeOther]}>
+            {formatTime(item.createdAt)}
+          </Text>
         </View>
-      </>
+      </View>
     );
   };
 
-  // ============================================================================
-  // FOOTER - INPUT DE MENSAJE
-  // ============================================================================
-
-  const renderFooter = () => (
-    <View style={styles.inputWrapper}>
-      <TextInput
-        style={[
-          styles.input,
-          {
-            backgroundColor: theme.cardAlt,
-            color: theme.text,
-            borderColor: theme.border,
-          },
-        ]}
-        placeholder="Escribe un mensaje..."
-        placeholderTextColor={theme.textMuted}
-        value={messageText}
-        onChangeText={setMessageText}
-        multiline
-        maxLength={500}
-        editable={!isSending}
-      />
-      <TouchableSound
-        style={[
-          styles.sendButton,
-          { backgroundColor: colors.primary },
-          (!messageText.trim() || isSending) && styles.sendButtonDisabled,
-        ]}
-        onPress={handleSendMessage}
-        disabled={!messageText.trim() || isSending}
-        activeOpacity={0.7}
-      >
-        {isSending ? (
-          <ActivityIndicator size="small" color="#FFFFFF" />
-        ) : (
-          <Send size={20} color="#FFFFFF" />
-        )}
-      </TouchableSound>
+  // Empty list component
+  const EmptyChat = () => (
+    <View style={s.emptyWrap}>
+      <Feather name="message-circle" size={48} color={DS.colors.placeholder} />
+      <Text style={s.emptyTitle}>Inicia la conversacion</Text>
+      <Text style={s.emptySub}>Envia un mensaje para comenzar</Text>
     </View>
   );
 
-  // ============================================================================
-  // RENDER PRINCIPAL
-  // ============================================================================
-
   return (
-    <>
-      <Stack.Screen
-        options={{
-          headerShown: true,
-          headerStyle: { backgroundColor: colors.primary },
-          headerTintColor: '#FFFFFF',
-          headerTitle: (otherPartyName as string) || 'Chat',
-          headerTitleStyle: { fontSize: 18, fontWeight: '700' },
-          headerLeft: () => (
-            <TouchableSound
-              style={styles.headerBackButton}
-              onPress={() => router.back()}
-              activeOpacity={0.7}
-            >
-              <ChevronLeft size={24} color="#FFFFFF" />
-            </TouchableSound>
-          ),
-        }}
-      />
-
-      <ScreenContainer
-        headerGradient="primary"
-        headerIcon={MessageCircle}
-        headerTitle={(otherPartyName as string) || 'Chat'}
-        headerSubtitle="Conversacion activa"
-        scrollEnabled={false}
-        keyboardAvoiding={true}
-        footer={renderFooter()}
-        footerPadding={80}
-        noPadding
-      >
-        {isLoading ? (
-          <View style={styles.centerContent}>
-            <ActivityIndicator size="large" color={colors.primary} />
-            <ThemedText color="secondary" style={styles.loadingText}>
-              Cargando conversacion...
-            </ThemedText>
+    <SafeAreaView style={s.safe}>
+      {/* Header */}
+      <View style={s.header}>
+        <TouchableOpacity
+          onPress={() => router.back()}
+          hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+          style={s.backBtn}
+        >
+          <Feather name="arrow-left" size={24} color={DS.colors.dark} />
+        </TouchableOpacity>
+        <View style={s.headerInfo}>
+          <Text style={s.headerName} numberOfLines={1}>
+            {partnerName || 'Chat'}
+          </Text>
+          <View style={s.statusRow}>
+            <View style={s.statusDot} />
+            <Text style={s.statusText}>Activo</Text>
           </View>
-        ) : error ? (
-          <ErrorState message={error} onRetry={handleRetry} />
+        </View>
+      </View>
+
+      <KeyboardAvoidingView
+        style={s.flex1}
+        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+        keyboardVerticalOffset={0}
+      >
+        {/* Messages */}
+        {loading ? (
+          <View style={s.centerWrap}>
+            <ActivityIndicator size="large" color={DS.colors.green} />
+          </View>
         ) : (
           <FlatList
             ref={flatListRef}
             data={messages}
-            renderItem={renderMessage}
+            renderItem={renderItem}
             keyExtractor={(item) => item.id}
-            contentContainerStyle={[styles.messagesList, { paddingBottom: 20 }]}
+            contentContainerStyle={[
+              s.listContent,
+              messages.length === 0 && s.listContentEmpty,
+            ]}
             showsVerticalScrollIndicator={false}
-            onContentSizeChange={() => flatListRef.current?.scrollToEnd({ animated: true })}
-            ListEmptyComponent={
-              <View style={styles.emptyContainer}>
-                <MessageCircle size={48} color={theme.textMuted} strokeWidth={1.5} />
-                <ThemedText color="secondary" style={styles.emptyText}>
-                  No hay mensajes aun
-                </ThemedText>
-                <ThemedText color="muted" style={styles.emptySubtext}>
-                  Envia un mensaje para iniciar la conversacion
-                </ThemedText>
-              </View>
+            inverted={false}
+            onContentSizeChange={() =>
+              flatListRef.current?.scrollToEnd({ animated: false })
             }
+            ListEmptyComponent={EmptyChat}
           />
         )}
-      </ScreenContainer>
-    </>
+
+        {/* Input bar */}
+        <View style={s.inputBar}>
+          <TextInput
+            style={s.input}
+            placeholder="Escribe un mensaje..."
+            placeholderTextColor={DS.colors.placeholder}
+            value={text}
+            onChangeText={setText}
+            multiline
+            maxLength={500}
+            editable={!sending}
+          />
+          <TouchableOpacity
+            style={[s.sendBtn, (!text.trim() || sending) && s.sendBtnDisabled]}
+            onPress={handleSend}
+            disabled={!text.trim() || sending}
+            activeOpacity={0.7}
+          >
+            {sending ? (
+              <ActivityIndicator size="small" color="#FFFFFF" />
+            ) : (
+              <Feather name="arrow-up" size={20} color="#FFFFFF" />
+            )}
+          </TouchableOpacity>
+        </View>
+      </KeyboardAvoidingView>
+    </SafeAreaView>
   );
 }
 
-// ============================================================================
-// ESTILOS
-// ============================================================================
-
-const styles = StyleSheet.create({
-  centerContent: {
+const s = StyleSheet.create({
+  safe: {
     flex: 1,
-    justifyContent: 'center',
+    backgroundColor: DS.colors.bg,
+  },
+  flex1: { flex: 1 },
+
+  // Header
+  header: {
+    flexDirection: 'row',
     alignItems: 'center',
+    paddingHorizontal: DS.space.lg,
+    paddingVertical: DS.space.md,
+    backgroundColor: DS.colors.card,
+    borderBottomWidth: 1,
+    borderBottomColor: DS.colors.hairline,
   },
-  loadingText: {
-    fontSize: 16,
-    marginTop: 12,
-  },
-  headerBackButton: {
+  backBtn: {
     width: 40,
     height: 40,
     justifyContent: 'center',
     alignItems: 'center',
-    marginLeft: -8,
+    marginRight: DS.space.sm,
   },
-  messagesList: {
-    padding: 16,
-    flexGrow: 1,
+  headerInfo: {
+    flex: 1,
+    gap: 2,
   },
-  dateSeparator: {
-    alignItems: 'center',
-    marginVertical: 16,
+  headerName: {
+    ...DS.fonts.bodyMed,
+    color: DS.colors.dark,
   },
-  dateBadge: {
-    paddingHorizontal: 12,
-    paddingVertical: 4,
-    borderRadius: 12,
-  },
-  messageContainer: {
+  statusRow: {
     flexDirection: 'row',
-    marginBottom: 12,
-    alignItems: 'flex-end',
-  },
-  myMessageContainer: {
-    justifyContent: 'flex-end',
-  },
-  avatarPlaceholder: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    justifyContent: 'center',
     alignItems: 'center',
-    marginRight: 8,
+    gap: DS.space.xs,
   },
-  avatarText: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#FFFFFF',
+  statusDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: DS.colors.green,
   },
-  avatarSpacer: {
-    width: 40,
+  statusText: {
+    ...DS.fonts.small,
+    color: DS.colors.muted,
   },
-  messageBubble: {
-    maxWidth: '75%',
-    borderRadius: 16,
-    padding: 12,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.08,
-    shadowRadius: 2,
-    elevation: 1,
-  },
-  myMessageBubble: {
-    borderBottomRightRadius: 4,
-  },
-  otherMessageBubble: {
-    borderBottomLeftRadius: 4,
-    borderWidth: 1,
-  },
-  senderName: {
-    marginBottom: 4,
-  },
-  messageText: {
-    fontSize: 15,
-    lineHeight: 20,
-  },
-  messageTime: {
-    fontSize: 11,
-    marginTop: 4,
-    alignSelf: 'flex-end',
-  },
-  emptyContainer: {
+
+  // Center loading
+  centerWrap: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    paddingVertical: 60,
   },
-  emptyText: {
-    fontSize: 18,
-    fontWeight: '600',
-    marginTop: 16,
-    marginBottom: 8,
+
+  // List
+  listContent: {
+    padding: DS.space.lg,
+    gap: DS.space.sm,
   },
-  emptySubtext: {
-    fontSize: 14,
-    textAlign: 'center',
+  listContentEmpty: {
+    flexGrow: 1,
+    justifyContent: 'center',
   },
-  inputWrapper: {
+
+  // Empty
+  emptyWrap: {
+    alignItems: 'center',
+    gap: DS.space.sm,
+    paddingVertical: DS.space.xxxl,
+  },
+  emptyTitle: {
+    ...DS.fonts.bodyMed,
+    color: DS.colors.body,
+    marginTop: DS.space.sm,
+  },
+  emptySub: {
+    ...DS.fonts.small,
+    color: DS.colors.muted,
+  },
+
+  // System message
+  systemRow: {
+    alignItems: 'center',
+    paddingVertical: DS.space.xs,
+  },
+  systemText: {
+    ...DS.fonts.small,
+    color: DS.colors.muted,
+    fontStyle: 'italic',
+  },
+
+  // Bubble row
+  bubbleRow: {
+    flexDirection: 'row',
+    marginBottom: DS.space.xs,
+  },
+  bubbleRowRight: {
+    justifyContent: 'flex-end',
+  },
+  bubbleRowLeft: {
+    justifyContent: 'flex-start',
+  },
+
+  // Bubble
+  bubble: {
+    maxWidth: '78%',
+    borderRadius: DS.radius.lg,
+    paddingHorizontal: DS.space.md,
+    paddingVertical: DS.space.sm,
+  },
+  bubbleMine: {
+    backgroundColor: DS.colors.green,
+    borderBottomRightRadius: DS.space.xs,
+  },
+  bubbleOther: {
+    backgroundColor: DS.colors.card,
+    borderBottomLeftRadius: DS.space.xs,
+    borderWidth: 1,
+    borderColor: DS.colors.hairline,
+  },
+  bubbleText: {
+    ...DS.fonts.body,
+  },
+  bubbleTextMine: {
+    color: '#FFFFFF',
+  },
+  bubbleTextOther: {
+    color: DS.colors.dark,
+  },
+  bubbleTime: {
+    ...DS.fonts.tiny,
+    marginTop: DS.space.xs,
+    alignSelf: 'flex-end',
+  },
+  bubbleTimeMine: {
+    color: 'rgba(255,255,255,0.7)',
+  },
+  bubbleTimeOther: {
+    color: DS.colors.muted,
+  },
+
+  // Input bar
+  inputBar: {
     flexDirection: 'row',
     alignItems: 'flex-end',
-    gap: 8,
+    gap: DS.space.sm,
+    paddingHorizontal: DS.space.lg,
+    paddingVertical: DS.space.md,
+    backgroundColor: DS.colors.card,
+    borderTopWidth: 1,
+    borderTopColor: DS.colors.hairline,
   },
   input: {
     flex: 1,
-    borderRadius: 20,
-    paddingHorizontal: 16,
-    paddingVertical: 10,
-    fontSize: 15,
+    minHeight: 44,
     maxHeight: 100,
-    borderWidth: 1,
+    borderRadius: DS.radius.xl,
+    backgroundColor: DS.colors.divider,
+    paddingHorizontal: DS.space.lg,
+    paddingVertical: DS.space.sm,
+    ...DS.fonts.body,
+    color: DS.colors.dark,
   },
-  sendButton: {
+  sendBtn: {
     width: 44,
     height: 44,
     borderRadius: 22,
+    backgroundColor: DS.colors.green,
     justifyContent: 'center',
     alignItems: 'center',
   },
-  sendButtonDisabled: {
-    opacity: 0.5,
+  sendBtnDisabled: {
+    opacity: 0.4,
   },
 });

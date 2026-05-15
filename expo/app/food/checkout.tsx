@@ -9,6 +9,7 @@ import {
   Modal,
   SafeAreaView,
   ActivityIndicator,
+  TextInput,
 } from 'react-native';
 import { router } from 'expo-router';
 import { Feather } from '@expo/vector-icons';
@@ -35,6 +36,9 @@ export default function CheckoutScreen() {
   const [isProcessing, setIsProcessing] = useState(false);
   const [businessLocation, setBizLocation] = useState<{ latitude: number; longitude: number } | null>(null);
   const [confirmedOrder, setConfirmedOrder] = useState<{ id: string; deliveryCode: string } | null>(null);
+  const [tip, setTip] = useState(0);
+  const [customTip, setCustomTip] = useState('');
+  const [showCustomTip, setShowCustomTip] = useState(false);
 
   const businessId = items[0]?.businessId;
 
@@ -67,7 +71,7 @@ export default function CheckoutScreen() {
 
   const deliveryFee = distance !== null ? calculateDeliveryFee(distance) : 0;
   const isFreeDelivery = deliveryFee <= 15 && distance !== null && distance <= 2;
-  const grandTotal = total + deliveryFee;
+  const grandTotal = total + deliveryFee + tip;
 
   // ETA calculation: prep time (20 min default) + travel time (distance / 30 km/h)
   const etaRange = useMemo(() => {
@@ -124,6 +128,7 @@ export default function CheckoutScreen() {
         })),
         subtotal: total,
         deliveryFee,
+        tip: tip > 0 ? tip : undefined,
         paymentMethod,
       });
 
@@ -304,6 +309,66 @@ export default function CheckoutScreen() {
           </View>
         </YCard>
 
+        {/* Tip selector */}
+        <YCard style={styles.section}>
+          <View style={styles.sectionHeader}>
+            <Feather name="award" size={18} color={DS.colors.green} />
+            <Text style={styles.sectionTitle}>Propina para el repartidor</Text>
+          </View>
+          <View style={styles.tipRow}>
+            {[0, 10, 20, 30].map((amount) => {
+              const isActive = !showCustomTip && tip === amount;
+              return (
+                <TouchableOpacity
+                  key={amount}
+                  style={[styles.tipBtn, isActive && styles.tipBtnActive]}
+                  onPress={() => {
+                    setTip(amount);
+                    setShowCustomTip(false);
+                    setCustomTip('');
+                  }}
+                  activeOpacity={0.8}
+                >
+                  <Text style={[styles.tipBtnText, isActive && styles.tipBtnTextActive]}>
+                    ${amount}
+                  </Text>
+                </TouchableOpacity>
+              );
+            })}
+            <TouchableOpacity
+              style={[styles.tipBtn, showCustomTip && styles.tipBtnActive]}
+              onPress={() => {
+                setShowCustomTip(true);
+                if (!customTip) setTip(0);
+              }}
+              activeOpacity={0.8}
+            >
+              <Text style={[styles.tipBtnText, showCustomTip && styles.tipBtnTextActive]}>
+                Otra
+              </Text>
+            </TouchableOpacity>
+          </View>
+          {showCustomTip && (
+            <View style={styles.customTipRow}>
+              <Text style={styles.customTipSign}>$</Text>
+              <TextInput
+                style={styles.customTipInput}
+                placeholder="0"
+                placeholderTextColor={DS.colors.placeholder}
+                keyboardType="numeric"
+                value={customTip}
+                onChangeText={(val) => {
+                  const cleaned = val.replace(/[^0-9]/g, '');
+                  setCustomTip(cleaned);
+                  setTip(cleaned ? parseInt(cleaned, 10) : 0);
+                }}
+                maxLength={4}
+              />
+            </View>
+          )}
+          <Text style={styles.tipSubtitle}>100% va para tu repartidor</Text>
+        </YCard>
+
         {/* Totals */}
         <YCard style={styles.section}>
           <View style={styles.totalRow}>
@@ -322,6 +387,12 @@ export default function CheckoutScreen() {
                 : 'Selecciona direccion'}
             </Text>
           </View>
+          {tip > 0 && (
+            <View style={styles.totalRow}>
+              <Text style={styles.totalLabel}>Propina</Text>
+              <Text style={styles.totalValue}>${tip.toFixed(2)}</Text>
+            </View>
+          )}
           <View style={styles.divider} />
           <View style={styles.totalRow}>
             <Text style={styles.grandLabel}>Total</Text>
@@ -464,6 +535,12 @@ export default function CheckoutScreen() {
                 Entrega estimada: {etaRange.low}-{etaRange.high} min
               </Text>
             </View>
+
+            {tip > 0 && (
+              <Text style={styles.confirmTipText}>
+                Incluye ${tip} de propina
+              </Text>
+            )}
 
             {/* Buttons */}
             <TouchableOpacity
@@ -701,6 +778,59 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   addAddrText: { ...DS.fonts.bodyMed, color: DS.colors.green },
+
+  // Tip selector
+  tipRow: {
+    flexDirection: 'row',
+    gap: DS.space.sm,
+    marginBottom: DS.space.sm,
+  },
+  tipBtn: {
+    flex: 1,
+    height: 44,
+    borderRadius: DS.radius.lg,
+    backgroundColor: DS.colors.card,
+    borderWidth: 1.5,
+    borderColor: DS.colors.hairline,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  tipBtnActive: {
+    backgroundColor: DS.colors.green,
+    borderColor: DS.colors.green,
+  },
+  tipBtnText: { ...DS.fonts.bodyMed, color: DS.colors.dark },
+  tipBtnTextActive: { color: '#FFFFFF' },
+  customTipRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: DS.space.sm,
+    marginBottom: DS.space.sm,
+  },
+  customTipSign: {
+    ...DS.fonts.bodyMed,
+    color: DS.colors.muted,
+  },
+  customTipInput: {
+    flex: 1,
+    height: 44,
+    borderRadius: DS.radius.md,
+    backgroundColor: DS.colors.divider,
+    paddingHorizontal: DS.space.md,
+    ...DS.fonts.bodyMed,
+    color: DS.colors.dark,
+  },
+  tipSubtitle: {
+    ...DS.fonts.small,
+    color: DS.colors.muted,
+  },
+
+  // Confirmation tip
+  confirmTipText: {
+    ...DS.fonts.body,
+    color: DS.colors.muted,
+    textAlign: 'center',
+  },
 
   // Item notes
   itemNotes: {
