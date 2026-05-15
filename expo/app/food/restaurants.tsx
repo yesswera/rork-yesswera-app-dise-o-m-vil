@@ -15,6 +15,7 @@ import { router } from 'expo-router';
 import { Feather } from '@expo/vector-icons';
 import { DS } from '@/constants/design';
 import SectionHeader from '@/components/ui/SectionHeader';
+import Pill from '@/components/ui/Pill';
 import { supabase } from '@/constants/supabase';
 import type { Business } from '@/constants/types';
 
@@ -52,11 +53,12 @@ function categoryEmoji(cat: string): string {
 function RestaurantCard({ biz, index }: { biz: Business; index: number }) {
   const bg = CARD_COLORS[index % CARD_COLORS.length];
   const emoji = categoryEmoji(biz.category);
+  const isOpen = biz.isOpen !== false;
 
   return (
     <TouchableOpacity
       activeOpacity={0.85}
-      style={[styles.card, DS.shadow.card]}
+      style={[styles.card, DS.shadow.card, !isOpen && { opacity: 0.5 }]}
       onPress={() => router.push(`/food/menu/${biz.id}` as any)}
     >
       <View style={[styles.cardTop, { backgroundColor: bg }]}>
@@ -65,6 +67,12 @@ function RestaurantCard({ biz, index }: { biz: Business; index: number }) {
         ) : (
           <Text style={styles.cardEmoji}>{emoji}</Text>
         )}
+        <View style={styles.pillWrap}>
+          <Pill
+            text={isOpen ? 'Abierto' : 'Cerrado'}
+            color={isOpen ? DS.colors.green : '#EF4444'}
+          />
+        </View>
       </View>
       <View style={styles.cardBottom}>
         <Text style={styles.cardName} numberOfLines={1}>{biz.name}</Text>
@@ -112,6 +120,7 @@ export default function RestaurantsScreen() {
           rating: Number(db.rating_average) || 0,
           deliveryTime: `${prepTime + 10}-${prepTime + 25} min`,
           tags: [db.category || 'Restaurante'].filter(Boolean),
+          isOpen: db.is_open ?? true,
         };
       });
       setBusinesses(mapped);
@@ -271,6 +280,12 @@ const styles = StyleSheet.create({
     height: 90,
     justifyContent: 'center',
     alignItems: 'center',
+    position: 'relative',
+  },
+  pillWrap: {
+    position: 'absolute',
+    top: DS.space.xs,
+    right: DS.space.xs,
   },
   cardImage: {
     width: '100%',

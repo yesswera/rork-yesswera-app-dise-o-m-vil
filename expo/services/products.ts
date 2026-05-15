@@ -14,6 +14,7 @@ function mapBusiness(db: any): Business {
     rating: Number(db.rating_average) || 0,
     deliveryTime: `${prepTime + 10}-${prepTime + 25} min`,
     tags: [db.category || 'Restaurante'].filter(Boolean),
+    isOpen: db.is_open ?? true,
   };
 }
 

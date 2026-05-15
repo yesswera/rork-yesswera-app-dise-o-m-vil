@@ -9,6 +9,7 @@ import {
   ActivityIndicator,
   SafeAreaView,
   Modal,
+  TextInput,
 } from 'react-native';
 import { router, useLocalSearchParams } from 'expo-router';
 import { Feather } from '@expo/vector-icons';
@@ -46,6 +47,7 @@ export default function MenuScreen() {
   const [variants, setVariants] = useState<ProductVariant[]>([]);
   const [selectedVariants, setSelectedVariants] = useState<SelectedVariant[]>([]);
   const [loadingVariants, setLoadingVariants] = useState(false);
+  const [itemNotes, setItemNotes] = useState('');
 
   const loadData = useCallback(async () => {
     if (!businessId) return;
@@ -88,10 +90,15 @@ export default function MenuScreen() {
 
   const handleAddWithVariants = () => {
     if (!variantProduct) return;
-    addItem(variantProduct, selectedVariants.length > 0 ? selectedVariants : undefined);
+    addItem(
+      variantProduct,
+      selectedVariants.length > 0 ? selectedVariants : undefined,
+      itemNotes.trim() || undefined,
+    );
     setVariantProduct(null);
     setVariants([]);
     setSelectedVariants([]);
+    setItemNotes('');
   };
 
   const toggleVariant = (variant: ProductVariant) => {
@@ -195,6 +202,14 @@ export default function MenuScreen() {
           </YCard>
         </View>
 
+        {/* -- Closed banner -- */}
+        {business.isOpen === false && (
+          <View style={styles.closedBanner}>
+            <Feather name="clock" size={18} color="#9A3412" />
+            <Text style={styles.closedBannerText}>Este negocio esta cerrado ahora</Text>
+          </View>
+        )}
+
         {/* -- Products list -- */}
         <View style={styles.menuSection}>
           <Text style={styles.sectionTitle}>Menu</Text>
@@ -226,9 +241,10 @@ export default function MenuScreen() {
                     </View>
 
                     <TouchableOpacity
-                      style={styles.addBtn}
+                      style={[styles.addBtn, business.isOpen === false && styles.addBtnDisabled]}
                       onPress={() => handleAdd(product)}
                       activeOpacity={0.8}
+                      disabled={business.isOpen === false}
                     >
                       <Feather name="plus" size={22} color="#FFF" />
                     </TouchableOpacity>
@@ -296,10 +312,20 @@ export default function MenuScreen() {
               ))}
             </ScrollView>
 
+            <TextInput
+              style={styles.notesInput}
+              placeholder="Instrucciones especiales (ej: sin cebolla, extra salsa...)"
+              placeholderTextColor={DS.colors.placeholder}
+              value={itemNotes}
+              onChangeText={setItemNotes}
+              multiline
+              maxLength={200}
+            />
+
             <View style={styles.modalFooter}>
               <TouchableOpacity
                 style={styles.modalCancel}
-                onPress={() => { setVariantProduct(null); setVariants([]); setSelectedVariants([]); }}
+                onPress={() => { setVariantProduct(null); setVariants([]); setSelectedVariants([]); setItemNotes(''); }}
               >
                 <Text style={styles.modalCancelText}>Cancelar</Text>
               </TouchableOpacity>
@@ -395,6 +421,27 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
   },
+  addBtnDisabled: {
+    backgroundColor: DS.colors.hairline,
+  },
+
+  // Closed banner
+  closedBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: DS.space.sm,
+    backgroundColor: '#FED7AA',
+    marginHorizontal: DS.space.lg,
+    marginTop: DS.space.md,
+    paddingVertical: DS.space.md,
+    paddingHorizontal: DS.space.lg,
+    borderRadius: DS.radius.lg,
+  },
+  closedBannerText: {
+    ...DS.fonts.bodyMed,
+    color: '#9A3412',
+    flex: 1,
+  },
 
   // Floating cart
   cartBar: {
@@ -464,6 +511,18 @@ const styles = StyleSheet.create({
   variantRadioDot: { width: 12, height: 12, borderRadius: 6, backgroundColor: DS.colors.green },
   variantName: { ...DS.fonts.body, color: DS.colors.dark, flex: 1 },
   variantPrice: { ...DS.fonts.bodyMed, color: DS.colors.green },
+  notesInput: {
+    ...DS.fonts.body,
+    color: DS.colors.dark,
+    backgroundColor: DS.colors.bg,
+    borderRadius: DS.radius.md,
+    paddingHorizontal: DS.space.md,
+    paddingVertical: DS.space.md,
+    marginBottom: DS.space.lg,
+    minHeight: 48,
+    maxHeight: 80,
+    textAlignVertical: 'top',
+  },
   modalFooter: { flexDirection: 'row', gap: DS.space.md },
   modalCancel: {
     flex: 1,

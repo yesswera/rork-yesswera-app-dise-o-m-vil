@@ -34,6 +34,7 @@ export default function CheckoutScreen() {
   const [showAddressPicker, setShowAddressPicker] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
   const [businessLocation, setBizLocation] = useState<{ latitude: number; longitude: number } | null>(null);
+  const [confirmedOrder, setConfirmedOrder] = useState<{ id: string; deliveryCode: string } | null>(null);
 
   const businessId = items[0]?.businessId;
 
@@ -67,6 +68,16 @@ export default function CheckoutScreen() {
   const deliveryFee = distance !== null ? calculateDeliveryFee(distance) : 0;
   const isFreeDelivery = deliveryFee <= 15 && distance !== null && distance <= 2;
   const grandTotal = total + deliveryFee;
+
+  // ETA calculation: prep time (20 min default) + travel time (distance / 30 km/h)
+  const etaRange = useMemo(() => {
+    const prepMinutes = 20;
+    const travelMinutes = distance !== null ? Math.max(5, Math.round((distance / 30) * 60)) : 10;
+    const estimated = prepMinutes + travelMinutes;
+    const low = Math.round(estimated * 0.75);
+    const high = Math.round(estimated * 1.25);
+    return { low, high };
+  }, [distance]);
 
   // Handle confirm order
   const handleConfirm = async () => {
@@ -109,6 +120,7 @@ export default function CheckoutScreen() {
           variants: item.selectedVariants?.length
             ? item.selectedVariants.map((v) => ({ name: v.name, group: v.group, price: v.priceAdjustment }))
             : undefined,
+          specialInstructions: item.notes || undefined,
         })),
         subtotal: total,
         deliveryFee,
@@ -116,22 +128,7 @@ export default function CheckoutScreen() {
       });
 
       clearCart();
-
-      Alert.alert(
-        'Pedido creado',
-        `Tu codigo de entrega es:\n\n${order.deliveryCode}\n\nMuestra este codigo al repartidor.`,
-        [
-          {
-            text: 'Ver tracking',
-            onPress: () => router.replace(`/tracking/${order.id}` as any),
-          },
-          {
-            text: 'Ir al inicio',
-            onPress: () => router.replace('/' as any),
-            style: 'cancel',
-          },
-        ]
-      );
+      setConfirmedOrder({ id: order.id, deliveryCode: order.deliveryCode });
     } catch (err: any) {
       console.error('Checkout error:', err);
       Alert.alert('Error', err.message || 'No se pudo crear el pedido. Intenta de nuevo.');
@@ -140,8 +137,8 @@ export default function CheckoutScreen() {
     }
   };
 
-  // Empty cart guard
-  if (items.length === 0) {
+  // Empty cart guard (skip if showing confirmation modal)
+  if (items.length === 0 && !confirmedOrder) {
     return (
       <SafeAreaView style={styles.safe}>
         <View style={styles.emptyWrap}>
@@ -199,6 +196,9 @@ export default function CheckoutScreen() {
                         <Text style={styles.itemVariants}>
                           {item.selectedVariants.map((v) => v.name).join(', ')}
                         </Text>
+                      ) : null}
+                      {item.notes ? (
+                        <Text style={styles.itemNotes}>{item.notes}</Text>
                       ) : null}
                     </View>
                     <View style={styles.qtyControls}>
@@ -329,6 +329,17 @@ export default function CheckoutScreen() {
           </View>
         </YCard>
 
+        {/* ETA card */}
+        <YCard style={styles.section}>
+          <View style={styles.etaRow}>
+            <Feather name="clock" size={22} color={DS.colors.green} />
+            <View style={styles.etaInfo}>
+              <Text style={styles.etaTime}>Entrega estimada: {etaRange.low}-{etaRange.high} min</Text>
+              <Text style={styles.etaSubtitle}>Depende de la preparacion y trafico</Text>
+            </View>
+          </View>
+        </YCard>
+
         {/* Spacer for fixed button */}
         <View style={{ height: 100 }} />
       </ScrollView>
@@ -426,6 +437,60 @@ export default function CheckoutScreen() {
             )}
           </View>
         </View>
+      </Modal>
+
+      {/* Order confirmation modal */}
+      <Modal visible={!!confirmedOrder} animationType="fade" transparent={false}>
+        <SafeAreaView style={styles.confirmModal}>
+          <ScrollView contentContainerStyle={styles.confirmScroll} showsVerticalScrollIndicator={false}>
+            {/* Green checkmark circle */}
+            <View style={styles.confirmCheck}>
+              <Feather name="check" size={48} color="#FFFFFF" />
+            </View>
+
+            <Text style={styles.confirmTitle}>Pedido Confirmado!</Text>
+
+            {/* Delivery code box */}
+            <View style={styles.codeBox}>
+              <Text style={styles.codeLabel}>Codigo de entrega</Text>
+              <Text style={styles.codeValue}>{confirmedOrder?.deliveryCode}</Text>
+            </View>
+            <Text style={styles.codeHint}>Muestra este codigo al repartidor</Text>
+
+            {/* ETA */}
+            <View style={styles.confirmEta}>
+              <Feather name="clock" size={20} color={DS.colors.green} />
+              <Text style={styles.confirmEtaText}>
+                Entrega estimada: {etaRange.low}-{etaRange.high} min
+              </Text>
+            </View>
+
+            {/* Buttons */}
+            <TouchableOpacity
+              style={[styles.confirmBtnPrimary, colorShadow(DS.colors.green)]}
+              onPress={() => {
+                const orderId = confirmedOrder?.id;
+                setConfirmedOrder(null);
+                router.replace(`/tracking/${orderId}` as any);
+              }}
+              activeOpacity={0.85}
+            >
+              <Feather name="map-pin" size={20} color="#FFFFFF" />
+              <Text style={styles.confirmBtnPrimaryText}>Ver Seguimiento</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={styles.confirmBtnOutline}
+              onPress={() => {
+                setConfirmedOrder(null);
+                router.replace('/' as any);
+              }}
+              activeOpacity={0.85}
+            >
+              <Text style={styles.confirmBtnOutlineText}>Ir al Inicio</Text>
+            </TouchableOpacity>
+          </ScrollView>
+        </SafeAreaView>
       </Modal>
     </SafeAreaView>
   );
@@ -636,4 +701,119 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   addAddrText: { ...DS.fonts.bodyMed, color: DS.colors.green },
+
+  // Item notes
+  itemNotes: {
+    ...DS.fonts.small,
+    color: DS.colors.muted,
+    fontStyle: 'italic',
+    marginTop: 2,
+  },
+
+  // ETA card
+  etaRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: DS.space.md,
+  },
+  etaInfo: { flex: 1, gap: 2 },
+  etaTime: { ...DS.fonts.bodyMed, color: DS.colors.dark },
+  etaSubtitle: { ...DS.fonts.small, color: DS.colors.muted },
+
+  // Confirmation modal
+  confirmModal: {
+    flex: 1,
+    backgroundColor: DS.colors.bg,
+  },
+  confirmScroll: {
+    flexGrow: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: DS.space.xl,
+    gap: DS.space.lg,
+  },
+  confirmCheck: {
+    width: 96,
+    height: 96,
+    borderRadius: 48,
+    backgroundColor: DS.colors.green,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: DS.space.md,
+  },
+  confirmTitle: {
+    ...DS.fonts.title,
+    color: DS.colors.dark,
+    fontSize: 26,
+    textAlign: 'center',
+  },
+  codeBox: {
+    borderWidth: 2,
+    borderColor: DS.colors.green,
+    borderRadius: DS.radius.xl,
+    paddingVertical: DS.space.lg,
+    paddingHorizontal: DS.space.xxl,
+    alignItems: 'center',
+    gap: DS.space.xs,
+    backgroundColor: DS.colors.card,
+  },
+  codeLabel: {
+    ...DS.fonts.small,
+    color: DS.colors.muted,
+    textTransform: 'uppercase',
+    letterSpacing: 1,
+  },
+  codeValue: {
+    ...DS.fonts.title,
+    color: DS.colors.green,
+    fontSize: 36,
+    letterSpacing: 6,
+  },
+  codeHint: {
+    ...DS.fonts.body,
+    color: DS.colors.muted,
+    textAlign: 'center',
+  },
+  confirmEta: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: DS.space.sm,
+    backgroundColor: DS.colors.greenLight,
+    paddingVertical: DS.space.md,
+    paddingHorizontal: DS.space.lg,
+    borderRadius: DS.radius.lg,
+  },
+  confirmEtaText: {
+    ...DS.fonts.bodyMed,
+    color: DS.colors.dark,
+  },
+  confirmBtnPrimary: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: DS.space.sm,
+    backgroundColor: DS.colors.green,
+    borderRadius: DS.radius.xl,
+    height: DS.touch.button,
+    width: '100%',
+    marginTop: DS.space.md,
+  },
+  confirmBtnPrimaryText: {
+    ...DS.fonts.button,
+    color: '#FFFFFF',
+  },
+  confirmBtnOutline: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: DS.radius.xl,
+    height: DS.touch.button,
+    width: '100%',
+    borderWidth: 1.5,
+    borderColor: DS.colors.hairline,
+    backgroundColor: DS.colors.card,
+  },
+  confirmBtnOutlineText: {
+    ...DS.fonts.bodyMed,
+    color: DS.colors.muted,
+  },
 });

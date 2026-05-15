@@ -1,6 +1,6 @@
 // ============================================================================
-// YESSWERA: TRACKING DE ORDEN — Simplified (Stitch-inspired)
-// Map (50%) + Bottom sheet (50%) with progress bar + driver card
+// YESSWERA: TRACKING DE ORDEN — Real Map with route + live driver
+// Map (48%) + Bottom sheet (52%) with progress bar + driver card
 // ============================================================================
 
 import { useState, useEffect, useCallback, useRef } from 'react';
@@ -16,15 +16,25 @@ import {
 } from 'react-native';
 import { useLocalSearchParams, router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
+import MapView, { Marker, Polyline, PROVIDER_GOOGLE } from 'react-native-maps';
 import { DS } from '@/constants/design';
 import YCard from '@/components/ui/YCard';
 import YAvatar from '@/components/ui/YAvatar';
 import { getOrderById } from '@/services/orders';
 import { subscribeToDriverLocation, DriverLocation } from '@/services/gps';
+import { getRoute } from '@/services/routing';
 import type { Order, OrderStatus } from '@/constants/types';
 
 const { height: SCREEN_HEIGHT } = Dimensions.get('window');
 const MAP_HEIGHT = SCREEN_HEIGHT * 0.48;
+
+// Tomatlan, Jalisco — default region when no coordinates available
+const TOMATLAN_REGION = {
+  latitude: 19.9333,
+  longitude: -105.2500,
+  latitudeDelta: 0.02,
+  longitudeDelta: 0.02,
+};
 
 // -- Progress stages ----------------------------------------------------------
 const STAGES = ['pending', 'preparing', 'in_transit', 'delivered'] as const;
@@ -114,7 +124,11 @@ export default function TrackingScreen() {
   const [order, setOrder] = useState<Order | null>(null);
   const [driverLoc, setDriverLoc] = useState<DriverLocation | null>(null);
   const [loading, setLoading] = useState(true);
+  const [routeCoords, setRouteCoords] = useState<{ latitude: number; longitude: number }[]>([]);
+  const [routeLoaded, setRouteLoaded] = useState(false);
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const mapRef = useRef<MapView | null>(null);
+  const routeFetchedRef = useRef(false);
 
   // Fetch order
   const fetchOrder = useCallback(async () => {
@@ -152,6 +166,69 @@ export default function TrackingScreen() {
     }
   }, [order?.status]);
 
+  // Fetch route when pickup and delivery locations are available
+  useEffect(() => {
+    if (routeFetchedRef.current) return;
+    if (!order?.pickupLocation || !order?.deliveryLocation) return;
+
+    const pickup = order.pickupLocation;
+    const delivery = order.deliveryLocation;
+
+    if (!pickup.latitude || !pickup.longitude || !delivery.latitude || !delivery.longitude) return;
+
+    routeFetchedRef.current = true;
+
+    getRoute(pickup, delivery)
+      .then((result) => {
+        setRouteCoords(result.coordinates);
+        setRouteLoaded(true);
+      })
+      .catch((err) => {
+        console.warn('Failed to fetch route:', err);
+        // Fallback: straight line
+        setRouteCoords([pickup, delivery]);
+        setRouteLoaded(true);
+      });
+  }, [order?.pickupLocation, order?.deliveryLocation]);
+
+  // Fit map to show the full route + driver when route loads
+  useEffect(() => {
+    if (!routeLoaded || routeCoords.length === 0) return;
+
+    const allCoords = [...routeCoords];
+    if (driverLoc) {
+      allCoords.push({ latitude: driverLoc.latitude, longitude: driverLoc.longitude });
+    }
+
+    // Small delay to let the MapView render
+    const timer = setTimeout(() => {
+      mapRef.current?.fitToCoordinates(allCoords, {
+        edgePadding: { top: 80, right: 60, bottom: 40, left: 60 },
+        animated: true,
+      });
+    }, 500);
+
+    return () => clearTimeout(timer);
+  }, [routeLoaded]);
+
+  // Re-fit map when driver location first becomes available (once)
+  const driverFittedRef = useRef(false);
+  useEffect(() => {
+    if (driverFittedRef.current) return;
+    if (!driverLoc || routeCoords.length === 0) return;
+
+    driverFittedRef.current = true;
+    const allCoords = [
+      ...routeCoords,
+      { latitude: driverLoc.latitude, longitude: driverLoc.longitude },
+    ];
+
+    mapRef.current?.fitToCoordinates(allCoords, {
+      edgePadding: { top: 80, right: 60, bottom: 40, left: 60 },
+      animated: true,
+    });
+  }, [driverLoc, routeCoords]);
+
   // -- Loading / error states -------------------------------------------------
   if (loading) {
     return (
@@ -188,25 +265,108 @@ export default function TrackingScreen() {
     if (order.driverPhone) Linking.openURL(`tel:${order.driverPhone}`);
   };
 
+  const hasPickup = order.pickupLocation &&
+    typeof order.pickupLocation.latitude === 'number' &&
+    typeof order.pickupLocation.longitude === 'number';
+  const hasDelivery = order.deliveryLocation &&
+    typeof order.deliveryLocation.latitude === 'number' &&
+    typeof order.deliveryLocation.longitude === 'number';
+  const hasLocations = hasPickup && hasDelivery;
+
+  // Determine initial map region
+  const initialRegion = hasPickup
+    ? {
+        latitude: order.pickupLocation!.latitude,
+        longitude: order.pickupLocation!.longitude,
+        latitudeDelta: 0.025,
+        longitudeDelta: 0.025,
+      }
+    : hasDelivery
+    ? {
+        latitude: order.deliveryLocation.latitude,
+        longitude: order.deliveryLocation.longitude,
+        latitudeDelta: 0.025,
+        longitudeDelta: 0.025,
+      }
+    : TOMATLAN_REGION;
+
   // -- Render -----------------------------------------------------------------
   return (
     <View style={styles.container}>
-      {/* ── Map area (top 48 %) ──────────────────────────────────────────── */}
+      {/* -- Map area (top 48 %) ----------------------------------------------- */}
       <View style={styles.mapArea}>
-        <View style={styles.mapPlaceholder}>
-          <Ionicons name="map-outline" size={56} color={DS.colors.muted} />
-          <Text style={styles.mapLabel}>Mapa en vivo</Text>
-          {driverLoc && (
-            <Text style={styles.coordsText}>
-              {driverLoc.latitude.toFixed(5)}, {driverLoc.longitude.toFixed(5)}
-            </Text>
-          )}
-          {!driverLoc && order.driverId && (
-            <Text style={styles.coordsText}>Esperando ubicacion del repartidor...</Text>
-          )}
-        </View>
+        {hasLocations ? (
+          <MapView
+            ref={mapRef}
+            style={StyleSheet.absoluteFillObject}
+            provider={Platform.OS === 'android' ? PROVIDER_GOOGLE : undefined}
+            initialRegion={initialRegion}
+            showsUserLocation={false}
+            showsMyLocationButton={false}
+            showsCompass={false}
+            toolbarEnabled={false}
+            mapPadding={{ top: 0, right: 0, bottom: 0, left: 0 }}
+          >
+            {/* Route polyline */}
+            {routeCoords.length > 1 && (
+              <Polyline
+                coordinates={routeCoords}
+                strokeColor={DS.colors.green}
+                strokeWidth={4}
+                lineDashPattern={undefined}
+              />
+            )}
 
-        {/* Ayuda */}
+            {/* Business / Pickup marker — green */}
+            {hasPickup && (
+              <Marker
+                coordinate={{
+                  latitude: order.pickupLocation!.latitude,
+                  longitude: order.pickupLocation!.longitude,
+                }}
+                title="Negocio"
+                description="Punto de recogida"
+                pinColor={DS.colors.green}
+              />
+            )}
+
+            {/* Customer / Delivery marker — orange */}
+            {hasDelivery && (
+              <Marker
+                coordinate={{
+                  latitude: order.deliveryLocation.latitude,
+                  longitude: order.deliveryLocation.longitude,
+                }}
+                title="Entrega"
+                description={order.deliveryAddress || 'Tu direccion'}
+                pinColor={DS.colors.orange}
+              />
+            )}
+
+            {/* Driver marker — blue (real-time) */}
+            {driverLoc && (
+              <Marker
+                coordinate={{
+                  latitude: driverLoc.latitude,
+                  longitude: driverLoc.longitude,
+                }}
+                title={order.driverName || 'Repartidor'}
+                description="En camino"
+                pinColor={DS.colors.blue}
+              />
+            )}
+          </MapView>
+        ) : (
+          <View style={styles.noLocationContainer}>
+            <Ionicons name="location-outline" size={48} color={DS.colors.muted} />
+            <Text style={styles.noLocationText}>Sin ubicacion disponible</Text>
+            <Text style={styles.noLocationSub}>
+              Las coordenadas del pedido no estan disponibles
+            </Text>
+          </View>
+        )}
+
+        {/* Help button */}
         <TouchableOpacity
           style={styles.helpBtn}
           onPress={() => router.push(`/chat/${order.id}` as any)}
@@ -216,13 +376,13 @@ export default function TrackingScreen() {
           <Text style={styles.helpText}>Ayuda</Text>
         </TouchableOpacity>
 
-        {/* Back */}
+        {/* Back button */}
         <TouchableOpacity style={styles.backBtn} onPress={() => router.back()} activeOpacity={0.8}>
           <Ionicons name="arrow-back" size={24} color={DS.colors.dark} />
         </TouchableOpacity>
       </View>
 
-      {/* ── Bottom sheet (bottom 52 %) ───────────────────────────────────── */}
+      {/* -- Bottom sheet (bottom 52 %) ---------------------------------------- */}
       <View style={styles.sheet}>
         {/* Drag capsule */}
         <View style={styles.dragCapsule} />
@@ -237,7 +397,7 @@ export default function TrackingScreen() {
           <Text style={[styles.etaGreen, { color: DS.colors.red }]}>Cancelado</Text>
         )}
 
-        {/* ── Progress bar with 4 stages ─────────────────────────────────── */}
+        {/* -- Progress bar with 4 stages -------------------------------------- */}
         <View style={styles.progressRow}>
           {STAGES.map((stage, idx) => {
             const passed = idx <= currentStage;
@@ -283,7 +443,7 @@ export default function TrackingScreen() {
           })}
         </View>
 
-        {/* ── Driver card ────────────────────────────────────────────────── */}
+        {/* -- Driver card ----------------------------------------------------- */}
         {order.driverName ? (
           <YCard style={styles.driverCard}>
             <View style={styles.driverRow}>
@@ -328,9 +488,15 @@ const styles = StyleSheet.create({
 
   // Map
   mapArea: { height: MAP_HEIGHT, backgroundColor: '#E8E4DF', position: 'relative' },
-  mapPlaceholder: { flex: 1, justifyContent: 'center', alignItems: 'center', gap: 8 },
-  mapLabel: { ...DS.fonts.body, color: DS.colors.muted },
-  coordsText: { ...DS.fonts.small, color: DS.colors.muted },
+
+  noLocationContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    gap: 8,
+  },
+  noLocationText: { ...DS.fonts.bodyMed, color: DS.colors.muted },
+  noLocationSub: { ...DS.fonts.small, color: DS.colors.placeholder, textAlign: 'center', paddingHorizontal: 40 },
 
   helpBtn: {
     position: 'absolute',

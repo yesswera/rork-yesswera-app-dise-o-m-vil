@@ -45,6 +45,7 @@ export interface CartItem extends Product {
   quantity: number;
   selectedVariants?: SelectedVariant[];
   cartItemKey?: string; // unique key: productId + sorted variant ids
+  notes?: string;
 }
 
 export interface Business {
@@ -57,6 +58,7 @@ export interface Business {
   rating: number;
   deliveryTime: string;
   tags: string[];
+  isOpen?: boolean;
 }
 
 export interface OrderItem {

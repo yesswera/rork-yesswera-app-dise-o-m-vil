@@ -11,7 +11,7 @@ function makeCartKey(productId: string, variants?: SelectedVariant[]): string {
 
 interface CartState {
   items: CartItem[];
-  addItem: (product: Product, variants?: SelectedVariant[]) => void;
+  addItem: (product: Product, variants?: SelectedVariant[], notes?: string) => void;
   removeItem: (cartItemKey: string) => void;
   updateQuantity: (cartItemKey: string, quantity: number) => void;
   clearCart: () => void;
@@ -22,7 +22,7 @@ interface CartState {
 export const [CartProvider, useCart] = createContextHook<CartState>(() => {
   const [items, setItems] = useState<CartItem[]>([]);
 
-  const addItem = (product: Product, variants?: SelectedVariant[]) => {
+  const addItem = (product: Product, variants?: SelectedVariant[], notes?: string) => {
     const key = makeCartKey(product.id, variants);
     const variantExtra = (variants || []).reduce((sum, v) => sum + v.priceAdjustment, 0);
 
@@ -31,7 +31,7 @@ export const [CartProvider, useCart] = createContextHook<CartState>(() => {
       if (existing) {
         return prev.map((item) =>
           (item.cartItemKey || item.id) === key
-            ? { ...item, quantity: item.quantity + 1 }
+            ? { ...item, quantity: item.quantity + 1, ...(notes !== undefined ? { notes } : {}) }
             : item
         );
       }
@@ -41,6 +41,7 @@ export const [CartProvider, useCart] = createContextHook<CartState>(() => {
         quantity: 1,
         selectedVariants: variants,
         cartItemKey: key,
+        notes,
       }];
     });
   };
