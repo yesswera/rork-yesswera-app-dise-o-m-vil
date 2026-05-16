@@ -126,6 +126,7 @@ export default function TrackingScreen() {
   const [loading, setLoading] = useState(true);
   const [routeCoords, setRouteCoords] = useState<{ latitude: number; longitude: number }[]>([]);
   const [routeLoaded, setRouteLoaded] = useState(false);
+  const [realEtaMin, setRealEtaMin] = useState<number | null>(null);
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const mapRef = useRef<MapView | null>(null);
   const routeFetchedRef = useRef(false);
@@ -211,6 +212,24 @@ export default function TrackingScreen() {
     return () => clearTimeout(timer);
   }, [routeLoaded]);
 
+  // Calculate real ETA when driver is in transit
+  useEffect(() => {
+    if (!driverLoc || !order?.deliveryLocation) return;
+    if (order.status !== 'in_transit' && order.status !== 'arrived') return;
+
+    const dest = order.deliveryLocation;
+    if (!dest.latitude || !dest.longitude) return;
+
+    getRoute(
+      { latitude: driverLoc.latitude, longitude: driverLoc.longitude },
+      { latitude: dest.latitude, longitude: dest.longitude }
+    )
+      .then((r) => {
+        if (r.durationMin > 0) setRealEtaMin(r.durationMin);
+      })
+      .catch(() => {});
+  }, [driverLoc?.latitude, driverLoc?.longitude, order?.status]);
+
   // Re-fit map when driver location first becomes available (once)
   const driverFittedRef = useRef(false);
   useEffect(() => {
@@ -250,7 +269,7 @@ export default function TrackingScreen() {
   // -- Derived values ---------------------------------------------------------
   const currentStage = mapStatusToStage(order.status);
   const statusMessage = getStatusMessage(order.status);
-  const eta = getEtaMinutes(order.status);
+  const eta = realEtaMin ?? getEtaMinutes(order.status);
 
   const driverInitials = order.driverName
     ? order.driverName

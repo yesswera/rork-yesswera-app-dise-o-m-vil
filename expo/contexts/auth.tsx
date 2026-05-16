@@ -3,6 +3,7 @@ import { useState, useEffect } from 'react';
 import type { User } from '@/constants/types';
 import { supabase } from '@/constants/supabase';
 import { AuthSounds } from '@/services/sounds';
+import { checkApiHealth, syncUserSession } from '@/constants/api';
 
 interface AuthState {
   user: User | null;
@@ -20,6 +21,11 @@ export const [AuthProvider, useAuth] = createContextHook<AuthState>(() => {
   const [isLoading, setIsLoading] = useState<boolean>(true);
 
   useEffect(() => {
+    // Check VPS health on mount (non-blocking)
+    checkApiHealth().then(({ ok, latency }) => {
+      if (__DEV__) console.log(`[VPS] health: ${ok ? 'OK' : 'DOWN'} (${latency}ms)`);
+    });
+
     // Check current session on mount
     checkSession();
 
@@ -114,6 +120,9 @@ export const [AuthProvider, useAuth] = createContextHook<AuthState>(() => {
 
       setToken(data.session?.access_token || null);
       setUser(mappedUser);
+
+      // Sync session with VPS (non-blocking)
+      syncUserSession(mappedUser);
 
       return mappedUser;
     } catch (error) {

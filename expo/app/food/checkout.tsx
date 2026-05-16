@@ -21,7 +21,10 @@ import { useAuth } from '@/contexts/auth';
 import { createOrder } from '@/services/orders';
 import { getUserAddresses } from '@/services/addresses';
 import { getBusinessLocation } from '@/services/products';
-import { calculateDistance, calculateDeliveryFee, formatDistance } from '@/utils/distance';
+import { calculateDistance, formatDistance } from '@/utils/distance';
+import { checkDriverCoverage } from '@/services/coverage';
+import { isLocationInActiveZone } from '@/services/zones';
+import { getRoute } from '@/services/routing';
 import type { SavedAddress } from '@/constants/types';
 
 export default function CheckoutScreen() {
@@ -39,6 +42,9 @@ export default function CheckoutScreen() {
   const [tip, setTip] = useState(0);
   const [customTip, setCustomTip] = useState('');
   const [showCustomTip, setShowCustomTip] = useState(false);
+  const [coverageOk, setCoverageOk] = useState<boolean | null>(null);
+  const [zoneFees, setZoneFees] = useState<{ base: number; perKm: number } | null>(null);
+  const [realRoute, setRealRoute] = useState<{ distanceKm: number; durationMin: number } | null>(null);
 
   const businessId = items[0]?.businessId;
 
@@ -59,7 +65,7 @@ export default function CheckoutScreen() {
     }
   }, [businessId]);
 
-  // Calculate delivery fee
+  // Haversine distance for quick display
   const distance = useMemo(() => {
     if (!businessLocation || !selectedAddress) return null;
     if (!selectedAddress.latitude || !selectedAddress.longitude) return null;
@@ -69,19 +75,65 @@ export default function CheckoutScreen() {
     });
   }, [businessLocation, selectedAddress]);
 
-  const deliveryFee = distance !== null ? calculateDeliveryFee(distance) : 0;
-  const isFreeDelivery = deliveryFee <= 15 && distance !== null && distance <= 2;
+  // Fetch real route + zone info + coverage when business & address are set
+  useEffect(() => {
+    if (!businessLocation || !selectedAddress?.latitude || !selectedAddress?.longitude) {
+      setRealRoute(null);
+      setCoverageOk(null);
+      return;
+    }
+
+    const origin = businessLocation;
+    const dest = { latitude: selectedAddress.latitude, longitude: selectedAddress.longitude };
+
+    // Real route (OSRM)
+    getRoute(origin, dest)
+      .then((r) => setRealRoute({ distanceKm: r.distanceKm, durationMin: r.durationMin }))
+      .catch(() => setRealRoute(null));
+
+    // Zone-aware pricing
+    isLocationInActiveZone(origin.latitude, origin.longitude)
+      .then((result) => {
+        if (result.inZone && result.zone) {
+          setZoneFees({ base: result.zone.deliveryBaseFee, perKm: result.zone.deliveryPerKmFee });
+        } else {
+          setZoneFees(null); // fallback to defaults
+        }
+      })
+      .catch(() => setZoneFees(null));
+
+    // Coverage check (drivers available near business)
+    checkDriverCoverage(origin.latitude, origin.longitude, 5)
+      .then((c) => setCoverageOk(c.hasDrivers))
+      .catch(() => setCoverageOk(null));
+  }, [businessLocation, selectedAddress]);
+
+  // Calculate delivery fee using zone pricing or defaults
+  const deliveryFee = useMemo(() => {
+    const dist = realRoute?.distanceKm ?? distance;
+    if (dist === null) return 0;
+    const baseFee = zoneFees?.base ?? 15;
+    const perKmFee = zoneFees?.perKm ?? 4;
+    const freeKm = 2;
+    if (dist <= freeKm) return baseFee;
+    return Math.round((baseFee + (dist - freeKm) * perKmFee) * 100) / 100;
+  }, [realRoute, distance, zoneFees]);
+
+  const effectiveDistance = realRoute?.distanceKm ?? distance;
+  const isFreeDelivery = deliveryFee <= (zoneFees?.base ?? 15) && effectiveDistance !== null && effectiveDistance <= 2;
   const grandTotal = total + deliveryFee + tip;
 
-  // ETA calculation: prep time (20 min default) + travel time (distance / 30 km/h)
+  // ETA: use OSRM duration if available, else estimate
   const etaRange = useMemo(() => {
     const prepMinutes = 20;
-    const travelMinutes = distance !== null ? Math.max(5, Math.round((distance / 30) * 60)) : 10;
+    const travelMinutes = realRoute?.durationMin
+      ? realRoute.durationMin
+      : (distance !== null ? Math.max(5, Math.round((distance / 30) * 60)) : 10);
     const estimated = prepMinutes + travelMinutes;
-    const low = Math.round(estimated * 0.75);
-    const high = Math.round(estimated * 1.25);
+    const low = Math.round(estimated * 0.85);
+    const high = Math.round(estimated * 1.2);
     return { low, high };
-  }, [distance]);
+  }, [realRoute, distance]);
 
   // Handle confirm order
   const handleConfirm = async () => {
@@ -105,6 +157,25 @@ export default function CheckoutScreen() {
       return;
     }
 
+    // Warn if no drivers available (non-blocking — user can proceed)
+    if (coverageOk === false) {
+      return new Promise<void>((resolve) => {
+        Alert.alert(
+          'Sin repartidores cerca',
+          'No detectamos repartidores disponibles en este momento. Tu pedido se enviara y se asignara cuando haya uno disponible.',
+          [
+            { text: 'Cancelar', style: 'cancel', onPress: () => resolve() },
+            { text: 'Pedir de todas formas', onPress: () => { proceedWithOrder(); resolve(); } },
+          ]
+        );
+      });
+    }
+
+    proceedWithOrder();
+  };
+
+  const proceedWithOrder = async () => {
+    if (!user || !selectedAddress || !businessId) return;
     setIsProcessing(true);
     try {
       const order = await createOrder({
@@ -141,6 +212,7 @@ export default function CheckoutScreen() {
       setIsProcessing(false);
     }
   };
+
 
   // Empty cart guard (skip if showing confirmation modal)
   if (items.length === 0 && !confirmedOrder) {
@@ -377,10 +449,10 @@ export default function CheckoutScreen() {
           </View>
           <View style={styles.totalRow}>
             <Text style={styles.totalLabel}>
-              Envio{distance !== null ? ` (${formatDistance(distance)})` : ''}
+              Envio{effectiveDistance !== null ? ` (${formatDistance(effectiveDistance)})` : ''}
             </Text>
             <Text style={[styles.totalValue, isFreeDelivery && styles.freeText]}>
-              {distance !== null
+              {effectiveDistance !== null
                 ? isFreeDelivery
                   ? 'GRATIS'
                   : `$${deliveryFee.toFixed(2)}`
@@ -410,6 +482,19 @@ export default function CheckoutScreen() {
             </View>
           </View>
         </YCard>
+
+        {/* Coverage warning */}
+        {coverageOk === false && (
+          <YCard style={[styles.section, { borderLeftWidth: 3, borderLeftColor: '#F59E0B' }] as any}>
+            <View style={styles.etaRow}>
+              <Feather name="alert-triangle" size={20} color="#F59E0B" />
+              <View style={styles.etaInfo}>
+                <Text style={[styles.etaTime, { color: '#F59E0B' }]}>Sin repartidores cerca</Text>
+                <Text style={styles.etaSubtitle}>Tu pedido se asignara cuando uno este disponible</Text>
+              </View>
+            </View>
+          </YCard>
+        )}
 
         {/* Spacer for fixed button */}
         <View style={{ height: 100 }} />

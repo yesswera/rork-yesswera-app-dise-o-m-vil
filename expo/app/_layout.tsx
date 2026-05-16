@@ -15,6 +15,8 @@ import {
   addNotificationResponseReceivedListener,
 } from "@/services/notifications";
 import { DS } from "@/constants/design";
+import { useNetworkStatus } from "@/hooks/useNetworkStatus";
+import OfflineBanner from "@/components/ui/OfflineBanner";
 
 SplashScreen.preventAutoHideAsync();
 
@@ -93,8 +95,11 @@ function RootLayoutNav() {
 }
 
 function ThemedApp() {
+  const { isConnected, retry } = useNetworkStatus();
+
   return (
     <View style={{ flex: 1, backgroundColor: DS.colors.bg }}>
+      {!isConnected && <OfflineBanner onRetry={retry} />}
       <NotificationHandler />
       <RootLayoutNav />
       <ToastContainer />

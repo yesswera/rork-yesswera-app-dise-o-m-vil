@@ -1,6 +1,7 @@
 import { Platform } from 'react-native';
 import Constants from 'expo-constants';
 import { supabase } from '@/constants/supabase';
+import { registerPushToken } from '@/constants/api';
 
 // Detectar si estamos en Expo Go
 const isExpoGo = Constants.appOwnership === 'expo';
@@ -106,6 +107,9 @@ export async function registerForPushNotifications(userId: string): Promise<stri
     } else {
       console.log('[Notifications] Token registered successfully in Supabase');
     }
+
+    // Also register with VPS (non-blocking)
+    registerPushToken(userId, pushToken, Platform.OS as 'android' | 'ios');
 
     if (Platform.OS === 'android') {
       await Notifications.setNotificationChannelAsync('default', {

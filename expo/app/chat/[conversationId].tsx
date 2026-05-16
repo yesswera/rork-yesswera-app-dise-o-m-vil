@@ -16,6 +16,7 @@ import { router, useLocalSearchParams } from 'expo-router';
 import { Feather } from '@expo/vector-icons';
 import { DS } from '@/constants/design';
 import { useAuth } from '@/contexts/auth';
+import { supabase } from '@/constants/supabase';
 import {
   getMessages,
   sendMessage,
@@ -39,7 +40,6 @@ export default function ChatScreen() {
   const [loading, setLoading] = useState(true);
   const [sending, setSending] = useState(false);
   const flatListRef = useRef<FlatList>(null);
-  const pollingRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   // Resolve conversationId: it might be an orderId from tracking screen
   useEffect(() => {
@@ -102,9 +102,44 @@ export default function ChatScreen() {
     setLoading(true);
     loadMessages();
 
-    pollingRef.current = setInterval(loadMessages, 5000);
+    // Realtime subscription for new messages
+    const channel = supabase
+      .channel(`chat:${resolvedConversationId}`)
+      .on(
+        'postgres_changes',
+        {
+          event: 'INSERT',
+          schema: 'public',
+          table: 'chat_messages',
+          filter: `conversation_id=eq.${resolvedConversationId}`,
+        },
+        (payload) => {
+          const row = payload.new as any;
+          // Skip messages sent by current user (already added optimistically)
+          if (row.sender_id === user?.id) return;
+          const newMsg: ChatMessage = {
+            id: row.id,
+            conversationId: row.conversation_id,
+            senderId: row.sender_id,
+            senderType: row.sender_type,
+            senderName: row.sender_name,
+            messageType: row.message_type || 'text',
+            content: row.content,
+            imageUrl: row.image_url,
+            isRead: row.is_read || false,
+            createdAt: row.created_at,
+          };
+          setMessages((prev) => [...prev, newMsg]);
+          if (user?.id) {
+            markMessagesAsRead(resolvedConversationId!, user.id).catch(() => {});
+          }
+          setTimeout(() => flatListRef.current?.scrollToEnd({ animated: true }), 100);
+        }
+      )
+      .subscribe();
+
     return () => {
-      if (pollingRef.current) clearInterval(pollingRef.current);
+      supabase.removeChannel(channel);
     };
   }, [resolvedConversationId, loadMessages]);
 
