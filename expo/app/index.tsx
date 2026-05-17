@@ -1,3 +1,8 @@
+// ============================================================================
+// YESSWERA HOME v3 — Appetite-driven, trust-first, Tomatlan-proud
+// Shows real restaurants, food imagery, social proof, local identity
+// ============================================================================
+
 import { useEffect, useState, useCallback, useRef } from 'react';
 import {
   StyleSheet,
@@ -13,23 +18,21 @@ import {
   Animated,
 } from 'react-native';
 import { useRouter, useFocusEffect } from 'expo-router';
-import { UtensilsCrossed, ShoppingCart, Package, Home, Clock, User, ShoppingBag } from 'lucide-react-native';
+import { ShoppingCart, Package, Home, Clock, User, ShoppingBag } from 'lucide-react-native';
 import { Feather } from '@expo/vector-icons';
 import { StatusBar } from 'expo-status-bar';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useAuth } from '@/contexts/auth';
 import { useCart } from '@/contexts/cart';
 import { getActiveOrders } from '@/services/orders';
-import { getRecommendations, RecommendationSet, ProductRecommendation, BusinessRecommendation } from '@/services/recommendations';
 import { supabase } from '@/constants/supabase';
 import { Order } from '@/constants/types';
 import { DS, colorShadow } from '@/constants/design';
 import ActiveOrderBanner from '@/components/ui/ActiveOrderBanner';
 import YAvatar from '@/components/ui/YAvatar';
 import BigButton from '@/components/ui/BigButton';
-import SectionHeader from '@/components/ui/SectionHeader';
 
-const { width: SCREEN_WIDTH } = Dimensions.get('window');
+const { width: SW } = Dimensions.get('window');
 
 const ORDER_STATUS_TEXT: Record<string, string> = {
   pending: 'Esperando confirmacion',
@@ -43,10 +46,6 @@ const ORDER_STATUS_TEXT: Record<string, string> = {
   arrived: 'Repartidor llego, sal a recibir',
 };
 
-// ============================================================================
-// TYPES
-// ============================================================================
-
 interface SearchResult {
   id: string;
   type: 'business' | 'product';
@@ -55,306 +54,188 @@ interface SearchResult {
   businessId: string;
 }
 
-interface RecentOrder {
+interface NearbyBiz {
   id: string;
-  businessId: string;
-  businessName: string;
-  itemCount: number;
-  total: number;
-  createdAt: string;
+  name: string;
+  category: string;
+  image: string;
+  rating: number;
+  deliveryTime: string;
+  isOpen: boolean;
+}
+
+function categoryEmoji(cat: string): string {
+  const map: Record<string, string> = {
+    tacos: '\uD83C\uDF2E', mariscos: '\uD83E\uDD90', pollos: '\uD83C\uDF57',
+    bebidas: '\uD83E\uDD64', pizza: '\uD83C\uDF55', hamburguesas: '\uD83C\uDF54',
+    postres: '\uD83C\uDF70', comida: '\uD83C\uDF72', cafe: '\u2615',
+  };
+  return map[cat?.toLowerCase()] || '\uD83C\uDF7D\uFE0F';
 }
 
 // ============================================================================
-// HELPERS
-// ============================================================================
-
-function relativeTime(dateStr: string): string {
-  const now = Date.now();
-  const then = new Date(dateStr).getTime();
-  const diffMs = now - then;
-  const diffMins = Math.floor(diffMs / 60000);
-  if (diffMins < 60) return `Hace ${diffMins} min`;
-  const diffHours = Math.floor(diffMins / 60);
-  if (diffHours < 24) return `Hace ${diffHours}h`;
-  const diffDays = Math.floor(diffHours / 24);
-  if (diffDays === 1) return 'Ayer';
-  if (diffDays < 7) return `Hace ${diffDays} dias`;
-  return `Hace ${Math.floor(diffDays / 7)} sem`;
-}
-
-function formatPrice(amount: number): string {
-  return `$${amount.toFixed(0)}`;
-}
-
-// ============================================================================
-// HERO FOOD EMOJIS (animated background)
-// ============================================================================
-
-const FOOD_EMOJIS = [
-  '\uD83C\uDF2E', '\uD83C\uDF54', '\uD83C\uDF55', '\uD83E\uDD64',
-  '\uD83C\uDF57', '\uD83E\uDD90', '\uD83C\uDF72', '\uD83C\uDF63',
-  '\uD83C\uDF70', '\u2615', '\uD83C\uDF7A', '\uD83E\uDD57',
-];
-
-// ============================================================================
-// HOME SCREEN
-// ============================================================================
-
 export default function HomeScreen() {
   const router = useRouter();
   const { user, isLoading } = useAuth();
   const { itemCount } = useCart();
   const [activeOrder, setActiveOrder] = useState<Order | null>(null);
+  const [nearby, setNearby] = useState<NearbyBiz[]>([]);
+  const [loadingBiz, setLoadingBiz] = useState(true);
 
-  // Search state
+  // Search
   const [searchQuery, setSearchQuery] = useState('');
   const [searchResults, setSearchResults] = useState<SearchResult[]>([]);
   const [isSearching, setIsSearching] = useState(false);
   const searchTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  // Quick reorder state
-  const [recentOrders, setRecentOrders] = useState<RecentOrder[]>([]);
-
-  // Recommendations state
-  const [recommendations, setRecommendations] = useState<RecommendationSet | null>(null);
-
-  // Animated pulse for hero
-  const pulseAnim = useRef(new Animated.Value(1)).current;
+  // Animations
+  const fadeAnim = useRef(new Animated.Value(0)).current;
+  const slideAnim = useRef(new Animated.Value(30)).current;
 
   useEffect(() => {
-    Animated.loop(
-      Animated.sequence([
-        Animated.timing(pulseAnim, { toValue: 1.05, duration: 2000, useNativeDriver: true }),
-        Animated.timing(pulseAnim, { toValue: 1, duration: 2000, useNativeDriver: true }),
-      ])
-    ).start();
+    Animated.parallel([
+      Animated.timing(fadeAnim, { toValue: 1, duration: 600, useNativeDriver: true }),
+      Animated.timing(slideAnim, { toValue: 0, duration: 500, useNativeDriver: true }),
+    ]).start();
   }, []);
 
   // Role redirect
   useEffect(() => {
     if (isLoading || !user) return;
-    if (user.userType === 'business') {
-      router.replace('/business/dashboard' as any);
-    } else if (user.userType === 'driver') {
-      router.replace('/driver/dashboard' as any);
-    } else if (user.userType === 'admin') {
-      router.replace('/admin/dashboard' as any);
-    }
+    if (user.userType === 'business') router.replace('/business/dashboard' as any);
+    else if (user.userType === 'driver') router.replace('/driver/dashboard' as any);
+    else if (user.userType === 'admin') router.replace('/admin/dashboard' as any);
   }, [user, isLoading]);
 
-  // Load active order + recent orders + recommendations on focus
+  // Fetch nearby restaurants
+  const fetchNearby = useCallback(async () => {
+    try {
+      const { data, error } = await supabase
+        .from('businesses')
+        .select('*')
+        .eq('is_active', true)
+        .order('rating_average', { ascending: false })
+        .limit(10);
+
+      if (error) throw error;
+      const mapped: NearbyBiz[] = (data || []).map((db: any) => {
+        const prep = db.preparation_time_minutes || 20;
+        return {
+          id: db.id,
+          name: db.business_name,
+          category: db.category || 'food',
+          image: db.cover_url || db.logo_url || '',
+          rating: Number(db.rating_average) || 0,
+          deliveryTime: `${prep + 10}-${prep + 25}`,
+          isOpen: db.is_open ?? true,
+        };
+      });
+      setNearby(mapped);
+    } catch {
+      setNearby([]);
+    } finally {
+      setLoadingBiz(false);
+    }
+  }, []);
+
   useFocusEffect(
     useCallback(() => {
-      if (!user) {
-        setActiveOrder(null);
-        setRecentOrders([]);
-        setRecommendations(null);
-        return;
-      }
-
+      fetchNearby();
+      if (!user) { setActiveOrder(null); return; }
       getActiveOrders(user.id)
         .then((orders) => setActiveOrder(orders.length > 0 ? orders[0] : null))
         .catch(() => setActiveOrder(null));
-
-      fetchRecentOrders(user.id);
-
-      getRecommendations(user.id)
-        .then(setRecommendations)
-        .catch(() => setRecommendations(null));
     }, [user])
   );
 
-  // ============================================================================
-  // SEARCH
-  // ============================================================================
-
+  // Search
   const handleSearchChange = (text: string) => {
     setSearchQuery(text);
     if (searchTimer.current) clearTimeout(searchTimer.current);
-
-    if (!text.trim()) {
-      setSearchResults([]);
-      setIsSearching(false);
-      return;
-    }
-
+    if (!text.trim()) { setSearchResults([]); setIsSearching(false); return; }
     setIsSearching(true);
-    searchTimer.current = setTimeout(() => {
-      performSearch(text.trim());
-    }, 300);
+    searchTimer.current = setTimeout(() => performSearch(text.trim()), 300);
   };
 
   const performSearch = async (query: string) => {
     try {
-      const lowerQuery = `%${query.toLowerCase()}%`;
-
-      const { data: businesses } = await supabase
-        .from('businesses')
-        .select('id, business_name, category')
-        .ilike('business_name', lowerQuery)
-        .limit(4);
-
-      const { data: products } = await supabase
-        .from('products')
-        .select('id, name, price, business_id, businesses:business_id(business_name)')
-        .ilike('name', lowerQuery)
-        .eq('available', true)
-        .limit(4);
-
+      const q = `%${query.toLowerCase()}%`;
+      const [{ data: biz }, { data: prod }] = await Promise.all([
+        supabase.from('businesses').select('id, business_name, category').ilike('business_name', q).limit(4),
+        supabase.from('products').select('id, name, price, business_id, businesses:business_id(business_name)').ilike('name', q).eq('available', true).limit(4),
+      ]);
       const results: SearchResult[] = [];
-
-      (businesses || []).forEach((b) => {
-        results.push({
-          id: b.id,
-          type: 'business',
-          name: b.business_name,
-          subtitle: b.category || 'Restaurante',
-          businessId: b.id,
-        });
-      });
-
-      (products || []).forEach((p: any) => {
-        results.push({
-          id: p.id,
-          type: 'product',
-          name: p.name,
-          subtitle: p.businesses?.business_name || '',
-          businessId: p.business_id,
-        });
-      });
-
+      (biz || []).forEach((b) => results.push({ id: b.id, type: 'business', name: b.business_name, subtitle: b.category || 'Restaurante', businessId: b.id }));
+      (prod || []).forEach((p: any) => results.push({ id: p.id, type: 'product', name: p.name, subtitle: p.businesses?.business_name || '', businessId: p.business_id }));
       setSearchResults(results.slice(0, 8));
-    } catch (error) {
-      console.error('Search error:', error);
-      setSearchResults([]);
-    } finally {
-      setIsSearching(false);
-    }
+    } catch { setSearchResults([]); }
+    finally { setIsSearching(false); }
   };
 
-  const handleSearchSubmit = () => {
-    if (searchQuery.trim()) {
-      performSearch(searchQuery.trim());
-    }
+  const handleResultPress = (r: SearchResult) => {
+    setSearchQuery(''); setSearchResults([]);
+    router.push(`/food/menu/${r.businessId}` as any);
   };
-
-  const handleSearchResultPress = (result: SearchResult) => {
-    setSearchQuery('');
-    setSearchResults([]);
-    router.push(`/food/menu/${result.businessId}` as any);
-  };
-
-  // ============================================================================
-  // RECENT ORDERS
-  // ============================================================================
-
-  const fetchRecentOrders = async (userId: string) => {
-    try {
-      const { data, error } = await supabase
-        .from('orders')
-        .select(`
-          id,
-          business_id,
-          total_amount,
-          item_count,
-          created_at,
-          businesses:business_id(business_name)
-        `)
-        .eq('customer_id', userId)
-        .eq('status', 'delivered')
-        .order('created_at', { ascending: false })
-        .limit(3);
-
-      if (error || !data) {
-        setRecentOrders([]);
-        return;
-      }
-
-      const mapped: RecentOrder[] = data.map((o: any) => ({
-        id: o.id,
-        businessId: o.business_id,
-        businessName: o.businesses?.business_name || 'Negocio',
-        itemCount: o.item_count || 0,
-        total: o.total_amount || 0,
-        createdAt: o.created_at,
-      }));
-
-      setRecentOrders(mapped);
-    } catch {
-      setRecentOrders([]);
-    }
-  };
-
-  // ============================================================================
-  // RENDER HELPERS
-  // ============================================================================
 
   const getGreeting = () => {
-    const hour = new Date().getHours();
-    if (hour < 12) return 'Buenos dias';
-    if (hour < 19) return 'Buenas tardes';
+    const h = new Date().getHours();
+    if (h < 12) return 'Buenos dias';
+    if (h < 19) return 'Buenas tardes';
     return 'Buenas noches';
   };
 
-  const getHungerPrompt = () => {
-    const hour = new Date().getHours();
-    if (hour >= 7 && hour < 11) return 'Que se te antoja para desayunar?';
-    if (hour >= 11 && hour < 15) return 'Hora de comer! Que se te antoja?';
-    if (hour >= 15 && hour < 19) return 'Un antojito para la tarde?';
-    if (hour >= 19 && hour < 22) return 'Que vas a cenar hoy?';
-    return 'Antojo nocturno? Te lo llevamos';
+  const getPrompt = () => {
+    const h = new Date().getHours();
+    if (h >= 7 && h < 11) return 'Que desayunamos hoy?';
+    if (h >= 11 && h < 15) return 'Hora de comer!';
+    if (h >= 15 && h < 19) return 'Un antojito?';
+    if (h >= 19 && h < 22) return 'Que cenamos?';
+    return 'Antojo nocturno?';
   };
 
   const userInitials = user?.name
-    ? user.name
-        .split(' ')
-        .map((w: string) => w[0])
-        .join('')
-        .toUpperCase()
-        .slice(0, 2)
+    ? user.name.split(' ').map((w: string) => w[0]).join('').toUpperCase().slice(0, 2)
     : '?';
 
-  const popularItems: ProductRecommendation[] = recommendations?.popular?.length
-    ? recommendations.popular.slice(0, 10)
-    : [];
-  const suggestedBiz: BusinessRecommendation[] =
-    popularItems.length === 0 && recommendations?.suggestedBusinesses?.length
-      ? recommendations.suggestedBusinesses.slice(0, 10)
-      : [];
-  const showPopularSection = user && (popularItems.length > 0 || suggestedBiz.length > 0);
+  const openBiz = nearby.filter((b) => b.isOpen);
 
   return (
-    <SafeAreaView style={styles.safe}>
+    <SafeAreaView style={s.safe}>
       <StatusBar style="dark" />
       <ScrollView
-        style={styles.scroll}
-        contentContainerStyle={styles.scrollContent}
+        style={s.scroll}
+        contentContainerStyle={s.scrollContent}
         showsVerticalScrollIndicator={false}
         keyboardShouldPersistTaps="handled"
       >
-        {/* Header */}
-        <View style={styles.header}>
-          <View style={styles.headerLeft}>
-            <Text style={styles.greeting}>{getGreeting()}</Text>
-            <Text style={styles.userName} numberOfLines={1}>
-              {user?.name || 'Bienvenido a Yesswera'}
-            </Text>
+        {/* ── Header ───────────────────────────────────────────── */}
+        <Animated.View style={[s.header, { opacity: fadeAnim }]}>
+          <View style={s.headerLeft}>
+            <View style={s.locationRow}>
+              <Feather name="map-pin" size={14} color={DS.colors.orange} />
+              <Text style={s.locationText}>Tomatlan, Jalisco</Text>
+            </View>
+            <Text style={s.greeting}>{getGreeting()}{user?.name ? `, ${user.name.split(' ')[0]}` : ''}</Text>
           </View>
-          <View style={styles.headerRight}>
-            {user && (
-              <TouchableOpacity
-                onPress={() => router.push('/profile' as any)}
-                activeOpacity={0.8}
-              >
-                <YAvatar initials={userInitials} size={44} />
-              </TouchableOpacity>
-            )}
-          </View>
-        </View>
+          {user ? (
+            <TouchableOpacity onPress={() => router.push('/profile' as any)} activeOpacity={0.8}>
+              <YAvatar initials={userInitials} size={44} />
+            </TouchableOpacity>
+          ) : (
+            <TouchableOpacity
+              style={s.loginPill}
+              onPress={() => router.push('/login' as any)}
+              activeOpacity={0.8}
+            >
+              <Feather name="log-in" size={16} color={DS.colors.orange} />
+              <Text style={s.loginPillText}>Entrar</Text>
+            </TouchableOpacity>
+          )}
+        </Animated.View>
 
-        {/* Active Order Banner */}
+        {/* ── Active Order Banner ──────────────────────────────── */}
         {activeOrder && user && (
-          <View style={styles.bannerWrap}>
+          <View style={s.bannerWrap}>
             <ActiveOrderBanner
               status={ORDER_STATUS_TEXT[activeOrder.status] || 'Orden activa'}
               onPress={() => router.push(`/tracking/${activeOrder.id}` as any)}
@@ -362,365 +243,225 @@ export default function HomeScreen() {
           </View>
         )}
 
-        {/* HERO — Main CTA: Pedir Comida */}
-        <TouchableOpacity
-          style={styles.heroCard}
-          activeOpacity={0.9}
-          onPress={() => router.push('/food/restaurants' as any)}
-        >
-          <LinearGradient
-            colors={['#EA580C', '#F97316', '#FB923C']}
-            start={{ x: 0, y: 0 }}
-            end={{ x: 1, y: 1 }}
-            style={styles.heroGradient}
-          >
-            {/* Floating food emojis background */}
-            <View style={styles.heroEmojiGrid}>
-              {FOOD_EMOJIS.slice(0, 6).map((emoji, i) => (
-                <Animated.Text
-                  key={i}
-                  style={[
-                    styles.heroEmoji,
-                    { transform: [{ scale: pulseAnim }], opacity: 0.2 + (i * 0.05) },
-                  ]}
-                >
-                  {emoji}
-                </Animated.Text>
-              ))}
-            </View>
-
-            {/* Hero content */}
-            <View style={styles.heroContent}>
-              <Text style={styles.heroPrompt}>{getHungerPrompt()}</Text>
-              <Text style={styles.heroTitle}>Pedir Comida</Text>
-              <Text style={styles.heroSub}>
-                Tacos, mariscos, pollos, pizzas y mas
-              </Text>
-              <View style={styles.heroBtnRow}>
-                <View style={styles.heroBtn}>
-                  <Text style={styles.heroBtnText}>Ver Restaurantes</Text>
-                  <Feather name="arrow-right" size={16} color="#EA580C" />
-                </View>
-                <Text style={styles.heroDelivery}>Envio desde $15</Text>
-              </View>
-            </View>
-
-            {/* Big food emoji */}
-            <View style={styles.heroBigEmoji}>
-              <Text style={styles.heroBigEmojiText}>{'\uD83C\uDF2E'}</Text>
-            </View>
-          </LinearGradient>
-        </TouchableOpacity>
-
-        {/* Search Bar */}
-        <View style={styles.searchContainer}>
-          <View style={styles.searchBar}>
+        {/* ── Search ──────────────────────────────────────────── */}
+        <View style={s.searchWrap}>
+          <View style={s.searchBar}>
             <Feather name="search" size={20} color={DS.colors.muted} />
             <TextInput
-              style={styles.searchInput}
+              style={s.searchInput}
               placeholder="Buscar restaurante o platillo..."
               placeholderTextColor={DS.colors.placeholder}
               value={searchQuery}
               onChangeText={handleSearchChange}
-              onSubmitEditing={handleSearchSubmit}
               returnKeyType="search"
             />
-            {isSearching && (
-              <ActivityIndicator size="small" color={DS.colors.orange} />
-            )}
+            {isSearching && <ActivityIndicator size="small" color={DS.colors.orange} />}
             {!isSearching && searchQuery.length > 0 && (
-              <TouchableOpacity
-                onPress={() => {
-                  setSearchQuery('');
-                  setSearchResults([]);
-                }}
-                hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-              >
+              <TouchableOpacity onPress={() => { setSearchQuery(''); setSearchResults([]); }}>
                 <Feather name="x" size={18} color={DS.colors.muted} />
               </TouchableOpacity>
             )}
           </View>
-
-          {/* Search Results Dropdown */}
           {searchResults.length > 0 && (
-            <View style={styles.searchDropdown}>
-              {searchResults.map((result) => (
-                <TouchableOpacity
-                  key={`${result.type}-${result.id}`}
-                  style={styles.searchResultItem}
-                  activeOpacity={0.7}
-                  onPress={() => handleSearchResultPress(result)}
-                >
-                  <View style={styles.searchResultIcon}>
-                    <Feather
-                      name={result.type === 'business' ? 'home' : 'tag'}
-                      size={16}
-                      color={result.type === 'business' ? DS.colors.green : DS.colors.orange}
-                    />
+            <View style={s.dropdown}>
+              {searchResults.map((r) => (
+                <TouchableOpacity key={`${r.type}-${r.id}`} style={s.dropItem} onPress={() => handleResultPress(r)}>
+                  <Feather name={r.type === 'business' ? 'home' : 'tag'} size={16} color={r.type === 'business' ? DS.colors.green : DS.colors.orange} />
+                  <View style={{ flex: 1 }}>
+                    <Text style={s.dropName} numberOfLines={1}>{r.name}</Text>
+                    <Text style={s.dropSub} numberOfLines={1}>{r.subtitle}</Text>
                   </View>
-                  <View style={styles.searchResultText}>
-                    <Text style={styles.searchResultName} numberOfLines={1}>
-                      {result.name}
-                    </Text>
-                    <Text style={styles.searchResultSub} numberOfLines={1}>
-                      {result.subtitle}
-                    </Text>
-                  </View>
-                  <Feather name="chevron-right" size={16} color={DS.colors.muted} />
+                  <Feather name="chevron-right" size={14} color={DS.colors.muted} />
                 </TouchableOpacity>
               ))}
             </View>
           )}
         </View>
 
-        {/* Secondary Services — Compact row */}
-        <View style={styles.servicesRow}>
+        {/* ── HERO CTA — Pedir Comida ─────────────────────────── */}
+        <Animated.View style={{ transform: [{ translateY: slideAnim }], opacity: fadeAnim }}>
           <TouchableOpacity
-            style={styles.serviceChip}
-            activeOpacity={0.8}
-            onPress={() => router.push('/shopping' as any)}
+            style={s.hero}
+            activeOpacity={0.92}
+            onPress={() => router.push('/food/restaurants' as any)}
           >
-            <View style={[styles.serviceChipIcon, { backgroundColor: DS.colors.greenLight }]}>
+            <LinearGradient
+              colors={['#EA580C', '#F97316', '#FDBA74']}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 1 }}
+              style={s.heroGrad}
+            >
+              <View style={s.heroLeft}>
+                <Text style={s.heroPrompt}>{getPrompt()}</Text>
+                <Text style={s.heroTitle}>Pedir{'\n'}Comida</Text>
+                <View style={s.heroCta}>
+                  <Text style={s.heroCtaText}>Ver Restaurantes</Text>
+                  <Feather name="arrow-right" size={14} color="#EA580C" />
+                </View>
+              </View>
+              <View style={s.heroRight}>
+                <Text style={s.heroEmoji}>{'\uD83C\uDF2E'}</Text>
+                <Text style={s.heroEmoji2}>{'\uD83C\uDF54'}</Text>
+                <Text style={s.heroEmoji3}>{'\uD83C\uDF55'}</Text>
+              </View>
+            </LinearGradient>
+          </TouchableOpacity>
+        </Animated.View>
+
+        {/* ── Services Row ────────────────────────────────────── */}
+        <View style={s.servRow}>
+          <TouchableOpacity style={s.servCard} activeOpacity={0.85} onPress={() => router.push('/shopping' as any)}>
+            <View style={[s.servIcon, { backgroundColor: '#ECFDF5' }]}>
               <ShoppingCart size={20} color={DS.colors.green} strokeWidth={2} />
             </View>
-            <View style={styles.serviceChipText}>
-              <Text style={styles.serviceChipTitle}>Super</Text>
-              <Text style={styles.serviceChipSub}>Lista de compras</Text>
-            </View>
+            <Text style={s.servTitle}>Super</Text>
+            <Text style={s.servSub}>Lista de compras</Text>
           </TouchableOpacity>
 
-          <TouchableOpacity
-            style={styles.serviceChip}
-            activeOpacity={0.8}
-            onPress={() => router.push('/delivery/create' as any)}
-          >
-            <View style={[styles.serviceChipIcon, { backgroundColor: DS.colors.blueLight }]}>
+          <TouchableOpacity style={s.servCard} activeOpacity={0.85} onPress={() => router.push('/delivery/create' as any)}>
+            <View style={[s.servIcon, { backgroundColor: '#EFF6FF' }]}>
               <Package size={20} color={DS.colors.blue} strokeWidth={2} />
             </View>
-            <View style={styles.serviceChipText}>
-              <Text style={styles.serviceChipTitle}>Envios</Text>
-              <Text style={styles.serviceChipSub}>Punto a punto</Text>
+            <Text style={s.servTitle}>Envios</Text>
+            <Text style={s.servSub}>Punto a punto</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity style={s.servCard} activeOpacity={0.85} onPress={() => router.push('/orders/history' as any)}>
+            <View style={[s.servIcon, { backgroundColor: '#FFF5EB' }]}>
+              <Clock size={20} color={DS.colors.orange} strokeWidth={2} />
             </View>
+            <Text style={s.servTitle}>Pedidos</Text>
+            <Text style={s.servSub}>Historial</Text>
           </TouchableOpacity>
         </View>
 
-        {/* Trust Badge — Social Proof */}
-        <View style={styles.trustBadge}>
-          <View style={styles.trustRow}>
-            <View style={styles.trustItem}>
-              <Text style={styles.trustNumber}>18</Text>
-              <Text style={styles.trustLabel}>Negocios{'\n'}locales</Text>
+        {/* ── Nearby Restaurants (REAL DATA) ───────────────────── */}
+        <View style={s.section}>
+          <View style={s.sectionHead}>
+            <View>
+              <Text style={s.sectionTitle}>Cerca de ti</Text>
+              <Text style={s.sectionSub}>{openBiz.length} abiertos ahora</Text>
             </View>
-            <View style={styles.trustDivider} />
-            <View style={styles.trustItem}>
-              <Feather name="shield" size={20} color={DS.colors.green} />
-              <Text style={styles.trustLabel}>Repartidores{'\n'}verificados</Text>
+            <TouchableOpacity onPress={() => router.push('/food/restaurants' as any)}>
+              <Text style={s.seeAll}>Ver todos</Text>
+            </TouchableOpacity>
+          </View>
+
+          {loadingBiz ? (
+            <ActivityIndicator size="small" color={DS.colors.orange} style={{ paddingVertical: 30 }} />
+          ) : nearby.length === 0 ? (
+            <View style={s.emptyBiz}>
+              <Text style={{ fontSize: 36 }}>{'\uD83C\uDF7D\uFE0F'}</Text>
+              <Text style={s.emptyBizText}>Proximamente mas negocios</Text>
             </View>
-            <View style={styles.trustDivider} />
-            <View style={styles.trustItem}>
-              <Feather name="message-circle" size={20} color={DS.colors.green} />
-              <Text style={styles.trustLabel}>Soporte{'\n'}WhatsApp</Text>
-            </View>
+          ) : (
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={s.bizScroll}>
+              {nearby.map((biz) => (
+                <TouchableOpacity
+                  key={biz.id}
+                  style={[s.bizCard, !biz.isOpen && { opacity: 0.5 }]}
+                  activeOpacity={0.85}
+                  onPress={() => router.push(`/food/menu/${biz.id}` as any)}
+                >
+                  {biz.image ? (
+                    <Image source={{ uri: biz.image }} style={s.bizImg} />
+                  ) : (
+                    <View style={[s.bizImg, s.bizImgFallback]}>
+                      <Text style={{ fontSize: 36 }}>{categoryEmoji(biz.category)}</Text>
+                    </View>
+                  )}
+                  {!biz.isOpen && (
+                    <View style={s.bizClosed}>
+                      <Text style={s.bizClosedText}>Cerrado</Text>
+                    </View>
+                  )}
+                  <View style={s.bizInfo}>
+                    <Text style={s.bizName} numberOfLines={1}>{biz.name}</Text>
+                    <View style={s.bizMeta}>
+                      <Feather name="star" size={11} color="#F59E0B" />
+                      <Text style={s.bizRating}>{biz.rating > 0 ? biz.rating.toFixed(1) : 'Nuevo'}</Text>
+                      <Text style={s.bizDot}> · </Text>
+                      <Feather name="clock" size={10} color={DS.colors.orange} />
+                      <Text style={s.bizTime}>{biz.deliveryTime} min</Text>
+                    </View>
+                  </View>
+                </TouchableOpacity>
+              ))}
+            </ScrollView>
+          )}
+        </View>
+
+        {/* ── Trust Bar ───────────────────────────────────────── */}
+        <View style={s.trustBar}>
+          <View style={s.trustItem}>
+            <Text style={s.trustNum}>{nearby.length || 18}</Text>
+            <Text style={s.trustLabel}>Negocios{'\n'}locales</Text>
+          </View>
+          <View style={s.trustDiv} />
+          <View style={s.trustItem}>
+            <Feather name="shield" size={18} color={DS.colors.green} />
+            <Text style={s.trustLabel}>Repartidores{'\n'}verificados</Text>
+          </View>
+          <View style={s.trustDiv} />
+          <View style={s.trustItem}>
+            <Feather name="truck" size={18} color={DS.colors.orange} />
+            <Text style={s.trustLabel}>Entrega{'\n'}rapida</Text>
           </View>
         </View>
 
-        {/* Quick Reorder Section */}
-        {user && recentOrders.length > 0 && (
-          <View style={styles.sectionWrap}>
-            <SectionHeader title="Pedir de nuevo" subtitle="Un tap y listo" />
-            <ScrollView
-              horizontal
-              showsHorizontalScrollIndicator={false}
-              contentContainerStyle={styles.reorderScroll}
-            >
-              {recentOrders.map((order) => (
-                <TouchableOpacity
-                  key={order.id}
-                  style={styles.reorderCard}
-                  activeOpacity={0.85}
-                  onPress={() => router.push(`/food/menu/${order.businessId}` as any)}
-                >
-                  <View style={styles.reorderTop}>
-                    <Text style={styles.reorderEmoji}>{'\uD83D\uDD01'}</Text>
-                    <Text style={styles.reorderTime}>{relativeTime(order.createdAt)}</Text>
-                  </View>
-                  <Text style={styles.reorderBizName} numberOfLines={1}>
-                    {order.businessName}
-                  </Text>
-                  <Text style={styles.reorderMeta}>
-                    {order.itemCount} {order.itemCount === 1 ? 'articulo' : 'articulos'} · {formatPrice(order.total)}
-                  </Text>
-                  <View style={styles.reorderBtn}>
-                    <Text style={styles.reorderBtnText}>Repetir Pedido</Text>
-                  </View>
-                </TouchableOpacity>
-              ))}
-            </ScrollView>
-          </View>
-        )}
-
-        {/* Popular / Recommended Section */}
-        {showPopularSection && popularItems.length > 0 && (
-          <View style={styles.sectionWrap}>
-            <SectionHeader title="Lo mas pedido" subtitle="Popular esta semana" />
-            <ScrollView
-              horizontal
-              showsHorizontalScrollIndicator={false}
-              contentContainerStyle={styles.popularScroll}
-            >
-              {popularItems.map((item) => (
-                <TouchableOpacity
-                  key={item.productId}
-                  style={styles.popularCard}
-                  activeOpacity={0.8}
-                  onPress={() => router.push(`/food/menu/${item.businessId}` as any)}
-                >
-                  <View style={styles.popularImageWrap}>
-                    {item.imageUrl ? (
-                      <Image source={{ uri: item.imageUrl }} style={styles.popularImage} />
-                    ) : (
-                      <View style={styles.popularEmoji}>
-                        <Text style={{ fontSize: 32 }}>{'\uD83C\uDF7D\uFE0F'}</Text>
-                      </View>
-                    )}
-                  </View>
-                  <Text style={styles.popularName} numberOfLines={2}>
-                    {item.productName}
-                  </Text>
-                  <Text style={styles.popularPrice}>{formatPrice(item.price)}</Text>
-                  <Text style={styles.popularBiz} numberOfLines={1}>
-                    {item.businessName}
-                  </Text>
-                </TouchableOpacity>
-              ))}
-            </ScrollView>
-          </View>
-        )}
-
-        {/* Fallback: Suggested Businesses */}
-        {showPopularSection && popularItems.length === 0 && suggestedBiz.length > 0 && (
-          <View style={styles.sectionWrap}>
-            <SectionHeader title="Descubre" subtitle="Negocios que te van a gustar" />
-            <ScrollView
-              horizontal
-              showsHorizontalScrollIndicator={false}
-              contentContainerStyle={styles.popularScroll}
-            >
-              {suggestedBiz.map((biz) => (
-                <TouchableOpacity
-                  key={biz.businessId}
-                  style={styles.popularCard}
-                  activeOpacity={0.8}
-                  onPress={() => router.push(`/food/menu/${biz.businessId}` as any)}
-                >
-                  <View style={styles.popularImageWrap}>
-                    {biz.imageUrl ? (
-                      <Image source={{ uri: biz.imageUrl }} style={styles.popularImage} />
-                    ) : (
-                      <View style={styles.popularEmoji}>
-                        <Text style={{ fontSize: 32 }}>{'\uD83C\uDF7D\uFE0F'}</Text>
-                      </View>
-                    )}
-                  </View>
-                  <Text style={styles.popularName} numberOfLines={2}>
-                    {biz.businessName}
-                  </Text>
-                  <Text style={styles.popularPrice}>
-                    {biz.rating > 0 ? `${biz.rating.toFixed(1)} \u2605` : 'Nuevo'}
-                  </Text>
-                  <Text style={styles.popularBiz} numberOfLines={1}>
-                    {biz.category || biz.reason}
-                  </Text>
-                </TouchableOpacity>
-              ))}
-            </ScrollView>
-          </View>
-        )}
-
-        {/* Auth prompt for unauthenticated users */}
+        {/* ── Auth CTA (only if not logged in) ────────────────── */}
         {!user && (
-          <View style={styles.authPrompt}>
-            <View style={styles.authIconRow}>
-              <Text style={styles.authEmoji}>{'\uD83D\uDC4B'}</Text>
-            </View>
-            <Text style={styles.authTitle}>Listo para ordenar?</Text>
-            <Text style={styles.authSubtitle}>Crea tu cuenta en 30 segundos — sin tarjeta</Text>
-            <View style={styles.authRow}>
-              <View style={styles.authBtnWrap}>
-                <BigButton
-                  title="Crear Cuenta"
-                  color={DS.colors.orange}
-                  onPress={() => router.push('/register' as any)}
-                />
+          <View style={s.authCard}>
+            <Text style={s.authTitle}>Empieza a pedir</Text>
+            <Text style={s.authSub}>Crea tu cuenta gratis — sin tarjeta, 30 segundos</Text>
+            <View style={s.authRow}>
+              <View style={{ flex: 1 }}>
+                <BigButton title="Crear Cuenta" color={DS.colors.orange} onPress={() => router.push('/register' as any)} />
               </View>
-              <View style={styles.authBtnWrap}>
-                <BigButton
-                  title="Iniciar Sesion"
-                  color={DS.colors.card}
-                  textColor={DS.colors.orange}
-                  onPress={() => router.push('/login' as any)}
-                  style={{ borderWidth: 1.5, borderColor: DS.colors.hairline }}
-                />
-              </View>
+              <TouchableOpacity style={s.authLogin} onPress={() => router.push('/login' as any)} activeOpacity={0.7}>
+                <Text style={s.authLoginText}>Ya tengo cuenta</Text>
+              </TouchableOpacity>
             </View>
           </View>
         )}
 
-        {/* Footer */}
-        <View style={styles.footer}>
-          <Text style={styles.footerText}>Hecho en Tomatlan, Jalisco</Text>
-          <Text style={styles.footerSub}>Con amor para nuestra comunidad</Text>
+        {/* ── Footer ──────────────────────────────────────────── */}
+        <View style={s.footer}>
+          <Text style={s.footerMain}>Hecho en Tomatlan, Jalisco</Text>
+          <Text style={s.footerSub}>Lo que quieras, cuando quieras</Text>
         </View>
       </ScrollView>
 
-      {/* Yessi Floating Button */}
+      {/* ── Yessi FAB ───────────────────────────────────────── */}
       {user && (
-        <TouchableOpacity
-          style={styles.yessiFab}
-          activeOpacity={0.85}
-          onPress={() => router.push('/yessi' as any)}
-        >
-          <Feather name="zap" size={24} color="#FFFFFF" />
+        <TouchableOpacity style={s.fab} activeOpacity={0.85} onPress={() => router.push('/yessi' as any)}>
+          <Feather name="zap" size={24} color="#FFF" />
         </TouchableOpacity>
       )}
 
-      {/* Bottom Tab Bar */}
+      {/* ── Tab Bar ─────────────────────────────────────────── */}
       {user && (
-        <View style={styles.tabBar}>
-          <TouchableOpacity style={styles.tab} activeOpacity={0.7}>
+        <View style={s.tabBar}>
+          <TouchableOpacity style={s.tab}>
             <Home size={22} color={DS.colors.orange} />
-            <Text style={[styles.tabLabel, styles.tabLabelActive]}>Inicio</Text>
+            <Text style={[s.tabText, s.tabActive]}>Inicio</Text>
           </TouchableOpacity>
-          <TouchableOpacity
-            style={styles.tab}
-            activeOpacity={0.7}
-            onPress={() => router.push('/food/checkout' as any)}
-          >
-            <View style={styles.cartTabWrap}>
+          <TouchableOpacity style={s.tab} onPress={() => router.push('/food/checkout' as any)}>
+            <View style={{ position: 'relative' }}>
               <ShoppingBag size={22} color={DS.colors.muted} />
               {itemCount > 0 && (
-                <View style={styles.cartBadge}>
-                  <Text style={styles.cartBadgeText}>{itemCount > 9 ? '9+' : itemCount}</Text>
-                </View>
+                <View style={s.badge}><Text style={s.badgeText}>{itemCount > 9 ? '9+' : itemCount}</Text></View>
               )}
             </View>
-            <Text style={styles.tabLabel}>Carrito</Text>
+            <Text style={s.tabText}>Carrito</Text>
           </TouchableOpacity>
-          <TouchableOpacity
-            style={styles.tab}
-            activeOpacity={0.7}
-            onPress={() => router.push('/orders/history' as any)}
-          >
+          <TouchableOpacity style={s.tab} onPress={() => router.push('/orders/history' as any)}>
             <Clock size={22} color={DS.colors.muted} />
-            <Text style={styles.tabLabel}>Pedidos</Text>
+            <Text style={s.tabText}>Pedidos</Text>
           </TouchableOpacity>
-          <TouchableOpacity
-            style={styles.tab}
-            activeOpacity={0.7}
-            onPress={() => router.push('/profile' as any)}
-          >
+          <TouchableOpacity style={s.tab} onPress={() => router.push('/profile' as any)}>
             <User size={22} color={DS.colors.muted} />
-            <Text style={styles.tabLabel}>Perfil</Text>
+            <Text style={s.tabText}>Perfil</Text>
           </TouchableOpacity>
         </View>
       )}
@@ -729,469 +470,138 @@ export default function HomeScreen() {
 }
 
 // ============================================================================
-// STYLES
-// ============================================================================
-
-const styles = StyleSheet.create({
-  safe: {
-    flex: 1,
-    backgroundColor: DS.colors.bg,
-  },
-  scroll: {
-    flex: 1,
-  },
-  scrollContent: {
-    paddingTop: 56,
-    paddingHorizontal: DS.space.xl,
-    paddingBottom: 100,
-  },
+const s = StyleSheet.create({
+  safe: { flex: 1, backgroundColor: DS.colors.bg },
+  scroll: { flex: 1 },
+  scrollContent: { paddingTop: 56, paddingHorizontal: DS.space.xl, paddingBottom: 100 },
 
   // Header
-  header: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: DS.space.lg,
-  },
-  headerLeft: {
-    flex: 1,
-    marginRight: DS.space.lg,
-  },
-  headerRight: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: DS.space.sm,
-  },
-  greeting: {
-    ...DS.fonts.small,
-    color: DS.colors.muted,
-    marginBottom: 2,
-  },
-  userName: {
-    ...DS.fonts.title,
-    color: DS.colors.dark,
-  },
-
-  // Active order banner
-  bannerWrap: {
-    marginBottom: DS.space.lg,
-  },
-
-  // Hero Card
-  heroCard: {
-    borderRadius: DS.radius.xxl,
-    overflow: 'hidden',
-    marginBottom: DS.space.xl,
-    ...DS.shadow.button,
-  },
-  heroGradient: {
-    padding: DS.space.xxl,
-    minHeight: 180,
-    flexDirection: 'row',
-    alignItems: 'center',
-    position: 'relative',
-    overflow: 'hidden',
-  },
-  heroEmojiGrid: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    justifyContent: 'space-around',
-    alignItems: 'center',
-    padding: 20,
-  },
-  heroEmoji: {
-    fontSize: 28,
-  },
-  heroContent: {
-    flex: 1,
-    zIndex: 2,
-  },
-  heroPrompt: {
-    ...DS.fonts.small,
-    color: 'rgba(255,255,255,0.85)',
-    marginBottom: DS.space.xs,
-  },
-  heroTitle: {
-    fontSize: 26,
-    fontWeight: '800',
-    color: '#FFFFFF',
-    marginBottom: DS.space.xs,
-  },
-  heroSub: {
-    ...DS.fonts.body,
-    color: 'rgba(255,255,255,0.8)',
-    marginBottom: DS.space.lg,
-  },
-  heroBtnRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: DS.space.md,
-  },
-  heroBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: DS.space.xs,
-    backgroundColor: '#FFFFFF',
+  header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: DS.space.lg },
+  headerLeft: { flex: 1, marginRight: 12 },
+  locationRow: { flexDirection: 'row', alignItems: 'center', gap: 4, marginBottom: 4 },
+  locationText: { ...DS.fonts.small, color: DS.colors.orange, fontWeight: '600' },
+  greeting: { ...DS.fonts.title, color: DS.colors.dark },
+  loginPill: {
+    flexDirection: 'row', alignItems: 'center', gap: 6,
+    backgroundColor: '#FFF5EB', paddingHorizontal: 14, paddingVertical: 8,
     borderRadius: DS.radius.full,
-    paddingHorizontal: DS.space.lg,
-    paddingVertical: DS.space.sm + 2,
   },
-  heroBtnText: {
-    ...DS.fonts.label,
-    color: '#EA580C',
-  },
-  heroDelivery: {
-    ...DS.fonts.small,
-    color: 'rgba(255,255,255,0.9)',
-    fontWeight: '600',
-  },
-  heroBigEmoji: {
-    position: 'absolute',
-    right: -10,
-    bottom: -10,
-    opacity: 0.3,
-    zIndex: 1,
-  },
-  heroBigEmojiText: {
-    fontSize: 120,
-  },
+  loginPillText: { ...DS.fonts.label, color: DS.colors.orange },
+
+  bannerWrap: { marginBottom: DS.space.lg },
 
   // Search
-  searchContainer: {
-    marginBottom: DS.space.xl,
-    zIndex: 100,
-  },
+  searchWrap: { marginBottom: DS.space.xl, zIndex: 100 },
   searchBar: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: DS.colors.card,
-    borderRadius: DS.radius.lg,
-    paddingHorizontal: DS.space.lg,
-    height: DS.touch.min,
-    gap: DS.space.sm,
-    ...DS.shadow.card,
+    flexDirection: 'row', alignItems: 'center', backgroundColor: DS.colors.card,
+    borderRadius: DS.radius.full, paddingHorizontal: DS.space.lg, height: 52, gap: 8, ...DS.shadow.card,
   },
-  searchInput: {
-    flex: 1,
-    ...DS.fonts.body,
-    color: DS.colors.dark,
-    paddingVertical: 0,
+  searchInput: { flex: 1, ...DS.fonts.body, color: DS.colors.dark, paddingVertical: 0 },
+  dropdown: {
+    position: 'absolute', top: 58, left: 0, right: 0,
+    backgroundColor: DS.colors.card, borderRadius: DS.radius.md, ...DS.shadow.button, zIndex: 200,
   },
-  searchDropdown: {
-    position: 'absolute',
-    top: DS.touch.min + DS.space.xs,
-    left: 0,
-    right: 0,
-    backgroundColor: DS.colors.card,
-    borderRadius: DS.radius.md,
-    ...DS.shadow.button,
-    zIndex: 200,
-    overflow: 'hidden',
-  },
-  searchResultItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingVertical: DS.space.md,
-    paddingHorizontal: DS.space.lg,
-    gap: DS.space.md,
-    minHeight: DS.touch.min,
-  },
-  searchResultIcon: {
-    width: 32,
-    height: 32,
-    borderRadius: DS.radius.sm,
-    backgroundColor: DS.colors.bg,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  searchResultText: {
-    flex: 1,
-    gap: 2,
-  },
-  searchResultName: {
-    ...DS.fonts.bodyMed,
-    color: DS.colors.dark,
-  },
-  searchResultSub: {
-    ...DS.fonts.small,
-    color: DS.colors.muted,
-  },
+  dropItem: { flexDirection: 'row', alignItems: 'center', paddingVertical: 12, paddingHorizontal: 16, gap: 12 },
+  dropName: { ...DS.fonts.bodyMed, color: DS.colors.dark },
+  dropSub: { ...DS.fonts.tiny, color: DS.colors.muted },
 
-  // Secondary Services Row
-  servicesRow: {
-    flexDirection: 'row',
-    gap: DS.space.md,
-    marginBottom: DS.space.xl,
+  // Hero
+  hero: { borderRadius: DS.radius.xxl, overflow: 'hidden', marginBottom: DS.space.xl, ...DS.shadow.button },
+  heroGrad: { padding: 24, minHeight: 180, flexDirection: 'row', position: 'relative' },
+  heroLeft: { flex: 1, justifyContent: 'center', zIndex: 2 },
+  heroPrompt: { ...DS.fonts.label, color: 'rgba(255,255,255,0.85)', marginBottom: 4 },
+  heroTitle: { fontSize: 32, fontWeight: '900', color: '#FFF', lineHeight: 36, marginBottom: 16 },
+  heroCta: {
+    flexDirection: 'row', alignItems: 'center', gap: 6, alignSelf: 'flex-start',
+    backgroundColor: '#FFF', borderRadius: DS.radius.full, paddingHorizontal: 16, paddingVertical: 10,
   },
-  serviceChip: {
-    flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: DS.colors.card,
-    borderRadius: DS.radius.lg,
-    padding: DS.space.md,
-    gap: DS.space.md,
-    ...DS.shadow.card,
-  },
-  serviceChipIcon: {
-    width: 44,
-    height: 44,
-    borderRadius: DS.radius.md,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  serviceChipText: {
-    flex: 1,
-  },
-  serviceChipTitle: {
-    ...DS.fonts.bodyMed,
-    color: DS.colors.dark,
-    fontSize: 15,
-  },
-  serviceChipSub: {
-    ...DS.fonts.tiny,
-    color: DS.colors.muted,
-  },
+  heroCtaText: { ...DS.fonts.label, color: '#EA580C' },
+  heroRight: { width: 100, justifyContent: 'center', alignItems: 'center', position: 'relative' },
+  heroEmoji: { fontSize: 64, position: 'absolute', top: -10, right: -5 },
+  heroEmoji2: { fontSize: 40, position: 'absolute', bottom: 10, right: 20, opacity: 0.7 },
+  heroEmoji3: { fontSize: 32, position: 'absolute', top: 30, left: -10, opacity: 0.5 },
 
-  // Trust Badge
-  trustBadge: {
-    backgroundColor: DS.colors.card,
-    borderRadius: DS.radius.lg,
-    padding: DS.space.lg,
-    marginBottom: DS.space.xxxl,
-    ...DS.shadow.card,
+  // Services
+  servRow: { flexDirection: 'row', gap: DS.space.md, marginBottom: DS.space.xxl },
+  servCard: {
+    flex: 1, backgroundColor: DS.colors.card, borderRadius: DS.radius.lg,
+    padding: DS.space.md, alignItems: 'center', ...DS.shadow.card,
   },
-  trustRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-around',
-  },
-  trustItem: {
-    alignItems: 'center',
-    gap: DS.space.xs,
-  },
-  trustNumber: {
-    fontSize: 22,
-    fontWeight: '800',
-    color: DS.colors.green,
-  },
-  trustLabel: {
-    ...DS.fonts.tiny,
-    color: DS.colors.body,
-    textAlign: 'center',
-  },
-  trustDivider: {
-    width: 1,
-    height: 36,
-    backgroundColor: DS.colors.hairline,
-  },
+  servIcon: { width: 44, height: 44, borderRadius: 12, justifyContent: 'center', alignItems: 'center', marginBottom: 8 },
+  servTitle: { ...DS.fonts.label, color: DS.colors.dark, marginBottom: 2 },
+  servSub: { ...DS.fonts.tiny, color: DS.colors.muted, textAlign: 'center' },
 
-  // Section wrapper
-  sectionWrap: {
-    marginBottom: DS.space.xxxl,
+  // Nearby section
+  section: { marginBottom: DS.space.xxl },
+  sectionHead: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: DS.space.md },
+  sectionTitle: { ...DS.fonts.section, color: DS.colors.dark },
+  sectionSub: { ...DS.fonts.small, color: DS.colors.muted, marginTop: 2 },
+  seeAll: { ...DS.fonts.label, color: DS.colors.blue, paddingTop: 4 },
+  bizScroll: { gap: DS.space.md, paddingRight: DS.space.lg },
+  bizCard: { width: 160, backgroundColor: DS.colors.card, borderRadius: DS.radius.lg, overflow: 'hidden', ...DS.shadow.card },
+  bizImg: { width: 160, height: 100, resizeMode: 'cover' as any },
+  bizImgFallback: { backgroundColor: '#FFF5EB', justifyContent: 'center', alignItems: 'center' },
+  bizClosed: {
+    position: 'absolute', top: 0, left: 0, right: 0, height: 100,
+    backgroundColor: 'rgba(0,0,0,0.4)', justifyContent: 'center', alignItems: 'center',
   },
+  bizClosedText: { ...DS.fonts.label, color: '#FFF' },
+  bizInfo: { padding: DS.space.sm, paddingHorizontal: DS.space.md },
+  bizName: { ...DS.fonts.label, color: DS.colors.dark, marginBottom: 4 },
+  bizMeta: { flexDirection: 'row', alignItems: 'center', gap: 3 },
+  bizRating: { ...DS.fonts.tiny, color: DS.colors.body, fontWeight: '600' },
+  bizDot: { ...DS.fonts.tiny, color: DS.colors.muted },
+  bizTime: { ...DS.fonts.tiny, color: DS.colors.orange, fontWeight: '600' },
+  emptyBiz: { alignItems: 'center', paddingVertical: 30, gap: 8 },
+  emptyBizText: { ...DS.fonts.body, color: DS.colors.muted },
 
-  // Quick Reorder
-  reorderScroll: {
-    gap: DS.space.md,
+  // Trust
+  trustBar: {
+    flexDirection: 'row', backgroundColor: DS.colors.card, borderRadius: DS.radius.lg,
+    padding: DS.space.lg, marginBottom: DS.space.xxl, justifyContent: 'space-around',
+    alignItems: 'center', ...DS.shadow.card,
   },
-  reorderCard: {
-    width: 200,
-    backgroundColor: DS.colors.card,
-    borderRadius: DS.radius.lg,
-    padding: DS.space.lg,
-    ...DS.shadow.card,
-  },
-  reorderTop: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    marginBottom: DS.space.sm,
-  },
-  reorderEmoji: {
-    fontSize: 20,
-  },
-  reorderTime: {
-    ...DS.fonts.tiny,
-    color: DS.colors.muted,
-  },
-  reorderBizName: {
-    ...DS.fonts.bodyMed,
-    color: DS.colors.dark,
-    marginBottom: DS.space.xs,
-  },
-  reorderMeta: {
-    ...DS.fonts.small,
-    color: DS.colors.body,
-    marginBottom: DS.space.md,
-  },
-  reorderBtn: {
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: DS.colors.orange,
-    borderRadius: DS.radius.md,
-    paddingVertical: DS.space.sm + 2,
-  },
-  reorderBtnText: {
-    ...DS.fonts.label,
-    color: '#FFFFFF',
-  },
+  trustItem: { alignItems: 'center', gap: 4 },
+  trustNum: { fontSize: 20, fontWeight: '800', color: DS.colors.green },
+  trustLabel: { ...DS.fonts.tiny, color: DS.colors.body, textAlign: 'center' },
+  trustDiv: { width: 1, height: 32, backgroundColor: DS.colors.hairline },
 
-  // Popular / Recommended
-  popularScroll: {
-    gap: DS.space.md,
+  // Auth
+  authCard: {
+    backgroundColor: DS.colors.card, borderRadius: DS.radius.xxl,
+    padding: DS.space.xxl, marginBottom: DS.space.xxl, ...DS.shadow.card,
   },
-  popularCard: {
-    width: 150,
-    backgroundColor: DS.colors.card,
-    borderRadius: DS.radius.lg,
-    padding: DS.space.md,
-    ...DS.shadow.card,
-  },
-  popularImageWrap: {
-    width: '100%',
-    height: 100,
-    borderRadius: DS.radius.md,
-    backgroundColor: DS.colors.bg,
-    marginBottom: DS.space.sm,
-    overflow: 'hidden',
-  },
-  popularImage: {
-    width: '100%',
-    height: '100%',
-    borderRadius: DS.radius.md,
-  },
-  popularEmoji: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  popularName: {
-    ...DS.fonts.label,
-    color: DS.colors.dark,
-    marginBottom: DS.space.xs,
-  },
-  popularPrice: {
-    ...DS.fonts.bodyMed,
-    color: DS.colors.orange,
-    marginBottom: 2,
-  },
-  popularBiz: {
-    ...DS.fonts.tiny,
-    color: DS.colors.muted,
-  },
-
-  // Auth prompt
-  authPrompt: {
-    alignItems: 'center',
-    marginBottom: DS.space.xxxl,
-    backgroundColor: DS.colors.card,
-    borderRadius: DS.radius.xxl,
-    padding: DS.space.xxl,
-    ...DS.shadow.card,
-  },
-  authIconRow: {
-    marginBottom: DS.space.md,
-  },
-  authEmoji: {
-    fontSize: 40,
-  },
-  authTitle: {
-    ...DS.fonts.section,
-    color: DS.colors.dark,
-    marginBottom: DS.space.xs,
-  },
-  authSubtitle: {
-    ...DS.fonts.small,
-    color: DS.colors.muted,
-    marginBottom: DS.space.xl,
-    textAlign: 'center',
-  },
-  authRow: {
-    flexDirection: 'row',
-    gap: DS.space.md,
-    width: '100%',
-  },
-  authBtnWrap: {
-    flex: 1,
-  },
+  authTitle: { ...DS.fonts.section, color: DS.colors.dark, marginBottom: 4 },
+  authSub: { ...DS.fonts.small, color: DS.colors.muted, marginBottom: DS.space.xl },
+  authRow: { flexDirection: 'row', alignItems: 'center', gap: DS.space.md },
+  authLogin: { paddingVertical: 12, paddingHorizontal: 8 },
+  authLoginText: { ...DS.fonts.label, color: DS.colors.orange },
 
   // Footer
-  footer: {
-    alignItems: 'center',
-    gap: DS.space.xs,
-    marginTop: DS.space.md,
-  },
-  footerText: {
-    ...DS.fonts.label,
-    color: DS.colors.muted,
-  },
-  footerSub: {
-    ...DS.fonts.tiny,
-    color: DS.colors.placeholder,
-  },
+  footer: { alignItems: 'center', gap: 4, marginTop: DS.space.md, marginBottom: DS.space.xl },
+  footerMain: { ...DS.fonts.label, color: DS.colors.muted },
+  footerSub: { ...DS.fonts.tiny, color: DS.colors.placeholder },
 
-  // Yessi FAB
-  yessiFab: {
-    position: 'absolute',
-    bottom: 85,
-    right: 20,
-    width: 56,
-    height: 56,
-    borderRadius: 9999,
-    backgroundColor: DS.colors.orange,
-    alignItems: 'center',
-    justifyContent: 'center',
-    ...colorShadow('#EA580C', 0.4),
-    zIndex: 50,
+  // FAB
+  fab: {
+    position: 'absolute', bottom: 85, right: 20, width: 56, height: 56,
+    borderRadius: 28, backgroundColor: DS.colors.orange,
+    alignItems: 'center', justifyContent: 'center', ...colorShadow('#EA580C', 0.4), zIndex: 50,
   },
 
   // Tab bar
   tabBar: {
-    flexDirection: 'row',
-    backgroundColor: DS.colors.card,
-    borderTopWidth: 1,
-    borderTopColor: DS.colors.hairline,
-    paddingBottom: 20,
-    paddingTop: DS.space.sm,
+    flexDirection: 'row', backgroundColor: DS.colors.card,
+    borderTopWidth: 1, borderTopColor: DS.colors.hairline,
+    paddingBottom: 20, paddingTop: 8,
   },
-  tab: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: DS.space.sm,
-    gap: 3,
+  tab: { flex: 1, alignItems: 'center', justifyContent: 'center', paddingVertical: 6, gap: 3 },
+  tabText: { ...DS.fonts.tiny, color: DS.colors.muted },
+  tabActive: { color: DS.colors.orange },
+  badge: {
+    position: 'absolute', top: -6, right: -8,
+    backgroundColor: DS.colors.orange, borderRadius: 10,
+    minWidth: 18, height: 18, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 4,
   },
-  tabLabel: {
-    ...DS.fonts.tiny,
-    color: DS.colors.muted,
-  },
-  tabLabelActive: {
-    color: DS.colors.orange,
-  },
-  cartTabWrap: {
-    position: 'relative',
-  },
-  cartBadge: {
-    position: 'absolute',
-    top: -6,
-    right: -8,
-    backgroundColor: DS.colors.orange,
-    borderRadius: 10,
-    minWidth: 18,
-    height: 18,
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingHorizontal: 4,
-  },
-  cartBadgeText: {
-    fontSize: 10,
-    fontWeight: '700',
-    color: '#FFFFFF',
-  },
+  badgeText: { fontSize: 10, fontWeight: '700', color: '#FFF' },
 });
