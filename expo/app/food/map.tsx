@@ -1,6 +1,6 @@
 // ============================================================================
-// MAPA DE NEGOCIOS — Vista interactiva con markers por coordenadas
-// Lee de Supabase (datos auto-sincronizados desde Tonalli via webhooks)
+// MAPA DE NEGOCIOS — Vista interactiva con GPS real del usuario
+// Siempre muestra mapa, markers de negocios sincronizados desde Tonalli
 // ============================================================================
 
 import { useEffect, useState, useRef, useCallback } from 'react';
@@ -10,7 +10,6 @@ import {
   View,
   TouchableOpacity,
   Image,
-  Dimensions,
   ActivityIndicator,
   Platform,
   Animated,
@@ -18,18 +17,17 @@ import {
 import { useRouter, Stack } from 'expo-router';
 import { Feather } from '@expo/vector-icons';
 import { StatusBar } from 'expo-status-bar';
-import MapView, { Marker } from 'react-native-maps';
+import MapView, { Marker, Region } from 'react-native-maps';
+import * as Location from 'expo-location';
 import { DS } from '@/constants/design';
 import { fetchBusinessesForMap, MapBusiness } from '@/services/tonalli-businesses';
 
-const { width: SW } = Dimensions.get('window');
-
-// Tomatlan, Jalisco center
-const TOMATLAN_REGION = {
+// Fallback if GPS fails (Tomatlan center)
+const DEFAULT_REGION: Region = {
   latitude: 19.9425,
   longitude: -105.3715,
-  latitudeDelta: 0.012,
-  longitudeDelta: 0.012,
+  latitudeDelta: 0.015,
+  longitudeDelta: 0.015,
 };
 
 function categoryEmoji(cat: string): string {
@@ -69,27 +67,75 @@ export default function BusinessMapScreen() {
   const mapRef = useRef<MapView>(null);
   const [businesses, setBusinesses] = useState<MapBusiness[]>([]);
   const [loading, setLoading] = useState(true);
+  const [userLocation, setUserLocation] = useState<{ latitude: number; longitude: number } | null>(null);
+  const [initialRegion, setInitialRegion] = useState<Region>(DEFAULT_REGION);
   const [selectedBiz, setSelectedBiz] = useState<MapBusiness | null>(null);
   const cardAnim = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
-    loadBusinesses();
+    initMap();
   }, []);
 
-  const loadBusinesses = async () => {
-    const data = await fetchBusinessesForMap();
-    setBusinesses(data);
+  const initMap = async () => {
+    // Get user location and businesses in parallel
+    const [location, bizData] = await Promise.all([
+      getUserLocation(),
+      fetchBusinessesForMap(),
+    ]);
+
+    setBusinesses(bizData);
+
+    if (location) {
+      setUserLocation(location);
+      const region: Region = {
+        latitude: location.latitude,
+        longitude: location.longitude,
+        latitudeDelta: 0.015,
+        longitudeDelta: 0.015,
+      };
+      setInitialRegion(region);
+    }
+
     setLoading(false);
 
-    // Auto-fit map to show all markers
-    if (data.length > 0 && mapRef.current) {
-      setTimeout(() => {
-        const coords = data.map((b) => ({ latitude: b.latitude, longitude: b.longitude }));
-        mapRef.current?.fitToCoordinates(coords, {
-          edgePadding: { top: 80, right: 40, bottom: 200, left: 40 },
-          animated: true,
-        });
-      }, 500);
+    // After render, fit to show user + businesses
+    setTimeout(() => {
+      fitMapToContent(location, bizData);
+    }, 600);
+  };
+
+  const getUserLocation = async (): Promise<{ latitude: number; longitude: number } | null> => {
+    try {
+      const { status } = await Location.requestForegroundPermissionsAsync();
+      if (status !== 'granted') return null;
+      const loc = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced });
+      return { latitude: loc.coords.latitude, longitude: loc.coords.longitude };
+    } catch {
+      return null;
+    }
+  };
+
+  const fitMapToContent = (
+    loc: { latitude: number; longitude: number } | null,
+    bizList: MapBusiness[],
+  ) => {
+    if (!mapRef.current) return;
+
+    const coords: { latitude: number; longitude: number }[] = [];
+    if (loc) coords.push(loc);
+    bizList.forEach((b) => coords.push({ latitude: b.latitude, longitude: b.longitude }));
+
+    if (coords.length > 1) {
+      mapRef.current.fitToCoordinates(coords, {
+        edgePadding: { top: 80, right: 40, bottom: 200, left: 40 },
+        animated: true,
+      });
+    } else if (coords.length === 1) {
+      mapRef.current.animateToRegion({
+        ...coords[0],
+        latitudeDelta: 0.012,
+        longitudeDelta: 0.012,
+      }, 400);
     }
   };
 
@@ -110,15 +156,15 @@ export default function BusinessMapScreen() {
     router.push(`/food/menu/${selectedBiz.id}` as any);
   };
 
-  const handleCenterMap = () => {
-    if (businesses.length > 0) {
-      const coords = businesses.map((b) => ({ latitude: b.latitude, longitude: b.longitude }));
-      mapRef.current?.fitToCoordinates(coords, {
-        edgePadding: { top: 80, right: 40, bottom: 200, left: 40 },
-        animated: true,
-      });
+  const handleCenterOnMe = () => {
+    if (userLocation) {
+      mapRef.current?.animateToRegion({
+        ...userLocation,
+        latitudeDelta: 0.012,
+        longitudeDelta: 0.012,
+      }, 400);
     } else {
-      mapRef.current?.animateToRegion(TOMATLAN_REGION, 500);
+      fitMapToContent(null, businesses);
     }
   };
 
@@ -135,35 +181,32 @@ export default function BusinessMapScreen() {
           <Feather name="arrow-left" size={22} color={DS.colors.dark} />
         </TouchableOpacity>
         <View style={s.headerCenter}>
-          <Text style={s.headerTitle}>Negocios en Tomatlan</Text>
-          <Text style={s.headerSub}>{openCount} abiertos de {businesses.length}</Text>
+          <Text style={s.headerTitle}>Negocios cercanos</Text>
+          {businesses.length > 0 && (
+            <Text style={s.headerSub}>{openCount} abiertos de {businesses.length}</Text>
+          )}
         </View>
         <TouchableOpacity style={s.listBtn} onPress={() => router.push('/food/restaurants' as any)}>
           <Feather name="list" size={20} color={DS.colors.dark} />
         </TouchableOpacity>
       </View>
 
-      {/* Map */}
+      {/* Map — ALWAYS visible */}
       {loading ? (
         <View style={s.loadingWrap}>
           <ActivityIndicator size="large" color={DS.colors.orange} />
-          <Text style={s.loadingText}>Cargando mapa...</Text>
-        </View>
-      ) : businesses.length === 0 ? (
-        <View style={s.loadingWrap}>
-          <Text style={{ fontSize: 48 }}>{'\uD83D\uDDFA\uFE0F'}</Text>
-          <Text style={s.emptyTitle}>Sin negocios aun</Text>
-          <Text style={s.emptyText}>Los negocios de Tonalli apareceran aqui automaticamente</Text>
+          <Text style={s.loadingText}>Obteniendo ubicacion...</Text>
         </View>
       ) : (
         <MapView
           ref={mapRef}
           style={s.map}
-          initialRegion={TOMATLAN_REGION}
+          initialRegion={initialRegion}
           showsUserLocation
           showsMyLocationButton={false}
           showsCompass={false}
           mapType="standard"
+          onPress={() => setSelectedBiz(null)}
         >
           {businesses.map((biz) => (
             <Marker
@@ -181,11 +224,29 @@ export default function BusinessMapScreen() {
         </MapView>
       )}
 
-      {/* Center/fit all button */}
-      {businesses.length > 0 && (
-        <TouchableOpacity style={s.centerBtn} onPress={handleCenterMap} activeOpacity={0.8}>
-          <Feather name="maximize" size={20} color={DS.colors.dark} />
+      {/* My location button */}
+      {!loading && (
+        <TouchableOpacity style={s.myLocBtn} onPress={handleCenterOnMe} activeOpacity={0.8}>
+          <Feather name="navigation" size={18} color={DS.colors.blue} />
         </TouchableOpacity>
+      )}
+
+      {/* Fit all button */}
+      {!loading && businesses.length > 0 && (
+        <TouchableOpacity
+          style={s.fitAllBtn}
+          onPress={() => fitMapToContent(userLocation, businesses)}
+          activeOpacity={0.8}
+        >
+          <Feather name="maximize" size={18} color={DS.colors.dark} />
+        </TouchableOpacity>
+      )}
+
+      {/* Empty overlay on map */}
+      {!loading && businesses.length === 0 && (
+        <View style={s.emptyOverlay}>
+          <Text style={s.emptyText}>Los negocios apareceran aqui cuando se registren</Text>
+        </View>
       )}
 
       {/* Legend */}
@@ -284,10 +345,8 @@ const s = StyleSheet.create({
 
   map: { flex: 1 },
 
-  loadingWrap: { flex: 1, justifyContent: 'center', alignItems: 'center', gap: 12, padding: 40 },
+  loadingWrap: { flex: 1, justifyContent: 'center', alignItems: 'center', gap: 12 },
   loadingText: { fontSize: 14, color: DS.colors.muted },
-  emptyTitle: { fontSize: 18, fontWeight: '700', color: DS.colors.dark },
-  emptyText: { fontSize: 14, color: DS.colors.muted, textAlign: 'center' },
 
   // Custom marker
   marker: { alignItems: 'center', justifyContent: 'center', width: 40, height: 40 },
@@ -308,8 +367,8 @@ const s = StyleSheet.create({
   },
   markerEmoji: { fontSize: 16 },
 
-  // Center button
-  centerBtn: {
+  // My location button
+  myLocBtn: {
     position: 'absolute',
     right: 16,
     top: Platform.OS === 'ios' ? 120 : 108,
@@ -325,6 +384,42 @@ const s = StyleSheet.create({
     shadowRadius: 6,
     elevation: 4,
   },
+
+  // Fit all button
+  fitAllBtn: {
+    position: 'absolute',
+    right: 16,
+    top: Platform.OS === 'ios' ? 172 : 160,
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: DS.colors.card,
+    justifyContent: 'center',
+    alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.15,
+    shadowRadius: 6,
+    elevation: 4,
+  },
+
+  // Empty overlay
+  emptyOverlay: {
+    position: 'absolute',
+    bottom: 40,
+    left: 24,
+    right: 24,
+    backgroundColor: 'rgba(255,255,255,0.92)',
+    borderRadius: 16,
+    padding: 20,
+    alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 8,
+    elevation: 4,
+  },
+  emptyText: { fontSize: 14, color: DS.colors.muted, textAlign: 'center' },
 
   // Legend
   legend: {
