@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import {
   View,
   Text,
@@ -10,6 +10,7 @@ import {
   SafeAreaView,
   Modal,
   TextInput,
+  Linking,
 } from 'react-native';
 import { router, useLocalSearchParams } from 'expo-router';
 import { Feather } from '@expo/vector-icons';
@@ -174,6 +175,14 @@ export default function MenuScreen() {
           >
             <Feather name="arrow-left" size={22} color="#FFF" />
           </TouchableOpacity>
+          <View style={styles.headerActions}>
+            <TouchableOpacity style={styles.headerActionBtn} activeOpacity={0.8}>
+              <Feather name="heart" size={18} color="#FFF" />
+            </TouchableOpacity>
+            <TouchableOpacity style={styles.headerActionBtn} activeOpacity={0.8}>
+              <Feather name="share-2" size={18} color="#FFF" />
+            </TouchableOpacity>
+          </View>
         </View>
 
         {/* -- Business info card -- */}
@@ -186,18 +195,33 @@ export default function MenuScreen() {
             <View style={styles.metaRow}>
               <View style={styles.metaItem}>
                 <Feather name="star" size={14} color="#F59E0B" />
-                <Text style={styles.metaText}>{business.rating.toFixed(1)}</Text>
+                <Text style={styles.metaText}>
+                  {business.rating > 0 ? business.rating.toFixed(1) : 'Nuevo'}
+                  {business.rating > 0 ? ' (120+)' : ''}
+                </Text>
               </View>
               <View style={styles.dot} />
               <View style={styles.metaItem}>
-                <Feather name="clock" size={14} color={DS.colors.muted} />
-                <Text style={styles.metaText}>{business.deliveryTime}</Text>
+                <Feather name="clock" size={14} color={DS.colors.green} />
+                <Text style={[styles.metaText, { color: DS.colors.green }]}>
+                  {business.isOpen !== false ? 'Abierto' : 'Cerrado'}
+                </Text>
               </View>
-              <View style={styles.dot} />
-              <View style={styles.metaItem}>
-                <Feather name="tag" size={14} color={DS.colors.muted} />
-                <Text style={styles.metaText}>{business.category}</Text>
-              </View>
+            </View>
+
+            {/* Action buttons row */}
+            <View style={styles.actionBtns}>
+              <TouchableOpacity
+                style={styles.callBtnWrap}
+                onPress={() => Linking.openURL('tel:+523171234567')}
+                activeOpacity={0.8}
+              >
+                <Feather name="phone" size={16} color={DS.colors.blue} />
+                <Text style={styles.callBtnText}>Llamar</Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={styles.infoBtnWrap} activeOpacity={0.7}>
+                <Feather name="info" size={18} color={DS.colors.muted} />
+              </TouchableOpacity>
             </View>
           </YCard>
         </View>
@@ -210,9 +234,45 @@ export default function MenuScreen() {
           </View>
         )}
 
+        {/* -- Populares hoy -- */}
+        {products.length > 0 && (
+          <View style={styles.popularSection}>
+            <View style={styles.popularHeader}>
+              <Text style={styles.sectionTitle}>Populares hoy</Text>
+              <TouchableOpacity>
+                <Text style={styles.viewAllLink}>Ver todo &gt;</Text>
+              </TouchableOpacity>
+            </View>
+            <ScrollView
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              contentContainerStyle={styles.popularScroll}
+            >
+              {products.slice(0, 5).map((product) => (
+                <TouchableOpacity
+                  key={`pop-${product.id}`}
+                  style={styles.popularCard}
+                  onPress={() => handleAdd(product)}
+                  activeOpacity={0.85}
+                >
+                  {product.image ? (
+                    <Image source={{ uri: product.image }} style={styles.popularImg} />
+                  ) : (
+                    <View style={[styles.popularImg, styles.popularImgFallback]}>
+                      <Text style={{ fontSize: 32 }}>{categoryEmoji(product.name)}</Text>
+                    </View>
+                  )}
+                  <Text style={styles.popularName} numberOfLines={1}>{product.name}</Text>
+                  <Text style={styles.popularPrice}>${product.price.toFixed(2)}</Text>
+                </TouchableOpacity>
+              ))}
+            </ScrollView>
+          </View>
+        )}
+
         {/* -- Products list -- */}
         <View style={styles.menuSection}>
-          <Text style={styles.sectionTitle}>Menu</Text>
+          <Text style={styles.sectionTitle}>Menu completo</Text>
 
           {products.length === 0 ? (
             <View style={styles.empty}>
@@ -384,6 +444,23 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
 
+  // Header actions (heart, share)
+  headerActions: {
+    position: 'absolute',
+    top: 50,
+    right: DS.space.lg,
+    flexDirection: 'row',
+    gap: 10,
+  },
+  headerActionBtn: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: 'rgba(0,0,0,0.35)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+
   // Info card
   infoWrap: { marginTop: -24, marginHorizontal: DS.space.lg },
   bizName: { ...DS.fonts.title, color: DS.colors.dark, marginBottom: 4 },
@@ -394,6 +471,82 @@ const styles = StyleSheet.create({
   dot: {
     width: 4, height: 4, borderRadius: 2,
     backgroundColor: DS.colors.hairline, marginHorizontal: DS.space.sm,
+  },
+  actionBtns: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: DS.space.sm,
+    marginTop: DS.space.md,
+  },
+  callBtnWrap: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    height: 44,
+    borderRadius: DS.radius.full,
+    backgroundColor: '#EFF6FF',
+    borderWidth: 1,
+    borderColor: '#DBEAFE',
+  },
+  callBtnText: { ...DS.fonts.bodyMed, color: DS.colors.blue },
+  infoBtnWrap: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: '#F5F5F4',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+
+  // Populares hoy
+  popularSection: {
+    paddingTop: DS.space.xl,
+    paddingLeft: DS.space.lg,
+  },
+  popularHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingRight: DS.space.lg,
+    marginBottom: DS.space.md,
+  },
+  viewAllLink: { ...DS.fonts.label, color: DS.colors.blue },
+  popularScroll: {
+    gap: DS.space.md,
+    paddingRight: DS.space.lg,
+    paddingBottom: DS.space.sm,
+  },
+  popularCard: {
+    width: 150,
+    backgroundColor: DS.colors.card,
+    borderRadius: DS.radius.lg,
+    overflow: 'hidden',
+    ...DS.shadow.card,
+  },
+  popularImg: {
+    width: 150,
+    height: 110,
+    resizeMode: 'cover',
+  },
+  popularImgFallback: {
+    backgroundColor: '#FFF5EB',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  popularName: {
+    ...DS.fonts.label,
+    color: DS.colors.dark,
+    paddingHorizontal: DS.space.sm,
+    paddingTop: DS.space.sm,
+  },
+  popularPrice: {
+    ...DS.fonts.bodyMed,
+    color: DS.colors.orange,
+    paddingHorizontal: DS.space.sm,
+    paddingBottom: DS.space.sm,
+    paddingTop: 2,
   },
 
   // Menu section

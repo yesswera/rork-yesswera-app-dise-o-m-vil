@@ -1,6 +1,7 @@
 // ============================================================================
-// YESSWERA: TRACKING DE ORDEN — Real Map with route + live driver
-// Map (48%) + Bottom sheet (52%) with progress bar + driver card
+// YESSWERA: TRACKING DE ORDEN v2 — Redesigned with premium UX
+// Inspired by best-in-class delivery tracking (Uber Eats / Rappi style)
+// Map top + draggable-feel bottom sheet with rich driver card
 // ============================================================================
 
 import { useState, useEffect, useCallback, useRef } from 'react';
@@ -13,9 +14,10 @@ import {
   Linking,
   ActivityIndicator,
   Platform,
+  Animated,
 } from 'react-native';
 import { useLocalSearchParams, router } from 'expo-router';
-import { Ionicons } from '@expo/vector-icons';
+import { Feather } from '@expo/vector-icons';
 import MapView, { Marker, Polyline, PROVIDER_GOOGLE } from 'react-native-maps';
 import { DS } from '@/constants/design';
 import YCard from '@/components/ui/YCard';
@@ -26,9 +28,9 @@ import { getRoute } from '@/services/routing';
 import type { Order, OrderStatus } from '@/constants/types';
 
 const { height: SCREEN_HEIGHT } = Dimensions.get('window');
-const MAP_HEIGHT = SCREEN_HEIGHT * 0.48;
+const MAP_HEIGHT = SCREEN_HEIGHT * 0.45;
 
-// Tomatlan, Jalisco — default region when no coordinates available
+// Tomatlan, Jalisco — default region
 const TOMATLAN_REGION = {
   latitude: 19.9333,
   longitude: -105.2500,
@@ -37,15 +39,12 @@ const TOMATLAN_REGION = {
 };
 
 // -- Progress stages ----------------------------------------------------------
-const STAGES = ['pending', 'preparing', 'in_transit', 'delivered'] as const;
-type Stage = (typeof STAGES)[number];
-
-const STAGE_LABELS: Record<Stage, string> = {
-  pending: 'Recibido',
-  preparing: 'Preparando',
-  in_transit: 'En camino',
-  delivered: 'Entregado',
-};
+const STAGES = [
+  { key: 'confirmed', label: 'Confirmado', icon: 'check-circle' as const },
+  { key: 'preparing', label: 'En Cocina', icon: 'coffee' as const },
+  { key: 'in_transit', label: 'En Camino', icon: 'truck' as const },
+  { key: 'delivered', label: 'Entregado', icon: 'flag' as const },
+];
 
 function mapStatusToStage(status: OrderStatus): number {
   switch (status) {
@@ -73,20 +72,20 @@ function getStatusMessage(status: OrderStatus): string {
   switch (status) {
     case 'pending':
     case 'confirmed':
-      return 'Tu pedido fue recibido';
+      return 'Preparando tu pedido';
     case 'accepted':
     case 'preparing':
-      return 'El negocio esta preparando tu pedido';
+      return 'El negocio esta cocinando';
     case 'ready':
-      return 'Tu pedido esta listo';
+      return 'Tu pedido esta listo!';
     case 'assigned':
     case 'driver_verified':
     case 'handed_to_driver':
-      return 'Un repartidor recogio tu pedido';
+      return 'Recogiendo tu pedido';
     case 'in_transit':
       return 'Tu repartidor va en camino';
     case 'arrived':
-      return 'Tu repartidor ha llegado';
+      return 'Tu repartidor ha llegado!';
     case 'delivered':
       return 'Pedido entregado';
     case 'cancelled':
@@ -118,6 +117,12 @@ function getEtaMinutes(status: OrderStatus): number | null {
   }
 }
 
+function getEstimatedArrival(minutes: number): string {
+  const now = new Date();
+  now.setMinutes(now.getMinutes() + minutes);
+  return now.toLocaleTimeString('es-MX', { hour: '2-digit', minute: '2-digit' });
+}
+
 // -- Component ----------------------------------------------------------------
 export default function TrackingScreen() {
   const { orderId } = useLocalSearchParams<{ orderId: string }>();
@@ -130,6 +135,19 @@ export default function TrackingScreen() {
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const mapRef = useRef<MapView | null>(null);
   const routeFetchedRef = useRef(false);
+  const pulseAnim = useRef(new Animated.Value(1)).current;
+
+  // Pulse animation for ETA badge
+  useEffect(() => {
+    const pulse = Animated.loop(
+      Animated.sequence([
+        Animated.timing(pulseAnim, { toValue: 1.08, duration: 1200, useNativeDriver: true }),
+        Animated.timing(pulseAnim, { toValue: 1, duration: 1200, useNativeDriver: true }),
+      ])
+    );
+    pulse.start();
+    return () => pulse.stop();
+  }, []);
 
   // Fetch order
   const fetchOrder = useCallback(async () => {
@@ -171,52 +189,41 @@ export default function TrackingScreen() {
   useEffect(() => {
     if (routeFetchedRef.current) return;
     if (!order?.pickupLocation || !order?.deliveryLocation) return;
-
     const pickup = order.pickupLocation;
     const delivery = order.deliveryLocation;
-
     if (!pickup.latitude || !pickup.longitude || !delivery.latitude || !delivery.longitude) return;
 
     routeFetchedRef.current = true;
-
     getRoute(pickup, delivery)
       .then((result) => {
         setRouteCoords(result.coordinates);
         setRouteLoaded(true);
       })
-      .catch((err) => {
-        console.warn('Failed to fetch route:', err);
-        // Fallback: straight line
+      .catch(() => {
         setRouteCoords([pickup, delivery]);
         setRouteLoaded(true);
       });
   }, [order?.pickupLocation, order?.deliveryLocation]);
 
-  // Fit map to show the full route + driver when route loads
+  // Fit map to route + driver
   useEffect(() => {
     if (!routeLoaded || routeCoords.length === 0) return;
-
     const allCoords = [...routeCoords];
-    if (driverLoc) {
-      allCoords.push({ latitude: driverLoc.latitude, longitude: driverLoc.longitude });
-    }
+    if (driverLoc) allCoords.push({ latitude: driverLoc.latitude, longitude: driverLoc.longitude });
 
-    // Small delay to let the MapView render
     const timer = setTimeout(() => {
       mapRef.current?.fitToCoordinates(allCoords, {
         edgePadding: { top: 80, right: 60, bottom: 40, left: 60 },
         animated: true,
       });
     }, 500);
-
     return () => clearTimeout(timer);
   }, [routeLoaded]);
 
-  // Calculate real ETA when driver is in transit
+  // Real ETA from driver position
   useEffect(() => {
     if (!driverLoc || !order?.deliveryLocation) return;
     if (order.status !== 'in_transit' && order.status !== 'arrived') return;
-
     const dest = order.deliveryLocation;
     if (!dest.latitude || !dest.longitude) return;
 
@@ -224,24 +231,20 @@ export default function TrackingScreen() {
       { latitude: driverLoc.latitude, longitude: driverLoc.longitude },
       { latitude: dest.latitude, longitude: dest.longitude }
     )
-      .then((r) => {
-        if (r.durationMin > 0) setRealEtaMin(r.durationMin);
-      })
+      .then((r) => { if (r.durationMin > 0) setRealEtaMin(r.durationMin); })
       .catch(() => {});
   }, [driverLoc?.latitude, driverLoc?.longitude, order?.status]);
 
-  // Re-fit map when driver location first becomes available (once)
+  // Re-fit map when driver first appears
   const driverFittedRef = useRef(false);
   useEffect(() => {
     if (driverFittedRef.current) return;
     if (!driverLoc || routeCoords.length === 0) return;
-
     driverFittedRef.current = true;
     const allCoords = [
       ...routeCoords,
       { latitude: driverLoc.latitude, longitude: driverLoc.longitude },
     ];
-
     mapRef.current?.fitToCoordinates(allCoords, {
       edgePadding: { top: 80, right: 60, bottom: 40, left: 60 },
       animated: true,
@@ -252,7 +255,7 @@ export default function TrackingScreen() {
   if (loading) {
     return (
       <View style={styles.center}>
-        <ActivityIndicator size="large" color={DS.colors.green} />
+        <ActivityIndicator size="large" color={DS.colors.orange} />
       </View>
     );
   }
@@ -260,7 +263,7 @@ export default function TrackingScreen() {
   if (!order) {
     return (
       <View style={styles.center}>
-        <Ionicons name="alert-circle-outline" size={48} color={DS.colors.muted} />
+        <Feather name="alert-circle" size={48} color={DS.colors.muted} />
         <Text style={styles.errorText}>Orden no encontrada</Text>
       </View>
     );
@@ -270,18 +273,20 @@ export default function TrackingScreen() {
   const currentStage = mapStatusToStage(order.status);
   const statusMessage = getStatusMessage(order.status);
   const eta = realEtaMin ?? getEtaMinutes(order.status);
+  const isCancelled = order.status === 'cancelled';
+  const isDelivered = order.status === 'delivered';
+  const isTerminal = isCancelled || isDelivered;
 
   const driverInitials = order.driverName
-    ? order.driverName
-        .split(' ')
-        .map((w) => w[0])
-        .join('')
-        .toUpperCase()
-        .slice(0, 2)
+    ? order.driverName.split(' ').map((w) => w[0]).join('').toUpperCase().slice(0, 2)
     : 'DR';
 
   const callDriver = () => {
     if (order.driverPhone) Linking.openURL(`tel:${order.driverPhone}`);
+  };
+
+  const chatDriver = () => {
+    router.push(`/chat/${order.id}` as any);
   };
 
   const hasPickup = order.pickupLocation &&
@@ -292,27 +297,16 @@ export default function TrackingScreen() {
     typeof order.deliveryLocation.longitude === 'number';
   const hasLocations = hasPickup && hasDelivery;
 
-  // Determine initial map region
   const initialRegion = hasPickup
-    ? {
-        latitude: order.pickupLocation!.latitude,
-        longitude: order.pickupLocation!.longitude,
-        latitudeDelta: 0.025,
-        longitudeDelta: 0.025,
-      }
+    ? { latitude: order.pickupLocation!.latitude, longitude: order.pickupLocation!.longitude, latitudeDelta: 0.025, longitudeDelta: 0.025 }
     : hasDelivery
-    ? {
-        latitude: order.deliveryLocation.latitude,
-        longitude: order.deliveryLocation.longitude,
-        latitudeDelta: 0.025,
-        longitudeDelta: 0.025,
-      }
+    ? { latitude: order.deliveryLocation.latitude, longitude: order.deliveryLocation.longitude, latitudeDelta: 0.025, longitudeDelta: 0.025 }
     : TOMATLAN_REGION;
 
   // -- Render -----------------------------------------------------------------
   return (
     <View style={styles.container}>
-      {/* -- Map area (top 48 %) ----------------------------------------------- */}
+      {/* -- Map area ---------------------------------------------------------- */}
       <View style={styles.mapArea}>
         {hasLocations ? (
           <MapView
@@ -324,170 +318,201 @@ export default function TrackingScreen() {
             showsMyLocationButton={false}
             showsCompass={false}
             toolbarEnabled={false}
-            mapPadding={{ top: 0, right: 0, bottom: 0, left: 0 }}
           >
-            {/* Route polyline */}
             {routeCoords.length > 1 && (
               <Polyline
                 coordinates={routeCoords}
-                strokeColor={DS.colors.green}
+                strokeColor={DS.colors.blue}
                 strokeWidth={4}
-                lineDashPattern={undefined}
+                lineDashPattern={[8, 6]}
               />
             )}
-
-            {/* Business / Pickup marker — green */}
             {hasPickup && (
               <Marker
-                coordinate={{
-                  latitude: order.pickupLocation!.latitude,
-                  longitude: order.pickupLocation!.longitude,
-                }}
+                coordinate={{ latitude: order.pickupLocation!.latitude, longitude: order.pickupLocation!.longitude }}
                 title="Negocio"
-                description="Punto de recogida"
                 pinColor={DS.colors.green}
               />
             )}
-
-            {/* Customer / Delivery marker — orange */}
             {hasDelivery && (
               <Marker
-                coordinate={{
-                  latitude: order.deliveryLocation.latitude,
-                  longitude: order.deliveryLocation.longitude,
-                }}
+                coordinate={{ latitude: order.deliveryLocation.latitude, longitude: order.deliveryLocation.longitude }}
                 title="Entrega"
-                description={order.deliveryAddress || 'Tu direccion'}
                 pinColor={DS.colors.orange}
               />
             )}
-
-            {/* Driver marker — blue (real-time) */}
             {driverLoc && (
               <Marker
-                coordinate={{
-                  latitude: driverLoc.latitude,
-                  longitude: driverLoc.longitude,
-                }}
+                coordinate={{ latitude: driverLoc.latitude, longitude: driverLoc.longitude }}
                 title={order.driverName || 'Repartidor'}
-                description="En camino"
                 pinColor={DS.colors.blue}
               />
             )}
           </MapView>
         ) : (
           <View style={styles.noLocationContainer}>
-            <Ionicons name="location-outline" size={48} color={DS.colors.muted} />
+            <Feather name="map-pin" size={48} color={DS.colors.muted} />
             <Text style={styles.noLocationText}>Sin ubicacion disponible</Text>
-            <Text style={styles.noLocationSub}>
-              Las coordenadas del pedido no estan disponibles
+          </View>
+        )}
+
+        {/* Status badge floating on map */}
+        {!isTerminal && (
+          <View style={styles.mapBadge}>
+            <Feather
+              name={currentStage >= 2 ? 'truck' : 'clock'}
+              size={14}
+              color="#FFF"
+            />
+            <Text style={styles.mapBadgeText}>
+              {currentStage >= 2 ? 'En camino' : 'Preparando'}
             </Text>
           </View>
         )}
 
-        {/* Help button */}
-        <TouchableOpacity
-          style={styles.helpBtn}
-          onPress={() => router.push(`/chat/${order.id}` as any)}
-          activeOpacity={0.8}
-        >
-          <Ionicons name="help-circle" size={22} color="#FFF" />
-          <Text style={styles.helpText}>Ayuda</Text>
-        </TouchableOpacity>
-
-        {/* Back button */}
-        <TouchableOpacity style={styles.backBtn} onPress={() => router.back()} activeOpacity={0.8}>
-          <Ionicons name="arrow-back" size={24} color={DS.colors.dark} />
-        </TouchableOpacity>
+        {/* Top bar */}
+        <View style={styles.topBar}>
+          <TouchableOpacity style={styles.backBtn} onPress={() => router.back()} activeOpacity={0.8}>
+            <Feather name="arrow-left" size={22} color={DS.colors.dark} />
+          </TouchableOpacity>
+          <Text style={styles.topTitle}>Estado del Pedido</Text>
+          <TouchableOpacity
+            style={styles.helpBtn}
+            onPress={() => router.push(`/chat/${order.id}` as any)}
+            activeOpacity={0.8}
+          >
+            <Feather name="help-circle" size={22} color={DS.colors.muted} />
+          </TouchableOpacity>
+        </View>
       </View>
 
-      {/* -- Bottom sheet (bottom 52 %) ---------------------------------------- */}
+      {/* -- Bottom sheet ------------------------------------------------------ */}
       <View style={styles.sheet}>
-        {/* Drag capsule */}
         <View style={styles.dragCapsule} />
 
-        {/* Status + ETA */}
-        <Text style={styles.statusBig}>{statusMessage}</Text>
-        {eta !== null && <Text style={styles.etaGreen}>Llega en ~{eta} min</Text>}
-        {order.status === 'delivered' && (
-          <Text style={[styles.etaGreen, { color: DS.colors.green }]}>Entregado</Text>
-        )}
-        {order.status === 'cancelled' && (
-          <Text style={[styles.etaGreen, { color: DS.colors.red }]}>Cancelado</Text>
-        )}
+        {/* Status header with ETA */}
+        <View style={styles.statusRow}>
+          <View style={styles.statusLeft}>
+            <Text style={styles.statusBig}>{statusMessage}</Text>
+            {eta !== null && !isTerminal && (
+              <Text style={styles.etaSubtext}>
+                Llegada estimada: <Text style={styles.etaTime}>{getEstimatedArrival(eta)}</Text>
+              </Text>
+            )}
+            {isDelivered && (
+              <Text style={[styles.etaSubtext, { color: DS.colors.green }]}>Entregado con exito</Text>
+            )}
+            {isCancelled && (
+              <Text style={[styles.etaSubtext, { color: DS.colors.red }]}>Pedido cancelado</Text>
+            )}
+          </View>
+          {eta !== null && !isTerminal && (
+            <Animated.View style={[styles.etaBadge, { transform: [{ scale: pulseAnim }] }]}>
+              <Feather name="clock" size={16} color={DS.colors.orange} />
+              <Text style={styles.etaBadgeNum}>{eta}</Text>
+              <Text style={styles.etaBadgeUnit}>min</Text>
+            </Animated.View>
+          )}
+        </View>
 
-        {/* -- Progress bar with 4 stages -------------------------------------- */}
-        <View style={styles.progressRow}>
-          {STAGES.map((stage, idx) => {
-            const passed = idx <= currentStage;
-            const isCurrent = idx === currentStage;
+        {/* -- Horizontal progress bar with icons ------------------------------ */}
+        <View style={styles.progressContainer}>
+          {/* Background track */}
+          <View style={styles.progressTrack} />
+          {/* Filled track */}
+          <View style={[styles.progressFill, { width: `${(currentStage / (STAGES.length - 1)) * 100}%` }]} />
 
-            return (
-              <View key={stage} style={styles.stageCol}>
-                {/* Connector line (before circle) */}
-                {idx > 0 && (
-                  <View
-                    style={[
-                      styles.connector,
-                      { backgroundColor: passed ? DS.colors.green : DS.colors.hairline },
-                    ]}
-                  />
-                )}
-
-                {/* Circle */}
-                <View
-                  style={[
-                    styles.circle,
-                    passed && !isCurrent && styles.circlePassed,
-                    isCurrent && styles.circleCurrent,
-                  ]}
-                >
-                  {passed && !isCurrent && (
-                    <Ionicons name="checkmark" size={14} color="#FFF" />
-                  )}
-                  {isCurrent && <View style={styles.currentDot} />}
-                </View>
-
-                {/* Label */}
-                <Text
-                  style={[
+          {/* Stage icons */}
+          <View style={styles.stagesRow}>
+            {STAGES.map((stage, idx) => {
+              const passed = idx <= currentStage;
+              const isCurrent = idx === currentStage;
+              return (
+                <View key={stage.key} style={styles.stageItem}>
+                  <View style={[
+                    styles.stageCircle,
+                    passed && styles.stageCirclePassed,
+                    isCurrent && styles.stageCircleCurrent,
+                  ]}>
+                    <Feather
+                      name={passed ? (idx < currentStage ? 'check' : stage.icon) : stage.icon}
+                      size={14}
+                      color={passed ? '#FFF' : DS.colors.placeholder}
+                    />
+                  </View>
+                  <Text style={[
                     styles.stageLabel,
-                    passed && { color: DS.colors.dark, fontWeight: '600' },
-                  ]}
-                >
-                  {STAGE_LABELS[stage]}
-                </Text>
-              </View>
-            );
-          })}
+                    passed && styles.stageLabelActive,
+                    isCurrent && styles.stageLabelCurrent,
+                  ]}>
+                    {stage.label}
+                  </Text>
+                </View>
+              );
+            })}
+          </View>
         </View>
 
         {/* -- Driver card ----------------------------------------------------- */}
         {order.driverName ? (
           <YCard style={styles.driverCard}>
             <View style={styles.driverRow}>
-              <YAvatar initials={driverInitials} size={52} color={DS.colors.green} />
+              <View style={styles.driverAvatarWrap}>
+                <YAvatar initials={driverInitials} size={56} color={DS.colors.blue} />
+                <View style={styles.ratingBadge}>
+                  <Feather name="star" size={8} color="#FFF" />
+                </View>
+              </View>
               <View style={styles.driverInfo}>
                 <Text style={styles.driverName}>{order.driverName}</Text>
                 <Text style={styles.driverMeta}>
-                  Moto{order.driverRating ? ` \u2022 ${order.driverRating.toFixed(1)} \u2605` : ''}
+                  Moto
+                  {order.driverRating ? ` \u2022 ${order.driverRating.toFixed(2)}` : ''}
                 </Text>
               </View>
-              {order.driverPhone && (
-                <TouchableOpacity style={styles.phoneBtn} onPress={callDriver} activeOpacity={0.8}>
-                  <Ionicons name="call" size={24} color="#FFF" />
+              <View style={styles.driverActions}>
+                <TouchableOpacity style={styles.chatBtn} onPress={chatDriver} activeOpacity={0.8}>
+                  <Feather name="message-square" size={20} color="#FFF" />
                 </TouchableOpacity>
-              )}
+                {order.driverPhone && (
+                  <TouchableOpacity style={styles.callBtn} onPress={callDriver} activeOpacity={0.8}>
+                    <Feather name="phone" size={20} color={DS.colors.blue} />
+                  </TouchableOpacity>
+                )}
+              </View>
             </View>
           </YCard>
         ) : (
           <YCard style={styles.driverCard}>
             <View style={styles.noDriverRow}>
-              <Ionicons name="bicycle-outline" size={28} color={DS.colors.muted} />
+              <View style={styles.noDriverIcon}>
+                <Feather name="truck" size={22} color={DS.colors.orange} />
+              </View>
               <Text style={styles.noDriverText}>Buscando repartidor...</Text>
             </View>
           </YCard>
         )}
+
+        {/* -- Action buttons -------------------------------------------------- */}
+        <View style={styles.actionRow}>
+          <TouchableOpacity
+            style={styles.actionBtnOutline}
+            onPress={() => router.push(`/orders/${order.id}` as any)}
+            activeOpacity={0.8}
+          >
+            <Feather name="file-text" size={16} color={DS.colors.dark} />
+            <Text style={styles.actionBtnOutlineText}>Ver recibo</Text>
+          </TouchableOpacity>
+          {!isTerminal && (
+            <TouchableOpacity
+              style={styles.actionBtnCancel}
+              onPress={() => router.push(`/orders/${order.id}` as any)}
+              activeOpacity={0.8}
+            >
+              <Text style={styles.actionBtnCancelText}>Cancelar</Text>
+            </TouchableOpacity>
+          )}
+        </View>
       </View>
     </View>
   );
@@ -507,43 +532,60 @@ const styles = StyleSheet.create({
 
   // Map
   mapArea: { height: MAP_HEIGHT, backgroundColor: '#E8E4DF', position: 'relative' },
-
-  noLocationContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    gap: 8,
-  },
+  noLocationContainer: { flex: 1, justifyContent: 'center', alignItems: 'center', gap: 8 },
   noLocationText: { ...DS.fonts.bodyMed, color: DS.colors.muted },
-  noLocationSub: { ...DS.fonts.small, color: DS.colors.placeholder, textAlign: 'center', paddingHorizontal: 40 },
 
-  helpBtn: {
+  topBar: {
     position: 'absolute',
-    top: Platform.OS === 'ios' ? 60 : 40,
+    top: Platform.OS === 'ios' ? 56 : 36,
+    left: 16,
     right: 16,
-    backgroundColor: DS.colors.orange,
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 14,
-    paddingVertical: 8,
-    borderRadius: DS.radius.full,
-    gap: 6,
-    ...DS.shadow.button,
+    justifyContent: 'space-between',
   },
-  helpText: { ...DS.fonts.label, color: '#FFF' },
-
   backBtn: {
-    position: 'absolute',
-    top: Platform.OS === 'ios' ? 60 : 40,
-    left: 16,
-    width: 40,
-    height: 40,
-    borderRadius: 20,
+    width: 42,
+    height: 42,
+    borderRadius: 21,
     backgroundColor: '#FFF',
     justifyContent: 'center',
     alignItems: 'center',
     ...DS.shadow.card,
   },
+  topTitle: {
+    ...DS.fonts.bodyMed,
+    color: DS.colors.dark,
+    backgroundColor: 'rgba(255,255,255,0.9)',
+    paddingHorizontal: 14,
+    paddingVertical: 6,
+    borderRadius: DS.radius.full,
+    overflow: 'hidden',
+  },
+  helpBtn: {
+    width: 42,
+    height: 42,
+    borderRadius: 21,
+    backgroundColor: '#FFF',
+    justifyContent: 'center',
+    alignItems: 'center',
+    ...DS.shadow.card,
+  },
+
+  mapBadge: {
+    position: 'absolute',
+    bottom: 36,
+    alignSelf: 'center',
+    backgroundColor: DS.colors.orange,
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: DS.radius.full,
+    gap: 6,
+    ...DS.shadow.button,
+  },
+  mapBadgeText: { ...DS.fonts.label, color: '#FFF' },
 
   // Sheet
   sheet: {
@@ -564,64 +606,178 @@ const styles = StyleSheet.create({
     alignSelf: 'center',
     marginBottom: DS.space.lg,
   },
-  statusBig: { ...DS.fonts.title, color: DS.colors.dark, textAlign: 'center' },
-  etaGreen: { ...DS.fonts.bodyMed, color: DS.colors.green, textAlign: 'center', marginTop: 4 },
 
-  // Progress
-  progressRow: {
+  // Status header
+  statusRow: {
     flexDirection: 'row',
+    alignItems: 'center',
     justifyContent: 'space-between',
-    alignItems: 'flex-start',
-    marginTop: DS.space.xxl,
-    marginBottom: DS.space.xxl,
-    paddingHorizontal: DS.space.sm,
+    marginBottom: DS.space.xl,
   },
-  stageCol: { alignItems: 'center', flex: 1, position: 'relative' },
-  connector: {
-    position: 'absolute',
-    top: 13,
-    height: 3,
-    borderRadius: 2,
-    zIndex: -1,
-    left: '-50%' as any,
-    right: '50%' as any,
-  },
-  circle: {
-    width: 28,
-    height: 28,
-    borderRadius: 14,
-    backgroundColor: DS.colors.hairline,
-    borderWidth: 2,
-    borderColor: DS.colors.hairline,
+  statusLeft: { flex: 1, marginRight: 12 },
+  statusBig: { ...DS.fonts.title, color: DS.colors.dark },
+  etaSubtext: { ...DS.fonts.small, color: DS.colors.muted, marginTop: 4 },
+  etaTime: { color: DS.colors.blue, fontWeight: '700' },
+  etaBadge: {
+    width: 64,
+    height: 64,
+    borderRadius: 32,
+    backgroundColor: '#FFF5EB',
     justifyContent: 'center',
     alignItems: 'center',
+    borderWidth: 2,
+    borderColor: DS.colors.orange,
   },
-  circlePassed: { backgroundColor: DS.colors.green, borderColor: DS.colors.green },
-  circleCurrent: { borderWidth: 3, borderColor: DS.colors.green, backgroundColor: '#FFF' },
-  currentDot: { width: 10, height: 10, borderRadius: 5, backgroundColor: DS.colors.green },
-  stageLabel: { ...DS.fonts.tiny, color: DS.colors.muted, marginTop: 6, textAlign: 'center' },
+  etaBadgeNum: { ...DS.fonts.title, color: DS.colors.orange, marginTop: -2 },
+  etaBadgeUnit: { ...DS.fonts.tiny, color: DS.colors.orange, marginTop: -4 },
+
+  // Progress
+  progressContainer: {
+    height: 70,
+    marginBottom: DS.space.lg,
+    position: 'relative',
+    justifyContent: 'center',
+  },
+  progressTrack: {
+    position: 'absolute',
+    top: 17,
+    left: 24,
+    right: 24,
+    height: 4,
+    backgroundColor: DS.colors.hairline,
+    borderRadius: 2,
+  },
+  progressFill: {
+    position: 'absolute',
+    top: 17,
+    left: 24,
+    height: 4,
+    backgroundColor: DS.colors.blue,
+    borderRadius: 2,
+  },
+  stagesRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    paddingHorizontal: 0,
+  },
+  stageItem: {
+    alignItems: 'center',
+    width: 72,
+  },
+  stageCircle: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: '#F5F5F4',
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 2,
+    borderColor: DS.colors.hairline,
+  },
+  stageCirclePassed: {
+    backgroundColor: DS.colors.blue,
+    borderColor: DS.colors.blue,
+  },
+  stageCircleCurrent: {
+    backgroundColor: DS.colors.blue,
+    borderColor: DS.colors.blue,
+    shadowColor: DS.colors.blue,
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.4,
+    shadowRadius: 8,
+    elevation: 6,
+  },
+  stageLabel: {
+    ...DS.fonts.tiny,
+    color: DS.colors.placeholder,
+    marginTop: 6,
+    textAlign: 'center',
+  },
+  stageLabelActive: { color: DS.colors.dark },
+  stageLabelCurrent: { color: DS.colors.blue, fontWeight: '700' },
 
   // Driver card
-  driverCard: { marginTop: 'auto' as any, marginBottom: DS.space.xl },
-  driverRow: { flexDirection: 'row', alignItems: 'center', gap: 14 },
+  driverCard: { marginBottom: DS.space.md },
+  driverRow: { flexDirection: 'row', alignItems: 'center', gap: 12 },
+  driverAvatarWrap: { position: 'relative' },
+  ratingBadge: {
+    position: 'absolute',
+    bottom: -2,
+    right: -2,
+    width: 20,
+    height: 20,
+    borderRadius: 10,
+    backgroundColor: '#F59E0B',
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 2,
+    borderColor: '#FFF',
+  },
   driverInfo: { flex: 1 },
   driverName: { ...DS.fonts.bodyMed, color: DS.colors.dark },
   driverMeta: { ...DS.fonts.small, color: DS.colors.muted, marginTop: 2 },
-  phoneBtn: {
-    width: 52,
-    height: 52,
-    borderRadius: 26,
-    backgroundColor: DS.colors.green,
+  driverActions: { flexDirection: 'row', gap: 10 },
+  chatBtn: {
+    width: 44,
+    height: 44,
+    borderRadius: 12,
+    backgroundColor: DS.colors.blue,
     justifyContent: 'center',
     alignItems: 'center',
-    ...DS.shadow.button,
   },
+  callBtn: {
+    width: 44,
+    height: 44,
+    borderRadius: 12,
+    backgroundColor: '#EFF6FF',
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: '#DBEAFE',
+  },
+
   noDriverRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 10,
+    gap: 12,
     paddingVertical: 8,
   },
+  noDriverIcon: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: '#FFF5EB',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
   noDriverText: { ...DS.fonts.body, color: DS.colors.muted },
+
+  // Action buttons
+  actionRow: {
+    flexDirection: 'row',
+    gap: 12,
+    marginTop: 'auto' as any,
+    marginBottom: DS.space.xxl,
+  },
+  actionBtnOutline: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    height: 50,
+    borderRadius: DS.radius.lg,
+    backgroundColor: '#F5F5F4',
+    gap: 8,
+  },
+  actionBtnOutlineText: { ...DS.fonts.bodyMed, color: DS.colors.dark },
+  actionBtnCancel: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    height: 50,
+    borderRadius: DS.radius.lg,
+    backgroundColor: '#FEF2F2',
+  },
+  actionBtnCancelText: { ...DS.fonts.bodyMed, color: DS.colors.red },
 });
