@@ -14,14 +14,15 @@
 export const DS = {
   // Colors
   colors: {
-    // Primary
+    // Primary — Green is brand identity (trust, freshness, local)
     green: '#16A34A',
     greenLight: 'rgba(22, 163, 74, 0.12)',
     greenDark: '#15803D',
 
-    // Accent
+    // Action — Orange is the CTA color (appetite, urgency, action)
     orange: '#EA580C',
     orangeLight: 'rgba(234, 88, 12, 0.12)',
+    orangeDark: '#C2410C',
 
     // Info
     blue: '#2563EB',
@@ -30,6 +31,10 @@ export const DS = {
     // Danger
     red: '#EF4444',
     redLight: 'rgba(239, 68, 68, 0.10)',
+
+    // Success (confirmations, completed states)
+    success: '#16A34A',
+    successLight: 'rgba(22, 163, 74, 0.12)',
 
     // Surfaces
     bg: '#FAFAF9',

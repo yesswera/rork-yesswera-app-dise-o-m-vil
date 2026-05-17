@@ -263,7 +263,7 @@ export default function MenuScreen() {
       {itemCount > 0 && (
         <View style={[styles.cartBar, DS.shadow.float]}>
           <TouchableOpacity
-            style={[styles.cartBtn, colorShadow(DS.colors.green)]}
+            style={[styles.cartBtn, colorShadow(DS.colors.orange)]}
             onPress={() => router.push('/food/checkout' as any)}
             activeOpacity={0.9}
           >
@@ -330,7 +330,7 @@ export default function MenuScreen() {
                 <Text style={styles.modalCancelText}>Cancelar</Text>
               </TouchableOpacity>
               <TouchableOpacity
-                style={[styles.modalConfirm, colorShadow(DS.colors.green)]}
+                style={[styles.modalConfirm, colorShadow(DS.colors.orange)]}
                 onPress={handleAddWithVariants}
                 activeOpacity={0.8}
               >
@@ -417,7 +417,7 @@ const styles = StyleSheet.create({
     width: DS.touch.min,
     height: DS.touch.min,
     borderRadius: DS.touch.min / 2,
-    backgroundColor: DS.colors.green,
+    backgroundColor: DS.colors.orange,
     justifyContent: 'center',
     alignItems: 'center',
   },
@@ -456,7 +456,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: DS.colors.green,
+    backgroundColor: DS.colors.orange,
     borderRadius: DS.radius.xl,
     height: DS.touch.button,
     paddingHorizontal: DS.space.lg,
@@ -537,7 +537,7 @@ const styles = StyleSheet.create({
     flex: 2,
     height: DS.touch.min,
     borderRadius: DS.radius.xl,
-    backgroundColor: DS.colors.green,
+    backgroundColor: DS.colors.orange,
     justifyContent: 'center',
     alignItems: 'center',
   },

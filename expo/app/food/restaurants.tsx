@@ -79,10 +79,14 @@ function RestaurantCard({ biz, index }: { biz: Business; index: number }) {
         <View style={styles.cardMeta}>
           <View style={styles.ratingRow}>
             <Feather name="star" size={13} color="#F59E0B" />
-            <Text style={styles.ratingText}>{biz.rating.toFixed(1)}</Text>
+            <Text style={styles.ratingText}>{biz.rating > 0 ? biz.rating.toFixed(1) : 'Nuevo'}</Text>
           </View>
-          <Text style={styles.deliveryTime}>{biz.deliveryTime}</Text>
+          <View style={styles.deliveryRow}>
+            <Feather name="clock" size={11} color={DS.colors.orange} />
+            <Text style={styles.deliveryTime}>{biz.deliveryTime}</Text>
+          </View>
         </View>
+        <Text style={styles.deliveryFee}>Envio desde $15</Text>
       </View>
     </TouchableOpacity>
   );
@@ -315,9 +319,20 @@ const styles = StyleSheet.create({
     ...DS.fonts.small,
     color: DS.colors.body,
   },
+  deliveryRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 3,
+  },
   deliveryTime: {
     ...DS.fonts.small,
+    color: DS.colors.orange,
+    fontWeight: '600',
+  },
+  deliveryFee: {
+    ...DS.fonts.tiny,
     color: DS.colors.muted,
+    marginTop: DS.space.xs,
   },
 
   empty: {

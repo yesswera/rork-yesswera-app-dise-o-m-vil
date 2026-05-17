@@ -218,7 +218,7 @@ export default function ShoppingScreen() {
             title="Enviar Lista"
             subtitle={items.length > 0 ? `${items.length} producto${items.length > 1 ? 's' : ''} - Calcular precio` : 'Calcular precio'}
             icon={<Feather name="send" size={20} color="#FFF" />}
-            color={DS.colors.green}
+            color={DS.colors.orange}
             onPress={handleSubmit}
             disabled={items.length === 0}
             loading={loading}

@@ -193,7 +193,7 @@ export default function LoginScreen() {
           <BigButton
             label="Iniciar Sesion"
             onPress={handleLogin}
-            color={DS.colors.green}
+            color={DS.colors.orange}
             disabled={loading}
             loading={loading}
             height={DS.touch.button}
@@ -211,7 +211,10 @@ export default function LoginScreen() {
           </View>
 
           {/* -- Footer -- */}
-          <Text style={styles.footer}>Hecho en Tomatlan, Jalisco</Text>
+          <View style={styles.footerWrap}>
+            <Text style={styles.footer}>Hecho en Tomatlan, Jalisco</Text>
+            <Text style={styles.footerTrust}>18 negocios locales · Repartidores verificados</Text>
+          </View>
         </ScrollView>
       </KeyboardAvoidingView>
     </SafeAreaView>
@@ -315,10 +318,19 @@ const styles = StyleSheet.create({
   },
 
   // Footer
+  footerWrap: {
+    alignItems: 'center',
+    marginTop: DS.space.xxl,
+    gap: DS.space.xs,
+  },
   footer: {
     ...DS.fonts.small,
     color: DS.colors.placeholder,
     textAlign: 'center',
-    marginTop: DS.space.xxl,
+  },
+  footerTrust: {
+    ...DS.fonts.tiny,
+    color: DS.colors.muted,
+    textAlign: 'center',
   },
 });

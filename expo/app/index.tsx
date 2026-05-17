@@ -403,14 +403,14 @@ export default function HomeScreen() {
             title="Pedir Comida"
             subtitle="Restaurantes y antojitos"
             icon={<UtensilsCrossed size={30} color="#FFFFFF" strokeWidth={1.8} />}
-            color={DS.colors.green}
+            color={DS.colors.orange}
             onPress={() => router.push('/food/restaurants' as any)}
           />
           <ServiceCard
             title="Lista de Compras"
             subtitle="Te lo traemos del super"
             icon={<ShoppingCart size={30} color="#FFFFFF" strokeWidth={1.8} />}
-            color={DS.colors.orange}
+            color={DS.colors.green}
             onPress={() => router.push('/shopping' as any)}
           />
           <ServiceCard
@@ -420,6 +420,19 @@ export default function HomeScreen() {
             color={DS.colors.blue}
             onPress={() => router.push('/delivery/create' as any)}
           />
+        </View>
+
+        {/* Trust Badge — Social Proof */}
+        <View style={styles.trustBadge}>
+          <View style={styles.trustIconRow}>
+            <Feather name="shield" size={16} color={DS.colors.green} />
+            <Text style={styles.trustText}>
+              18 negocios de Tomatlan ya confian en nosotros
+            </Text>
+          </View>
+          <Text style={styles.trustSubtext}>
+            Repartidores verificados · Soporte en WhatsApp
+          </Text>
         </View>
 
         {/* Quick Reorder Section */}
@@ -538,11 +551,12 @@ export default function HomeScreen() {
         {!user && (
           <View style={styles.authPrompt}>
             <Text style={styles.authTitle}>Listo para ordenar?</Text>
+            <Text style={styles.authSubtitle}>Crea tu cuenta en 30 segundos</Text>
             <View style={styles.authRow}>
               <View style={styles.authBtnWrap}>
                 <BigButton
                   title="Crear Cuenta"
-                  color={DS.colors.green}
+                  color={DS.colors.orange}
                   onPress={() => router.push('/register' as any)}
                 />
               </View>
@@ -550,7 +564,7 @@ export default function HomeScreen() {
                 <BigButton
                   title="Iniciar Sesion"
                   color={DS.colors.card}
-                  textColor={DS.colors.green}
+                  textColor={DS.colors.orange}
                   onPress={() => router.push('/login' as any)}
                 />
               </View>
@@ -559,7 +573,7 @@ export default function HomeScreen() {
         )}
 
         {/* Tagline */}
-        <Text style={styles.tagline}>Lo que quieras, cuando quieras</Text>
+        <Text style={styles.tagline}>Hecho en Tomatlan, Jalisco</Text>
       </ScrollView>
 
       {/* Yessi Floating Button */}
@@ -713,6 +727,29 @@ const styles = StyleSheet.create({
     marginBottom: DS.space.xxxl,
   },
 
+  // Trust Badge
+  trustBadge: {
+    backgroundColor: DS.colors.greenLight,
+    borderRadius: DS.radius.lg,
+    padding: DS.space.lg,
+    marginBottom: DS.space.xxxl,
+    gap: DS.space.xs,
+  },
+  trustIconRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: DS.space.sm,
+  },
+  trustText: {
+    ...DS.fonts.label,
+    color: DS.colors.green,
+  },
+  trustSubtext: {
+    ...DS.fonts.small,
+    color: DS.colors.body,
+    marginLeft: 24,
+  },
+
   // Section wrapper
   sectionWrap: {
     marginBottom: DS.space.xxxl,
@@ -811,6 +848,11 @@ const styles = StyleSheet.create({
   authTitle: {
     ...DS.fonts.section,
     color: DS.colors.dark,
+    marginBottom: DS.space.xs,
+  },
+  authSubtitle: {
+    ...DS.fonts.small,
+    color: DS.colors.muted,
     marginBottom: DS.space.lg,
   },
   authRow: {
@@ -839,10 +881,10 @@ const styles = StyleSheet.create({
     width: 64,
     height: 64,
     borderRadius: 9999,
-    backgroundColor: DS.colors.green,
+    backgroundColor: DS.colors.orange,
     alignItems: 'center',
     justifyContent: 'center',
-    shadowColor: DS.colors.green,
+    shadowColor: DS.colors.orange,
     shadowOffset: { width: 0, height: 6 },
     shadowOpacity: 0.35,
     shadowRadius: 14,

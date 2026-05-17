@@ -39,7 +39,7 @@ export default function CheckoutScreen() {
   const [isProcessing, setIsProcessing] = useState(false);
   const [businessLocation, setBizLocation] = useState<{ latitude: number; longitude: number } | null>(null);
   const [confirmedOrder, setConfirmedOrder] = useState<{ id: string; deliveryCode: string } | null>(null);
-  const [tip, setTip] = useState(0);
+  const [tip, setTip] = useState(10);
   const [customTip, setCustomTip] = useState('');
   const [showCustomTip, setShowCustomTip] = useState(false);
   const [coverageOk, setCoverageOk] = useState<boolean | null>(null);
@@ -507,6 +507,7 @@ export default function CheckoutScreen() {
           onPress={handleConfirm}
           loading={isProcessing}
           disabled={isProcessing || !selectedAddress}
+          color={DS.colors.orange}
           icon={<Feather name="check-circle" size={20} color="#FFFFFF" />}
         />
       </View>
@@ -629,7 +630,7 @@ export default function CheckoutScreen() {
 
             {/* Buttons */}
             <TouchableOpacity
-              style={[styles.confirmBtnPrimary, colorShadow(DS.colors.green)]}
+              style={[styles.confirmBtnPrimary, colorShadow(DS.colors.orange)]}
               onPress={() => {
                 const orderId = confirmedOrder?.id;
                 setConfirmedOrder(null);
@@ -745,8 +746,8 @@ const styles = StyleSheet.create({
     borderColor: DS.colors.hairline,
   },
   paymentOptionActive: {
-    backgroundColor: DS.colors.green,
-    borderColor: DS.colors.green,
+    backgroundColor: DS.colors.orange,
+    borderColor: DS.colors.orange,
   },
   paymentText: { ...DS.fonts.bodyMed, color: DS.colors.dark },
   paymentTextActive: { color: '#FFFFFF' },
@@ -767,7 +768,7 @@ const styles = StyleSheet.create({
     marginVertical: DS.space.sm,
   },
   grandLabel: { ...DS.fonts.title, color: DS.colors.dark },
-  grandValue: { ...DS.fonts.title, color: DS.colors.green },
+  grandValue: { ...DS.fonts.title, color: DS.colors.orange },
 
   // Bottom bar
   bottomBar: {
@@ -825,7 +826,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: DS.space.sm,
-    backgroundColor: DS.colors.green,
+    backgroundColor: DS.colors.orange,
     borderRadius: DS.radius.xl,
     paddingHorizontal: 20,
     paddingVertical: 12,
@@ -881,8 +882,8 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   tipBtnActive: {
-    backgroundColor: DS.colors.green,
-    borderColor: DS.colors.green,
+    backgroundColor: DS.colors.orange,
+    borderColor: DS.colors.orange,
   },
   tipBtnText: { ...DS.fonts.bodyMed, color: DS.colors.dark },
   tipBtnTextActive: { color: '#FFFFFF' },
@@ -1007,7 +1008,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     gap: DS.space.sm,
-    backgroundColor: DS.colors.green,
+    backgroundColor: DS.colors.orange,
     borderRadius: DS.radius.xl,
     height: DS.touch.button,
     width: '100%',

@@ -302,7 +302,7 @@ export default function DeliveryCreateScreen() {
             <BigButton
               title={`Confirmar Envio - $${deliveryFee}`}
               icon={<Feather name="package" size={20} color="#FFF" />}
-              color={DS.colors.blue}
+              color={DS.colors.orange}
               onPress={handleConfirm}
               loading={loading}
             />
