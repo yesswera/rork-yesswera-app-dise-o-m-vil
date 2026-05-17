@@ -7,25 +7,29 @@ import {
   SafeAreaView,
   TouchableOpacity,
   TextInput,
-  FlatList,
   Image,
   ActivityIndicator,
+  Dimensions,
+  Animated,
 } from 'react-native';
 import { useRouter, useFocusEffect } from 'expo-router';
-import { UtensilsCrossed, ShoppingCart, Package, Home, Clock, User } from 'lucide-react-native';
+import { UtensilsCrossed, ShoppingCart, Package, Home, Clock, User, ShoppingBag } from 'lucide-react-native';
 import { Feather } from '@expo/vector-icons';
 import { StatusBar } from 'expo-status-bar';
+import { LinearGradient } from 'expo-linear-gradient';
 import { useAuth } from '@/contexts/auth';
+import { useCart } from '@/contexts/cart';
 import { getActiveOrders } from '@/services/orders';
 import { getRecommendations, RecommendationSet, ProductRecommendation, BusinessRecommendation } from '@/services/recommendations';
 import { supabase } from '@/constants/supabase';
 import { Order } from '@/constants/types';
-import { DS } from '@/constants/design';
-import ServiceCard from '@/components/ui/ServiceCard';
+import { DS, colorShadow } from '@/constants/design';
 import ActiveOrderBanner from '@/components/ui/ActiveOrderBanner';
 import YAvatar from '@/components/ui/YAvatar';
 import BigButton from '@/components/ui/BigButton';
 import SectionHeader from '@/components/ui/SectionHeader';
+
+const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
 const ORDER_STATUS_TEXT: Record<string, string> = {
   pending: 'Esperando confirmacion',
@@ -40,7 +44,7 @@ const ORDER_STATUS_TEXT: Record<string, string> = {
 };
 
 // ============================================================================
-// SEARCH RESULT TYPES
+// TYPES
 // ============================================================================
 
 interface SearchResult {
@@ -50,10 +54,6 @@ interface SearchResult {
   subtitle: string;
   businessId: string;
 }
-
-// ============================================================================
-// RECENT ORDER TYPE
-// ============================================================================
 
 interface RecentOrder {
   id: string;
@@ -77,16 +77,24 @@ function relativeTime(dateStr: string): string {
   const diffHours = Math.floor(diffMins / 60);
   if (diffHours < 24) return `Hace ${diffHours}h`;
   const diffDays = Math.floor(diffHours / 24);
-  if (diffDays === 1) return 'Hace 1 dia';
-  if (diffDays < 30) return `Hace ${diffDays} dias`;
-  const diffMonths = Math.floor(diffDays / 30);
-  if (diffMonths === 1) return 'Hace 1 mes';
-  return `Hace ${diffMonths} meses`;
+  if (diffDays === 1) return 'Ayer';
+  if (diffDays < 7) return `Hace ${diffDays} dias`;
+  return `Hace ${Math.floor(diffDays / 7)} sem`;
 }
 
 function formatPrice(amount: number): string {
   return `$${amount.toFixed(0)}`;
 }
+
+// ============================================================================
+// HERO FOOD EMOJIS (animated background)
+// ============================================================================
+
+const FOOD_EMOJIS = [
+  '\uD83C\uDF2E', '\uD83C\uDF54', '\uD83C\uDF55', '\uD83E\uDD64',
+  '\uD83C\uDF57', '\uD83E\uDD90', '\uD83C\uDF72', '\uD83C\uDF63',
+  '\uD83C\uDF70', '\u2615', '\uD83C\uDF7A', '\uD83E\uDD57',
+];
 
 // ============================================================================
 // HOME SCREEN
@@ -95,6 +103,7 @@ function formatPrice(amount: number): string {
 export default function HomeScreen() {
   const router = useRouter();
   const { user, isLoading } = useAuth();
+  const { itemCount } = useCart();
   const [activeOrder, setActiveOrder] = useState<Order | null>(null);
 
   // Search state
@@ -108,6 +117,18 @@ export default function HomeScreen() {
 
   // Recommendations state
   const [recommendations, setRecommendations] = useState<RecommendationSet | null>(null);
+
+  // Animated pulse for hero
+  const pulseAnim = useRef(new Animated.Value(1)).current;
+
+  useEffect(() => {
+    Animated.loop(
+      Animated.sequence([
+        Animated.timing(pulseAnim, { toValue: 1.05, duration: 2000, useNativeDriver: true }),
+        Animated.timing(pulseAnim, { toValue: 1, duration: 2000, useNativeDriver: true }),
+      ])
+    ).start();
+  }, []);
 
   // Role redirect
   useEffect(() => {
@@ -131,15 +152,12 @@ export default function HomeScreen() {
         return;
       }
 
-      // Active order
       getActiveOrders(user.id)
         .then((orders) => setActiveOrder(orders.length > 0 ? orders[0] : null))
         .catch(() => setActiveOrder(null));
 
-      // Recent delivered orders (quick reorder)
       fetchRecentOrders(user.id);
 
-      // Recommendations
       getRecommendations(user.id)
         .then(setRecommendations)
         .catch(() => setRecommendations(null));
@@ -170,14 +188,12 @@ export default function HomeScreen() {
     try {
       const lowerQuery = `%${query.toLowerCase()}%`;
 
-      // Search businesses
       const { data: businesses } = await supabase
         .from('businesses')
         .select('id, business_name, category')
         .ilike('business_name', lowerQuery)
         .limit(4);
 
-      // Search products (with business join)
       const { data: products } = await supabase
         .from('products')
         .select('id, name, price, business_id, businesses:business_id(business_name)')
@@ -280,6 +296,15 @@ export default function HomeScreen() {
     return 'Buenas noches';
   };
 
+  const getHungerPrompt = () => {
+    const hour = new Date().getHours();
+    if (hour >= 7 && hour < 11) return 'Que se te antoja para desayunar?';
+    if (hour >= 11 && hour < 15) return 'Hora de comer! Que se te antoja?';
+    if (hour >= 15 && hour < 19) return 'Un antojito para la tarde?';
+    if (hour >= 19 && hour < 22) return 'Que vas a cenar hoy?';
+    return 'Antojo nocturno? Te lo llevamos';
+  };
+
   const userInitials = user?.name
     ? user.name
         .split(' ')
@@ -289,7 +314,6 @@ export default function HomeScreen() {
         .slice(0, 2)
     : '?';
 
-  // Determine what to show in popular/recommended section
   const popularItems: ProductRecommendation[] = recommendations?.popular?.length
     ? recommendations.popular.slice(0, 10)
     : [];
@@ -313,18 +337,80 @@ export default function HomeScreen() {
           <View style={styles.headerLeft}>
             <Text style={styles.greeting}>{getGreeting()}</Text>
             <Text style={styles.userName} numberOfLines={1}>
-              Hola, {user?.name || 'Bienvenido'}
+              {user?.name || 'Bienvenido a Yesswera'}
             </Text>
           </View>
-          {user && (
-            <TouchableOpacity
-              onPress={() => router.push('/profile' as any)}
-              activeOpacity={0.8}
-            >
-              <YAvatar initials={userInitials} size={48} />
-            </TouchableOpacity>
-          )}
+          <View style={styles.headerRight}>
+            {user && (
+              <TouchableOpacity
+                onPress={() => router.push('/profile' as any)}
+                activeOpacity={0.8}
+              >
+                <YAvatar initials={userInitials} size={44} />
+              </TouchableOpacity>
+            )}
+          </View>
         </View>
+
+        {/* Active Order Banner */}
+        {activeOrder && user && (
+          <View style={styles.bannerWrap}>
+            <ActiveOrderBanner
+              status={ORDER_STATUS_TEXT[activeOrder.status] || 'Orden activa'}
+              onPress={() => router.push(`/tracking/${activeOrder.id}` as any)}
+            />
+          </View>
+        )}
+
+        {/* HERO — Main CTA: Pedir Comida */}
+        <TouchableOpacity
+          style={styles.heroCard}
+          activeOpacity={0.9}
+          onPress={() => router.push('/food/restaurants' as any)}
+        >
+          <LinearGradient
+            colors={['#EA580C', '#F97316', '#FB923C']}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 1 }}
+            style={styles.heroGradient}
+          >
+            {/* Floating food emojis background */}
+            <View style={styles.heroEmojiGrid}>
+              {FOOD_EMOJIS.slice(0, 6).map((emoji, i) => (
+                <Animated.Text
+                  key={i}
+                  style={[
+                    styles.heroEmoji,
+                    { transform: [{ scale: pulseAnim }], opacity: 0.2 + (i * 0.05) },
+                  ]}
+                >
+                  {emoji}
+                </Animated.Text>
+              ))}
+            </View>
+
+            {/* Hero content */}
+            <View style={styles.heroContent}>
+              <Text style={styles.heroPrompt}>{getHungerPrompt()}</Text>
+              <Text style={styles.heroTitle}>Pedir Comida</Text>
+              <Text style={styles.heroSub}>
+                Tacos, mariscos, pollos, pizzas y mas
+              </Text>
+              <View style={styles.heroBtnRow}>
+                <View style={styles.heroBtn}>
+                  <Text style={styles.heroBtnText}>Ver Restaurantes</Text>
+                  <Feather name="arrow-right" size={16} color="#EA580C" />
+                </View>
+                <Text style={styles.heroDelivery}>Envio desde $15</Text>
+              </View>
+            </View>
+
+            {/* Big food emoji */}
+            <View style={styles.heroBigEmoji}>
+              <Text style={styles.heroBigEmojiText}>{'\uD83C\uDF2E'}</Text>
+            </View>
+          </LinearGradient>
+        </TouchableOpacity>
 
         {/* Search Bar */}
         <View style={styles.searchContainer}>
@@ -340,7 +426,7 @@ export default function HomeScreen() {
               returnKeyType="search"
             />
             {isSearching && (
-              <ActivityIndicator size="small" color={DS.colors.green} />
+              <ActivityIndicator size="small" color={DS.colors.orange} />
             )}
             {!isSearching && searchQuery.length > 0 && (
               <TouchableOpacity
@@ -387,83 +473,87 @@ export default function HomeScreen() {
           )}
         </View>
 
-        {/* Active Order Banner */}
-        {activeOrder && user && (
-          <View style={styles.bannerWrap}>
-            <ActiveOrderBanner
-              status={ORDER_STATUS_TEXT[activeOrder.status] || 'Orden activa'}
-              onPress={() => router.push(`/tracking/${activeOrder.id}` as any)}
-            />
-          </View>
-        )}
-
-        {/* Service Cards */}
-        <View style={styles.services}>
-          <ServiceCard
-            title="Pedir Comida"
-            subtitle="Restaurantes y antojitos"
-            icon={<UtensilsCrossed size={30} color="#FFFFFF" strokeWidth={1.8} />}
-            color={DS.colors.orange}
-            onPress={() => router.push('/food/restaurants' as any)}
-          />
-          <ServiceCard
-            title="Lista de Compras"
-            subtitle="Te lo traemos del super"
-            icon={<ShoppingCart size={30} color="#FFFFFF" strokeWidth={1.8} />}
-            color={DS.colors.green}
+        {/* Secondary Services — Compact row */}
+        <View style={styles.servicesRow}>
+          <TouchableOpacity
+            style={styles.serviceChip}
+            activeOpacity={0.8}
             onPress={() => router.push('/shopping' as any)}
-          />
-          <ServiceCard
-            title="Enviar Paquete"
-            subtitle="De un punto a otro"
-            icon={<Package size={30} color="#FFFFFF" strokeWidth={1.8} />}
-            color={DS.colors.blue}
+          >
+            <View style={[styles.serviceChipIcon, { backgroundColor: DS.colors.greenLight }]}>
+              <ShoppingCart size={20} color={DS.colors.green} strokeWidth={2} />
+            </View>
+            <View style={styles.serviceChipText}>
+              <Text style={styles.serviceChipTitle}>Super</Text>
+              <Text style={styles.serviceChipSub}>Lista de compras</Text>
+            </View>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={styles.serviceChip}
+            activeOpacity={0.8}
             onPress={() => router.push('/delivery/create' as any)}
-          />
+          >
+            <View style={[styles.serviceChipIcon, { backgroundColor: DS.colors.blueLight }]}>
+              <Package size={20} color={DS.colors.blue} strokeWidth={2} />
+            </View>
+            <View style={styles.serviceChipText}>
+              <Text style={styles.serviceChipTitle}>Envios</Text>
+              <Text style={styles.serviceChipSub}>Punto a punto</Text>
+            </View>
+          </TouchableOpacity>
         </View>
 
         {/* Trust Badge — Social Proof */}
         <View style={styles.trustBadge}>
-          <View style={styles.trustIconRow}>
-            <Feather name="shield" size={16} color={DS.colors.green} />
-            <Text style={styles.trustText}>
-              18 negocios de Tomatlan ya confian en nosotros
-            </Text>
+          <View style={styles.trustRow}>
+            <View style={styles.trustItem}>
+              <Text style={styles.trustNumber}>18</Text>
+              <Text style={styles.trustLabel}>Negocios{'\n'}locales</Text>
+            </View>
+            <View style={styles.trustDivider} />
+            <View style={styles.trustItem}>
+              <Feather name="shield" size={20} color={DS.colors.green} />
+              <Text style={styles.trustLabel}>Repartidores{'\n'}verificados</Text>
+            </View>
+            <View style={styles.trustDivider} />
+            <View style={styles.trustItem}>
+              <Feather name="message-circle" size={20} color={DS.colors.green} />
+              <Text style={styles.trustLabel}>Soporte{'\n'}WhatsApp</Text>
+            </View>
           </View>
-          <Text style={styles.trustSubtext}>
-            Repartidores verificados · Soporte en WhatsApp
-          </Text>
         </View>
 
         {/* Quick Reorder Section */}
         {user && recentOrders.length > 0 && (
           <View style={styles.sectionWrap}>
-            <SectionHeader title="Pedir de nuevo" subtitle="Tus pedidos recientes" />
+            <SectionHeader title="Pedir de nuevo" subtitle="Un tap y listo" />
             <ScrollView
               horizontal
               showsHorizontalScrollIndicator={false}
               contentContainerStyle={styles.reorderScroll}
             >
               {recentOrders.map((order) => (
-                <View key={order.id} style={styles.reorderCard}>
+                <TouchableOpacity
+                  key={order.id}
+                  style={styles.reorderCard}
+                  activeOpacity={0.85}
+                  onPress={() => router.push(`/food/menu/${order.businessId}` as any)}
+                >
+                  <View style={styles.reorderTop}>
+                    <Text style={styles.reorderEmoji}>{'\uD83D\uDD01'}</Text>
+                    <Text style={styles.reorderTime}>{relativeTime(order.createdAt)}</Text>
+                  </View>
                   <Text style={styles.reorderBizName} numberOfLines={1}>
                     {order.businessName}
                   </Text>
-                  <Text style={styles.reorderMeta} numberOfLines={1}>
+                  <Text style={styles.reorderMeta}>
                     {order.itemCount} {order.itemCount === 1 ? 'articulo' : 'articulos'} · {formatPrice(order.total)}
                   </Text>
-                  <Text style={styles.reorderTime}>
-                    {relativeTime(order.createdAt)}
-                  </Text>
-                  <TouchableOpacity
-                    style={styles.reorderBtn}
-                    activeOpacity={0.8}
-                    onPress={() => router.push(`/food/menu/${order.businessId}` as any)}
-                  >
-                    <Feather name="refresh-cw" size={14} color="#FFFFFF" />
-                    <Text style={styles.reorderBtnText}>Repetir</Text>
-                  </TouchableOpacity>
-                </View>
+                  <View style={styles.reorderBtn}>
+                    <Text style={styles.reorderBtnText}>Repetir Pedido</Text>
+                  </View>
+                </TouchableOpacity>
               ))}
             </ScrollView>
           </View>
@@ -472,7 +562,7 @@ export default function HomeScreen() {
         {/* Popular / Recommended Section */}
         {showPopularSection && popularItems.length > 0 && (
           <View style={styles.sectionWrap}>
-            <SectionHeader title="Popular cerca de ti" subtitle="Lo mas pedido esta semana" />
+            <SectionHeader title="Lo mas pedido" subtitle="Popular esta semana" />
             <ScrollView
               horizontal
               showsHorizontalScrollIndicator={false}
@@ -490,7 +580,7 @@ export default function HomeScreen() {
                       <Image source={{ uri: item.imageUrl }} style={styles.popularImage} />
                     ) : (
                       <View style={styles.popularEmoji}>
-                        <Feather name="coffee" size={24} color={DS.colors.orange} />
+                        <Text style={{ fontSize: 32 }}>{'\uD83C\uDF7D\uFE0F'}</Text>
                       </View>
                     )}
                   </View>
@@ -507,10 +597,10 @@ export default function HomeScreen() {
           </View>
         )}
 
-        {/* Fallback: Suggested Businesses if no popular products */}
+        {/* Fallback: Suggested Businesses */}
         {showPopularSection && popularItems.length === 0 && suggestedBiz.length > 0 && (
           <View style={styles.sectionWrap}>
-            <SectionHeader title="Popular cerca de ti" subtitle="Negocios que te pueden gustar" />
+            <SectionHeader title="Descubre" subtitle="Negocios que te van a gustar" />
             <ScrollView
               horizontal
               showsHorizontalScrollIndicator={false}
@@ -528,7 +618,7 @@ export default function HomeScreen() {
                       <Image source={{ uri: biz.imageUrl }} style={styles.popularImage} />
                     ) : (
                       <View style={styles.popularEmoji}>
-                        <Feather name="home" size={24} color={DS.colors.green} />
+                        <Text style={{ fontSize: 32 }}>{'\uD83C\uDF7D\uFE0F'}</Text>
                       </View>
                     )}
                   </View>
@@ -536,7 +626,7 @@ export default function HomeScreen() {
                     {biz.businessName}
                   </Text>
                   <Text style={styles.popularPrice}>
-                    {biz.rating > 0 ? `${biz.rating.toFixed(1)} ★` : 'Nuevo'}
+                    {biz.rating > 0 ? `${biz.rating.toFixed(1)} \u2605` : 'Nuevo'}
                   </Text>
                   <Text style={styles.popularBiz} numberOfLines={1}>
                     {biz.category || biz.reason}
@@ -550,8 +640,11 @@ export default function HomeScreen() {
         {/* Auth prompt for unauthenticated users */}
         {!user && (
           <View style={styles.authPrompt}>
+            <View style={styles.authIconRow}>
+              <Text style={styles.authEmoji}>{'\uD83D\uDC4B'}</Text>
+            </View>
             <Text style={styles.authTitle}>Listo para ordenar?</Text>
-            <Text style={styles.authSubtitle}>Crea tu cuenta en 30 segundos</Text>
+            <Text style={styles.authSubtitle}>Crea tu cuenta en 30 segundos — sin tarjeta</Text>
             <View style={styles.authRow}>
               <View style={styles.authBtnWrap}>
                 <BigButton
@@ -566,14 +659,18 @@ export default function HomeScreen() {
                   color={DS.colors.card}
                   textColor={DS.colors.orange}
                   onPress={() => router.push('/login' as any)}
+                  style={{ borderWidth: 1.5, borderColor: DS.colors.hairline }}
                 />
               </View>
             </View>
           </View>
         )}
 
-        {/* Tagline */}
-        <Text style={styles.tagline}>Hecho en Tomatlan, Jalisco</Text>
+        {/* Footer */}
+        <View style={styles.footer}>
+          <Text style={styles.footerText}>Hecho en Tomatlan, Jalisco</Text>
+          <Text style={styles.footerSub}>Con amor para nuestra comunidad</Text>
+        </View>
       </ScrollView>
 
       {/* Yessi Floating Button */}
@@ -583,7 +680,7 @@ export default function HomeScreen() {
           activeOpacity={0.85}
           onPress={() => router.push('/yessi' as any)}
         >
-          <Feather name="zap" size={26} color="#FFFFFF" />
+          <Feather name="zap" size={24} color="#FFFFFF" />
         </TouchableOpacity>
       )}
 
@@ -591,8 +688,23 @@ export default function HomeScreen() {
       {user && (
         <View style={styles.tabBar}>
           <TouchableOpacity style={styles.tab} activeOpacity={0.7}>
-            <Home size={22} color={DS.colors.green} />
+            <Home size={22} color={DS.colors.orange} />
             <Text style={[styles.tabLabel, styles.tabLabelActive]}>Inicio</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={styles.tab}
+            activeOpacity={0.7}
+            onPress={() => router.push('/food/checkout' as any)}
+          >
+            <View style={styles.cartTabWrap}>
+              <ShoppingBag size={22} color={DS.colors.muted} />
+              {itemCount > 0 && (
+                <View style={styles.cartBadge}>
+                  <Text style={styles.cartBadgeText}>{itemCount > 9 ? '9+' : itemCount}</Text>
+                </View>
+              )}
+            </View>
+            <Text style={styles.tabLabel}>Carrito</Text>
           </TouchableOpacity>
           <TouchableOpacity
             style={styles.tab}
@@ -600,7 +712,7 @@ export default function HomeScreen() {
             onPress={() => router.push('/orders/history' as any)}
           >
             <Clock size={22} color={DS.colors.muted} />
-            <Text style={styles.tabLabel}>Historial</Text>
+            <Text style={styles.tabLabel}>Pedidos</Text>
           </TouchableOpacity>
           <TouchableOpacity
             style={styles.tab}
@@ -629,7 +741,7 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   scrollContent: {
-    paddingTop: 60,
+    paddingTop: 56,
     paddingHorizontal: DS.space.xl,
     paddingBottom: 100,
   },
@@ -639,11 +751,16 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: DS.space.xl,
+    marginBottom: DS.space.lg,
   },
   headerLeft: {
     flex: 1,
     marginRight: DS.space.lg,
+  },
+  headerRight: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: DS.space.sm,
   },
   greeting: {
     ...DS.fonts.small,
@@ -655,9 +772,98 @@ const styles = StyleSheet.create({
     color: DS.colors.dark,
   },
 
+  // Active order banner
+  bannerWrap: {
+    marginBottom: DS.space.lg,
+  },
+
+  // Hero Card
+  heroCard: {
+    borderRadius: DS.radius.xxl,
+    overflow: 'hidden',
+    marginBottom: DS.space.xl,
+    ...DS.shadow.button,
+  },
+  heroGradient: {
+    padding: DS.space.xxl,
+    minHeight: 180,
+    flexDirection: 'row',
+    alignItems: 'center',
+    position: 'relative',
+    overflow: 'hidden',
+  },
+  heroEmojiGrid: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'space-around',
+    alignItems: 'center',
+    padding: 20,
+  },
+  heroEmoji: {
+    fontSize: 28,
+  },
+  heroContent: {
+    flex: 1,
+    zIndex: 2,
+  },
+  heroPrompt: {
+    ...DS.fonts.small,
+    color: 'rgba(255,255,255,0.85)',
+    marginBottom: DS.space.xs,
+  },
+  heroTitle: {
+    fontSize: 26,
+    fontWeight: '800',
+    color: '#FFFFFF',
+    marginBottom: DS.space.xs,
+  },
+  heroSub: {
+    ...DS.fonts.body,
+    color: 'rgba(255,255,255,0.8)',
+    marginBottom: DS.space.lg,
+  },
+  heroBtnRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: DS.space.md,
+  },
+  heroBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: DS.space.xs,
+    backgroundColor: '#FFFFFF',
+    borderRadius: DS.radius.full,
+    paddingHorizontal: DS.space.lg,
+    paddingVertical: DS.space.sm + 2,
+  },
+  heroBtnText: {
+    ...DS.fonts.label,
+    color: '#EA580C',
+  },
+  heroDelivery: {
+    ...DS.fonts.small,
+    color: 'rgba(255,255,255,0.9)',
+    fontWeight: '600',
+  },
+  heroBigEmoji: {
+    position: 'absolute',
+    right: -10,
+    bottom: -10,
+    opacity: 0.3,
+    zIndex: 1,
+  },
+  heroBigEmojiText: {
+    fontSize: 120,
+  },
+
   // Search
   searchContainer: {
-    marginBottom: DS.space.xxl,
+    marginBottom: DS.space.xl,
     zIndex: 100,
   },
   searchBar: {
@@ -716,38 +922,73 @@ const styles = StyleSheet.create({
     color: DS.colors.muted,
   },
 
-  // Active order banner
-  bannerWrap: {
-    marginBottom: DS.space.xxl,
+  // Secondary Services Row
+  servicesRow: {
+    flexDirection: 'row',
+    gap: DS.space.md,
+    marginBottom: DS.space.xl,
   },
-
-  // Services
-  services: {
-    gap: DS.space.lg,
-    marginBottom: DS.space.xxxl,
+  serviceChip: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: DS.colors.card,
+    borderRadius: DS.radius.lg,
+    padding: DS.space.md,
+    gap: DS.space.md,
+    ...DS.shadow.card,
+  },
+  serviceChipIcon: {
+    width: 44,
+    height: 44,
+    borderRadius: DS.radius.md,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  serviceChipText: {
+    flex: 1,
+  },
+  serviceChipTitle: {
+    ...DS.fonts.bodyMed,
+    color: DS.colors.dark,
+    fontSize: 15,
+  },
+  serviceChipSub: {
+    ...DS.fonts.tiny,
+    color: DS.colors.muted,
   },
 
   // Trust Badge
   trustBadge: {
-    backgroundColor: DS.colors.greenLight,
+    backgroundColor: DS.colors.card,
     borderRadius: DS.radius.lg,
     padding: DS.space.lg,
     marginBottom: DS.space.xxxl,
-    gap: DS.space.xs,
+    ...DS.shadow.card,
   },
-  trustIconRow: {
+  trustRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: DS.space.sm,
+    justifyContent: 'space-around',
   },
-  trustText: {
-    ...DS.fonts.label,
+  trustItem: {
+    alignItems: 'center',
+    gap: DS.space.xs,
+  },
+  trustNumber: {
+    fontSize: 22,
+    fontWeight: '800',
     color: DS.colors.green,
   },
-  trustSubtext: {
-    ...DS.fonts.small,
+  trustLabel: {
+    ...DS.fonts.tiny,
     color: DS.colors.body,
-    marginLeft: 24,
+    textAlign: 'center',
+  },
+  trustDivider: {
+    width: 1,
+    height: 36,
+    backgroundColor: DS.colors.hairline,
   },
 
   // Section wrapper
@@ -760,11 +1001,24 @@ const styles = StyleSheet.create({
     gap: DS.space.md,
   },
   reorderCard: {
-    width: 180,
+    width: 200,
     backgroundColor: DS.colors.card,
     borderRadius: DS.radius.lg,
     padding: DS.space.lg,
     ...DS.shadow.card,
+  },
+  reorderTop: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: DS.space.sm,
+  },
+  reorderEmoji: {
+    fontSize: 20,
+  },
+  reorderTime: {
+    ...DS.fonts.tiny,
+    color: DS.colors.muted,
   },
   reorderBizName: {
     ...DS.fonts.bodyMed,
@@ -774,22 +1028,14 @@ const styles = StyleSheet.create({
   reorderMeta: {
     ...DS.fonts.small,
     color: DS.colors.body,
-    marginBottom: DS.space.xs,
-  },
-  reorderTime: {
-    ...DS.fonts.tiny,
-    color: DS.colors.muted,
     marginBottom: DS.space.md,
   },
   reorderBtn: {
-    flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: DS.colors.green,
-    borderRadius: DS.radius.sm,
-    paddingVertical: DS.space.sm,
-    paddingHorizontal: DS.space.md,
-    gap: DS.space.xs,
+    backgroundColor: DS.colors.orange,
+    borderRadius: DS.radius.md,
+    paddingVertical: DS.space.sm + 2,
   },
   reorderBtnText: {
     ...DS.fonts.label,
@@ -801,7 +1047,7 @@ const styles = StyleSheet.create({
     gap: DS.space.md,
   },
   popularCard: {
-    width: 140,
+    width: 150,
     backgroundColor: DS.colors.card,
     borderRadius: DS.radius.lg,
     padding: DS.space.md,
@@ -809,8 +1055,8 @@ const styles = StyleSheet.create({
   },
   popularImageWrap: {
     width: '100%',
-    height: 90,
-    borderRadius: DS.radius.sm,
+    height: 100,
+    borderRadius: DS.radius.md,
     backgroundColor: DS.colors.bg,
     marginBottom: DS.space.sm,
     overflow: 'hidden',
@@ -818,7 +1064,7 @@ const styles = StyleSheet.create({
   popularImage: {
     width: '100%',
     height: '100%',
-    borderRadius: DS.radius.sm,
+    borderRadius: DS.radius.md,
   },
   popularEmoji: {
     flex: 1,
@@ -832,7 +1078,7 @@ const styles = StyleSheet.create({
   },
   popularPrice: {
     ...DS.fonts.bodyMed,
-    color: DS.colors.green,
+    color: DS.colors.orange,
     marginBottom: 2,
   },
   popularBiz: {
@@ -844,6 +1090,16 @@ const styles = StyleSheet.create({
   authPrompt: {
     alignItems: 'center',
     marginBottom: DS.space.xxxl,
+    backgroundColor: DS.colors.card,
+    borderRadius: DS.radius.xxl,
+    padding: DS.space.xxl,
+    ...DS.shadow.card,
+  },
+  authIconRow: {
+    marginBottom: DS.space.md,
+  },
+  authEmoji: {
+    fontSize: 40,
   },
   authTitle: {
     ...DS.fonts.section,
@@ -853,7 +1109,8 @@ const styles = StyleSheet.create({
   authSubtitle: {
     ...DS.fonts.small,
     color: DS.colors.muted,
-    marginBottom: DS.space.lg,
+    marginBottom: DS.space.xl,
+    textAlign: 'center',
   },
   authRow: {
     flexDirection: 'row',
@@ -864,31 +1121,33 @@ const styles = StyleSheet.create({
     flex: 1,
   },
 
-  // Tagline
-  tagline: {
-    ...DS.fonts.body,
+  // Footer
+  footer: {
+    alignItems: 'center',
+    gap: DS.space.xs,
+    marginTop: DS.space.md,
+  },
+  footerText: {
+    ...DS.fonts.label,
     color: DS.colors.muted,
-    fontStyle: 'italic',
-    textAlign: 'center',
-    marginTop: DS.space.xl,
+  },
+  footerSub: {
+    ...DS.fonts.tiny,
+    color: DS.colors.placeholder,
   },
 
   // Yessi FAB
   yessiFab: {
     position: 'absolute',
-    bottom: 90,
+    bottom: 85,
     right: 20,
-    width: 64,
-    height: 64,
+    width: 56,
+    height: 56,
     borderRadius: 9999,
     backgroundColor: DS.colors.orange,
     alignItems: 'center',
     justifyContent: 'center',
-    shadowColor: DS.colors.orange,
-    shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.35,
-    shadowRadius: 14,
-    elevation: 8,
+    ...colorShadow('#EA580C', 0.4),
     zIndex: 50,
   },
 
@@ -906,13 +1165,33 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     paddingVertical: DS.space.sm,
-    gap: 4,
+    gap: 3,
   },
   tabLabel: {
     ...DS.fonts.tiny,
     color: DS.colors.muted,
   },
   tabLabelActive: {
-    color: DS.colors.green,
+    color: DS.colors.orange,
+  },
+  cartTabWrap: {
+    position: 'relative',
+  },
+  cartBadge: {
+    position: 'absolute',
+    top: -6,
+    right: -8,
+    backgroundColor: DS.colors.orange,
+    borderRadius: 10,
+    minWidth: 18,
+    height: 18,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 4,
+  },
+  cartBadgeText: {
+    fontSize: 10,
+    fontWeight: '700',
+    color: '#FFFFFF',
   },
 });
