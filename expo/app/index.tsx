@@ -308,6 +308,22 @@ export default function HomeScreen() {
           </TouchableOpacity>
         </Animated.View>
 
+        {/* ── Map CTA ─────────────────────────────────────────── */}
+        <TouchableOpacity
+          style={s.mapCta}
+          activeOpacity={0.9}
+          onPress={() => router.push('/food/map' as any)}
+        >
+          <View style={s.mapCtaLeft}>
+            <Feather name="map" size={20} color={DS.colors.blue} />
+            <View>
+              <Text style={s.mapCtaTitle}>Ver Mapa</Text>
+              <Text style={s.mapCtaSub}>Negocios cerca de ti</Text>
+            </View>
+          </View>
+          <Feather name="chevron-right" size={18} color={DS.colors.muted} />
+        </TouchableOpacity>
+
         {/* ── Services Row ────────────────────────────────────── */}
         <View style={s.servRow}>
           <TouchableOpacity style={s.servCard} activeOpacity={0.85} onPress={() => router.push('/shopping' as any)}>
@@ -520,6 +536,16 @@ const s = StyleSheet.create({
   heroEmoji: { fontSize: 64, position: 'absolute', top: -10, right: -5 },
   heroEmoji2: { fontSize: 40, position: 'absolute', bottom: 10, right: 20, opacity: 0.7 },
   heroEmoji3: { fontSize: 32, position: 'absolute', top: 30, left: -10, opacity: 0.5 },
+
+  // Map CTA
+  mapCta: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
+    backgroundColor: DS.colors.card, borderRadius: DS.radius.lg,
+    padding: DS.space.lg, marginBottom: DS.space.lg, ...DS.shadow.card,
+  },
+  mapCtaLeft: { flexDirection: 'row', alignItems: 'center', gap: 12 },
+  mapCtaTitle: { ...DS.fonts.bodyMed, color: DS.colors.dark },
+  mapCtaSub: { ...DS.fonts.tiny, color: DS.colors.muted, marginTop: 1 },
 
   // Services
   servRow: { flexDirection: 'row', gap: DS.space.md, marginBottom: DS.space.xxl },
