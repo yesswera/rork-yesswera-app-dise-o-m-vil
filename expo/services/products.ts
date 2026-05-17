@@ -57,14 +57,25 @@ export async function getBusinesses(category?: string): Promise<Business[]> {
 // Fetch single business by ID
 export async function getBusinessById(businessId: string): Promise<Business | null> {
   try {
+    // Try by UUID first
     const { data, error } = await supabase
       .from('businesses')
       .select('*')
       .eq('id', businessId)
-      .single();
+      .maybeSingle();
 
-    if (error) throw error;
-    return data ? mapBusiness(data) : null;
+    if (data) return mapBusiness(data);
+
+    // Fallback: try by tonalli_slug (for businesses from Tonalli API)
+    const { data: slugData } = await supabase
+      .from('businesses')
+      .select('*')
+      .eq('tonalli_slug', businessId)
+      .maybeSingle();
+
+    if (slugData) return mapBusiness(slugData);
+
+    return null;
   } catch (error) {
     console.error('getBusinessById error:', error);
     return null;
@@ -74,22 +85,43 @@ export async function getBusinessById(businessId: string): Promise<Business | nu
 // Fetch products for a business as simple Product type (for cart compatibility)
 export async function getBusinessMenu(businessId: string): Promise<Product[]> {
   try {
+    // Resolve the actual Supabase UUID (might be slug from Tonalli API)
+    let resolvedId = businessId;
+    let businessName = '';
+
     const { data: business } = await supabase
       .from('businesses')
-      .select('business_name')
+      .select('id, business_name')
       .eq('id', businessId)
-      .single();
+      .maybeSingle();
+
+    if (business) {
+      resolvedId = business.id;
+      businessName = business.business_name || '';
+    } else {
+      // Fallback: lookup by tonalli_slug
+      const { data: slugBiz } = await supabase
+        .from('businesses')
+        .select('id, business_name')
+        .eq('tonalli_slug', businessId)
+        .maybeSingle();
+
+      if (slugBiz) {
+        resolvedId = slugBiz.id;
+        businessName = slugBiz.business_name || '';
+      }
+    }
 
     const { data, error } = await supabase
       .from('products')
       .select('*')
-      .eq('business_id', businessId)
+      .eq('business_id', resolvedId)
       .eq('is_available', true)
       .order('name');
 
     if (error) throw error;
 
-    return (data || []).map((p: any) => mapProductToSimple(p, business?.business_name || ''));
+    return (data || []).map((p: any) => mapProductToSimple(p, businessName));
   } catch (error) {
     console.error('getBusinessMenu error:', error);
     throw error;

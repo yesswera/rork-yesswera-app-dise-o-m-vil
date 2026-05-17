@@ -153,7 +153,9 @@ export default function BusinessMapScreen() {
 
   const handleCardPress = () => {
     if (!selectedBiz) return;
-    router.push(`/food/menu/${selectedBiz.id}` as any);
+    // Use slug for Tonalli businesses (their UUID won't match Supabase)
+    const lookupKey = selectedBiz.isTonalli && selectedBiz.slug ? selectedBiz.slug : selectedBiz.id;
+    router.push(`/food/menu/${lookupKey}` as any);
   };
 
   const handleCenterOnMe = () => {
