@@ -105,7 +105,7 @@ const styles = StyleSheet.create({
   toggleRow: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 4 },
   checkbox: {
     width: 24, height: 24, borderRadius: 6,
-    borderWidth: 2, borderColor: DS.colors.border.medium,
+    borderWidth: 2, borderColor: DS.colors.hairline,
     justifyContent: 'center', alignItems: 'center',
   },
   checkboxActive: { backgroundColor: DS.colors.orange, borderColor: DS.colors.orange },
@@ -118,14 +118,14 @@ const styles = StyleSheet.create({
   field: { gap: 4 },
   fieldLabel: { fontSize: 13, fontWeight: '600', color: DS.colors.dark },
   input: {
-    borderWidth: 1, borderColor: DS.colors.border.medium, borderRadius: 10,
+    borderWidth: 1, borderColor: DS.colors.hairline, borderRadius: 10,
     paddingHorizontal: 12, paddingVertical: 10, fontSize: 14, color: DS.colors.dark,
     backgroundColor: DS.colors.bg,
   },
   chipRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 4 },
   chip: {
     paddingHorizontal: 14, paddingVertical: 7, borderRadius: 16,
-    backgroundColor: DS.colors.bg, borderWidth: 1, borderColor: DS.colors.border.medium,
+    backgroundColor: DS.colors.bg, borderWidth: 1, borderColor: DS.colors.hairline,
   },
   chipActive: { backgroundColor: DS.colors.orange, borderColor: DS.colors.orange },
   chipText: { fontSize: 13, color: DS.colors.body },
