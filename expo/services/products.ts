@@ -131,13 +131,23 @@ export async function getBusinessMenu(businessId: string): Promise<Product[]> {
 // Fetch business location (lat/lng from PostGIS geography column)
 export async function getBusinessLocation(businessId: string): Promise<{ latitude: number; longitude: number } | null> {
   try {
-    const { data, error } = await supabase
+    // Try by UUID first, then by slug
+    let { data } = await supabase
       .from('businesses')
       .select('location')
       .eq('id', businessId)
-      .single();
+      .maybeSingle();
 
-    if (error || !data?.location) return null;
+    if (!data) {
+      const slugResult = await supabase
+        .from('businesses')
+        .select('location')
+        .eq('tonalli_slug', businessId)
+        .maybeSingle();
+      data = slugResult.data;
+    }
+
+    if (!data?.location) return null;
 
     // PostGIS devuelve WKB hex via REST API, parseLocation maneja ambos formatos
     return parseLocation(data.location);
