@@ -15,6 +15,7 @@ import {
   ActivityIndicator,
   Platform,
   Animated,
+  Alert,
 } from 'react-native';
 import { useLocalSearchParams, router } from 'expo-router';
 import { Feather } from '@expo/vector-icons';
@@ -22,7 +23,7 @@ import MapView, { Marker, Polyline, PROVIDER_GOOGLE } from 'react-native-maps';
 import { DS } from '@/constants/design';
 import YCard from '@/components/ui/YCard';
 import YAvatar from '@/components/ui/YAvatar';
-import { getOrderById } from '@/services/orders';
+import { getOrderById, cancelOrder } from '@/services/orders';
 import { subscribeToDriverLocation, DriverLocation } from '@/services/gps';
 import { getRoute } from '@/services/routing';
 import type { Order, OrderStatus } from '@/constants/types';
@@ -289,6 +290,33 @@ export default function TrackingScreen() {
     router.push(`/chat/${order.id}` as any);
   };
 
+  const handleCancel = () => {
+    const canCancel = ['pending', 'confirmed'].includes(order.status);
+    if (!canCancel) {
+      Alert.alert('No se puede cancelar', 'Tu pedido ya esta siendo preparado o en camino.');
+      return;
+    }
+    Alert.alert(
+      'Cancelar pedido?',
+      'Esta accion no se puede deshacer. Si el negocio ya empezo a preparar tu orden, podria aplicarse un cargo.',
+      [
+        { text: 'No, mantener', style: 'cancel' },
+        {
+          text: 'Si, cancelar',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              await cancelOrder(order.id, 'Cancelado por el cliente');
+              Alert.alert('Pedido cancelado', 'Tu pedido ha sido cancelado exitosamente.');
+            } catch (err: any) {
+              Alert.alert('Error', err.message || 'No se pudo cancelar el pedido.');
+            }
+          },
+        },
+      ]
+    );
+  };
+
   const hasPickup = order.pickupLocation &&
     typeof order.pickupLocation.latitude === 'number' &&
     typeof order.pickupLocation.longitude === 'number';
@@ -506,7 +534,7 @@ export default function TrackingScreen() {
           {!isTerminal && (
             <TouchableOpacity
               style={styles.actionBtnCancel}
-              onPress={() => router.push(`/orders/${order.id}` as any)}
+              onPress={handleCancel}
               activeOpacity={0.8}
             >
               <Text style={styles.actionBtnCancelText}>Cancelar</Text>
