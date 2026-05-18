@@ -1043,7 +1043,7 @@ export async function assignOrderToDriver(orderId: string, driverId: string): Pr
         status: 'assigned',
       })
       .eq('id', orderId)
-      .select()
+      .select('*, businesses(id, business_name, tonalli_slug, tonalli_linked, tonalli_api_key)')
       .single();
 
     if (error) throw error;
@@ -1061,6 +1061,34 @@ export async function assignOrderToDriver(orderId: string, driverId: string): Pr
       }
     } catch {
       // Non-critical
+    }
+
+    // === TONALLI WEBHOOK: Enviar driver_assigned con codigos de verificacion ===
+    try {
+      if (data.tonalli_order_id && data.businesses?.tonalli_linked && data.businesses?.tonalli_api_key) {
+        // Get driver info
+        const { data: driver } = await supabase
+          .from('drivers')
+          .select('id, vehicle_type, users:user_id(full_name, phone)')
+          .eq('id', driverId)
+          .single();
+
+        const driverUser = driver?.users as any;
+        await sendTonalliWebhook(data.businesses.tonalli_api_key, {
+          slug: data.businesses.tonalli_slug,
+          event: 'driver_assigned',
+          externalOrderId: orderId,
+          data: {
+            driverName: driverUser?.full_name || 'Repartidor Yesswera',
+            driverPhone: driverUser?.phone || '',
+            driverVehicle: driver?.vehicle_type || 'moto',
+            driverCode: data.driver_code,
+            pickupCode: data.pickup_code,
+          },
+        });
+      }
+    } catch (webhookErr) {
+      console.warn('Tonalli driver_assigned webhook failed (non-critical):', webhookErr);
     }
 
     return mapOrder(data);
