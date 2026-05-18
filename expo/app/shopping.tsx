@@ -19,6 +19,7 @@ import YCard from '@/components/ui/YCard';
 import { useAuth } from '@/contexts/auth';
 import { createOrder } from '@/services/orders';
 import { getDefaultAddress } from '@/services/addresses';
+import MinorRecipientCard, { MinorRecipientData } from '@/components/MinorRecipientCard';
 
 const STORES = ['Cualquiera', 'Super Aki', 'Bodega Aurrera', 'Mercado'] as const;
 
@@ -33,6 +34,7 @@ export default function ShoppingScreen() {
   const [items, setItems] = useState<ListItem[]>([]);
   const [selectedStore, setSelectedStore] = useState<string>(STORES[0]);
   const [loading, setLoading] = useState(false);
+  const [minorData, setMinorData] = useState<MinorRecipientData>({ isMinor: false, name: '', age: '', relationship: '' });
 
   const addItem = useCallback(() => {
     const trimmed = inputText.trim();
@@ -92,6 +94,8 @@ export default function ShoppingScreen() {
         subtotal: 0,
         deliveryFee: 0,
         paymentMethod: 'cash',
+        isMinorRecipient: minorData.isMinor || undefined,
+        minorDetails: minorData.isMinor ? { name: minorData.name, age: minorData.age, relationship: minorData.relationship } : undefined,
       });
 
       router.replace(`/tracking/${order.id}`);
@@ -175,6 +179,10 @@ export default function ShoppingScreen() {
               ))}
             </View>
           </YCard>
+
+          {/* Minor recipient */}
+          <MinorRecipientCard value={minorData} onChange={setMinorData} />
+          <View style={{ height: 12 }} />
 
           {/* Items list */}
           {items.length > 0 ? (

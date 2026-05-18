@@ -49,47 +49,42 @@ function NotificationHandler() {
 }
 
 function RootLayoutNav() {
-  const headerDefaults = {
-    headerBackTitle: "Atras",
-    headerStyle: { backgroundColor: DS.colors.bg },
-  };
-
   return (
-    <Stack screenOptions={headerDefaults}>
-      <Stack.Screen name="index" options={{ headerShown: false }} />
-      <Stack.Screen name="login" options={{ headerShown: false }} />
-      <Stack.Screen name="register" options={{ headerShown: false }} />
-      <Stack.Screen name="food/restaurants" options={{ title: "Pedir Comida" }} />
-      <Stack.Screen name="food/menu/[businessId]" options={{ title: "Menu" }} />
-      <Stack.Screen name="food/checkout" options={{ title: "Confirmar Pedido" }} />
-      <Stack.Screen name="shopping" options={{ title: "Lista de Compras" }} />
-      <Stack.Screen name="delivery/create" options={{ title: "Enviar Paquete" }} />
-      <Stack.Screen name="tracking/[orderId]" options={{ title: "Seguimiento" }} />
-      <Stack.Screen name="orders/history" options={{ title: "Historial" }} />
-      <Stack.Screen name="orders/[orderId]" options={{ title: "Detalle de Orden" }} />
-      <Stack.Screen name="profile" options={{ title: "Mi Perfil" }} />
-      <Stack.Screen name="profile/edit" options={{ title: "Editar Perfil" }} />
-      <Stack.Screen name="password-recovery/request" options={{ title: "Recuperar Contrasena" }} />
-      <Stack.Screen name="password-recovery/verify" options={{ title: "Verificar Codigo" }} />
-      <Stack.Screen name="password-recovery/reset" options={{ title: "Nueva Contrasena" }} />
-      <Stack.Screen name="business/dashboard" options={{ headerShown: false, gestureEnabled: false }} />
-      <Stack.Screen name="business/products" options={{ title: "Productos" }} />
-      <Stack.Screen name="business/products/add" options={{ title: "Nuevo Producto" }} />
-      <Stack.Screen name="business/profile" options={{ title: "Mi Negocio" }} />
-      <Stack.Screen name="business/onboarding" options={{ headerShown: false }} />
-      <Stack.Screen name="driver/dashboard" options={{ headerShown: false, gestureEnabled: false }} />
-      <Stack.Screen name="driver/active-order" options={{ title: "Entrega Activa" }} />
-      <Stack.Screen name="driver/profile" options={{ title: "Mi Perfil" }} />
-      <Stack.Screen name="driver/waiting" options={{ headerShown: false }} />
-      <Stack.Screen name="auth/register-driver" options={{ headerShown: false }} />
-      <Stack.Screen name="business/analytics" options={{ title: "Analitica" }} />
-      <Stack.Screen name="loyalty" options={{ title: "Mis Puntos" }} />
-      <Stack.Screen name="admin/dashboard" options={{ headerShown: false }} />
-      <Stack.Screen name="admin/orders" options={{ title: "Ordenes" }} />
-      <Stack.Screen name="admin/drivers" options={{ title: "Repartidores" }} />
-      <Stack.Screen name="ratings/create/[orderId]" options={{ title: "Calificar" }} />
-      <Stack.Screen name="yessi" options={{ title: "Yessi", headerShown: false }} />
-      <Stack.Screen name="+not-found" options={{ title: "Oops!" }} />
+    <Stack screenOptions={{ headerShown: false }}>
+      <Stack.Screen name="index" />
+      <Stack.Screen name="login" />
+      <Stack.Screen name="register" />
+      <Stack.Screen name="food/restaurants" />
+      <Stack.Screen name="food/menu/[businessId]" />
+      <Stack.Screen name="food/checkout" />
+      <Stack.Screen name="shopping" />
+      <Stack.Screen name="delivery/create" />
+      <Stack.Screen name="tracking/[orderId]" />
+      <Stack.Screen name="orders/history" />
+      <Stack.Screen name="orders/[orderId]" />
+      <Stack.Screen name="profile" />
+      <Stack.Screen name="profile/edit" />
+      <Stack.Screen name="password-recovery/request" />
+      <Stack.Screen name="password-recovery/verify" />
+      <Stack.Screen name="password-recovery/reset" />
+      <Stack.Screen name="business/dashboard" options={{ gestureEnabled: false }} />
+      <Stack.Screen name="business/products" />
+      <Stack.Screen name="business/products/add" />
+      <Stack.Screen name="business/profile" />
+      <Stack.Screen name="business/onboarding" />
+      <Stack.Screen name="driver/dashboard" options={{ gestureEnabled: false }} />
+      <Stack.Screen name="driver/active-order" />
+      <Stack.Screen name="driver/profile" />
+      <Stack.Screen name="driver/waiting" />
+      <Stack.Screen name="auth/register-driver" />
+      <Stack.Screen name="business/analytics" />
+      <Stack.Screen name="loyalty" />
+      <Stack.Screen name="admin/dashboard" />
+      <Stack.Screen name="admin/orders" />
+      <Stack.Screen name="admin/drivers" />
+      <Stack.Screen name="ratings/create/[orderId]" />
+      <Stack.Screen name="yessi" />
+      <Stack.Screen name="+not-found" options={{ title: "Oops!", headerShown: true }} />
     </Stack>
   );
 }

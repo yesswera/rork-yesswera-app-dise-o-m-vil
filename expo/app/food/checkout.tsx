@@ -25,6 +25,7 @@ import { calculateDistance, formatDistance } from '@/utils/distance';
 import { checkDriverCoverage } from '@/services/coverage';
 import { isLocationInActiveZone } from '@/services/zones';
 import { getRoute } from '@/services/routing';
+import MinorRecipientCard, { MinorRecipientData } from '@/components/MinorRecipientCard';
 import type { SavedAddress } from '@/constants/types';
 
 export default function CheckoutScreen() {
@@ -45,6 +46,7 @@ export default function CheckoutScreen() {
   const [coverageOk, setCoverageOk] = useState<boolean | null>(null);
   const [zoneFees, setZoneFees] = useState<{ base: number; perKm: number } | null>(null);
   const [realRoute, setRealRoute] = useState<{ distanceKm: number; durationMin: number } | null>(null);
+  const [minorData, setMinorData] = useState<MinorRecipientData>({ isMinor: false, name: '', age: '', relationship: '' });
 
   const businessId = items[0]?.businessId;
 
@@ -201,6 +203,8 @@ export default function CheckoutScreen() {
         deliveryFee,
         tip: tip > 0 ? tip : undefined,
         paymentMethod,
+        isMinorRecipient: minorData.isMinor || undefined,
+        minorDetails: minorData.isMinor ? { name: minorData.name, age: minorData.age, relationship: minorData.relationship } : undefined,
       });
 
       clearCart();
@@ -326,6 +330,11 @@ export default function CheckoutScreen() {
             <Text style={styles.changeBtnText}>Cambiar direccion</Text>
           </TouchableOpacity>
         </YCard>
+
+        {/* Minor recipient */}
+        <View style={styles.section}>
+          <MinorRecipientCard value={minorData} onChange={setMinorData} />
+        </View>
 
         {/* Payment method */}
         <YCard style={styles.section}>

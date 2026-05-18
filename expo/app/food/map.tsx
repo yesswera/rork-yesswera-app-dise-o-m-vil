@@ -14,7 +14,7 @@ import {
   Platform,
   Animated,
 } from 'react-native';
-import { useRouter, Stack } from 'expo-router';
+import { useRouter } from 'expo-router';
 import { Feather } from '@expo/vector-icons';
 import { StatusBar } from 'expo-status-bar';
 import MapView, { Marker, Region } from 'react-native-maps';
@@ -174,7 +174,6 @@ export default function BusinessMapScreen() {
 
   return (
     <View style={s.container}>
-      <Stack.Screen options={{ headerShown: false }} />
       <StatusBar style="dark" />
 
       {/* Header */}

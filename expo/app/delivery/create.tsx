@@ -19,6 +19,7 @@ import YCard from '@/components/ui/YCard';
 import { useAuth } from '@/contexts/auth';
 import { createOrder } from '@/services/orders';
 import { getUserAddresses } from '@/services/addresses';
+import MinorRecipientCard, { MinorRecipientData } from '@/components/MinorRecipientCard';
 import type { SavedAddress } from '@/constants/types';
 
 const STEP_TITLES = [
@@ -50,6 +51,7 @@ export default function DeliveryCreateScreen() {
   const [destination, setDestination] = useState('');
   const [savedAddresses, setSavedAddresses] = useState<SavedAddress[]>([]);
   const [loading, setLoading] = useState(false);
+  const [minorData, setMinorData] = useState<MinorRecipientData>({ isMinor: false, name: '', age: '', relationship: '' });
 
   useEffect(() => {
     if (user) {
@@ -108,6 +110,8 @@ export default function DeliveryCreateScreen() {
           isFragile: false,
           description: `Recoger en: ${origin.trim()} → Entregar en: ${destination.trim()}`,
         },
+        isMinorRecipient: minorData.isMinor || undefined,
+        minorDetails: minorData.isMinor ? { name: minorData.name, age: minorData.age, relationship: minorData.relationship } : undefined,
       });
 
       router.replace(`/tracking/${order.id}`);
@@ -217,6 +221,10 @@ export default function DeliveryCreateScreen() {
           </View>
         </View>
       </YCard>
+
+      {/* Minor recipient */}
+      <MinorRecipientCard value={minorData} onChange={setMinorData} />
+      <View style={{ height: 12 }} />
 
       {/* Details */}
       <YCard style={styles.detailsCard}>
