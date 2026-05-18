@@ -521,6 +521,22 @@ export default function TrackingScreen() {
           </YCard>
         )}
 
+        {/* -- Delivery code for client (when driver is near) ------------------- */}
+        {order.deliveryCode && (order.status === 'in_transit' || order.status === 'arrived') && (
+          <YCard style={styles.deliveryCodeCard}>
+            <View style={styles.deliveryCodeHeader}>
+              <Feather name="shield" size={18} color={DS.colors.green} />
+              <Text style={styles.deliveryCodeLabel}>Tu codigo de entrega</Text>
+            </View>
+            <Text style={styles.deliveryCodeHint}>
+              Dale este codigo al repartidor al recibir tu pedido
+            </Text>
+            <View style={styles.deliveryCodeBox}>
+              <Text style={styles.deliveryCodeText}>{order.deliveryCode}</Text>
+            </View>
+          </YCard>
+        )}
+
         {/* -- Action buttons -------------------------------------------------- */}
         <View style={styles.actionRow}>
           <TouchableOpacity
@@ -780,6 +796,40 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   noDriverText: { ...DS.fonts.body, color: DS.colors.muted },
+
+  // Delivery code
+  deliveryCodeCard: {
+    marginBottom: DS.space.md,
+    borderWidth: 1,
+    borderColor: DS.colors.green,
+  },
+  deliveryCodeHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginBottom: 4,
+  },
+  deliveryCodeLabel: {
+    ...DS.fonts.bodyMed,
+    color: DS.colors.dark,
+  },
+  deliveryCodeHint: {
+    ...DS.fonts.small,
+    color: DS.colors.muted,
+    marginBottom: DS.space.md,
+  },
+  deliveryCodeBox: {
+    backgroundColor: DS.colors.greenLight,
+    borderRadius: DS.radius.lg,
+    paddingVertical: DS.space.lg,
+    alignItems: 'center',
+  },
+  deliveryCodeText: {
+    fontSize: 32,
+    fontWeight: '800',
+    color: DS.colors.green,
+    letterSpacing: 6,
+  },
 
   // Action buttons
   actionRow: {

@@ -15,9 +15,12 @@ import {
   SafeAreaView,
   ScrollView,
   Platform,
+  TextInput,
+  Modal,
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
+import MapView, { Marker, Polyline, PROVIDER_GOOGLE } from 'react-native-maps';
 import * as Haptics from 'expo-haptics';
 import * as Location from 'expo-location';
 import { useAuth } from '@/contexts/auth';
@@ -31,6 +34,7 @@ import {
   validateDeliveryCode,
 } from '@/services/orders';
 import { updateDriverLocation } from '@/services/gps';
+import { getRoute } from '@/services/routing';
 import { Order } from '@/constants/types';
 import { DS, colorShadow } from '@/constants/design';
 
@@ -141,8 +145,13 @@ export default function ActiveOrderScreen() {
     latitude: number;
     longitude: number;
   } | null>(null);
+  const [showCodeModal, setShowCodeModal] = useState(false);
+  const [codeInput, setCodeInput] = useState('');
+  const [routeCoords, setRouteCoords] = useState<{ latitude: number; longitude: number }[]>([]);
 
   const locationSub = useRef<Location.LocationSubscription | null>(null);
+  const mapRef = useRef<MapView | null>(null);
+  const routeFetchedForStage = useRef<number>(-1);
 
   // ── Load active order ───────────────────────────────────────────────────
 
@@ -222,6 +231,36 @@ export default function ActiveOrderScreen() {
     };
   }, [order?.driverId, order?.id]);
 
+  // ── Fetch route when driver location and target are available ────────────
+
+  useEffect(() => {
+    if (!driverLocation || !order) return;
+    if (routeFetchedForStage.current === stage) return;
+
+    const target = stage <= 1 ? order.pickupLocation : order.deliveryLocation;
+    if (!target?.latitude || !target?.longitude) return;
+
+    routeFetchedForStage.current = stage;
+
+    getRoute(
+      { latitude: driverLocation.latitude, longitude: driverLocation.longitude },
+      { latitude: target.latitude, longitude: target.longitude }
+    ).then((result) => {
+      if (result?.coordinates) {
+        setRouteCoords(result.coordinates);
+        // Fit map to route
+        if (mapRef.current && result.coordinates.length > 1) {
+          mapRef.current.fitToCoordinates(result.coordinates, {
+            edgePadding: { top: 60, right: 60, bottom: 60, left: 60 },
+            animated: true,
+          });
+        }
+      }
+    }).catch(() => {
+      setRouteCoords([]);
+    });
+  }, [driverLocation, order, stage]);
+
   // ── Big button handler ──────────────────────────────────────────────────
 
   const handleBigButton = async () => {
@@ -244,7 +283,23 @@ export default function ActiveOrderScreen() {
           break;
         }
         case 1: {
-          // Stage 1 -> 2: Got the order, now in transit
+          // Stage 1 -> 2: For Tonalli businesses, pickup must be confirmed by staff first
+          if (order.tonalliOrderId) {
+            // Check if Tonalli already confirmed pickup
+            const { data: freshOrder } = await supabase
+              .from('orders')
+              .select('tonalli_pickup_confirmed, status')
+              .eq('id', orderId)
+              .single();
+
+            if (!freshOrder?.tonalli_pickup_confirmed && freshOrder?.status !== 'in_transit') {
+              Alert.alert(
+                'Esperando verificacion',
+                'El staff del negocio debe verificar tu codigo primero. Muestrale tu codigo de recogida.',
+              );
+              break;
+            }
+          }
           const res = await confirmOrderReceived(orderId);
           if (res.success) {
             setStage(2);
@@ -266,13 +321,11 @@ export default function ActiveOrderScreen() {
           break;
         }
         case 3: {
-          // Stage 3: Mark delivered
-          await updateOrderStatus(orderId, 'delivered');
-          Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-          Alert.alert('Entrega completada!', 'Buen trabajo.', [
-            { text: 'OK', onPress: () => router.replace('/driver/dashboard') },
-          ]);
-          break;
+          // Stage 3: Show modal to enter delivery code from client
+          setCodeInput('');
+          setShowCodeModal(true);
+          setPressing(false);
+          return;
         }
       }
 
@@ -320,6 +373,29 @@ export default function ActiveOrderScreen() {
         },
       ]
     );
+  };
+
+  // ── Delivery code validation ────────────────────────────────────────────
+
+  const handleConfirmDeliveryCode = async () => {
+    if (!order || !codeInput.trim()) return;
+    setPressing(true);
+    try {
+      const res = await validateDeliveryCode(order.id.toString(), codeInput.trim());
+      if (res.success) {
+        setShowCodeModal(false);
+        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+        Alert.alert('Entrega completada!', 'Buen trabajo.', [
+          { text: 'OK', onPress: () => router.replace('/driver/dashboard') },
+        ]);
+      } else {
+        Alert.alert('Codigo incorrecto', res.message || 'Verifica con el cliente');
+      }
+    } catch (err: any) {
+      Alert.alert('Error', err.message || 'No se pudo validar');
+    } finally {
+      setPressing(false);
+    }
   };
 
   // ── Loading state ───────────────────────────────────────────────────────
@@ -402,39 +478,54 @@ export default function ActiveOrderScreen() {
         <Text style={s.statusTitle}>{currentStage.statusText}</Text>
         <Text style={s.statusSubtitle}>{currentStage.subtitle}</Text>
 
-        {/* ── Map placeholder ──────────────────────────────────────────── */}
+        {/* ── Live Map ─────────────────────────────────────────────────── */}
         <View style={s.mapContainer}>
-          <View style={s.mapPlaceholder}>
-            <Ionicons name="map-outline" size={48} color="rgba(255,255,255,0.5)" />
-            <Text style={s.mapText}>Mapa en vivo</Text>
-
+          <MapView
+            ref={mapRef}
+            style={s.map}
+            provider={PROVIDER_GOOGLE}
+            initialRegion={{
+              latitude: driverLocation?.latitude || 19.9333,
+              longitude: driverLocation?.longitude || -105.25,
+              latitudeDelta: 0.02,
+              longitudeDelta: 0.02,
+            }}
+            showsUserLocation={false}
+            showsMyLocationButton={false}
+          >
             {/* Driver marker */}
             {driverLocation && (
-              <View style={[s.mapMarker, { backgroundColor: DS.colors.blue, top: 16, left: 16 }]}>
-                <Ionicons name="navigate" size={14} color="#FFFFFF" />
-                <Text style={s.markerText}>Tu</Text>
-              </View>
+              <Marker
+                coordinate={driverLocation}
+                title="Tu ubicacion"
+              >
+                <View style={[s.mapPin, { backgroundColor: DS.colors.blue }]}>
+                  <Ionicons name="navigate" size={16} color="#FFFFFF" />
+                </View>
+              </Marker>
             )}
 
             {/* Destination marker */}
-            <View
-              style={[
-                s.mapMarker,
-                {
-                  backgroundColor: showPickup ? DS.colors.orange : DS.colors.green,
-                  top: 16,
-                  right: 16,
-                },
-              ]}
-            >
-              <Ionicons
-                name={showPickup ? 'storefront' : 'person'}
-                size={14}
-                color="#FFFFFF"
+            {targetLocation?.latitude && targetLocation?.longitude && (
+              <Marker
+                coordinate={{ latitude: targetLocation.latitude, longitude: targetLocation.longitude }}
+                title={targetLabel}
+              >
+                <View style={[s.mapPin, { backgroundColor: showPickup ? DS.colors.orange : DS.colors.green }]}>
+                  <Ionicons name={showPickup ? 'storefront' : 'home'} size={16} color="#FFFFFF" />
+                </View>
+              </Marker>
+            )}
+
+            {/* Route polyline */}
+            {routeCoords.length > 1 && (
+              <Polyline
+                coordinates={routeCoords}
+                strokeColor={DS.colors.blue}
+                strokeWidth={4}
               />
-              <Text style={s.markerText}>{targetLabel}</Text>
-            </View>
-          </View>
+            )}
+          </MapView>
         </View>
 
         {/* ── Address card ─────────────────────────────────────────────── */}
@@ -518,6 +609,41 @@ export default function ActiveOrderScreen() {
           </View>
         </YCard>
 
+        {/* ── Verification code card ────────────────────────────────────── */}
+        {stage === 1 && order.driverCode && (
+          <YCard style={s.codeCard}>
+            <View style={s.codeHeader}>
+              <View style={[s.codeIconWrap, { backgroundColor: DS.colors.orangeLight }]}>
+                <Ionicons name="key" size={22} color={DS.colors.orange} />
+              </View>
+              <View style={{ flex: 1 }}>
+                <Text style={s.codeLabel}>Codigo de recogida</Text>
+                <Text style={s.codeHint}>Muestra este codigo al staff del negocio</Text>
+              </View>
+            </View>
+            <View style={s.codeDisplay}>
+              <Text style={s.codeText}>{order.driverCode}</Text>
+            </View>
+          </YCard>
+        )}
+
+        {stage === 3 && order.deliveryCode && (
+          <YCard style={s.codeCard}>
+            <View style={s.codeHeader}>
+              <View style={[s.codeIconWrap, { backgroundColor: DS.colors.greenLight }]}>
+                <Ionicons name="shield-checkmark" size={22} color={DS.colors.green} />
+              </View>
+              <View style={{ flex: 1 }}>
+                <Text style={s.codeLabel}>Codigo de entrega</Text>
+                <Text style={s.codeHint}>Pide este codigo al cliente para confirmar</Text>
+              </View>
+            </View>
+            <View style={[s.codeDisplay, { borderColor: DS.colors.green }]}>
+              <Text style={[s.codeText, { color: DS.colors.green }]}>{order.deliveryCode}</Text>
+            </View>
+          </YCard>
+        )}
+
         {/* ── Order items summary (collapsed) ──────────────────────────── */}
         {order.items && order.items.length > 0 && (
           <YCard style={s.itemsCard}>
@@ -554,6 +680,46 @@ export default function ActiveOrderScreen() {
           style={s.bigButton}
         />
       </View>
+
+      {/* ── Delivery Code Modal ──────────────────────────────────────────── */}
+      <Modal visible={showCodeModal} transparent animationType="fade">
+        <View style={s.modalOverlay}>
+          <View style={s.modalCard}>
+            <Ionicons name="shield-checkmark" size={40} color={DS.colors.green} />
+            <Text style={s.modalTitle}>Codigo de entrega</Text>
+            <Text style={s.modalHint}>Pide el codigo de 5 caracteres al cliente:</Text>
+            <TextInput
+              style={s.modalInput}
+              placeholder="Ej: 7CBMN"
+              placeholderTextColor={DS.colors.muted}
+              value={codeInput}
+              onChangeText={(t) => setCodeInput(t.toUpperCase())}
+              autoCapitalize="characters"
+              maxLength={5}
+              autoFocus
+            />
+            <View style={s.modalButtons}>
+              <TouchableOpacity
+                style={s.modalBtnCancel}
+                onPress={() => setShowCodeModal(false)}
+              >
+                <Text style={s.modalBtnCancelText}>Cancelar</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[s.modalBtnConfirm, !codeInput.trim() && { opacity: 0.4 }]}
+                onPress={handleConfirmDeliveryCode}
+                disabled={!codeInput.trim() || pressing}
+              >
+                {pressing ? (
+                  <ActivityIndicator size="small" color="#FFF" />
+                ) : (
+                  <Text style={s.modalBtnConfirmText}>Confirmar</Text>
+                )}
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
     </SafeAreaView>
   );
 }
@@ -666,29 +832,18 @@ const s = StyleSheet.create({
     marginBottom: DS.space.lg,
     ...DS.shadow.card,
   },
-  mapPlaceholder: {
-    height: 180,
-    backgroundColor: '#3B82F6',
+  map: {
+    height: 200,
+    width: '100%',
+  },
+  mapPin: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
     justifyContent: 'center',
     alignItems: 'center',
-  },
-  mapText: {
-    ...DS.fonts.small,
-    color: 'rgba(255,255,255,0.6)',
-    marginTop: DS.space.xs,
-  },
-  mapMarker: {
-    position: 'absolute',
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: 10,
-    paddingVertical: 6,
-    borderRadius: DS.radius.full,
-    gap: 4,
-  },
-  markerText: {
-    ...DS.fonts.tiny,
-    color: '#FFFFFF',
+    borderWidth: 2,
+    borderColor: '#FFFFFF',
   },
 
   // Address card
@@ -781,6 +936,50 @@ const s = StyleSheet.create({
     ...DS.fonts.bodyMed,
   },
 
+  // Verification code card
+  codeCard: {
+    marginBottom: DS.space.lg,
+    borderWidth: 1,
+    borderColor: DS.colors.orange,
+  },
+  codeHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: DS.space.md,
+    marginBottom: DS.space.md,
+  },
+  codeIconWrap: {
+    width: 44,
+    height: 44,
+    borderRadius: DS.radius.md,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  codeLabel: {
+    ...DS.fonts.bodyMed,
+    color: DS.colors.dark,
+  },
+  codeHint: {
+    ...DS.fonts.small,
+    color: DS.colors.muted,
+    marginTop: 2,
+  },
+  codeDisplay: {
+    backgroundColor: DS.colors.bg,
+    borderRadius: DS.radius.lg,
+    borderWidth: 2,
+    borderColor: DS.colors.orange,
+    paddingVertical: DS.space.lg,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  codeText: {
+    fontSize: 36,
+    fontWeight: '800',
+    color: DS.colors.orange,
+    letterSpacing: 8,
+  },
+
   // Items card
   itemsCard: {
     marginBottom: DS.space.lg,
@@ -799,6 +998,82 @@ const s = StyleSheet.create({
     ...DS.fonts.small,
     color: DS.colors.muted,
     marginTop: DS.space.xs,
+  },
+
+  // Delivery code modal
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: DS.space.xl,
+  },
+  modalCard: {
+    backgroundColor: DS.colors.card,
+    borderRadius: DS.radius.xl,
+    padding: DS.space.xxl,
+    alignItems: 'center',
+    width: '100%',
+    maxWidth: 340,
+    ...DS.shadow.float,
+  },
+  modalTitle: {
+    ...DS.fonts.title,
+    color: DS.colors.dark,
+    marginTop: DS.space.md,
+  },
+  modalHint: {
+    ...DS.fonts.body,
+    color: DS.colors.muted,
+    textAlign: 'center',
+    marginTop: DS.space.sm,
+    marginBottom: DS.space.lg,
+  },
+  modalInput: {
+    width: '100%',
+    borderWidth: 2,
+    borderColor: DS.colors.green,
+    borderRadius: DS.radius.lg,
+    paddingHorizontal: DS.space.lg,
+    paddingVertical: DS.space.md,
+    fontSize: 24,
+    fontWeight: '700',
+    textAlign: 'center',
+    letterSpacing: 6,
+    color: DS.colors.dark,
+    backgroundColor: DS.colors.bg,
+  },
+  modalButtons: {
+    flexDirection: 'row',
+    gap: DS.space.md,
+    marginTop: DS.space.xl,
+    width: '100%',
+  },
+  modalBtnCancel: {
+    flex: 1,
+    paddingVertical: DS.space.md,
+    borderRadius: DS.radius.md,
+    backgroundColor: DS.colors.bg,
+    alignItems: 'center',
+    minHeight: DS.touch.min,
+    justifyContent: 'center',
+  },
+  modalBtnCancelText: {
+    ...DS.fonts.bodyMed,
+    color: DS.colors.muted,
+  },
+  modalBtnConfirm: {
+    flex: 1,
+    paddingVertical: DS.space.md,
+    borderRadius: DS.radius.md,
+    backgroundColor: DS.colors.green,
+    alignItems: 'center',
+    minHeight: DS.touch.min,
+    justifyContent: 'center',
+  },
+  modalBtnConfirmText: {
+    ...DS.fonts.bodyMed,
+    color: '#FFFFFF',
   },
 
   // Bottom bar

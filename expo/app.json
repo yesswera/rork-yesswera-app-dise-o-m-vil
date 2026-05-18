@@ -14,7 +14,7 @@
       "enabled": true,
       "checkAutomatically": "ON_LOAD",
       "fallbackToCacheTimeout": 5000,
-      "url": "https://u.expo.dev/dd950419-44c9-4162-a89f-5c9f05e81584"
+      "url": "https://u.expo.dev/0862d6f1-2d34-4a1d-b8c0-c89660261a1d"
     },
     "splash": {
       "image": "./assets/images/splash-icon.png",
@@ -112,9 +112,9 @@
         "origin": "https://rork.com/"
       },
       "eas": {
-        "projectId": "dd950419-44c9-4162-a89f-5c9f05e81584"
+        "projectId": "0862d6f1-2d34-4a1d-b8c0-c89660261a1d"
       }
     },
-    "owner": "auralink"
+    "owner": "genesispro"
   }
 }
